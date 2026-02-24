@@ -18,6 +18,22 @@ export const percentScore = Score.of<PercentScoreData>({
   aggregateValues: Score.aggregate.averageWithVariance,
 });
 
+export interface DeltaScoreData {
+  value: number;
+  delta: number;
+}
+
+export const deltaScore = Score.of<DeltaScoreData>({
+  id: 'delta',
+  name: 'Delta',
+  displayStrategy: 'number',
+  formatValue: (data) =>
+    `${data.value.toFixed(2)} (${data.delta >= 0 ? '+' : ''}${data.delta.toFixed(2)} vs baseline)`,
+  formatAggregate: (data) =>
+    `Avg: ${data.value.toFixed(2)} (Delta: ${data.delta >= 0 ? '+' : ''}${data.delta.toFixed(2)})`,
+  aggregateValues: Score.aggregate.averageFields(['value', 'delta']),
+});
+
 export interface BinaryScoreData {
   passed: boolean;
   passedCount?: number;

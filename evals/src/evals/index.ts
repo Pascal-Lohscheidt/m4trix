@@ -16,8 +16,10 @@ export {
 } from './metrics/standard';
 export {
   percentScore,
+  deltaScore,
   binaryScore,
   type PercentScoreData,
+  type DeltaScoreData,
   type BinaryScoreData,
 } from './scores/standard';
 export type {
