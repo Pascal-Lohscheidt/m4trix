@@ -59,6 +59,47 @@ describe('Score', () => {
     expect(agg!.def?.formatAggregate(agg!.data)).toBe('Avg: 20');
   });
 
+  test('make() accepts optional name override', () => {
+    const customScore = Score.of<{ value: number }>({
+      id: 'name-override',
+      name: 'Default Label',
+      displayStrategy: 'number',
+      formatValue: (d) => String(d.value),
+      formatAggregate: (d) => `Avg: ${d.value}`,
+      aggregateValues: Score.aggregate.averageFields(['value']),
+    });
+
+    const withoutOverride = customScore.make({ value: 50 });
+    expect(withoutOverride.name).toBeUndefined();
+
+    const withOverride = customScore.make(
+      { value: 50 },
+      { name: 'Quality vs baseline' },
+    );
+    expect(withOverride.name).toBe('Quality vs baseline');
+  });
+
+  test('aggregateScoreItems preserves last non-empty item name', () => {
+    const customScore = Score.of<{ value: number }>({
+      id: 'agg-name',
+      name: 'Def Name',
+      displayStrategy: 'number',
+      formatValue: (d) => String(d.value),
+      formatAggregate: (d) => `Avg: ${d.value}`,
+      aggregateValues: Score.aggregate.averageFields(['value']),
+    });
+
+    const items = [
+      customScore.make({ value: 10 }, { name: 'First' }),
+      customScore.make({ value: 20 }),
+      customScore.make({ value: 30 }, { name: 'Last' }),
+    ];
+
+    const agg = aggregateScoreItems(items as ReadonlyArray<ScoreItem>);
+    expect(agg).toBeDefined();
+    expect(agg!.name).toBe('Last');
+  });
+
   test('formatScoreData uses formatValue when not aggregated', () => {
     const customScore = Score.of<{ value: number }>({
       id: 'fmt-test',
@@ -69,9 +110,9 @@ describe('Score', () => {
     });
 
     expect(formatScoreData(customScore, { value: 50 })).toBe('val: 50');
-    expect(formatScoreData(customScore, { value: 50 }, { isAggregated: true })).toBe(
-      'avg: 50',
-    );
+    expect(
+      formatScoreData(customScore, { value: 50 }, { isAggregated: true }),
+    ).toBe('avg: 50');
   });
 
   test('Score.aggregate.averageFields averages numeric fields', () => {
@@ -107,10 +148,7 @@ describe('Score', () => {
   });
 
   test('Score.aggregate.all returns passed when all pass', () => {
-    const result = Score.aggregate.all([
-      { passed: true },
-      { passed: true },
-    ]);
+    const result = Score.aggregate.all([{ passed: true }, { passed: true }]);
     expect(result.passed).toBe(true);
     expect(result.passedCount).toBe(2);
     expect(result.totalCount).toBe(2);

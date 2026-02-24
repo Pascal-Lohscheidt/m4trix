@@ -14,6 +14,7 @@ Evaluators define the scoring logic applied to each test case. They receive inpu
 import {
   Evaluator,
   S,
+  Score,
   latencyMetric,
   percentScore,
   tokenCountMetric,
@@ -46,6 +47,92 @@ export const myEvaluator = Evaluator.define({
     ],
   };
 });
+```
+
+## Custom number scores with delta tracking
+
+For value + delta vs baseline, use the built-in `deltaScore`. For other shapes, use `Score.of(...)` with explicit `formatValue`, `formatAggregate`, and `aggregateValues`.
+
+### Built-in deltaScore
+
+```ts
+import { Evaluator, S, deltaScore } from '@m4trix/evals';
+
+// value + delta vs baseline, e.g. quality improvement
+deltaScore.make(
+  { value: 85, delta: 12 },
+  { definePassed: (d) => d.delta >= 0 },
+);
+```
+
+### Custom shapes with Score.of
+
+When you need fields beyond value/delta (e.g. complexity + deltaFromTarget):
+
+```ts
+import { Evaluator, S, Score, deltaScore } from '@m4trix/evals';
+
+const promptComplexityDeltaScore = Score.of<{
+  complexity: number;
+  deltaFromTarget: number;
+}>({
+  id: 'prompt-complexity-delta',
+  name: 'Prompt Complexity',
+  displayStrategy: 'number',
+  formatValue: (data) =>
+    `${data.complexity.toFixed(2)} (Target delta: ${data.deltaFromTarget >= 0 ? '+' : ''}${data.deltaFromTarget.toFixed(2)})`,
+  formatAggregate: (data) =>
+    `Avg: ${data.complexity.toFixed(2)} (Target delta: ${data.deltaFromTarget >= 0 ? '+' : ''}${data.deltaFromTarget.toFixed(2)})`,
+  aggregateValues: Score.aggregate.averageFields(['complexity', 'deltaFromTarget']),
+});
+
+const inputSchema = S.Struct({ prompt: S.String });
+const outputSchema = S.Struct({ expectedMinScore: S.Number });
+
+export const customDeltaEvaluator = Evaluator.define({
+  name: 'Custom Delta Evaluator',
+  inputSchema,
+  outputSchema,
+  scoreSchema: S.Struct({ scores: S.Array(S.Unknown) }),
+}).evaluate(async ({ input, output }) => {
+  const value = Math.min(100, input.prompt.length * 3);
+  const baseline = Math.max(10, (output?.expectedMinScore ?? 50) - 5);
+  const delta = value - baseline;
+
+  const complexity = Math.min(100, input.prompt.split(/\s+/).length * 8);
+  const deltaFromTarget = complexity - 40;
+
+  return {
+    scores: [
+      deltaScore.make({ value, delta }, { definePassed: (d) => d.delta >= 0 }),
+      promptComplexityDeltaScore.make({ complexity, deltaFromTarget }),
+    ],
+    metrics: [],
+  };
+});
+```
+
+### Aggregate helpers
+
+| Helper | Use case |
+|--------|----------|
+| `Score.aggregate.averageFields(['a','b'])` | Average numeric fields (e.g. value, delta) |
+| `Score.aggregate.averageWithVariance` | Percent-style scores with mean ± std dev |
+| `Score.aggregate.all` | Binary scores (all runs must pass) |
+| `Score.aggregate.last` | No aggregation (take last value) |
+
+### Custom aggregation logic
+
+For fully custom aggregation, pass a function:
+
+```ts
+aggregateValues: (values) => {
+  const count = values.length || 1;
+  const avgValue = values.reduce((s, v) => s + v.value, 0) / count;
+  const weightedDelta = values.reduce((s, v, i) => s + v.delta * (i + 1), 0) /
+    values.reduce((s, _, i) => s + (i + 1), 0);
+  return { value: avgValue, delta: weightedDelta };
+},
 ```
 
 ## API
@@ -175,12 +262,30 @@ Use `log` (passed to your evaluate function) to record messages or objects for f
 
 `log(message, options?)` accepts strings or objects (objects are pretty-printed as JSON). Use it to capture context when a test fails.
 
+## Item-level label overrides
+
+You can override the display label per item at creation time so rendered output reflects run-specific naming, without redefining the underlying `Metric` or `Score` definition. The item-level `name` wins over the definition-level `name` in all CLI views.
+
+```ts
+// Override score label
+deltaScore.make({ value, delta }, { name: 'Quality Delta' });
+
+// Override metric label
+latencyMetric.make({ ms: latencyMs }, { name: 'Latency (model only)' });
+```
+
+Label precedence in rendering: `item.name` → `def.name` → `def.id` / `item.id`.
+
+When aggregating multiple items (e.g. across reruns), the last non-empty item-level `name` is preserved in the aggregated result.
+
 ## Built-in scores and metrics
 
 | Score | Description |
 |-------|-------------|
 | `percentScore` | 0–100 score with optional pass threshold |
+| `deltaScore` | Value + delta vs baseline (e.g. quality improvement) |
 | `binaryScore` | Pass/fail score |
+| `Score.of(...)` | Custom score definitions (e.g. other numeric shapes) |
 
 | Metric | Description |
 |--------|-------------|

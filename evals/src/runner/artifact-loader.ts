@@ -15,9 +15,14 @@ export interface ParsedTestCaseProgress {
   durationMs: number;
   evaluatorScores: ReadonlyArray<{
     evaluatorId: string;
-    scores: ReadonlyArray<{ id: string; data: unknown; passed?: boolean }>;
+    scores: ReadonlyArray<{
+      id: string;
+      data: unknown;
+      passed?: boolean;
+      name?: string;
+    }>;
     passed: boolean;
-    metrics?: ReadonlyArray<{ id: string; data: unknown }>;
+    metrics?: ReadonlyArray<{ id: string; data: unknown; name?: string }>;
     logs?: ReadonlyArray<
       | { type: 'diff'; label?: string; expected: unknown; actual: unknown; diff: string }
       | { type: 'log'; label?: string; message: string }
@@ -222,9 +227,14 @@ export async function parseArtifactFile(
             durationMs: number;
             evaluatorScores: ReadonlyArray<{
               evaluatorId: string;
-              scores: ReadonlyArray<{ id: string; data: unknown; passed?: boolean }>;
+              scores: ReadonlyArray<{
+                id: string;
+                data: unknown;
+                passed?: boolean;
+                name?: string;
+              }>;
               passed: boolean;
-              metrics?: ReadonlyArray<{ id: string; data: unknown }>;
+              metrics?: ReadonlyArray<{ id: string; data: unknown; name?: string }>;
               logs?: ReadonlyArray<
                 | { type: 'diff'; label?: string; expected: unknown; actual: unknown; diff: string }
                 | { type: 'log'; label?: string; message: string }

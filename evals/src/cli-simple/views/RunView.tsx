@@ -27,7 +27,7 @@ interface EvaluatorScoreRow {
   evaluatorName: string;
   scores: ReadonlyArray<ScoreItem>;
   passed: boolean;
-  metrics?: ReadonlyArray<{ id: string; data: unknown }>;
+  metrics?: ReadonlyArray<{ id: string; data: unknown; name?: string }>;
   logs?: ReadonlyArray<EvaluatorLogEntry>;
 }
 
@@ -444,9 +444,10 @@ export function RunView({
                           const formatted = def.format(m.data, {
                             isAggregated: tc.isAggregated,
                           });
+                          const label = m.name ?? def.name;
                           return (
                             <Text key={m.id} color="gray">
-                              [{def.name ? `${def.name}: ` : ''}
+                              [{label ? `${label}: ` : ''}
                               {formatted}]{' '}
                             </Text>
                           );
@@ -456,8 +457,8 @@ export function RunView({
                   </Text>
                   {item.scores.length > 0 ? (
                     item.scores.map((s, idx) => {
-                      const def = getScoreById(s.id);
-                      const scoreLabel = def ? def.name ?? def.id : s.id;
+                      const def = s.def ?? getScoreById(s.id);
+                      const scoreLabel = s.name ?? def?.name ?? def?.id ?? s.id;
                       return (
                         <Text
                           key={`${item.evaluatorId}-${s.id}-${idx}`}
@@ -588,7 +589,8 @@ export function RunView({
                     const aggregated = aggregateScoreItems(items);
                     if (!aggregated) return null;
                     const def = aggregated.def ?? getScoreById(aggregated.id);
-                    const label = def ? def.name ?? def.id : aggregated.id;
+                    const label =
+                      aggregated.name ?? def?.name ?? def?.id ?? aggregated.id;
                     const formatted = def
                       ? def.formatAggregate(aggregated.data)
                       : 'n/a';

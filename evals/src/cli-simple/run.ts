@@ -165,7 +165,7 @@ function getEvaluatorSummaryLines(
     const agg = aggregateScoreItems(items);
     if (!agg) continue;
     const def = agg.def ?? getScoreById(agg.id);
-    const label = def ? def.name ?? def.id : agg.id;
+    const label = agg.name ?? def?.name ?? def?.id ?? agg.id;
     const formatted = def
       ? def.formatAggregate(agg.data)
       : 'n/a';
@@ -253,7 +253,7 @@ function formatEvaluatorScoreLine(
   name: string,
   scores: ReadonlyArray<ScoreItem>,
   passed: boolean,
-  metrics?: ReadonlyArray<{ id: string; data: unknown }>,
+  metrics?: ReadonlyArray<{ id: string; data: unknown; name?: string }>,
   options?: { isAggregated?: boolean },
 ): string[] {
   const passLabel = passed
@@ -261,12 +261,13 @@ function formatEvaluatorScoreLine(
     : colorize('FAIL', `${ansi.bold}${ansi.red}`);
   const metricParts: string[] = [];
   if (metrics && metrics.length > 0) {
-    for (const { id, data } of metrics) {
-      const def = getMetricById(id);
+    for (const m of metrics) {
+      const def = getMetricById(m.id);
       if (def) {
-        const formatted = def.format(data, options);
+        const formatted = def.format(m.data, options);
+        const label = m.name ?? def.name;
         metricParts.push(
-          def.name ? `[${def.name}: ${formatted}]` : `[${formatted}]`,
+          label ? `[${label}: ${formatted}]` : `[${formatted}]`,
         );
       }
     }
@@ -274,7 +275,7 @@ function formatEvaluatorScoreLine(
   const scoreLines: string[] = [];
   for (const item of scores) {
     const def = item.def ?? getScoreById(item.id);
-    const scoreLabel = def ? def.name ?? def.id : item.id;
+    const scoreLabel = item.name ?? def?.name ?? def?.id ?? item.id;
     let formatted: string;
     if (!def) {
       const numeric = toNumericScore(item.data);

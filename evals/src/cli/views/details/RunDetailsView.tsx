@@ -203,9 +203,10 @@ function buildDetailRows(
                   const def = getMetricById(m.id);
                   if (!def) return null;
                   const formatted = def.format(m.data);
+                  const label = m.name ?? def.name;
                   return (
                     <Text key={m.id} color="gray">
-                      [{def.name ? `${def.name}: ` : ''}
+                      [{label ? `${label}: ` : ''}
                       {formatted}]{' '}
                     </Text>
                   );
@@ -219,7 +220,7 @@ function buildDetailRows(
             const s = item.scores[sIdx];
             const def: ScoreDef<unknown> | undefined =
               (s as { def?: ScoreDef<unknown> }).def ?? getScoreById(s.id);
-            const scoreLabel = def ? def.name ?? def.id : s.id;
+            const scoreLabel = s.name ?? def?.name ?? def?.id ?? s.id;
             rows.push(
               <Text
                 key={`tc-${tc.testCaseId}-${item.evaluatorId}-score-${sIdx}`}

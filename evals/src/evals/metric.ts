@@ -3,6 +3,8 @@ const registry = new Map<string, MetricDef<unknown>>();
 export interface MetricItem<TData = unknown> {
   readonly id: string;
   readonly data: TData;
+  /** Per-item display name override (wins over def.name in rendering) */
+  readonly name?: string;
 }
 
 export interface FormatMetricOptions {
@@ -14,7 +16,7 @@ export interface MetricDef<TData = unknown> {
   readonly name?: string;
   readonly aggregate?: (values: ReadonlyArray<TData>) => TData;
   format(data: TData, options?: FormatMetricOptions): string;
-  make(data: TData): MetricItem<TData>;
+  make(data: TData, options?: { name?: string }): MetricItem<TData>;
 }
 
 export const Metric = {
@@ -29,7 +31,11 @@ export const Metric = {
       name: config.name,
       aggregate: config.aggregate,
       format: config.format,
-      make: (data: TData) => ({ id: config.id, data }),
+      make: (data: TData, options?: { name?: string }) => ({
+        id: config.id,
+        data,
+        ...(options?.name !== undefined && { name: options.name }),
+      }),
     };
     registry.set(config.id, def as MetricDef<unknown>);
     return def;

@@ -6,6 +6,8 @@ export interface ScoreItem<TData = unknown> {
   readonly id: string;
   readonly data: TData;
   readonly passed?: boolean;
+  /** Per-item display name override (wins over def.name in rendering) */
+  readonly name?: string;
   /** Attached def for formatting/aggregation without registry lookup (avoids n/a across module boundaries) */
   readonly def?: ScoreDef<TData>;
 }
@@ -23,7 +25,7 @@ export interface ScoreDef<TData = unknown> {
   readonly aggregateValues: (values: ReadonlyArray<TData>) => TData;
   make(
     data: TData,
-    options?: { definePassed?: (data: TData) => boolean },
+    options?: { definePassed?: (data: TData) => boolean; name?: string },
   ): ScoreItem<TData>;
 }
 
@@ -33,7 +35,9 @@ export function formatScoreData<TData>(
   data: TData,
   options?: FormatScoreOptions,
 ): string {
-  return options?.isAggregated ? def.formatAggregate(data) : def.formatValue(data);
+  return options?.isAggregated
+    ? def.formatAggregate(data)
+    : def.formatValue(data);
 }
 
 /** Aggregate helpers for common patterns. Use with aggregateValues in Score.of(). */
@@ -47,8 +51,10 @@ export const ScoreAggregate = {
       const result = {} as Record<string, number>;
       for (const field of fields) {
         result[field] =
-          values.reduce((s, v) => s + ((v as Record<string, number>)[field] ?? 0), 0) /
-          count;
+          values.reduce(
+            (s, v) => s + ((v as Record<string, number>)[field] ?? 0),
+            0,
+          ) / count;
       }
       return result as unknown as Record<K, number>;
     };
@@ -114,7 +120,10 @@ export const Score = {
       formatValue: config.formatValue,
       formatAggregate: config.formatAggregate,
       aggregateValues: config.aggregateValues,
-      make: (data: TData, options?: { definePassed?: (data: TData) => boolean }) => {
+      make: (
+        data: TData,
+        options?: { definePassed?: (data: TData) => boolean; name?: string },
+      ) => {
         const passed =
           options?.definePassed !== undefined
             ? options.definePassed(data)
@@ -123,6 +132,7 @@ export const Score = {
           id: config.id,
           data,
           ...(passed !== undefined && { passed }),
+          ...(options?.name !== undefined && { name: options.name }),
           def, // Attach def so rendering/aggregation works without registry lookup
         };
       },

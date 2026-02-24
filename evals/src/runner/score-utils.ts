@@ -6,6 +6,14 @@ function getScoreDef(item: ScoreItem): ScoreDef<unknown> | undefined {
   return item.def ?? getScoreById(item.id);
 }
 
+function lastNonEmptyName(items: ReadonlyArray<{ name?: string }>): string | undefined {
+  for (let i = items.length - 1; i >= 0; i--) {
+    const n = items[i].name;
+    if (n != null && n.trim().length > 0) return n;
+  }
+  return undefined;
+}
+
 export function aggregateScoreItems(
   items: ReadonlyArray<ScoreItem>,
 ): ScoreItem | undefined {
@@ -13,7 +21,13 @@ export function aggregateScoreItems(
   const def = getScoreDef(items[0]);
   if (!def?.aggregateValues) return items[items.length - 1];
   const aggregated = def.aggregateValues(items.map((i) => i.data as never));
-  return { ...items[0], data: aggregated, def };
+  const nameOverride = lastNonEmptyName(items);
+  return {
+    ...items[0],
+    data: aggregated,
+    def,
+    ...(nameOverride !== undefined && { name: nameOverride }),
+  };
 }
 
 export function aggregateMetricItems(
@@ -23,7 +37,12 @@ export function aggregateMetricItems(
   const def = getMetricById(items[0].id);
   if (!def?.aggregate) return items[items.length - 1];
   const aggregated = def.aggregate(items.map((i) => i.data as never));
-  return { ...items[0], data: aggregated };
+  const nameOverride = lastNonEmptyName(items);
+  return {
+    ...items[0],
+    data: aggregated,
+    ...(nameOverride !== undefined && { name: nameOverride }),
+  };
 }
 
 export function toNumericScoreFromScores(
