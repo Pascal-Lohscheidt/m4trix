@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 
 import { Effect, Queue, Ref } from 'effect';
@@ -65,6 +66,7 @@ function readOutput(testCase: CollectedTestCase['testCase']): unknown {
 
 export interface RunTask {
   runId: string;
+  triggerId: string;
   datasetId: string;
   dataset: Dataset;
   evaluators: ReadonlyArray<{
@@ -113,6 +115,7 @@ function processOneTestCase(
     const rerunPassed: boolean[] = [];
 
     for (let r = 0; r < reruns; r++) {
+      const evaluatorRunId = `run-${randomUUID()}`;
       const started = Date.now();
       const evaluatorScores: Array<{
         evaluatorId: string;
@@ -152,6 +155,11 @@ function processOneTestCase(
                 input: testCaseItem.testCase.getInput(),
                 ctx,
                 output,
+                meta: {
+                  triggerId: task.triggerId,
+                  runId: evaluatorRunId,
+                  datasetId: task.datasetId,
+                },
                 logDiff,
                 log,
               }),

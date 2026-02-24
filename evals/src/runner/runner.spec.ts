@@ -82,8 +82,8 @@ async function createFixtureWorkspace(
       '  getMiddlewares: () => [],',
       '  getPassThreshold: () => undefined,',
       '  getPassCriterion: () => undefined,',
-      '  getEvaluateFn: () => async ({ input, output }) => ({',
-      "    scores: [{ id: 'fixture-score', data: { value: scoreBase + input.value + (((output?.expectedValue ?? 0) - input.value) || 0) } }],",
+      '  getEvaluateFn: () => async ({ input, output, meta }) => ({',
+      "    scores: [{ id: 'fixture-score', data: { value: scoreBase + input.value + (((output?.expectedValue ?? 0) - input.value) || 0) } }, { id: 'fixture-meta', data: meta }],",
       '    metrics: []',
       '  }),',
       '  resolveContext: async () => ({})',
@@ -227,6 +227,19 @@ describe('runner discovery and execution', () => {
     expect(progressEvent?.evaluatorScores[0]?.scores[0]?.data).toEqual({
       value: 10,
     });
+    expect(progressEvent?.evaluatorScores[0]?.scores[1]?.data).toEqual(
+      expect.objectContaining({
+        datasetId: dataset.id,
+      }),
+    );
+    const meta = progressEvent?.evaluatorScores[0]?.scores[1]?.data as
+      | {
+          triggerId?: string;
+          runId?: string;
+        }
+      | undefined;
+    expect(meta?.triggerId).toMatch(/^trg-[0-9a-f-]{36}$/);
+    expect(meta?.runId).toMatch(/^run-[0-9a-f-]{36}$/);
   });
 
   test('maps runner discovery into CLI data shape', async () => {
@@ -262,14 +275,16 @@ describe('runner discovery and execution', () => {
 
     expect(selectedCases).toHaveLength(1);
 
-    const done = new Promise<RunnerEvent>((resolve) => {
+    const done = new Promise<Extract<RunnerEvent, { type: 'RunCompleted' }>>(
+      (resolve) => {
       const unsubscribe = runner.subscribeRunEvents((event) => {
         if (event.type === 'RunCompleted') {
           unsubscribe();
           resolve(event);
         }
       });
-    });
+      },
+    );
 
     await runner.runDatasetWith({
       datasetId: dataset.id,

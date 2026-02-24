@@ -247,6 +247,7 @@ class EffectRunner implements RunnerApi {
       0,
     );
 
+    const triggerId = request.triggerId ?? `trg-${randomUUID()}`;
     const runId = `run-${randomUUID()}`;
     const artifactPath = createArtifactPath(
       this.config.artifactDirectory,
@@ -292,6 +293,7 @@ class EffectRunner implements RunnerApi {
     await Effect.runPromise(
       Queue.offer(this.runQueue, {
         runId,
+        triggerId,
         datasetId: request.datasetId,
         dataset: dataset.dataset,
         evaluators: selectedEvaluators,

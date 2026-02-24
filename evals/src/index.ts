@@ -25,6 +25,7 @@ export {
   printJsonDiff,
   type EvalMiddleware,
   type EvaluateArgs,
+  type EvaluateMeta,
   type TagMatcher,
   type PathMatcher,
   type MetricDef,

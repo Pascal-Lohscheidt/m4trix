@@ -31,6 +31,11 @@ export interface SearchTestCasesQuery {
 }
 
 export interface RunDatasetRequest {
+  /**
+   * Identifier for what triggered the run request (for example, a CLI command).
+   * When omitted, the runner generates one in the format `trg-[uuid]`.
+   */
+  triggerId?: string;
   datasetId: string;
   evaluatorIds: ReadonlyArray<string>;
   concurrency?: number;

@@ -98,7 +98,7 @@ describe('Evaluator', () => {
     expect(ctx).toHaveProperty('token', 'abc-123');
   });
 
-  test('evaluate function receives { input, ctx, output }', async () => {
+  test('evaluate function receives { input, ctx, output, meta }', async () => {
     const evalFn = vitest.fn(
       ({ input, ctx, output }: { input: { prompt: string }; ctx: { llm: string }; output?: unknown }) => {
         void output;
@@ -124,7 +124,12 @@ describe('Evaluator', () => {
     const result = await fn({
       input: { prompt: 'hello' },
       ctx,
-      output: { expected: 'value' },
+      output: { title: 'value' },
+      meta: {
+        triggerId: 'trg-123',
+        runId: 'run-123',
+        datasetId: 'dataset-123',
+      },
       logDiff,
       log,
     });
@@ -133,7 +138,7 @@ describe('Evaluator', () => {
       expect.objectContaining({
         input: { prompt: 'hello' },
         ctx,
-        output: { expected: 'value' },
+        output: { title: 'value' },
       }),
     );
     expect(result).toEqual({ accuracy: 6 });

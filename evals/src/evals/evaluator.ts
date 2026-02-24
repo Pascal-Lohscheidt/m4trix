@@ -6,6 +6,18 @@ export interface EvalMiddleware<TCtx> {
   resolve: () => TCtx | Promise<TCtx>;
 }
 
+export interface EvaluateMeta {
+  /** Identifier of the trigger that started the run (for example, a CLI invocation). */
+  triggerId: string;
+  /**
+   * Identifier of the current test-case execution shared across all evaluators
+   * for this specific test-case run.
+   */
+  runId: string;
+  /** Identifier of the dataset currently being evaluated. */
+  datasetId: string;
+}
+
 export interface EvaluateArgs<
   TInput,
   TOutput = unknown,
@@ -14,6 +26,8 @@ export interface EvaluateArgs<
   input: TInput;
   ctx: TCtx;
   output?: TOutput;
+  /** Metadata about the current evaluator invocation. */
+  meta: EvaluateMeta;
   /** Records a diff for this test case; stored in run artifact and shown by CLI */
   logDiff: (
     expected: unknown,
