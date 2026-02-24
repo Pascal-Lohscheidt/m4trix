@@ -27,7 +27,11 @@ export const createPersistenceWorker = (
         appendJsonLine(message.artifactPath, {
           runId: message.runId,
           ts: Date.now(),
-          ...message.payload,
+          ...(typeof message.payload === 'object' &&
+          message.payload !== null &&
+          !Array.isArray(message.payload)
+            ? message.payload
+            : {}),
         }),
       );
     }),

@@ -1,6 +1,14 @@
 import React from 'react';
 import { render } from 'ink';
-import { getDiffLines, getLogLines, getMetricById, getScoreById } from '../evals';
+import {
+  formatScoreData,
+  getDiffLines,
+  getLogLines,
+  getMetricById,
+  getScoreById,
+  type EvaluatorLogEntry,
+  type LogEntry,
+} from '../evals';
 import type { ScoreItem } from '../evals/score';
 import type { RunnerApi, RunnerEvent } from '../runner';
 import {
@@ -47,7 +55,7 @@ interface TestCaseEventAcc {
       scores: ReadonlyArray<ScoreItem>;
       passed: boolean;
       metrics?: ReadonlyArray<{ id: string; data: unknown }>;
-      logs?: ReadonlyArray<DiffLogEntry>;
+      logs?: ReadonlyArray<EvaluatorLogEntry>;
     }>;
   }>;
 }
@@ -156,9 +164,11 @@ function getEvaluatorSummaryLines(
     const items = scoreItemsByKey.get(key) ?? [];
     const agg = aggregateScoreItems(items);
     if (!agg) continue;
-    const def = getScoreById(agg.id);
+    const def = agg.def ?? getScoreById(agg.id);
     const label = def ? def.name ?? def.id : agg.id;
-    const formatted = def?.format(agg.data, { isAggregated: true }) ?? 'n/a';
+    const formatted = def
+      ? def.formatAggregate(agg.data)
+      : 'n/a';
     const numeric = toNumericScore(agg.data);
     const colored =
       numeric !== undefined
@@ -183,7 +193,7 @@ function createBar(value: number, max = 100, width = 20): string {
 
 function aggregateEvaluatorScoresFromEvents(
   events: TestCaseEventAcc['events'],
-  evaluatorNameById: Map<string, string>,
+  _evaluatorNameById: Map<string, string>,
 ): Array<{
   evaluatorId: string;
   scores: ReadonlyArray<ScoreItem>;
@@ -263,7 +273,7 @@ function formatEvaluatorScoreLine(
   }
   const scoreLines: string[] = [];
   for (const item of scores) {
-    const def = getScoreById(item.id);
+    const def = item.def ?? getScoreById(item.id);
     const scoreLabel = def ? def.name ?? def.id : item.id;
     let formatted: string;
     if (!def) {
@@ -273,7 +283,7 @@ function formatEvaluatorScoreLine(
           ? colorize(numeric.toFixed(2), scoreToColor(numeric))
           : 'n/a';
     } else {
-      const raw = def.format(item.data, options);
+      const raw = formatScoreData(def, item.data, options);
       switch (def.displayStrategy) {
         case 'bar': {
           const numeric =
@@ -468,7 +478,6 @@ export async function runSimpleEvalCommandPlain(
           (s, e) => s + e.durationMs,
           0,
         );
-        const passed = existing.events.every((e) => e.passed);
 
         const lines: string[] = [];
         lines.push(
@@ -504,7 +513,7 @@ export async function runSimpleEvalCommandPlain(
                   lines.push(colored);
                 }
               } else if (log.type === 'log') {
-                for (const line of getLogLines(log)) {
+                for (const line of getLogLines(log as LogEntry)) {
                   lines.push(`      ${line}`);
                 }
               }
@@ -561,18 +570,19 @@ export async function runSimpleEvalCommandPlain(
     throw new Error(`Run failed: ${finalEvent.errorMessage}`);
   }
 
+  const completed = finalEvent as Extract<typeof finalEvent, { type: 'RunCompleted' }>;
   console.log('');
   console.log(colorize('=== Run Summary ===', `${ansi.bold}${ansi.cyan}`));
   console.log(
     `- passed: ${colorize(
-      `${finalEvent.passedTestCases}/${finalEvent.totalTestCases}`,
+      `${completed.passedTestCases}/${completed.totalTestCases}`,
       ansi.green,
     )}`,
   );
   console.log(
     `- failed: ${colorize(
-      `${finalEvent.failedTestCases}/${finalEvent.totalTestCases}`,
-      finalEvent.failedTestCases > 0 ? ansi.red : ansi.dim,
+      `${completed.failedTestCases}/${completed.totalTestCases}`,
+      completed.failedTestCases > 0 ? ansi.red : ansi.dim,
     )}`,
   );
   if (overallScoreCount > 0) {
@@ -620,10 +630,14 @@ export async function runSimpleEvalCommandPlain(
       }
       const scoreLabel =
         summary.isAggregated && summary.aggregatedScoreItem
-          ? getScoreById(summary.aggregatedScoreItem.id)?.format(
-              summary.aggregatedScoreItem.data,
-              { isAggregated: true },
-            ) ?? summary.averageScore.toFixed(2)
+          ? (() => {
+              const def =
+                summary.aggregatedScoreItem.def ??
+                getScoreById(summary.aggregatedScoreItem.id);
+              return def
+                ? def.formatAggregate(summary.aggregatedScoreItem.data)
+                : summary.averageScore!.toFixed(2);
+            })()
           : summary.stdDev !== undefined && summary.isAggregated
             ? `${summary.averageScore.toFixed(2)} ± ${summary.stdDev.toFixed(2)}`
             : summary.averageScore.toFixed(2);
@@ -635,7 +649,7 @@ export async function runSimpleEvalCommandPlain(
       );
     }
   }
-  console.log(`- artifact: ${colorize(finalEvent.artifactPath, ansi.dim)}`);
+  console.log(`- artifact: ${colorize(completed.artifactPath, ansi.dim)}`);
 }
 
 export async function runSimpleEvalCommandInk(

@@ -18,6 +18,7 @@ export {
   getMetricById,
   Score,
   getScoreById,
+  formatScoreData,
   tokenCountMetric,
   latencyMetric,
   percentScore,

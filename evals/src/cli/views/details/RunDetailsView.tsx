@@ -2,7 +2,14 @@
 import React, { useEffect, useState } from 'react';
 import { resolve } from 'node:path';
 import { Box, Text } from 'ink';
-import { getDiffLines, getLogLines, getMetricById, getScoreById } from '../../../evals';
+import {
+  formatScoreData,
+  getDiffLines,
+  getLogLines,
+  getMetricById,
+  getScoreById,
+  type ScoreDef,
+} from '../../../evals';
 import { toNumericScore } from '../../../runner/score-utils';
 import {
   parseArtifactFile,
@@ -30,13 +37,17 @@ function scoreColor(score: number): 'green' | 'yellow' | 'red' {
   return 'red';
 }
 
-function formatScorePart(item: { id: string; data: unknown }): string {
-  const def = getScoreById(item.id);
+function formatScorePart(item: {
+  id: string;
+  data: unknown;
+  def?: ScoreDef<unknown>;
+}): string {
+  const def: ScoreDef<unknown> | undefined = item.def ?? getScoreById(item.id);
   if (!def) {
     const numeric = toNumericScore(item.data);
     return numeric !== undefined ? `${numeric.toFixed(2)}` : 'n/a';
   }
-  const formatted = def.format(item.data);
+  const formatted = formatScoreData(def, item.data);
   if (def.displayStrategy === 'bar') {
     const numeric =
       typeof item.data === 'object' &&
@@ -206,7 +217,8 @@ function buildDetailRows(
         if (item.scores.length > 0) {
           for (let sIdx = 0; sIdx < item.scores.length; sIdx++) {
             const s = item.scores[sIdx];
-            const def = getScoreById(s.id);
+            const def: ScoreDef<unknown> | undefined =
+              (s as { def?: ScoreDef<unknown> }).def ?? getScoreById(s.id);
             const scoreLabel = def ? def.name ?? def.id : s.id;
             rows.push(
               <Text

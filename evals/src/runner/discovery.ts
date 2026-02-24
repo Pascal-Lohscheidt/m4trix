@@ -105,7 +105,7 @@ function hasOneSuffix(
 async function loadModuleExports(filePath: string): Promise<unknown[]> {
   if (filePath.endsWith('.ts') || filePath.endsWith('.tsx')) {
     if (!jitiLoader) {
-      const jitiModule = (await import('jiti')) as {
+      const jitiModule = (await import('jiti')) as unknown as {
         createJiti?: (filename: string, opts?: Record<string, unknown>) => JitiModuleLoader;
         default?: (filename: string, opts?: Record<string, unknown>) => JitiModuleLoader;
       };

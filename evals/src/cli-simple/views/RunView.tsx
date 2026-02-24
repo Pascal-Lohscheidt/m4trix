@@ -2,7 +2,13 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Box, Text } from 'ink';
 
-import { getDiffLines, getLogLines, getMetricById, getScoreById } from '../../evals';
+import {
+  formatScoreData,
+  getDiffLines,
+  getLogLines,
+  getMetricById,
+  getScoreById,
+} from '../../evals';
 import type { EvaluatorLogEntry } from '../../evals/diff';
 import type { ScoreItem } from '../../evals/score';
 import type { RunnerApi, RunnerEvent } from '../../runner';
@@ -23,19 +29,6 @@ interface EvaluatorScoreRow {
   passed: boolean;
   metrics?: ReadonlyArray<{ id: string; data: unknown }>;
   logs?: ReadonlyArray<EvaluatorLogEntry>;
-}
-
-interface TestCaseProgress {
-  name: string;
-  testCaseId: string;
-  completedTestCases: number;
-  totalTestCases: number;
-  rerunIndex: number;
-  rerunTotal: number;
-  durationMs: number;
-  passed: boolean;
-  averageScore?: number;
-  evaluatorScores: EvaluatorScoreRow[];
 }
 
 /** One displayed block per unique test case, updated in place as reruns complete */
@@ -118,7 +111,7 @@ function aggregateEvaluatorScores(
       if (agg) aggregatedScores.push(agg);
     }
     const aggregatedMetrics = Array.from(metricIdToItems.entries())
-      .map(([id, items]) => aggregateMetricItems(items))
+      .map(([, items]) => aggregateMetricItems(items))
       .filter((m): m is { id: string; data: unknown } => m !== undefined);
     const passed = events.every((ev) => {
       const es = ev.evaluatorScores.find((x) => x.evaluatorId === evaluatorId);
@@ -142,15 +135,15 @@ function aggregateEvaluatorScores(
 
 function formatScorePart(
   item: ScoreItem,
-  scoreToColor: (n: number) => 'green' | 'yellow' | 'red',
+  _scoreToColor: (n: number) => 'green' | 'yellow' | 'red',
   options?: { isAggregated?: boolean },
 ): string {
-  const def = getScoreById(item.id);
+  const def = item.def ?? getScoreById(item.id);
   if (!def) {
     const numeric = toNumericScore(item.data);
     return numeric !== undefined ? `${numeric.toFixed(2)}` : 'n/a';
   }
-  const formatted = def.format(item.data, options);
+  const formatted = formatScoreData(def, item.data, options);
   if (def.displayStrategy === 'bar') {
     const numeric =
       typeof item.data === 'object' &&
@@ -251,15 +244,6 @@ export function RunView({
     const done = new Promise<RunnerEvent>((resolve) => {
       const unsubscribe = runner.subscribeRunEvents((event) => {
         if (event.type === 'TestCaseProgress') {
-          const numericScores = event.evaluatorScores
-            .map((item) => toNumericScoreFromScores(item.scores))
-            .filter((item): item is number => item !== undefined);
-          const averageScore =
-            numericScores.length > 0
-              ? numericScores.reduce((sum, v) => sum + v, 0) /
-                numericScores.length
-              : undefined;
-
           for (const item of event.evaluatorScores) {
             const numeric = toNumericScoreFromScores(item.scores);
             if (numeric !== undefined) {
@@ -360,16 +344,20 @@ export function RunView({
       return;
     }
 
+    const completed = finalEvent as Extract<
+      typeof finalEvent,
+      { type: 'RunCompleted' }
+    >;
     setSummary({
-      passedTestCases: finalEvent.passedTestCases,
-      failedTestCases: finalEvent.failedTestCases,
-      totalTestCases: finalEvent.totalTestCases,
+      passedTestCases: completed.passedTestCases,
+      failedTestCases: completed.failedTestCases,
+      totalTestCases: completed.totalTestCases,
       overallScoreTotal,
       overallScoreSumSq,
       overallScoreCount,
       aggregates: new Map(aggregates),
       scoreItemsByEvaluatorScore: new Map(scoreItemsByEvaluatorScore),
-      artifactPath: finalEvent.artifactPath,
+      artifactPath: completed.artifactPath,
     });
     setPhase('completed');
     setTimeout(() => onComplete(), 200);
@@ -599,11 +587,11 @@ export function RunView({
                       summary.scoreItemsByEvaluatorScore?.get(key) ?? [];
                     const aggregated = aggregateScoreItems(items);
                     if (!aggregated) return null;
-                    const def = getScoreById(aggregated.id);
+                    const def = aggregated.def ?? getScoreById(aggregated.id);
                     const label = def ? def.name ?? def.id : aggregated.id;
-                    const formatted = def?.format(aggregated.data, {
-                      isAggregated: true,
-                    }) ?? 'n/a';
+                    const formatted = def
+                      ? def.formatAggregate(aggregated.data)
+                      : 'n/a';
                     const numeric = toNumericScore(aggregated.data);
                     return (
                       <Text

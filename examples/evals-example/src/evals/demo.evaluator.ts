@@ -1,5 +1,6 @@
 import {
   Evaluator,
+  Score,
   S,
   binaryScore,
   latencyMetric,
@@ -12,6 +13,34 @@ const outputSchema = S.Struct({ expectedMinScore: S.Number });
 const diffOutputSchema = S.Struct({
   expectedMinScore: S.Number,
   expectedResponse: S.optional(S.String),
+});
+
+const qualityDeltaScore = Score.of<{ value: number; delta: number }>({
+  id: 'quality-delta',
+  name: 'Quality Delta',
+  displayStrategy: 'number',
+  formatValue: (data) =>
+    `${data.value.toFixed(2)} (${data.delta >= 0 ? '+' : ''}${data.delta.toFixed(2)} vs baseline)`,
+  formatAggregate: (data) =>
+    `Avg: ${data.value.toFixed(2)} (Delta: ${data.delta >= 0 ? '+' : ''}${data.delta.toFixed(2)})`,
+  aggregateValues: Score.aggregate.averageFields(['value', 'delta']),
+});
+
+const promptComplexityDeltaScore = Score.of<{
+  complexity: number;
+  deltaFromTarget: number;
+}>({
+  id: 'prompt-complexity-delta',
+  name: 'Prompt Complexity',
+  displayStrategy: 'number',
+  formatValue: (data) =>
+    `${data.complexity.toFixed(2)} (Target delta: ${data.deltaFromTarget >= 0 ? '+' : ''}${data.deltaFromTarget.toFixed(2)})`,
+  formatAggregate: (data) =>
+    `Avg: ${data.complexity.toFixed(2)} (Target delta: ${data.deltaFromTarget >= 0 ? '+' : ''}${data.deltaFromTarget.toFixed(2)})`,
+  aggregateValues: Score.aggregate.averageFields([
+    'complexity',
+    'deltaFromTarget',
+  ]),
 });
 
 function sleep(ms: number): Promise<void> {
@@ -121,11 +150,21 @@ export const demoMultiScoreEvaluator = Evaluator.use({
     const start = Date.now();
     await sleep(80);
     const expectedMinScore = output?.expectedMinScore ?? 50;
+    const baseline = Math.max(10, expectedMinScore - 5);
     const percentValue = Math.min(
       100,
       (input.prompt.length * 3 + ctx.seed) % 101,
     );
     const passed = percentValue >= expectedMinScore;
+    const qualityDelta = percentValue - baseline;
+    const complexityScore = Math.min(
+      100,
+      Math.round(
+        (input.prompt.length + input.prompt.split(/\s+/).length * 2 + ctx.seed) /
+          2,
+      ),
+    );
+    const complexityDeltaFromTarget = complexityScore - 40;
     const latencyMs = Date.now() - start;
     return {
       scores: [
@@ -133,6 +172,14 @@ export const demoMultiScoreEvaluator = Evaluator.use({
           { value: percentValue },
           { definePassed: (d) => d.value >= expectedMinScore },
         ),
+        qualityDeltaScore.make(
+          { value: percentValue, delta: qualityDelta },
+          { definePassed: (d) => d.delta >= 0 },
+        ),
+        promptComplexityDeltaScore.make({
+          complexity: complexityScore,
+          deltaFromTarget: complexityDeltaFromTarget,
+        }),
         binaryScore.make({ passed }),
       ],
       metrics: [

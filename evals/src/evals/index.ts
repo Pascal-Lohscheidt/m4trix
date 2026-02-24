@@ -7,7 +7,7 @@ export {
 } from './evaluator';
 export { Dataset } from './dataset';
 export { Metric, getMetricById } from './metric';
-export { Score, getScoreById } from './score';
+export { Score, getScoreById, formatScoreData } from './score';
 export {
   tokenCountMetric,
   latencyMetric,

@@ -1,15 +1,19 @@
 import type { MetricItem } from '../evals/metric';
-import type { ScoreItem } from '../evals/score';
+import type { ScoreDef, ScoreItem } from '../evals/score';
 import { getMetricById, getScoreById } from '../evals';
+
+function getScoreDef(item: ScoreItem): ScoreDef<unknown> | undefined {
+  return item.def ?? getScoreById(item.id);
+}
 
 export function aggregateScoreItems(
   items: ReadonlyArray<ScoreItem>,
 ): ScoreItem | undefined {
   if (items.length === 0) return undefined;
-  const def = getScoreById(items[0].id);
-  if (!def?.aggregate) return items[items.length - 1];
-  const aggregated = def.aggregate(items.map((i) => i.data as never));
-  return { ...items[0], data: aggregated };
+  const def = getScoreDef(items[0]);
+  if (!def?.aggregateValues) return items[items.length - 1];
+  const aggregated = def.aggregateValues(items.map((i) => i.data as never));
+  return { ...items[0], data: aggregated, def };
 }
 
 export function aggregateMetricItems(
@@ -26,7 +30,7 @@ export function toNumericScoreFromScores(
   scores: ReadonlyArray<ScoreItem>,
 ): number | undefined {
   for (const item of scores) {
-    const def = getScoreById(item.id);
+    const def = getScoreDef(item);
     if (def && def.displayStrategy === 'bar' && typeof item.data === 'object' && item.data !== null && 'value' in item.data) {
       const value = (item.data as { value: unknown }).value;
       if (typeof value === 'number' && Number.isFinite(value)) {
