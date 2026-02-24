@@ -60,26 +60,65 @@ export const ScoreAggregate = {
     };
   },
 
-  /** Average `value` with sample std dev. Use for percent-style scores. */
-  averageWithVariance<T extends { value: number }>(
-    values: ReadonlyArray<T>,
-  ): T & { stdDev?: number; count: number } {
-    if (values.length === 0) {
-      return { value: 0, stdDev: undefined, count: 0 } as T & {
-        stdDev?: number;
-        count: number;
+  /** Average selected numeric fields, with sample std dev tracked for `value`. */
+  averageWithVariance<K extends string>(
+    fields: readonly K[],
+  ): (
+    values: ReadonlyArray<Record<K, number>>,
+  ) => Record<K, number> & { stdDev?: number; count: number } {
+    return (values) => {
+      const count = values.length;
+      const result = {} as Record<string, number>;
+
+      for (const field of fields) {
+        result[field] =
+          count === 0
+            ? 0
+            : values.reduce(
+                (sum, item) => sum + ((item as Record<string, number>)[field] ?? 0),
+                0,
+              ) / count;
+      }
+
+      const valueField = 'value' as K;
+      const hasValueField = fields.includes(valueField);
+
+      if (count === 0) {
+        if (hasValueField) {
+          result[valueField] = 0;
+        }
+        return {
+          ...(result as Record<K, number>),
+          stdDev: undefined,
+          count: 0,
+        };
+      }
+
+      let stdDev: number | undefined;
+      if (hasValueField && count >= 2) {
+        const sum = values.reduce(
+          (s, v) => s + ((v as Record<string, number>)[valueField] ?? 0),
+          0,
+        );
+        const sumSq = values.reduce(
+          (s, v) => {
+            const value = (v as Record<string, number>)[valueField] ?? 0;
+            return s + value * value;
+          },
+          0,
+        );
+        const mean = sum / count;
+        const variance = (sumSq - count * mean * mean) / (count - 1);
+        stdDev = variance > 0 ? Math.sqrt(variance) : 0;
+      }
+
+      return {
+        ...values[0],
+        ...(result as Record<K, number>),
+        stdDev,
+        count,
       };
-    }
-    const sum = values.reduce((s, v) => s + v.value, 0);
-    const sumSq = values.reduce((s, v) => s + v.value * v.value, 0);
-    const mean = sum / values.length;
-    let stdDev: number | undefined;
-    if (values.length >= 2) {
-      const variance =
-        (sumSq - values.length * mean * mean) / (values.length - 1);
-      stdDev = variance > 0 ? Math.sqrt(variance) : 0;
-    }
-    return { ...values[0], value: mean, stdDev, count: values.length };
+    };
   },
 
   /** All runs must pass. Use for binary scores. */

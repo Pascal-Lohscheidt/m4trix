@@ -125,14 +125,33 @@ describe('Score', () => {
     expect(result).toEqual({ value: 20, delta: 3 });
   });
 
-  test('Score.aggregate.averageWithVariance computes mean and stdDev', () => {
-    const result = Score.aggregate.averageWithVariance([
-      { value: 10 },
-      { value: 20 },
-      { value: 30 },
+  test('Score.aggregate.averageWithVariance computes selected field averages and stdDev', () => {
+    const agg = Score.aggregate.averageWithVariance(['value', 'delta']);
+    const result = agg([
+      { value: 10, delta: 1 },
+      { value: 20, delta: 3 },
+      { value: 30, delta: 5 },
     ]);
     expect(result.value).toBe(20);
+    expect(result.delta).toBe(3);
     expect(result.stdDev).toBeDefined();
+    expect(result.count).toBe(3);
+  });
+
+  test('Score.aggregate.averageWithVariance handles empty values for selected fields', () => {
+    const agg = Score.aggregate.averageWithVariance(['value', 'delta']);
+    const result = agg([]);
+    expect(result.value).toBe(0);
+    expect(result.delta).toBe(0);
+    expect(result.stdDev).toBeUndefined();
+    expect(result.count).toBe(0);
+  });
+
+  test('Score.aggregate.averageWithVariance omits stdDev when value not selected', () => {
+    const agg = Score.aggregate.averageWithVariance(['delta']);
+    const result = agg([{ delta: 1 }, { delta: 2 }, { delta: 3 }]);
+    expect(result.delta).toBe(2);
+    expect(result.stdDev).toBeUndefined();
     expect(result.count).toBe(3);
   });
 

@@ -15,7 +15,7 @@ export const percentScore = Score.of<PercentScoreData>({
     data.stdDev != null
       ? `Avg: ${data.value.toFixed(2)} ± ${data.stdDev.toFixed(2)}`
       : `Avg: ${data.value.toFixed(2)}`,
-  aggregateValues: Score.aggregate.averageWithVariance,
+  aggregateValues: Score.aggregate.averageWithVariance(['value']),
 });
 
 export interface DeltaScoreData {
