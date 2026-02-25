@@ -121,6 +121,9 @@ describe('Evaluator', () => {
     const ctx = await evaluator.resolveContext();
     const logDiff = () => {};
     const log = () => {};
+    const createError = () => {
+      return new Error('failed');
+    };
     const result = await fn({
       input: { prompt: 'hello' },
       ctx,
@@ -132,6 +135,7 @@ describe('Evaluator', () => {
       },
       logDiff,
       log,
+      createError,
     });
 
     expect(evalFn).toHaveBeenCalledWith(

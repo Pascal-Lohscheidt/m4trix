@@ -36,11 +36,16 @@ export interface EvaluateArgs<
   ) => void;
   /** Logs a message or object for this test case; stored in run artifact and shown by CLI */
   log: (message: unknown, options?: { label?: string }) => void;
+  /**
+   * Creates an Error from string/object payloads for `return createError(...)` (or `throw createError(...)`).
+   * The payload is also logged and shown by the CLI when the evaluator fails.
+   */
+  createError: (message: unknown, options?: { label?: string }) => Error;
 }
 
 type EvaluateFn<TInput, TOutput, TScore, TCtx> = (
   args: EvaluateArgs<TInput, TOutput, TCtx>,
-) => TScore | Promise<TScore>;
+) => TScore | Error | Promise<TScore | Error>;
 
 interface EvaluatorConfig<TInput, TOutput, TScore, TCtx> {
   name?: string;

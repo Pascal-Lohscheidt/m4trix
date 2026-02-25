@@ -16,6 +16,12 @@ import type { CollectedTestCase, RunSnapshot, RunnerEvent } from './events';
 import type { PersistenceMessage } from './persistence';
 import { toNumericScoreFromScores } from './score-utils';
 
+const evaluatorErrorLogEntryKey = '__m4trixEvaluatorLogEntry';
+
+type EvaluatorCreatedError = Error & {
+  [evaluatorErrorLogEntryKey]?: EvaluatorLogEntry;
+};
+
 function computeEvaluatorPassed(
   evaluator: Evaluator<unknown, unknown, unknown, unknown>,
   result: unknown,
@@ -133,24 +139,36 @@ function processOneTestCase(
           continue;
         }
 
-        try {
-          const logs: EvaluatorLogEntry[] = [];
-          const logDiff = (
-            expected: unknown,
-            actual: unknown,
-            options?: CreateDiffLogEntryOptions,
-          ) => {
-            logs.push(createDiffLogEntry(expected, actual, options));
-          };
-          const log = (message: unknown, options?: { label?: string }) => {
-            logs.push(createLogEntry(message, options));
-          };
+        const logs: EvaluatorLogEntry[] = [];
+        const logDiff = (
+          expected: unknown,
+          actual: unknown,
+          options?: CreateDiffLogEntryOptions,
+        ) => {
+          logs.push(createDiffLogEntry(expected, actual, options));
+        };
+        const log = (message: unknown, options?: { label?: string }) => {
+          logs.push(createLogEntry(message, options));
+        };
+        const createError = (
+          message: unknown,
+          options?: { label?: string },
+        ): Error => {
+          const entry = createLogEntry(message, options);
+          const error =
+            message instanceof Error ? message : new Error(entry.message);
+          (
+            error as EvaluatorCreatedError
+          )[evaluatorErrorLogEntryKey] = entry;
+          return error;
+        };
 
+        try {
           const ctx = yield* Effect.promise(() =>
             Promise.resolve(evaluator.resolveContext()),
           );
           const result = yield* Effect.promise(() =>
-              Promise.resolve(
+            Promise.resolve().then(() =>
               evaluateFn({
                 input: testCaseItem.testCase.getInput(),
                 ctx,
@@ -162,9 +180,23 @@ function processOneTestCase(
                 },
                 logDiff,
                 log,
+                createError,
               }),
             ),
           );
+          if (result instanceof Error) {
+            const evaluatorError = result as EvaluatorCreatedError;
+            const taggedEntry = evaluatorError[evaluatorErrorLogEntryKey];
+            logs.push(taggedEntry ?? createLogEntry(result));
+            testCaseError = result.message;
+            evaluatorScores.push({
+              evaluatorId,
+              scores: [],
+              passed: false,
+              logs: logs.length > 0 ? logs : undefined,
+            });
+            continue;
+          }
           const { scores, metrics } = normalizeResult(result);
           const passed = computeEvaluatorPassed(evaluator, result, scores);
           evaluatorScores.push({
@@ -175,6 +207,12 @@ function processOneTestCase(
             logs: logs.length > 0 ? logs : undefined,
           });
         } catch (error) {
+          if (error instanceof Error) {
+            const taggedEntry = (error as EvaluatorCreatedError)[
+              evaluatorErrorLogEntryKey
+            ];
+            logs.push(taggedEntry ?? createLogEntry(error));
+          }
           testCaseError =
             error instanceof Error
               ? error.message
@@ -183,6 +221,7 @@ function processOneTestCase(
             evaluatorId,
             scores: [],
             passed: false,
+            logs: logs.length > 0 ? logs : undefined,
           });
         }
       }

@@ -41,6 +41,7 @@ interface TestCaseDisplay {
   rerunTotal: number;
   durationMs: number;
   passed: boolean;
+  errorMessage?: string;
   events: Array<{
     evaluatorScores: EvaluatorScoreRow[];
     passed: boolean;
@@ -308,6 +309,7 @@ export function RunView({
               rerunTotal: event.rerunTotal,
               durationMs: events.reduce((s, e) => s + e.durationMs, 0),
               passed: events.every((e) => e.passed),
+              errorMessage: event.errorMessage,
               events,
               aggregatedEvaluatorScores,
               isAggregated,
@@ -423,7 +425,14 @@ export function RunView({
                   ({tc.rerunIndex}/{tc.rerunTotal})
                 </Text>
                 <Text color="gray"> ({tc.durationMs}ms)</Text>
+                {tc.errorMessage ? (
+                  <Text color="red" bold>
+                    {' '}
+                    ERROR
+                  </Text>
+                ) : null}
               </Text>
+              {tc.errorMessage ? <Text color="red">{tc.errorMessage}</Text> : null}
               {tc.aggregatedEvaluatorScores.map((item) => (
                 <Box
                   key={item.evaluatorId}

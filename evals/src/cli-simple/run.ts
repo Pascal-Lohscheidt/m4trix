@@ -481,9 +481,15 @@ export async function runSimpleEvalCommandPlain(
         );
 
         const lines: string[] = [];
+        const statusSuffix = event.errorMessage
+          ? ` ${colorize('ERROR', `${ansi.bold}${ansi.red}`)}`
+          : '';
         lines.push(
-          `${colorize(`[${event.completedTestCases}/${event.totalTestCases}]`, ansi.cyan)} ${event.testCaseName} ${colorize(`(${event.rerunIndex}/${event.rerunTotal})`, ansi.cyan)} ${colorize(`(${durationMs}ms)`, ansi.dim)}`,
+          `${colorize(`[${event.completedTestCases}/${event.totalTestCases}]`, ansi.cyan)} ${event.testCaseName} ${colorize(`(${event.rerunIndex}/${event.rerunTotal})`, ansi.cyan)} ${colorize(`(${durationMs}ms)`, ansi.dim)}${statusSuffix}`,
         );
+        if (event.errorMessage) {
+          lines.push(colorize(event.errorMessage, ansi.red));
+        }
         for (const item of aggregatedScores) {
           const name =
             evaluatorNameById.get(item.evaluatorId) ?? item.evaluatorId;

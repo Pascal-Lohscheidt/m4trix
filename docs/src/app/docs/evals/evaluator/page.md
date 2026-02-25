@@ -27,14 +27,21 @@ export const myEvaluator = Evaluator.define({
   inputSchema,
   outputSchema: S.Unknown,
   scoreSchema: S.Struct({ scores: S.Array(S.Unknown) }),
-}).evaluate(async ({ input, output }) => {
+}).evaluate(async ({ input, output, createError }) => {
   const start = Date.now();
   // ... scoring logic ...
+  const value = 85;
+  if (value < 50) {
+    return createError(
+      { reason: 'score below minimum', value, prompt: input.prompt, output },
+      { label: 'quality-check' },
+    );
+  }
   const latencyMs = Date.now() - start;
 
   return {
     scores: [
-      percentScore.make({ value: 85 }, { definePassed: (d) => d.value >= 50 }),
+      percentScore.make({ value }, { definePassed: (d) => d.value >= 50 }),
     ],
     metrics: [
       tokenCountMetric.make({
@@ -117,7 +124,7 @@ export const customDeltaEvaluator = Evaluator.define({
 | Helper | Use case |
 |--------|----------|
 | `Score.aggregate.averageFields(['a','b'])` | Average numeric fields (e.g. value, delta) |
-| `Score.aggregate.averageWithVariance` | Percent-style scores with mean ± std dev |
+| `Score.aggregate.averageWithVariance(['value'])` | Average selected fields, and include mean ± std dev for `value` |
 | `Score.aggregate.all` | Binary scores (all runs must pass) |
 | `Score.aggregate.last` | No aggregation (take last value) |
 
@@ -157,6 +164,7 @@ Attaches the scoring function. The function receives:
 - `ctx` — Resolved context from middlewares (if any)
 - `logDiff` — Callback to record expected vs actual diffs (stored in run artifact, shown by CLI)
 - `log` — Callback to log messages or objects (stored in run artifact, shown by CLI)
+- `createError` — Callback to build an `Error` from string/object payloads for `return createError(...)`
 
 It must return an object with:
 
@@ -261,6 +269,23 @@ Use `log` (passed to your evaluate function) to record messages or objects for f
 ```
 
 `log(message, options?)` accepts strings or objects (objects are pretty-printed as JSON). Use it to capture context when a test fails.
+
+## Failing fast with createError
+
+Use `createError` (passed to your evaluate function) when you want to fail an evaluator while keeping rich debug context in logs. It accepts strings or objects and returns an `Error` that you can return (or throw):
+
+```ts
+.evaluate(async ({ input, createError }) => {
+  const result = await fetchModelOutput(input.prompt);
+  if (!result.ok) {
+    return createError(
+      { reason: 'model returned non-ok', prompt: input.prompt, result },
+      { label: 'model-error' },
+    );
+  }
+  return { scores: [...], metrics: [] };
+});
+```
 
 ## Item-level label overrides
 

@@ -53,6 +53,7 @@ export type EvaluatorLogEntry = DiffLogEntry | LogEntry;
 
 function formatLogMessage(msg: unknown): string {
   if (typeof msg === 'string') return msg;
+  if (msg instanceof Error) return msg.stack ?? msg.message;
   try {
     if (msg !== null && typeof msg === 'object') {
       return JSON.stringify(msg, null, 2);

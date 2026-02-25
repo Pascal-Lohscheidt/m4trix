@@ -77,8 +77,15 @@ export const myEvaluator = Evaluator.define({
   inputSchema,
   outputSchema: S.Unknown,
   scoreSchema: S.Struct({ scores: S.Array(S.Unknown) }),
-}).evaluate(async ({ input, ctx: _ctx, output }) => {
+}).evaluate(async ({ input, ctx: _ctx, output, createError }) => {
   const start = Date.now();
+  const value = 85;
+  if (value < 50) {
+    return createError(
+      { reason: 'score below minimum', value, prompt: input.prompt, output },
+      { label: 'quality-check' },
+    );
+  }
   const latencyMs = Date.now() - start;
   const minScore =
     typeof output === 'object' &&
@@ -90,7 +97,7 @@ export const myEvaluator = Evaluator.define({
   return {
     scores: [
       percentScore.make(
-        { value: 85 },
+        { value },
         { definePassed: (d) => d.value >= (minScore ?? 50) },
       ),
     ],

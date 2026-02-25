@@ -53,9 +53,19 @@ export const demoScoreEvaluator = Evaluator.use({
       scores: S.Array(S.Unknown),
     }),
   })
-  .evaluate(async ({ input, ctx, output }) => {
+  .evaluate(async ({ input, ctx, output, createError }) => {
     const start = Date.now();
     await sleep(150);
+    if (input.prompt.includes('unit tests, integration tests')) {
+      return createError(
+        {
+          reason: 'Intentional demo error to showcase CLI ERROR output',
+          evaluator: 'Demo Score Evaluator',
+          prompt: input.prompt,
+        },
+        { label: 'demo-error' },
+      );
+    }
     const promptHash = Array.from(input.prompt).reduce(
       (sum, char) => sum + char.charCodeAt(0),
       0,
