@@ -87,7 +87,7 @@ export default function Page() {
                 GitHub
               </a>
               <a
-                href="/docs/getting-started"
+                href="https://docs.m4trix.dev"
                 className="group flex items-center rounded-md border border-[#00ff41]/50 bg-[#00ff41]/10 px-3 py-1.5 font-mono text-xs font-medium text-[#00ff41] shadow-[0_0_15px_rgba(0,255,65,0.15)] transition hover:bg-[#00ff41]/20 hover:shadow-[0_0_25px_rgba(0,255,65,0.25)]"
               >
                 <span className="text-[#00ff41]/70">$</span>
@@ -164,7 +164,7 @@ export default function Page() {
             {/* CTAs */}
             <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
               <a
-                href="/docs/getting-started"
+                href="https://docs.m4trix.dev"
                 className="group flex items-center rounded-md border border-[#00ff41]/50 bg-[#00ff41]/10 px-6 py-3 font-mono text-sm font-medium text-[#00ff41] shadow-[0_0_25px_rgba(0,255,65,0.2)] transition hover:border-[#00ff41]/70 hover:bg-[#00ff41]/20 hover:shadow-[0_0_40px_rgba(0,255,65,0.3)]"
               >
                 <span className="text-[#00ff41]/70">$</span>
