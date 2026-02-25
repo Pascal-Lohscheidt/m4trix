@@ -31,30 +31,24 @@ export type LayerName = string & Brand.Brand<'LayerName'>;
 
 export const LayerName = Brand.refined<LayerName>(
   (s: unknown) => typeof s === 'string' && CAMEL_CASE_REGEX.test(s),
-  (s: unknown) => Brand.error(`Expected camelCase (e.g. myLayerFoo), got: ${s}`),
+  (s: unknown) =>
+    Brand.error(`Expected camelCase (e.g. myLayerFoo), got: ${s}`),
 );
 
 /** Definition of a single skill dependency with a branded name and schema shape */
-export type SkillDependencyDef<
-  N extends string,
-  PS extends S.Schema.Any,
-> = {
+export type DepedencyLayerDef<N extends string, PS extends S.Schema.Any> = {
   readonly _tag: 'SkillDependencyDef';
   readonly name: LayerName;
   readonly _name: N;
   readonly shape: PS;
-  readonly decode: (
-    u: unknown,
-  ) => Effect.Effect<S.Schema.Type<PS>, ParseError>;
+  readonly decode: (u: unknown) => Effect.Effect<S.Schema.Type<PS>, ParseError>;
 };
 
 /** Build layers object type from a tuple of dependency definitions */
-type DependenciesToLayers<T> = T extends SkillDependencyDef<
-  infer N,
-  infer PS
->
-  ? { [K in N]: S.Schema.Type<PS> }
-  : never;
+type DependenciesToLayers<T> =
+  T extends DepedencyLayerDef<infer N, infer PS>
+    ? { [K in N]: S.Schema.Type<PS> }
+    : never;
 
 type UnionToIntersection<U> = (
   U extends unknown ? (k: U) => void : never
@@ -63,17 +57,16 @@ type UnionToIntersection<U> = (
   : never;
 
 /** Build layers object from union of dependency types */
-export type LayersFromDeps<
-  T extends SkillDependencyDef<string, S.Schema.Any>,
-> = [T] extends [never]
-  ? Record<string, never>
-  : UnionToIntersection<DependenciesToLayers<T>>;
+export type LayersFromDeps<T extends DepedencyLayerDef<string, S.Schema.Any>> =
+  [T] extends [never]
+    ? Record<string, never>
+    : UnionToIntersection<DependenciesToLayers<T>>;
 
-export const SkillDependency = {
+export const DepedencyLayer = {
   of<const N extends string, PS extends S.Schema.Any>(config: {
     name: N;
     shape: PS;
-  }): SkillDependencyDef<N, PS> {
+  }): DepedencyLayerDef<N, PS> {
     const name = LayerName(config.name as string);
     const decode = S.decodeUnknown(config.shape);
     return {
@@ -89,7 +82,7 @@ export const SkillDependency = {
 };
 
 /** Normalize single or array of layers to readonly array */
-function toLayerArray<D extends SkillDependencyDef<string, S.Schema.Any>>(
+function toLayerArray<D extends DepedencyLayerDef<string, S.Schema.Any>>(
   layers: [D, ...D[]] | [ReadonlyArray<D>],
 ): ReadonlyArray<D> {
   if (layers.length === 1 && Array.isArray(layers[0])) {
@@ -99,9 +92,9 @@ function toLayerArray<D extends SkillDependencyDef<string, S.Schema.Any>>(
 }
 
 /** Check for duplicate layer names and throw if found */
-function assertUniqueLayerNames<D extends SkillDependencyDef<string, S.Schema.Any>>(
-  layers: ReadonlyArray<D>,
-): void {
+function assertUniqueLayerNames<
+  D extends DepedencyLayerDef<string, S.Schema.Any>,
+>(layers: ReadonlyArray<D>): void {
   const seen = new Set<string>();
   for (const dep of layers) {
     const key = dep.name as string;
@@ -130,12 +123,12 @@ type DefineFn<TIn, TChunk, TDone, TLayers> = (
 /** Final executable skill instance */
 export type SkillInstance<TInput, TChunk, TDone, TLayers> = {
   invokeStream: (
-    input: unknown,
+    input: TInput,
     runtime?: { layers: TLayers } & SkillRuntimeOptions,
   ) => AsyncIterable<TChunk | { _tag: 'Done'; done: TDone }>;
   /** Input is decoded to TInput before being passed to the skill logic */
   invoke: (
-    input: unknown,
+    input: TInput,
     runtime?: { layers: TLayers } & SkillRuntimeOptions,
   ) => Promise<{ chunks: TChunk[]; done: TDone }>;
 } & { readonly _input?: TInput };
@@ -144,7 +137,7 @@ type ConstructorParams<
   TInput,
   TChunk,
   TDone,
-  TDeps extends SkillDependencyDef<string, S.Schema.Any>,
+  TDeps extends DepedencyLayerDef<string, S.Schema.Any>,
 > = {
   inputSchema?: S.Schema<TInput>;
   chunkSchema?: S.Schema<TChunk>;
@@ -157,24 +150,22 @@ export class Skill<
   TInput = unknown,
   TChunk = unknown,
   TDone = unknown,
-  TDeps extends SkillDependencyDef<string, S.Schema.Any> = never,
+  TDeps extends DepedencyLayerDef<string, S.Schema.Any> = never,
 > {
   private _inputSchema: S.Schema<TInput> | undefined;
   private _chunkSchema: S.Schema<TChunk> | undefined;
   private _doneSchema: S.Schema<TDone> | undefined;
-  private _layers: ReadonlyArray<SkillDependencyDef<string, S.Schema.Any>>;
+  private _layers: ReadonlyArray<DepedencyLayerDef<string, S.Schema.Any>>;
   private _defineFn:
     | DefineFn<TInput, TChunk, TDone, LayersFromDeps<TDeps>>
     | undefined;
 
-  private constructor(
-    params: ConstructorParams<TInput, TChunk, TDone, TDeps>,
-  ) {
+  private constructor(params: ConstructorParams<TInput, TChunk, TDone, TDeps>) {
     this._inputSchema = params.inputSchema;
     this._chunkSchema = params.chunkSchema;
     this._doneSchema = params.doneSchema;
     this._layers = params.layers as ReadonlyArray<
-      SkillDependencyDef<string, S.Schema.Any>
+      DepedencyLayerDef<string, S.Schema.Any>
     >;
     this._defineFn = params.defineFn;
   }
@@ -239,7 +230,7 @@ export class Skill<
     });
   }
 
-  use<D extends SkillDependencyDef<string, S.Schema.Any>>(
+  dependsOn<D extends DepedencyLayerDef<string, S.Schema.Any>>(
     ...layers: [D, ...D[]] | [ReadonlyArray<D>]
   ): Skill<TInput, TChunk, TDone, TDeps | D> {
     const normalized = toLayerArray(layers);
@@ -279,8 +270,7 @@ export class Skill<
       input: TInput,
       runtime?: { layers: LayersFromDeps<TDeps> } & SkillRuntimeOptions,
     ): Promise<{ chunks: TChunk[]; done: TDone }> => {
-      const layersObj =
-        runtime?.layers ?? ({} as LayersFromDeps<TDeps>);
+      const layersObj = runtime?.layers ?? ({} as LayersFromDeps<TDeps>);
       const chunks: TChunk[] = [];
       const emit = (chunk: TChunk): void => {
         const decoded = Effect.runSync(
@@ -311,8 +301,7 @@ export class Skill<
         const decodedInput = Effect.runSync(
           decodeInput(input) as Effect.Effect<TInput, ParseError>,
         );
-        const layersObj =
-          runtime?.layers ?? ({} as LayersFromDeps<TDeps>);
+        const layersObj = runtime?.layers ?? ({} as LayersFromDeps<TDeps>);
         const chunks: TChunk[] = [];
         const emit = (chunk: TChunk): void => {
           const decoded = Effect.runSync(

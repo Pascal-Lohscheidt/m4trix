@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { Effect, Schema as S } from 'effect';
-import { LayerName, Skill, SkillDependency, type SkillInstance } from './skill';
+import { LayerName, Skill, DepedencyLayer, type SkillInstance } from './skill';
 
 describe('LayerName', () => {
   test('accepts valid camelCase strings', () => {
@@ -19,7 +19,7 @@ describe('LayerName', () => {
 
 describe('SkillDependency', () => {
   test('creates a dependency with name and shape', () => {
-    const dep = SkillDependency.of({
+    const dep = DepedencyLayer.of({
       name: 'myLayerFoo',
       shape: S.Struct({ foo: S.String }),
     });
@@ -30,7 +30,7 @@ describe('SkillDependency', () => {
   });
 
   test('decode validates and returns typed value', () => {
-    const dep = SkillDependency.of({
+    const dep = DepedencyLayer.of({
       name: 'myLayerFoo',
       shape: S.Struct({ foo: S.String }),
     });
@@ -40,7 +40,7 @@ describe('SkillDependency', () => {
   });
 
   test('decode throws on invalid input', () => {
-    const dep = SkillDependency.of({
+    const dep = DepedencyLayer.of({
       name: 'myLayerFoo',
       shape: S.Struct({ foo: S.String }),
     });
@@ -103,7 +103,7 @@ describe('Skill', () => {
   });
 
   test('use accepts single layer', async () => {
-    const myLayer = SkillDependency.of({
+    const myLayer = DepedencyLayer.of({
       name: 'myLayerFoo',
       shape: S.Struct({ foo: S.String }),
     });
@@ -112,7 +112,7 @@ describe('Skill', () => {
       .input(S.Struct({ q: S.String }))
       .chunk(S.String)
       .done(S.Struct({ r: S.String }))
-      .use(myLayer)
+      .dependsOn(myLayer)
       .define(({ input, layers }) => {
         expect(layers.myLayerFoo).toEqual({ foo: 'bar' });
         return { r: input.q + layers.myLayerFoo.foo };
@@ -126,7 +126,7 @@ describe('Skill', () => {
   });
 
   test('use accepts array of layers (same type)', async () => {
-    const layer = SkillDependency.of({
+    const layer = DepedencyLayer.of({
       name: 'layerA',
       shape: S.Struct({ a: S.Number }),
     });
@@ -135,7 +135,7 @@ describe('Skill', () => {
       .input(S.Struct({ x: S.Number }))
       .chunk(S.String)
       .done(S.Struct({ out: S.String }))
-      .use([layer])
+      .dependsOn([layer])
       .define(({ layers }) => {
         return { out: `${layers.layerA.a}` };
       });
@@ -148,11 +148,11 @@ describe('Skill', () => {
   });
 
   test('use accepts multiple layers via chaining', async () => {
-    const layerA = SkillDependency.of({
+    const layerA = DepedencyLayer.of({
       name: 'layerA',
       shape: S.Struct({ a: S.Number }),
     });
-    const layerB = SkillDependency.of({
+    const layerB = DepedencyLayer.of({
       name: 'layerB',
       shape: S.Struct({ b: S.String }),
     });
@@ -161,8 +161,8 @@ describe('Skill', () => {
       .input(S.Struct({ x: S.Number }))
       .chunk(S.String)
       .done(S.Struct({ out: S.String }))
-      .use(layerA)
-      .use(layerB)
+      .dependsOn(layerA)
+      .dependsOn(layerB)
       .define(({ layers }) => {
         return { out: `${layers.layerA.a}-${layers.layerB.b}` };
       });
@@ -175,7 +175,7 @@ describe('Skill', () => {
   });
 
   test('throws on duplicate layer names', () => {
-    const layer = SkillDependency.of({
+    const layer = DepedencyLayer.of({
       name: 'dup',
       shape: S.Struct({ x: S.Number }),
     });
@@ -185,8 +185,8 @@ describe('Skill', () => {
         .input(S.Struct({ q: S.String }))
         .chunk(S.String)
         .done(S.Struct({ r: S.String }))
-        .use(layer)
-        .use(layer)
+        .dependsOn(layer)
+        .dependsOn(layer)
         .define(() => ({ r: 'x' })),
     ).toThrow(/Duplicate layer name: dup/);
   });
@@ -204,6 +204,7 @@ describe('Skill', () => {
       .done(S.Struct({ result: S.String }))
       .define(({ input }) => ({ result: input.query }));
 
+    // @ts-expect-error - wrongKey is not in the input schema
     await expect(skill.invoke({ wrongKey: 123 })).rejects.toThrow();
   });
 });
@@ -250,7 +251,7 @@ describe('Skill type tests', () => {
   });
 
   test('define callback receives typed layers from use()', () => {
-    const myLayerFoo = SkillDependency.of({
+    const myLayerFoo = DepedencyLayer.of({
       name: 'myLayerFoo',
       shape: S.Struct({ foo: S.String }),
     });
@@ -259,7 +260,7 @@ describe('Skill type tests', () => {
       .input(S.Struct({ q: S.String }))
       .chunk(S.String)
       .done(S.Struct({ r: S.String }))
-      .use(myLayerFoo)
+      .dependsOn(myLayerFoo)
       .define(({ layers }) => {
         void (layers.myLayerFoo.foo as string);
         return { r: layers.myLayerFoo.foo };
@@ -269,7 +270,7 @@ describe('Skill type tests', () => {
   });
 
   test('define callback rejects wrong layers property', () => {
-    const myLayerFoo = SkillDependency.of({
+    const myLayerFoo = DepedencyLayer.of({
       name: 'myLayerFoo',
       shape: S.Struct({ foo: S.String }),
     });
@@ -278,7 +279,7 @@ describe('Skill type tests', () => {
       .input(S.Struct({ q: S.String }))
       .chunk(S.String)
       .done(S.Struct({ r: S.String }))
-      .use(myLayerFoo)
+      .dependsOn(myLayerFoo)
       .define(({ layers }) => {
         // @ts-expect-error - layers has myLayerFoo, not nonexistent
         const _: string = layers.nonexistent;
