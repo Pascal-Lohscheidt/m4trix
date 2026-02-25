@@ -1,5 +1,5 @@
 /** @jsxImportSource react */
-import React, { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { Box, Text } from 'ink';
 
 import {
@@ -49,6 +49,15 @@ interface TestCaseDisplay {
   }>;
   aggregatedEvaluatorScores: EvaluatorScoreRow[];
   isAggregated: boolean;
+}
+
+interface RunningEvaluationDisplay {
+  testCaseId: string;
+  name: string;
+  rerunIndex: number;
+  rerunTotal: number;
+  startedTestCases: number;
+  totalTestCases: number;
 }
 
 interface EvaluatorAggregate {
@@ -171,7 +180,7 @@ export function RunView({
   datasetName,
   evaluatorPattern,
   onComplete,
-}: RunViewProps): React.ReactNode {
+}: RunViewProps): ReactNode {
   const [phase, setPhase] = useState<'loading' | 'running' | 'completed'>(
     'loading',
   );
@@ -182,7 +191,11 @@ export function RunView({
     totalTestCases: number;
   } | null>(null);
   const [testCases, setTestCases] = useState<TestCaseDisplay[]>([]);
+  const [startedEvaluations, setStartedEvaluations] = useState(0);
   const [completedEvaluations, setCompletedEvaluations] = useState(0);
+  const [runningEvaluations, setRunningEvaluations] = useState<
+    RunningEvaluationDisplay[]
+  >([]);
   const [summary, setSummary] = useState<{
     passedTestCases: number;
     failedTestCases: number;
@@ -244,6 +257,29 @@ export function RunView({
 
     const done = new Promise<RunnerEvent>((resolve) => {
       const unsubscribe = runner.subscribeRunEvents((event) => {
+        if (event.type === 'TestCaseStarted') {
+          setStartedEvaluations(event.startedTestCases);
+          setRunningEvaluations((prev) => {
+            const withoutDuplicate = prev.filter(
+              (item) =>
+                !(
+                  item.testCaseId === event.testCaseId &&
+                  item.rerunIndex === event.rerunIndex
+                ),
+            );
+            return [
+              ...withoutDuplicate,
+              {
+                testCaseId: event.testCaseId,
+                name: event.testCaseName,
+                rerunIndex: event.rerunIndex,
+                rerunTotal: event.rerunTotal,
+                startedTestCases: event.startedTestCases,
+                totalTestCases: event.totalTestCases,
+              },
+            ];
+          });
+        }
         if (event.type === 'TestCaseProgress') {
           for (const item of event.evaluatorScores) {
             const numeric = toNumericScoreFromScores(item.scores);
@@ -316,6 +352,15 @@ export function RunView({
             };
             byId.set(event.testCaseId, merged);
             setCompletedEvaluations(event.completedTestCases);
+            setRunningEvaluations((running) =>
+              running.filter(
+                (item) =>
+                  !(
+                    item.testCaseId === event.testCaseId &&
+                    item.rerunIndex === event.rerunIndex
+                  ),
+              ),
+            );
             return Array.from(byId.values());
           });
         }
@@ -405,10 +450,22 @@ export function RunView({
       )}
 
       {phase === 'running' && (
-        <Box marginBottom={1}>
+        <Box flexDirection="column" marginBottom={1}>
           <Spinner
-            label={`Evaluations ${completedEvaluations}/${runInfo?.totalTestCases ?? 0}`}
+            label={`Evaluations ${completedEvaluations}/${runInfo?.totalTestCases ?? 0} completed • ${startedEvaluations}/${runInfo?.totalTestCases ?? 0} started`}
           />
+          {runningEvaluations.length > 0 && (
+            <Box flexDirection="column" marginTop={1}>
+              {runningEvaluations.map((item) => (
+                <Text key={`${item.testCaseId}:${item.rerunIndex}`} color="yellow">
+                  [running {item.startedTestCases}/{item.totalTestCases}] {item.name}{' '}
+                  <Text color="gray">
+                    ({item.rerunIndex}/{item.rerunTotal})
+                  </Text>
+                </Text>
+              ))}
+            </Box>
+          )}
         </Box>
       )}
 

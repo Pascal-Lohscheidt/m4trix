@@ -74,6 +74,16 @@ export type RunnerEvent =
       startedAt: number;
     }
   | {
+      type: 'TestCaseStarted';
+      runId: string;
+      testCaseId: string;
+      testCaseName: string;
+      startedTestCases: number;
+      totalTestCases: number;
+      rerunIndex: number;
+      rerunTotal: number;
+    }
+  | {
       type: 'TestCaseProgress';
       runId: string;
       testCaseId: string;

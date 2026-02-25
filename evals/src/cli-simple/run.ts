@@ -1,4 +1,4 @@
-import React from 'react';
+import * as React from 'react';
 import { render } from 'ink';
 import {
   formatScoreData,
@@ -368,9 +368,11 @@ export async function runSimpleEvalCommandPlain(
   let overallScoreTotal = 0;
   let overallScoreSumSq = 0;
   let overallScoreCount = 0;
+  let startedCount = 0;
   let completedCount = 0;
   let totalCount = 0;
   let runFinished = false;
+  const inFlightReruns = new Set<string>();
   const spinnerFrames = ['⠋', '⠙', '⠸', '⠴', '⠦', '⠇'];
   let spinnerIndex = 0;
 
@@ -396,7 +398,7 @@ export async function runSimpleEvalCommandPlain(
       `\r${colorize(frame, ansi.cyan)} Running evaluations ${colorize(
         `${completedCount}/${totalCount}`,
         ansi.bold,
-      )} ${colorize('(live)', ansi.dim)}`,
+      )} completed ${colorize(`${startedCount}/${totalCount}`, ansi.bold)} started ${colorize(`(${inFlightReruns.size} running)`, ansi.dim)}`,
     );
   }
 
@@ -406,8 +408,18 @@ export async function runSimpleEvalCommandPlain(
   let spinnerTimer: NodeJS.Timeout | undefined;
   const done = new Promise<RunnerEvent>((resolve) => {
     const unsubscribe = runner.subscribeRunEvents((event) => {
+      if (event.type === 'TestCaseStarted') {
+        startedCount = event.startedTestCases;
+        inFlightReruns.add(`${event.testCaseId}:${event.rerunIndex}`);
+        clearLine();
+        process.stdout.write(
+          `${colorize(`[started ${event.startedTestCases}/${event.totalTestCases}]`, ansi.cyan)} ${event.testCaseName} ${colorize(`(${event.rerunIndex}/${event.rerunTotal})`, ansi.cyan)} ${colorize('(running)', ansi.dim)}\n`,
+        );
+        drawSpinner();
+      }
       if (event.type === 'TestCaseProgress') {
         completedCount = event.completedTestCases;
+        inFlightReruns.delete(`${event.testCaseId}:${event.rerunIndex}`);
         const numericScores = event.evaluatorScores
           .map((item) => toNumericScoreFromScores(item.scores))
           .filter((item): item is number => item !== undefined);
@@ -670,7 +682,7 @@ export async function runSimpleEvalCommandInk(
         runner,
         datasetName,
         evaluatorPattern,
-        onComplete: (err) => {
+        onComplete: (err: Error | undefined) => {
           app.unmount();
           if (err) {
             reject(err);

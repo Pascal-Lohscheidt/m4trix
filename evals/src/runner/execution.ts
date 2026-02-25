@@ -109,6 +109,7 @@ function processOneTestCase(
     runId: string,
     updater: (snapshot: RunSnapshot) => RunSnapshot,
   ) => void,
+  startedRef: Ref.Ref<number>,
   completedRef: Ref.Ref<number>,
   passedRef: Ref.Ref<number>,
   failedRef: Ref.Ref<number>,
@@ -123,6 +124,20 @@ function processOneTestCase(
     for (let r = 0; r < reruns; r++) {
       const evaluatorRunId = `run-${randomUUID()}`;
       const started = Date.now();
+      const startedEvaluations = yield* Ref.modify(startedRef, (n) => [
+        n + 1,
+        n + 1,
+      ]);
+      yield* publishEvent({
+        type: 'TestCaseStarted',
+        runId: task.runId,
+        testCaseId: testCaseItem.id,
+        testCaseName: testCaseItem.testCase.getName(),
+        startedTestCases: startedEvaluations,
+        totalTestCases: totalEvaluations,
+        rerunIndex: r + 1,
+        rerunTotal: reruns,
+      });
       const evaluatorScores: Array<{
         evaluatorId: string;
         scores: ReadonlyArray<ScoreItem>;
@@ -314,6 +329,7 @@ export const executeRunTask = (
     const maxConcurrency = Math.max(1, task.maxConcurrency ?? 1);
 
     const completedRef = yield* Ref.make(0);
+    const startedRef = yield* Ref.make(0);
     const passedRef = yield* Ref.make(0);
     const failedRef = yield* Ref.make(0);
 
@@ -325,6 +341,7 @@ export const executeRunTask = (
         publishEvent,
         persistenceQueue,
         updateSnapshot,
+        startedRef,
         completedRef,
         passedRef,
         failedRef,

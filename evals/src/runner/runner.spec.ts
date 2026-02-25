@@ -218,6 +218,7 @@ describe('runner discovery and execution', () => {
     expect(snapshot?.totalTestCases).toBe(1);
     expect(events.some((event) => event.type === 'RunQueued')).toBe(true);
     expect(events.some((event) => event.type === 'RunStarted')).toBe(true);
+    expect(events.some((event) => event.type === 'TestCaseStarted')).toBe(true);
     expect(events.some((event) => event.type === 'TestCaseProgress')).toBe(true);
     const progressEvent = events.find(
       (event): event is Extract<RunnerEvent, { type: 'TestCaseProgress' }> =>
