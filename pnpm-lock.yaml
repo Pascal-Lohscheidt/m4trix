@@ -356,6 +356,16 @@ importers:
 
   package:
     dependencies:
+      effect:
+        specifier: ^3.16.10
+        version: 3.16.10
+      socket.io:
+        specifier: ^4.7.2
+        version: 4.8.1
+      socket.io-client:
+        specifier: ^4.7.2
+        version: 4.8.1
+    devDependencies:
       '@floating-ui/dom':
         specifier: ^1.6.13
         version: 1.6.13
@@ -374,43 +384,15 @@ importers:
       '@langchain/openai':
         specifier: ^0.5.16
         version: 0.5.16(@langchain/core@0.3.61(@opentelemetry/api@1.9.0)(openai@6.22.0(ws@8.18.1)(zod@3.25.67)))(ws@8.18.1)
+      '@types/node':
+        specifier: ^20.0.0
+        version: 20.17.30
       '@types/react':
         specifier: ^19.1.2
         version: 19.1.2
       '@types/react-dom':
         specifier: ^19.1.2
         version: 19.1.2(@types/react@19.1.2)
-      ai:
-        specifier: ^5.0.28
-        version: 5.0.28(zod@3.25.67)
-      animejs:
-        specifier: ^4.0.1
-        version: 4.0.1
-      effect:
-        specifier: ^3.16.10
-        version: 3.16.10
-      lit:
-        specifier: ^3.3.0
-        version: 3.3.0
-      react:
-        specifier: ^19.1.0
-        version: 19.1.0
-      react-dom:
-        specifier: ^19.1.0
-        version: 19.1.0(react@19.1.0)
-      socket.io:
-        specifier: ^4.7.2
-        version: 4.8.1
-      socket.io-client:
-        specifier: ^4.7.2
-        version: 4.8.1
-      solid-js:
-        specifier: ^1.9.5
-        version: 1.9.5
-    devDependencies:
-      '@types/node':
-        specifier: ^20.0.0
-        version: 20.17.30
       '@typescript-eslint/eslint-plugin':
         specifier: ^6.0.0
         version: 6.21.0(@typescript-eslint/parser@6.21.0(eslint@8.57.1)(typescript@5.8.3))(eslint@8.57.1)(typescript@5.8.3)
@@ -420,12 +402,30 @@ importers:
       '@vitest/coverage-v8':
         specifier: ^1.0.0
         version: 1.6.1(vitest@1.6.1(@types/node@20.17.30)(jsdom@26.1.0)(lightningcss@1.29.2))
+      ai:
+        specifier: ^5.0.28
+        version: 5.0.28(zod@3.25.67)
+      animejs:
+        specifier: ^4.0.1
+        version: 4.0.1
       eslint:
         specifier: ^8.0.0
         version: 8.57.1
+      lit:
+        specifier: ^3.3.0
+        version: 3.3.0
       prettier:
         specifier: ^3.0.0
         version: 3.5.3
+      react:
+        specifier: ^19.1.0
+        version: 19.1.0
+      react-dom:
+        specifier: ^19.1.0
+        version: 19.1.0(react@19.1.0)
+      solid-js:
+        specifier: ^1.9.5
+        version: 1.9.5
       tsup:
         specifier: ^7.0.0
         version: 7.3.0(postcss@8.5.3)(ts-node@10.9.2(@types/node@20.17.30)(typescript@5.8.3))(typescript@5.8.3)
