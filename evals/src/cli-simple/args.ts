@@ -1,19 +1,18 @@
-import { cpus } from 'node:os';
-
 export type SimpleCliCommand = 'run' | 'generate';
 
 export interface SimpleCliArgs {
   command?: SimpleCliCommand;
   datasetName?: string;
   evaluatorPattern?: string;
-  /** Max concurrent test cases. Default: CPU count. Use 1 for sequential. */
+  /** Max concurrent evaluations. Default: 4. Use 1 for sequential. */
   concurrency?: number;
   help: boolean;
   unknownArgs: string[];
 }
 
+/** Default concurrency for I/O-bound evals (e.g. LLM API calls). Node is single-threaded, so CPU count is not meaningful. */
 export function getDefaultConcurrency(): number {
-  return Math.max(1, cpus().length);
+  return 4;
 }
 
 export function parseSimpleCliArgs(argv: string[]): SimpleCliArgs {
@@ -64,7 +63,7 @@ export function getSimpleCliUsage(): string {
     '  eval-agents-simple generate --dataset <datasetName>',
     '',
     'Options:',
-    '  --concurrency, -c N   Max concurrent test cases (default: CPU count). Use 1 for sequential.',
+    '  --concurrency, -c N   Max concurrent evaluations (default: 4). Use 1 for sequential.',
     '',
     'Pattern examples for --evaluator:',
     '  score-evaluator       exact name (case-insensitive)',
