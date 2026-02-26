@@ -1,11 +1,19 @@
+import { cpus } from 'node:os';
+
 export type SimpleCliCommand = 'run' | 'generate';
 
 export interface SimpleCliArgs {
   command?: SimpleCliCommand;
   datasetName?: string;
   evaluatorPattern?: string;
+  /** Max concurrent test cases. Default: CPU count. Use 1 for sequential. */
+  concurrency?: number;
   help: boolean;
   unknownArgs: string[];
+}
+
+export function getDefaultConcurrency(): number {
+  return Math.max(1, cpus().length);
 }
 
 export function parseSimpleCliArgs(argv: string[]): SimpleCliArgs {
@@ -35,6 +43,14 @@ export function parseSimpleCliArgs(argv: string[]): SimpleCliArgs {
       index += 1;
       continue;
     }
+    if ((token === '--concurrency' || token === '-c') && argv[index + 1]) {
+      const n = parseInt(argv[index + 1]!, 10);
+      if (!Number.isNaN(n) && n >= 1) {
+        args.concurrency = n;
+      }
+      index += 1;
+      continue;
+    }
     args.unknownArgs.push(token);
   }
 
@@ -44,8 +60,11 @@ export function parseSimpleCliArgs(argv: string[]): SimpleCliArgs {
 export function getSimpleCliUsage(): string {
   return [
     'Usage:',
-    '  eval-agents-simple run --dataset <datasetName> --evaluator <name-or-pattern>',
+    '  eval-agents-simple run --dataset <datasetName> --evaluator <name-or-pattern> [--concurrency N]',
     '  eval-agents-simple generate --dataset <datasetName>',
+    '',
+    'Options:',
+    '  --concurrency, -c N   Max concurrent test cases (default: CPU count). Use 1 for sequential.',
     '',
     'Pattern examples for --evaluator:',
     '  score-evaluator       exact name (case-insensitive)',

@@ -68,7 +68,11 @@ interface EvaluatorAggregate {
   failed: number;
 }
 
-function sampleStdDev(sum: number, sumSq: number, n: number): number | undefined {
+function sampleStdDev(
+  sum: number,
+  sumSq: number,
+  n: number,
+): number | undefined {
   if (n < 2) return undefined;
   const mean = sum / n;
   const variance = (sumSq - n * mean * mean) / (n - 1);
@@ -172,6 +176,7 @@ interface RunViewProps {
   runner: RunnerApi;
   datasetName: string;
   evaluatorPattern: string;
+  concurrency: number;
   onComplete: (error?: Error) => void;
 }
 
@@ -179,6 +184,7 @@ export function RunView({
   runner,
   datasetName,
   evaluatorPattern,
+  concurrency,
   onComplete,
 }: RunViewProps): ReactNode {
   const [phase, setPhase] = useState<'loading' | 'running' | 'completed'>(
@@ -374,6 +380,7 @@ export function RunView({
     const snapshot = await runner.runDatasetWith({
       datasetId: dataset.id,
       evaluatorIds: evaluators.map((item) => item.id),
+      concurrency,
     });
 
     setRunInfo({
@@ -408,7 +415,7 @@ export function RunView({
     });
     setPhase('completed');
     setTimeout(() => onComplete(), 200);
-  }, [runner, datasetName, evaluatorPattern, onComplete]);
+  }, [runner, datasetName, evaluatorPattern, concurrency, onComplete]);
 
   useEffect(() => {
     void runEval();
@@ -457,8 +464,12 @@ export function RunView({
           {runningEvaluations.length > 0 && (
             <Box flexDirection="column" marginTop={1}>
               {runningEvaluations.map((item) => (
-                <Text key={`${item.testCaseId}:${item.rerunIndex}`} color="yellow">
-                  [running {item.startedTestCases}/{item.totalTestCases}] {item.name}{' '}
+                <Text
+                  key={`${item.testCaseId}:${item.rerunIndex}`}
+                  color="yellow"
+                >
+                  [running {item.startedTestCases}/{item.totalTestCases}]{' '}
+                  {item.name}{' '}
                   <Text color="gray">
                     ({item.rerunIndex}/{item.rerunTotal})
                   </Text>
@@ -489,7 +500,9 @@ export function RunView({
                   </Text>
                 ) : null}
               </Text>
-              {tc.errorMessage ? <Text color="red">{tc.errorMessage}</Text> : null}
+              {tc.errorMessage ? (
+                <Text color="red">{tc.errorMessage}</Text>
+              ) : null}
               {tc.aggregatedEvaluatorScores.map((item) => (
                 <Box
                   key={item.evaluatorId}
@@ -539,7 +552,7 @@ export function RunView({
                       );
                     })
                   ) : (
-                    <Text color="gray">      n/a</Text>
+                    <Text color="gray"> n/a</Text>
                   )}
                   {!item.passed && item.logs && item.logs.length > 0 && (
                     <Box marginLeft={2} flexDirection="column">
@@ -626,9 +639,9 @@ export function RunView({
             <Text color="magenta">evaluator averages</Text>
             {Array.from(evaluatorNameById.entries()).map(([id, name]) => {
               const agg = summary.aggregates.get(id);
-              const scoreKeys = [...(summary.scoreItemsByEvaluatorScore?.keys() ?? [])].filter(
-                (k) => k.startsWith(`${id}:`),
-              );
+              const scoreKeys = [
+                ...(summary.scoreItemsByEvaluatorScore?.keys() ?? []),
+              ].filter((k) => k.startsWith(`${id}:`));
               if (scoreKeys.length === 0) {
                 return (
                   <Text key={id} color="gray">
@@ -665,9 +678,7 @@ export function RunView({
                       <Text
                         key={key}
                         color={
-                          numeric !== undefined
-                            ? scoreColor(numeric)
-                            : 'gray'
+                          numeric !== undefined ? scoreColor(numeric) : 'gray'
                         }
                       >
                         {'    '}

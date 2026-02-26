@@ -1,11 +1,11 @@
-import { diffString } from 'json-diff';
+import { diffLines } from 'diff';
+import stringify from 'fast-json-stable-stringify';
 
 /**
  * Options for customizing JSON diff output. Passed to logDiff, createDiffLogEntry, and printJsonDiff.
- * @see https://www.npmjs.com/package/json-diff
  */
 export interface JsonDiffOptions {
-  /** Include equal sections of the document, not just deltas */
+  /** Include equal sections of the document, not just deltas (always true with current implementation) */
   full?: boolean;
   /** Sort primitive values in arrays before comparing */
   sort?: boolean;
@@ -25,14 +25,130 @@ export interface JsonDiffOptions {
   maxElisions?: number;
 }
 
+function preprocessForDiff(value: unknown, options?: JsonDiffOptions): unknown {
+  if (options?.sort && Array.isArray(value)) {
+    return [...value]
+      .sort((a, b) => {
+        const aStr = stringify(preprocessForDiff(a, options));
+        const bStr = stringify(preprocessForDiff(b, options));
+        return aStr.localeCompare(bStr);
+      })
+      .map((item) => preprocessForDiff(item, options));
+  }
+  if (
+    value !== null &&
+    typeof value === 'object' &&
+    !Array.isArray(value) &&
+    options?.excludeKeys
+  ) {
+    const keys = Array.isArray(options.excludeKeys)
+      ? options.excludeKeys
+      : options.excludeKeys.split(',').map((k) => k.trim());
+    const filtered: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value)) {
+      if (!keys.includes(k)) {
+        filtered[k] = preprocessForDiff(v, options);
+      }
+    }
+    return filtered;
+  }
+  if (
+    value !== null &&
+    typeof value === 'object' &&
+    !Array.isArray(value)
+  ) {
+    const result: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value)) {
+      result[k] = preprocessForDiff(v, options);
+    }
+    return result;
+  }
+  if (typeof value === 'number' && options?.precision !== undefined) {
+    return Number(value.toFixed(options.precision));
+  }
+  return value;
+}
+
+function toPrettyJson(value: unknown): string {
+  const str = stringify(value);
+  try {
+    const parsed = JSON.parse(str) as unknown;
+    return JSON.stringify(parsed, null, 2);
+  } catch {
+    return str;
+  }
+}
+
+function formatDiffParts(
+  parts: Array<{ added?: boolean; removed?: boolean; value: string }>,
+): string {
+  const lines: string[] = [];
+  for (const part of parts) {
+    const prefix = part.added ? '+ ' : part.removed ? '- ' : '';
+    const partLines = part.value.split('\n');
+    for (let i = 0; i < partLines.length; i++) {
+      const line = partLines[i]!;
+      if (i === partLines.length - 1 && line === '') continue;
+      lines.push(prefix + line);
+    }
+  }
+  return lines.join('\n');
+}
+
 function createDiffString(
   expected: unknown,
   actual: unknown,
   diffOptions?: JsonDiffOptions,
 ): string {
-  const opts = { ...diffOptions, color: false };
-  const result = diffString(expected, actual, opts);
-  return typeof result === 'string' ? result : '';
+  const expectedProcessed = preprocessForDiff(expected, diffOptions);
+  const actualProcessed = preprocessForDiff(actual, diffOptions);
+
+  if (diffOptions?.keysOnly) {
+    const expectedKeys = JSON.stringify(
+      extractKeys(expectedProcessed),
+      null,
+      2,
+    );
+    const actualKeys = JSON.stringify(
+      extractKeys(actualProcessed),
+      null,
+      2,
+    );
+    const parts = diffLines(expectedKeys, actualKeys);
+    return formatDiffParts(parts);
+  }
+
+  const expectedStr = toPrettyJson(expectedProcessed);
+  const actualStr = toPrettyJson(actualProcessed);
+
+  if (expectedStr === actualStr) {
+    return '';
+  }
+
+  const parts = diffLines(expectedStr, actualStr);
+
+  if (diffOptions?.outputNewOnly) {
+    const filtered = parts.filter(
+      (p: { added?: boolean }) => p.added === true,
+    );
+    return formatDiffParts(filtered);
+  }
+
+  return formatDiffParts(parts);
+}
+
+function extractKeys(value: unknown): unknown {
+  if (value === null || typeof value !== 'object') {
+    return '·';
+  }
+  if (Array.isArray(value)) {
+    return value.map(extractKeys);
+  }
+  const result: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(value)) {
+    result[k] = extractKeys(v);
+  }
+  return result;
 }
 
 export interface DiffLogEntry {
@@ -123,7 +239,9 @@ export function getDiffString(entry: DiffLogEntry): string {
 /**
  * Returns lines from the diff, each with a type for color application.
  */
-export function getDiffLines(entry: DiffLogEntry): Array<{ type: 'add' | 'remove' | 'context'; line: string }> {
+export function getDiffLines(
+  entry: DiffLogEntry,
+): Array<{ type: 'add' | 'remove' | 'context'; line: string }> {
   const raw = entry.diff || '(no differences)';
   return raw.split('\n').map((line) => {
     const trimmed = line.trimStart();

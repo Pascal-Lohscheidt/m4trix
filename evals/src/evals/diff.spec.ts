@@ -6,7 +6,7 @@ import {
   printJsonDiff,
 } from './diff';
 
-describe('diff (json-diff)', () => {
+describe('diff', () => {
   test('object key reorder produces no differences', () => {
     const a = { x: 1, y: 2, z: 3 };
     const b = { z: 3, x: 1, y: 2 };

@@ -332,6 +332,7 @@ export async function runSimpleEvalCommandPlain(
   runner: RunnerApi,
   datasetName: string,
   evaluatorPattern: string,
+  concurrency: number,
 ): Promise<void> {
   const dataset = await runner.resolveDatasetByName(datasetName);
   if (!dataset) {
@@ -562,6 +563,7 @@ export async function runSimpleEvalCommandPlain(
   const snapshot = await runner.runDatasetWith({
     datasetId: dataset.id,
     evaluatorIds: evaluators.map((item) => item.id),
+    concurrency,
   });
   totalCount = snapshot.totalTestCases;
 
@@ -675,6 +677,7 @@ export async function runSimpleEvalCommandInk(
   runner: RunnerApi,
   datasetName: string,
   evaluatorPattern: string,
+  concurrency: number,
 ): Promise<void> {
   return new Promise<void>((resolve, reject) => {
     const app = render(
@@ -682,6 +685,7 @@ export async function runSimpleEvalCommandInk(
         runner,
         datasetName,
         evaluatorPattern,
+        concurrency,
         onComplete: (err: Error | undefined) => {
           app.unmount();
           if (err) {

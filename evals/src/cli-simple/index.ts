@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { createRunner } from '../runner';
-import { getSimpleCliUsage, parseSimpleCliArgs } from './args';
+import { getDefaultConcurrency, getSimpleCliUsage, parseSimpleCliArgs } from './args';
 import { printBanner } from './banner';
 import {
   generateDatasetJsonCommandInk,
@@ -49,10 +49,12 @@ async function main(): Promise<void> {
   const runner = createRunner();
   try {
     if (args.command === 'run') {
+      const concurrency = args.concurrency ?? getDefaultConcurrency();
       await (useInk ? runSimpleEvalCommandInk : runSimpleEvalCommandPlain)(
         runner,
         args.datasetName,
         args.evaluatorPattern!,
+        concurrency,
       );
       return;
     }
