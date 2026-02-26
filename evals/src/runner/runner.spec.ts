@@ -335,6 +335,76 @@ describe('runner discovery and execution', () => {
     expect(testCases).toHaveLength(2);
   });
 
+  test('runs test cases with reruns concurrently and aggregates pass/fail correctly', async () => {
+    const root = await createFixtureWorkspace('.mjs');
+    await writeFile(
+      join(root, 'one.test-case.mjs'),
+      [
+        "const firstValue = 10;",
+        "const firstExpected = 10;",
+        'export const firstCase = {',
+        "  getName: () => 'first',",
+        "  getTags: () => ['alpha'],",
+        '  getReruns: () => 3,',
+        '  getInputSchema: () => undefined,',
+        '  getInput: () => ({ value: firstValue }),',
+        '  getOutput: () => ({ expectedValue: firstExpected })',
+        '};',
+        '',
+      ].join('\n'),
+      'utf8',
+    );
+
+    const runner = createRunner({
+      discovery: {
+        rootDir: root,
+        datasetSuffixes: ['.dataset.mjs'],
+        evaluatorSuffixes: ['.evaluator.mjs'],
+        testCaseSuffixes: ['.test-case.mjs'],
+        excludeDirectories: [],
+      },
+      artifactDirectory: join(root, 'results'),
+    });
+    runners.push(runner);
+    workspaces.push(root);
+
+    const [dataset] = await runner.collectDatasets();
+    const [evaluator] = await runner.collectEvaluators();
+
+    const events: RunnerEvent[] = [];
+    const completed = new Promise<RunnerEvent>((resolve) => {
+      const unsubscribe = runner.subscribeRunEvents((event) => {
+        events.push(event);
+        if (event.type === 'RunCompleted') {
+          unsubscribe();
+          resolve(event);
+        }
+      });
+    });
+
+    await runner.runDatasetWith({
+      datasetId: dataset.id,
+      evaluatorIds: [evaluator.id],
+      concurrency: 4,
+    });
+
+    const done = await completed;
+
+    expect(done.type).toBe('RunCompleted');
+    const runCompleted = done as Extract<RunnerEvent, { type: 'RunCompleted' }>;
+    expect(runCompleted.totalTestCases).toBe(1);
+    expect(runCompleted.passedTestCases).toBe(1);
+    expect(runCompleted.failedTestCases).toBe(0);
+
+    const progressEvents = events.filter(
+      (e): e is Extract<RunnerEvent, { type: 'TestCaseProgress' }> =>
+        e.type === 'TestCaseProgress',
+    );
+    expect(progressEvents).toHaveLength(3);
+    expect(progressEvents.every((e) => e.rerunTotal === 3)).toBe(true);
+    expect(progressEvents.map((e) => e.rerunIndex).sort()).toEqual([1, 2, 3]);
+  });
+
   test('prefers createRunner overrides over m4trix-eval.config.ts', async () => {
     const root = await createFixtureWorkspace('.ts', {
       dataset: '.custom-dataset.ts',

@@ -84,6 +84,32 @@ export interface RunTask {
   maxConcurrency: number;
 }
 
+interface EvaluationUnit {
+  testCaseItem: CollectedTestCase;
+  rerunIndex: number;
+  rerunTotal: number;
+}
+
+function buildEvaluationUnits(
+  testCases: ReadonlyArray<CollectedTestCase>,
+): EvaluationUnit[] {
+  const units: EvaluationUnit[] = [];
+  for (const testCaseItem of testCases) {
+    const rerunTotal =
+      typeof testCaseItem.testCase.getReruns === 'function'
+        ? testCaseItem.testCase.getReruns()
+        : 1;
+    for (let r = 0; r < rerunTotal; r++) {
+      units.push({
+        testCaseItem,
+        rerunIndex: r + 1,
+        rerunTotal,
+      });
+    }
+  }
+  return units;
+}
+
 function nowIsoForFile(): string {
   return new Date().toISOString().replace(/[:.]/g, '-');
 }
@@ -99,200 +125,215 @@ export function createArtifactPath(
   );
 }
 
-function processOneTestCase(
+function processOneEvaluation(
   task: RunTask,
-  testCaseItem: CollectedTestCase,
+  unit: EvaluationUnit,
   totalEvaluations: number,
   publishEvent: (event: RunnerEvent) => Effect.Effect<void, never, never>,
   persistenceQueue: Queue.Queue<PersistenceMessage>,
   updateSnapshot: (
     runId: string,
     updater: (snapshot: RunSnapshot) => RunSnapshot,
-  ) => void,
+  ) => Effect.Effect<void, never, never>,
   startedRef: Ref.Ref<number>,
   completedRef: Ref.Ref<number>,
   passedRef: Ref.Ref<number>,
   failedRef: Ref.Ref<number>,
+  testCaseResultsRef: Ref.Ref<
+    Map<string, { completedCount: number; results: boolean[] }>
+  >,
 ): Effect.Effect<void, never, never> {
+  const { testCaseItem, rerunIndex, rerunTotal } = unit;
   return Effect.gen(function* () {
-    const reruns =
-      typeof testCaseItem.testCase.getReruns === 'function'
-        ? testCaseItem.testCase.getReruns()
-        : 1;
-    const rerunPassed: boolean[] = [];
+    const evaluatorRunId = `run-${randomUUID()}`;
+    const started = Date.now();
+    const startedEvaluations = yield* Ref.modify(startedRef, (n) => [
+      n + 1,
+      n + 1,
+    ]);
+    yield* publishEvent({
+      type: 'TestCaseStarted',
+      runId: task.runId,
+      testCaseId: testCaseItem.id,
+      testCaseName: testCaseItem.testCase.getName(),
+      startedTestCases: startedEvaluations,
+      totalTestCases: totalEvaluations,
+      rerunIndex,
+      rerunTotal,
+    });
+    const evaluatorScores: Array<{
+      evaluatorId: string;
+      scores: ReadonlyArray<ScoreItem>;
+      passed: boolean;
+      metrics?: ReadonlyArray<MetricItem>;
+      logs?: ReadonlyArray<EvaluatorLogEntry>;
+    }> = [];
+    let testCaseError: string | undefined;
+    const output = readOutput(testCaseItem.testCase);
 
-    for (let r = 0; r < reruns; r++) {
-      const evaluatorRunId = `run-${randomUUID()}`;
-      const started = Date.now();
-      const startedEvaluations = yield* Ref.modify(startedRef, (n) => [
-        n + 1,
-        n + 1,
-      ]);
-      yield* publishEvent({
-        type: 'TestCaseStarted',
-        runId: task.runId,
-        testCaseId: testCaseItem.id,
-        testCaseName: testCaseItem.testCase.getName(),
-        startedTestCases: startedEvaluations,
-        totalTestCases: totalEvaluations,
-        rerunIndex: r + 1,
-        rerunTotal: reruns,
-      });
-      const evaluatorScores: Array<{
-        evaluatorId: string;
-        scores: ReadonlyArray<ScoreItem>;
-        passed: boolean;
-        metrics?: ReadonlyArray<MetricItem>;
-        logs?: ReadonlyArray<EvaluatorLogEntry>;
-      }> = [];
-      let testCaseError: string | undefined;
-      const output = readOutput(testCaseItem.testCase);
+    for (const { id: evaluatorId, evaluator } of task.evaluators) {
+      const evaluateFn = evaluator.getEvaluateFn();
+      if (!evaluateFn) {
+        continue;
+      }
 
-      for (const { id: evaluatorId, evaluator } of task.evaluators) {
-        const evaluateFn = evaluator.getEvaluateFn();
-        if (!evaluateFn) {
-          continue;
-        }
+      const logs: EvaluatorLogEntry[] = [];
+      const logDiff = (
+        expected: unknown,
+        actual: unknown,
+        options?: CreateDiffLogEntryOptions,
+      ) => {
+        logs.push(createDiffLogEntry(expected, actual, options));
+      };
+      const log = (message: unknown, options?: { label?: string }) => {
+        logs.push(createLogEntry(message, options));
+      };
+      const createError = (
+        message: unknown,
+        options?: { label?: string },
+      ): Error => {
+        const entry = createLogEntry(message, options);
+        const error =
+          message instanceof Error ? message : new Error(entry.message);
+        (
+          error as EvaluatorCreatedError
+        )[evaluatorErrorLogEntryKey] = entry;
+        return error;
+      };
 
-        const logs: EvaluatorLogEntry[] = [];
-        const logDiff = (
-          expected: unknown,
-          actual: unknown,
-          options?: CreateDiffLogEntryOptions,
-        ) => {
-          logs.push(createDiffLogEntry(expected, actual, options));
-        };
-        const log = (message: unknown, options?: { label?: string }) => {
-          logs.push(createLogEntry(message, options));
-        };
-        const createError = (
-          message: unknown,
-          options?: { label?: string },
-        ): Error => {
-          const entry = createLogEntry(message, options);
-          const error =
-            message instanceof Error ? message : new Error(entry.message);
-          (
-            error as EvaluatorCreatedError
-          )[evaluatorErrorLogEntryKey] = entry;
-          return error;
-        };
-
-        try {
-          const ctx = yield* Effect.promise(() =>
-            Promise.resolve(evaluator.resolveContext()),
-          );
-          const result = yield* Effect.promise(() =>
-            Promise.resolve().then(() =>
-              evaluateFn({
-                input: testCaseItem.testCase.getInput(),
-                ctx,
-                output,
-                meta: {
-                  triggerId: task.triggerId,
-                  runId: evaluatorRunId,
-                  datasetId: task.datasetId,
-                },
-                logDiff,
-                log,
-                createError,
-              }),
-            ),
-          );
-          if (result instanceof Error) {
-            const evaluatorError = result as EvaluatorCreatedError;
-            const taggedEntry = evaluatorError[evaluatorErrorLogEntryKey];
-            logs.push(taggedEntry ?? createLogEntry(result));
-            testCaseError = result.message;
-            evaluatorScores.push({
-              evaluatorId,
-              scores: [],
-              passed: false,
-              logs: logs.length > 0 ? logs : undefined,
-            });
-            continue;
-          }
-          const { scores, metrics } = normalizeResult(result);
-          const passed = computeEvaluatorPassed(evaluator, result, scores);
-          evaluatorScores.push({
-            evaluatorId,
-            scores,
-            passed,
-            metrics,
-            logs: logs.length > 0 ? logs : undefined,
-          });
-        } catch (error) {
-          if (error instanceof Error) {
-            const taggedEntry = (error as EvaluatorCreatedError)[
-              evaluatorErrorLogEntryKey
-            ];
-            logs.push(taggedEntry ?? createLogEntry(error));
-          }
-          testCaseError =
-            error instanceof Error
-              ? error.message
-              : 'Evaluator execution failed';
+      try {
+        const ctx = yield* Effect.promise(() =>
+          Promise.resolve(evaluator.resolveContext()),
+        );
+        const result = yield* Effect.promise(() =>
+          Promise.resolve().then(() =>
+            evaluateFn({
+              input: testCaseItem.testCase.getInput(),
+              ctx,
+              output,
+              meta: {
+                triggerId: task.triggerId,
+                runId: evaluatorRunId,
+                datasetId: task.datasetId,
+              },
+              logDiff,
+              log,
+              createError,
+            }),
+          ),
+        );
+        if (result instanceof Error) {
+          const evaluatorError = result as EvaluatorCreatedError;
+          const taggedEntry = evaluatorError[evaluatorErrorLogEntryKey];
+          logs.push(taggedEntry ?? createLogEntry(result));
+          testCaseError = result.message;
           evaluatorScores.push({
             evaluatorId,
             scores: [],
             passed: false,
             logs: logs.length > 0 ? logs : undefined,
           });
+          continue;
         }
+        const { scores, metrics } = normalizeResult(result);
+        const passed = computeEvaluatorPassed(evaluator, result, scores);
+        evaluatorScores.push({
+          evaluatorId,
+          scores,
+          passed,
+          metrics,
+          logs: logs.length > 0 ? logs : undefined,
+        });
+      } catch (error) {
+        if (error instanceof Error) {
+          const taggedEntry = (error as EvaluatorCreatedError)[
+            evaluatorErrorLogEntryKey
+          ];
+          logs.push(taggedEntry ?? createLogEntry(error));
+        }
+        testCaseError =
+          error instanceof Error
+            ? error.message
+            : 'Evaluator execution failed';
+        evaluatorScores.push({
+          evaluatorId,
+          scores: [],
+          passed: false,
+          logs: logs.length > 0 ? logs : undefined,
+        });
       }
-
-      const rerunPassedThis = evaluatorScores.every((s) => s.passed);
-      rerunPassed.push(rerunPassedThis);
-      const completedEvaluations = yield* Ref.modify(completedRef, (n) => [
-        n + 1,
-        n + 1,
-      ]);
-
-      const progressEvent: RunnerEvent = {
-        type: 'TestCaseProgress',
-        runId: task.runId,
-        testCaseId: testCaseItem.id,
-        testCaseName: testCaseItem.testCase.getName(),
-        completedTestCases: completedEvaluations,
-        totalTestCases: totalEvaluations,
-        rerunIndex: r + 1,
-        rerunTotal: reruns,
-        passed: rerunPassedThis,
-        durationMs: Date.now() - started,
-        evaluatorScores,
-        output,
-        errorMessage: testCaseError,
-      };
-
-      updateSnapshot(task.runId, (snapshot) => ({
-        ...snapshot,
-        completedTestCases: completedEvaluations,
-      }));
-
-      yield* publishEvent(progressEvent);
-      yield* Queue.offer(persistenceQueue, {
-        runId: task.runId,
-        artifactPath: task.snapshot.artifactPath,
-        payload: progressEvent,
-      });
     }
 
-    const testCasePassed = rerunPassed.every(Boolean);
-    if (testCasePassed) {
-      yield* Ref.update(passedRef, (n) => n + 1);
-    } else {
-      yield* Ref.update(failedRef, (n) => n + 1);
-    }
-
-    const [passed, failed] = yield* Effect.all([
-      Ref.get(passedRef),
-      Ref.get(failedRef),
+    const rerunPassedThis = evaluatorScores.every((s) => s.passed);
+    const completedEvaluations = yield* Ref.modify(completedRef, (n) => [
+      n + 1,
+      n + 1,
     ]);
-    updateSnapshot(task.runId, (snapshot) => ({
+
+    const progressEvent: RunnerEvent = {
+      type: 'TestCaseProgress',
+      runId: task.runId,
+      testCaseId: testCaseItem.id,
+      testCaseName: testCaseItem.testCase.getName(),
+      completedTestCases: completedEvaluations,
+      totalTestCases: totalEvaluations,
+      rerunIndex,
+      rerunTotal,
+      passed: rerunPassedThis,
+      durationMs: Date.now() - started,
+      evaluatorScores,
+      output,
+      errorMessage: testCaseError,
+    };
+
+    yield* updateSnapshot(task.runId, (snapshot) => ({
       ...snapshot,
-      passedTestCases: passed,
-      failedTestCases: failed,
+      completedTestCases: completedEvaluations,
     }));
+
+    yield* publishEvent(progressEvent);
+    yield* Queue.offer(persistenceQueue, {
+      runId: task.runId,
+      artifactPath: task.snapshot.artifactPath,
+      payload: progressEvent,
+    });
+
+    const testCaseCompleted = yield* Ref.modify(
+      testCaseResultsRef,
+      (map): [boolean | null, Map<string, { completedCount: number; results: boolean[] }>] => {
+        const key = testCaseItem.id;
+        const existing = map.get(key) ?? { completedCount: 0, results: [] };
+        const newResults = [...existing.results, rerunPassedThis];
+        const newCompletedCount = existing.completedCount + 1;
+        const isLast = newCompletedCount === rerunTotal;
+        const newMap = new Map(map);
+        newMap.set(key, {
+          completedCount: newCompletedCount,
+          results: newResults,
+        });
+        const outcome: boolean | null = isLast
+          ? newResults.every(Boolean)
+          : null;
+        return [outcome, newMap];
+      },
+    );
+
+    if (testCaseCompleted !== null) {
+      if (testCaseCompleted) {
+        yield* Ref.update(passedRef, (n) => n + 1);
+      } else {
+        yield* Ref.update(failedRef, (n) => n + 1);
+      }
+      const [passed, failed] = yield* Effect.all([
+        Ref.get(passedRef),
+        Ref.get(failedRef),
+      ]);
+      yield* updateSnapshot(task.runId, (snapshot) => ({
+        ...snapshot,
+        passedTestCases: passed,
+        failedTestCases: failed,
+      }));
+    }
   });
 }
 
@@ -303,11 +344,11 @@ export const executeRunTask = (
   updateSnapshot: (
     runId: string,
     updater: (snapshot: RunSnapshot) => RunSnapshot,
-  ) => void,
+  ) => Effect.Effect<void, never, never>,
 ): Effect.Effect<void, never, never> =>
   Effect.gen(function* () {
     const startedAt = Date.now();
-    updateSnapshot(task.runId, (snapshot) => ({
+    yield* updateSnapshot(task.runId, (snapshot) => ({
       ...snapshot,
       status: 'running',
       startedAt,
@@ -332,11 +373,16 @@ export const executeRunTask = (
     const startedRef = yield* Ref.make(0);
     const passedRef = yield* Ref.make(0);
     const failedRef = yield* Ref.make(0);
+    const testCaseResultsRef = yield* Ref.make(
+      new Map<string, { completedCount: number; results: boolean[] }>(),
+    );
 
-    const processTestCase = (testCaseItem: CollectedTestCase) =>
-      processOneTestCase(
+    const evaluationUnits = buildEvaluationUnits(task.testCases);
+
+    const processEvaluation = (unit: EvaluationUnit) =>
+      processOneEvaluation(
         task,
-        testCaseItem,
+        unit,
         totalEvaluations,
         publishEvent,
         persistenceQueue,
@@ -345,11 +391,12 @@ export const executeRunTask = (
         completedRef,
         passedRef,
         failedRef,
+        testCaseResultsRef,
       );
 
     yield* Effect.forEach(
-      task.testCases,
-      processTestCase,
+      evaluationUnits,
+      processEvaluation,
       maxConcurrency > 1 ? { concurrency: maxConcurrency } : undefined,
     );
 
@@ -371,7 +418,7 @@ export const executeRunTask = (
       artifactPath: task.snapshot.artifactPath,
     };
 
-    updateSnapshot(task.runId, (snapshot) => ({
+    yield* updateSnapshot(task.runId, (snapshot) => ({
       ...snapshot,
       status: 'completed',
       completedTestCases: completedEvaluations,

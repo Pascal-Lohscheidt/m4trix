@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-import { Effect, Fiber, PubSub, Queue } from 'effect';
+import { Effect, Fiber, PubSub, Queue, Ref } from 'effect';
 
 import type { RunnerConfig, RunnerConfigOverrides } from './config';
 import { withRunnerConfig } from './config';
@@ -129,7 +129,9 @@ class EffectRunner implements RunnerApi {
     }>(),
   );
 
-  private readonly snapshots = new Map<string, RunSnapshot>();
+  private readonly snapshotsRef = Effect.runSync(
+    Ref.make(new Map<string, RunSnapshot>()),
+  );
   private readonly listeners = new Set<{
     runId?: string;
     listener: (event: RunnerEvent) => void;
@@ -268,7 +270,13 @@ class EffectRunner implements RunnerApi {
       artifactPath,
     };
 
-    this.snapshots.set(runId, snapshot);
+    await Effect.runPromise(
+      Ref.update(this.snapshotsRef, (map) => {
+        const next = new Map(map);
+        next.set(runId, snapshot);
+        return next;
+      }),
+    );
     const queuedEvent: RunnerEvent = {
       type: 'RunQueued',
       runId,
@@ -318,13 +326,13 @@ class EffectRunner implements RunnerApi {
   }
 
   getRunSnapshot(runId: string): RunSnapshot | undefined {
-    return this.snapshots.get(runId);
+    return Effect.runSync(Ref.get(this.snapshotsRef)).get(runId);
   }
 
   getAllRunSnapshots(): ReadonlyArray<RunSnapshot> {
-    return Array.from(this.snapshots.values()).sort(
-      (a, b) => b.queuedAt - a.queuedAt,
-    );
+    return Array.from(
+      Effect.runSync(Ref.get(this.snapshotsRef)).values(),
+    ).sort((a, b) => b.queuedAt - a.queuedAt);
   }
 
   async loadRunSnapshotsFromArtifacts(): Promise<ReadonlyArray<RunSnapshot>> {
@@ -359,12 +367,16 @@ class EffectRunner implements RunnerApi {
   private updateSnapshot(
     runId: string,
     updater: (snapshot: RunSnapshot) => RunSnapshot,
-  ): void {
-    const existing = this.snapshots.get(runId);
-    if (!existing) {
-      return;
-    }
-    this.snapshots.set(runId, updater(existing));
+  ): Effect.Effect<void, never, never> {
+    return Ref.modify(this.snapshotsRef, (map) => {
+      const existing = map.get(runId);
+      if (!existing) {
+        return [undefined, map] as const;
+      }
+      const next = new Map(map);
+      next.set(runId, updater(existing));
+      return [undefined, next] as const;
+    }).pipe(Effect.asVoid);
   }
 
   private publishEvent(event: RunnerEvent): Effect.Effect<void, never, never> {
