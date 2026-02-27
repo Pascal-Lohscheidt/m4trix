@@ -1,6 +1,12 @@
 import { describe, expect, expectTypeOf, test } from 'vitest';
 import { Effect, Schema as S } from 'effect';
-import { LayerName, Skill, DepedencyLayer, type SkillInstance } from './skill';
+import {
+  LayerName,
+  Skill,
+  DepedencyLayer,
+  Done,
+  type SkillInstance,
+} from './skill';
 
 describe('LayerName', () => {
   test('accepts valid camelCase strings', () => {
@@ -112,7 +118,9 @@ describe('Skill', () => {
       results.push(item);
     }
 
-    expect(results).toEqual([1, 2, { _tag: 'Done', done: { sum: 13 } }]);
+    expect(results).toEqual([1, 2, Done.of({ sum: 13 })]);
+    expect(Done.is(results[2])).toBe(true);
+    expect(Done.is(results[0])).toBe(false);
   });
 
   test('use accepts single layer', async () => {

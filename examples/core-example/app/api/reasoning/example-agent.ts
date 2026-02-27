@@ -1,11 +1,15 @@
 import { AgentFactory } from '@m4trix/core';
 import OpenAI from 'openai';
-import { MessageEvent, MessageStreamChunkEvent } from './events';
+import {
+  MessageEvent,
+  MessageStreamChunkEvent,
+  ReasoningForProblemReuqested,
+} from './events';
 import { filter, from, lastValueFrom, map, reduce, take, tap } from 'rxjs';
 
 export const exampleAgent = AgentFactory.run()
   .listensTo([MessageEvent])
-  .emits([MessageStreamChunkEvent, MessageEvent])
+  .emits([MessageStreamChunkEvent, MessageEvent, ReasoningForProblemReuqested])
   .logic(async ({ triggerEvent, emit, contextEvents }) => {
     if (!MessageEvent.is(triggerEvent)) {
       return;
@@ -50,6 +54,12 @@ export const exampleAgent = AgentFactory.run()
         reduce((acc, event) => acc + event.payload.chunk, ''),
         take(1),
       ),
+    );
+
+    emit(
+      ReasoningForProblemReuqested.make({
+        problemToSolve: 'Why is the sky blue?',
+      }),
     );
 
     emit(

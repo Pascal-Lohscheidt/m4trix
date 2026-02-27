@@ -42,6 +42,7 @@ type ReservedConfigError =
 /** Definition of a single skill dependency with a branded name and config schema */
 export type DepedencyLayerDef<
   N extends string,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   _DepType,
   ConfigSchema extends S.Schema.Any,
 > = {
@@ -79,14 +80,20 @@ export type LayersFromDeps<
   ? Record<string, never>
   : UnionToIntersection<DependenciesToLayers<T>>;
 
+type DepedencyLayerBuilder<
+  N extends string,
+  ConfigSchema extends S.Schema.Any,
+> = DepedencyLayerDef<N, object, ConfigSchema> & {
+  define<_DepType>(): 'config' extends keyof _DepType
+    ? ReservedConfigError
+    : DepedencyLayerDef<N, _DepType, ConfigSchema>;
+};
+
 export const DepedencyLayer = {
-  of<const N extends string, ConfigSchema extends S.Schema.Any>(
-    def: { name: N; config: ConfigSchema },
-  ): DepedencyLayerDef<N, object, ConfigSchema> & {
-    define<_DepType>(): 'config' extends keyof _DepType
-      ? ReservedConfigError
-      : DepedencyLayerDef<N, _DepType, ConfigSchema>;
-  } {
+  of<const N extends string, ConfigSchema extends S.Schema.Any>(def: {
+    name: N;
+    config: ConfigSchema;
+  }): DepedencyLayerBuilder<N, ConfigSchema> {
     const name = LayerName(def.name as string);
     const decodeConfig = S.decodeUnknown(def.config);
     const dep = {
@@ -97,11 +104,10 @@ export const DepedencyLayer = {
       decodeConfig: decodeConfig as (
         u: unknown,
       ) => Effect.Effect<S.Schema.Type<ConfigSchema>, ParseError>,
-      define<_DepType>() {
-        return dep as any;
-      },
     };
-    return dep;
+    return Object.assign(dep, {
+      define: () => dep,
+    }) as unknown as DepedencyLayerBuilder<N, ConfigSchema>;
   },
 };
 
@@ -129,6 +135,30 @@ function assertUniqueLayerNames<
   }
 }
 
+/** Unique brand symbol for Done, following Effect's branded-type pattern */
+const DoneTypeId: unique symbol = Symbol.for('sunken-trove/Done');
+type DoneTypeId = typeof DoneTypeId;
+
+export interface Done<A> {
+  readonly [DoneTypeId]: DoneTypeId;
+  readonly _tag: 'Done';
+  readonly done: A;
+}
+
+export const Done = {
+  of<A>(value: A): Done<A> {
+    return { [DoneTypeId]: DoneTypeId, _tag: 'Done' as const, done: value };
+  },
+  is(u: unknown): u is Done<unknown> {
+    return (
+      typeof u === 'object' &&
+      u !== null &&
+      DoneTypeId in u &&
+      (u as Record<PropertyKey, unknown>)[DoneTypeId] === DoneTypeId
+    );
+  },
+};
+
 /** Minimal runtime options placeholder (logger, trace, etc. can be extended later) */
 export type SkillRuntimeOptions = Record<string, unknown>;
 
@@ -149,7 +179,7 @@ export type SkillInstance<TInput, TChunk, TDone, TLayers> = {
   invokeStream: (
     input: TInput,
     runtime?: { layers: TLayers } & SkillRuntimeOptions,
-  ) => AsyncIterable<TChunk | { _tag: 'Done'; done: TDone }>;
+  ) => AsyncIterable<TChunk | Done<TDone>>;
   /** Input is decoded to TInput before being passed to the skill logic */
   invoke: (
     input: TInput,
@@ -319,11 +349,7 @@ export class Skill<
       invokeStream: async function* (
         input: unknown,
         runtime?: { layers: LayersFromDeps<TDeps> } & SkillRuntimeOptions,
-      ): AsyncGenerator<
-        TChunk | { _tag: 'Done'; done: TDone },
-        void,
-        undefined
-      > {
+      ): AsyncGenerator<TChunk | Done<TDone>, void, undefined> {
         const decodedInput = Effect.runSync(
           decodeInput(input) as Effect.Effect<TInput, ParseError>,
         );
@@ -346,7 +372,7 @@ export class Skill<
         for (const c of chunks) {
           yield c;
         }
-        yield { _tag: 'Done' as const, done: decodedDone };
+        yield Done.of(decodedDone);
       },
       invoke: async (
         input: unknown,
