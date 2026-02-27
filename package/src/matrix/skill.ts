@@ -35,19 +35,35 @@ export const LayerName = Brand.refined<LayerName>(
     Brand.error(`Expected camelCase (e.g. myLayerFoo), got: ${s}`),
 );
 
-/** Definition of a single skill dependency with a branded name and schema shape */
-export type DepedencyLayerDef<N extends string, PS extends S.Schema.Any> = {
+/** Error type when DepType contains reserved 'config' - produces explicit type error */
+type ReservedConfigError =
+  "DepType must not contain 'config' - it is reserved by the layer";
+
+/** Definition of a single skill dependency with a branded name and config schema */
+export type DepedencyLayerDef<
+  N extends string,
+  _DepType,
+  ConfigSchema extends S.Schema.Any,
+> = {
   readonly _tag: 'SkillDependencyDef';
   readonly name: LayerName;
   readonly _name: N;
-  readonly shape: PS;
-  readonly decode: (u: unknown) => Effect.Effect<S.Schema.Type<PS>, ParseError>;
+  readonly config: ConfigSchema;
+  readonly decodeConfig: (
+    u: unknown,
+  ) => Effect.Effect<S.Schema.Type<ConfigSchema>, ParseError>;
 };
+
+/** Layer value: DepType spread plus config (config is decoded from schema) */
+type LayerValue<DepType, ConfigSchema extends S.Schema.Any> = Omit<
+  DepType,
+  'config'
+> & { config: S.Schema.Type<ConfigSchema> };
 
 /** Build layers object type from a tuple of dependency definitions */
 type DependenciesToLayers<T> =
-  T extends DepedencyLayerDef<infer N, infer PS>
-    ? { [K in N]: S.Schema.Type<PS> }
+  T extends DepedencyLayerDef<infer N, infer DepType, infer ConfigSchema>
+    ? { [K in N]: LayerValue<DepType, ConfigSchema> }
     : never;
 
 type UnionToIntersection<U> = (
@@ -57,34 +73,42 @@ type UnionToIntersection<U> = (
   : never;
 
 /** Build layers object from union of dependency types */
-export type LayersFromDeps<T extends DepedencyLayerDef<string, S.Schema.Any>> =
-  [T] extends [never]
-    ? Record<string, never>
-    : UnionToIntersection<DependenciesToLayers<T>>;
+export type LayersFromDeps<
+  T extends DepedencyLayerDef<string, unknown, S.Schema.Any>,
+> = [T] extends [never]
+  ? Record<string, never>
+  : UnionToIntersection<DependenciesToLayers<T>>;
 
 export const DepedencyLayer = {
-  of<const N extends string, PS extends S.Schema.Any>(config: {
-    name: N;
-    shape: PS;
-  }): DepedencyLayerDef<N, PS> {
-    const name = LayerName(config.name as string);
-    const decode = S.decodeUnknown(config.shape);
-    return {
+  of<const N extends string, ConfigSchema extends S.Schema.Any>(
+    def: { name: N; config: ConfigSchema },
+  ): DepedencyLayerDef<N, object, ConfigSchema> & {
+    define<_DepType>(): 'config' extends keyof _DepType
+      ? ReservedConfigError
+      : DepedencyLayerDef<N, _DepType, ConfigSchema>;
+  } {
+    const name = LayerName(def.name as string);
+    const decodeConfig = S.decodeUnknown(def.config);
+    const dep = {
       _tag: 'SkillDependencyDef' as const,
       name,
-      _name: config.name,
-      shape: config.shape,
-      decode: decode as (
+      _name: def.name,
+      config: def.config,
+      decodeConfig: decodeConfig as (
         u: unknown,
-      ) => Effect.Effect<S.Schema.Type<PS>, ParseError>,
+      ) => Effect.Effect<S.Schema.Type<ConfigSchema>, ParseError>,
+      define<_DepType>() {
+        return dep as any;
+      },
     };
+    return dep;
   },
 };
 
 /** Normalize single or array of layers to readonly array */
-function toLayerArray<D extends DepedencyLayerDef<string, S.Schema.Any>>(
-  layers: [D, ...D[]] | [ReadonlyArray<D>],
-): ReadonlyArray<D> {
+function toLayerArray<
+  D extends DepedencyLayerDef<string, unknown, S.Schema.Any>,
+>(layers: [D, ...D[]] | [ReadonlyArray<D>]): ReadonlyArray<D> {
   if (layers.length === 1 && Array.isArray(layers[0])) {
     return layers[0];
   }
@@ -93,7 +117,7 @@ function toLayerArray<D extends DepedencyLayerDef<string, S.Schema.Any>>(
 
 /** Check for duplicate layer names and throw if found */
 function assertUniqueLayerNames<
-  D extends DepedencyLayerDef<string, S.Schema.Any>,
+  D extends DepedencyLayerDef<string, unknown, S.Schema.Any>,
 >(layers: ReadonlyArray<D>): void {
   const seen = new Set<string>();
   for (const dep of layers) {
@@ -137,7 +161,7 @@ type ConstructorParams<
   TInput,
   TChunk,
   TDone,
-  TDeps extends DepedencyLayerDef<string, S.Schema.Any>,
+  TDeps extends DepedencyLayerDef<string, unknown, S.Schema.Any>,
 > = {
   inputSchema?: S.Schema<TInput>;
   chunkSchema?: S.Schema<TChunk>;
@@ -150,12 +174,14 @@ export class Skill<
   TInput = unknown,
   TChunk = unknown,
   TDone = unknown,
-  TDeps extends DepedencyLayerDef<string, S.Schema.Any> = never,
+  TDeps extends DepedencyLayerDef<string, unknown, S.Schema.Any> = never,
 > {
   private _inputSchema: S.Schema<TInput> | undefined;
   private _chunkSchema: S.Schema<TChunk> | undefined;
   private _doneSchema: S.Schema<TDone> | undefined;
-  private _layers: ReadonlyArray<DepedencyLayerDef<string, S.Schema.Any>>;
+  private _layers: ReadonlyArray<
+    DepedencyLayerDef<string, unknown, S.Schema.Any>
+  >;
   private _defineFn:
     | DefineFn<TInput, TChunk, TDone, LayersFromDeps<TDeps>>
     | undefined;
@@ -165,7 +191,7 @@ export class Skill<
     this._chunkSchema = params.chunkSchema;
     this._doneSchema = params.doneSchema;
     this._layers = params.layers as ReadonlyArray<
-      DepedencyLayerDef<string, S.Schema.Any>
+      DepedencyLayerDef<string, unknown, S.Schema.Any>
     >;
     this._defineFn = params.defineFn;
   }
@@ -230,7 +256,7 @@ export class Skill<
     });
   }
 
-  dependsOn<D extends DepedencyLayerDef<string, S.Schema.Any>>(
+  dependsOn<D extends DepedencyLayerDef<string, unknown, S.Schema.Any>>(
     ...layers: [D, ...D[]] | [ReadonlyArray<D>]
   ): Skill<TInput, TChunk, TDone, TDeps | D> {
     const normalized = toLayerArray(layers);

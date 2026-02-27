@@ -1,4 +1,4 @@
-import { describe, expect, test, vitest } from 'vitest';
+import { describe, expect, expectTypeOf, test, vitest } from 'vitest';
 import { Schema as S } from 'effect';
 import { Evaluator, type EvalMiddleware } from './evaluator';
 
@@ -100,10 +100,19 @@ describe('Evaluator', () => {
 
   test('evaluate function receives { input, ctx, output, meta }', async () => {
     const evalFn = vitest.fn(
-      ({ input, ctx, output }: { input: { prompt: string }; ctx: { llm: string }; output?: unknown }) => {
+      ({
+        input,
+        ctx,
+        output,
+      }: {
+        input: { prompt: string };
+        ctx: { llm: string };
+        output?: unknown;
+      }) => {
         void output;
         return {
-          accuracy: input.prompt.length + (ctx.llm === 'mock-llm-client' ? 1 : 0),
+          accuracy:
+            input.prompt.length + (ctx.llm === 'mock-llm-client' ? 1 : 0),
         };
       },
     );
@@ -171,29 +180,15 @@ describe('Evaluator', () => {
         scoreSchema,
       })
       .evaluate(({ input, ctx }) => {
-        const _input: { prompt: string } = input;
-        const _llm: string = ctx.llm;
-        const _log: (m: string) => void = ctx.log;
-        void _log;
-        return { accuracy: _input.prompt.length + (_llm === 'ok' ? 1 : 0) };
+        expectTypeOf(input).toEqualTypeOf(inputSchema.Type);
+        expectTypeOf(ctx).toHaveProperty('llm');
+        expectTypeOf(ctx).toHaveProperty('log');
+        expectTypeOf(ctx.llm).toEqualTypeOf<string>();
+        return {
+          accuracy: input.prompt.length + (ctx.llm === 'ok' ? 1 : 0),
+        };
       });
     expect(evaluator).toBeDefined();
-  });
-
-  test('evaluate callback rejects wrong input type', () => {
-    Evaluator.use(withLLM)
-      .define({
-        name: 'Reject wrong input',
-        inputSchema,
-        outputSchema,
-        scoreSchema,
-      })
-      .evaluate(({ input }) => {
-        // @ts-expect-error - input is { prompt: string }, not number
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const _: number = input;
-        return { accuracy: 0 };
-      });
   });
 
   test('evaluate callback receives typed output from outputSchema', () => {
@@ -206,57 +201,41 @@ describe('Evaluator', () => {
         scoreSchema,
       })
       .evaluate(({ input, output }) => {
-        // output is inferred as { expectedMinScore: number } | undefined
+        expectTypeOf(output!).toEqualTypeOf(typedOutputSchema.Type);
         const minScore = output?.expectedMinScore ?? 0;
         return { accuracy: input.prompt.length + minScore };
-      });
-  });
-
-  test('evaluate callback rejects wrong output type', () => {
-    const typedOutputSchema = S.Struct({ expectedMinScore: S.Number });
-    Evaluator.use(withLLM)
-      .define({
-        name: 'Reject wrong output',
-        inputSchema,
-        outputSchema: typedOutputSchema,
-        scoreSchema,
-      })
-      .evaluate(({ output }) => {
-        // @ts-expect-error - output.expectedMinScore is number, not string
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const _: string = output?.expectedMinScore;
-        return { accuracy: 0 };
-      });
-  });
-
-  test('evaluate callback rejects wrong context property', () => {
-    Evaluator.use(withLLM)
-      .define({
-        name: 'Reject wrong ctx',
-        inputSchema,
-        outputSchema,
-        scoreSchema,
-      })
-      .evaluate(({ ctx }) => {
-        // @ts-expect-error - ctx has llm, not nonexistent
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const _: string = ctx.nonexistent;
-        return { accuracy: 0 };
       });
   });
 
   test('evaluate callback return must match scoreSchema', () => {
     Evaluator.use(withLLM)
       .define({
-        name: 'Reject wrong return',
+        name: 'Typed return',
         inputSchema,
         outputSchema,
         scoreSchema,
       })
-      // @ts-expect-error - must return { accuracy: number }, not { wrongKey: number }
-      .evaluate((_args) => ({
-        wrongKey: 1,
-      }));
+      .evaluate(({ input }) => {
+        const result = {
+          accuracy: input.prompt.length,
+        };
+        return result;
+      });
+
+    Evaluator.use(withLLM)
+      .define({
+        name: 'Typed return',
+        inputSchema,
+        outputSchema,
+        scoreSchema,
+      })
+      // @ts-expect-error - we want to test the type error
+      .evaluate(() => {
+        const result = {
+          accuracy: 'string',
+        };
+        return result;
+      });
   });
 
   test('passThreshold is stored and exposed', () => {

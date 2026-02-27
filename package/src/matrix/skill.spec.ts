@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'vitest';
+import { describe, expect, expectTypeOf, test } from 'vitest';
 import { Effect, Schema as S } from 'effect';
 import { LayerName, Skill, DepedencyLayer, type SkillInstance } from './skill';
 
@@ -18,35 +18,48 @@ describe('LayerName', () => {
 });
 
 describe('SkillDependency', () => {
-  test('creates a dependency with name and shape', () => {
+  test('creates a dependency with name and config', () => {
     const dep = DepedencyLayer.of({
       name: 'myLayerFoo',
-      shape: S.Struct({ foo: S.String }),
+      config: S.Struct({ foo: S.String }),
     });
 
     expect(dep._tag).toBe('SkillDependencyDef');
     expect(dep._name).toBe('myLayerFoo');
-    expect(dep.shape).toBeDefined();
+    expect(dep.config).toBeDefined();
   });
 
-  test('decode validates and returns typed value', () => {
+  test('decodeConfig validates and returns typed value', () => {
     const dep = DepedencyLayer.of({
       name: 'myLayerFoo',
-      shape: S.Struct({ foo: S.String }),
+      config: S.Struct({ foo: S.String }),
     });
 
-    const result = Effect.runSync(dep.decode({ foo: 'bar' }));
+    const result = Effect.runSync(dep.decodeConfig({ foo: 'bar' }));
     expect(result).toEqual({ foo: 'bar' });
   });
 
-  test('decode throws on invalid input', () => {
+  test('decodeConfig throws on invalid input', () => {
     const dep = DepedencyLayer.of({
       name: 'myLayerFoo',
-      shape: S.Struct({ foo: S.String }),
+      config: S.Struct({ foo: S.String }),
     });
 
-    expect(() => Effect.runSync(dep.decode({ foo: 123 }))).toThrow();
-    expect(() => Effect.runSync(dep.decode({ wrongKey: 'x' }))).toThrow();
+    expect(() => Effect.runSync(dep.decodeConfig({ foo: 123 }))).toThrow();
+    expect(() => Effect.runSync(dep.decodeConfig({ wrongKey: 'x' }))).toThrow();
+  });
+
+  test('DepType with config property causes type error', () => {
+    DepedencyLayer.of({
+      name: 'ok',
+      config: S.Struct({ x: S.Number }),
+    });
+
+    const badDep = DepedencyLayer.of({
+      name: 'ok',
+      config: S.Struct({ x: S.Number }),
+    }).define<{ config: string }>();
+    expectTypeOf(badDep).toEqualTypeOf<"DepType must not contain 'config' - it is reserved by the layer">();
   });
 });
 
@@ -103,10 +116,11 @@ describe('Skill', () => {
   });
 
   test('use accepts single layer', async () => {
+    type DepType = { bar: string };
     const myLayer = DepedencyLayer.of({
       name: 'myLayerFoo',
-      shape: S.Struct({ foo: S.String }),
-    });
+      config: S.Struct({ foo: S.String }),
+    }).define<DepType>();
 
     const skill = Skill.of()
       .input(S.Struct({ q: S.String }))
@@ -114,13 +128,14 @@ describe('Skill', () => {
       .done(S.Struct({ r: S.String }))
       .dependsOn(myLayer)
       .define(({ input, layers }) => {
-        expect(layers.myLayerFoo).toEqual({ foo: 'bar' });
-        return { r: input.q + layers.myLayerFoo.foo };
+        const { config } = layers.myLayerFoo;
+        expect(config).toEqual({ foo: 'bar' });
+        return { r: input.q + config.foo };
       });
 
     const { done } = await skill.invoke(
       { q: 'prefix-' },
-      { layers: { myLayerFoo: { foo: 'bar' } } },
+      { layers: { myLayerFoo: { bar: 'test', config: { foo: 'bar' } } } },
     );
     expect(done).toEqual({ r: 'prefix-bar' });
   });
@@ -128,7 +143,7 @@ describe('Skill', () => {
   test('use accepts array of layers (same type)', async () => {
     const layer = DepedencyLayer.of({
       name: 'layerA',
-      shape: S.Struct({ a: S.Number }),
+      config: S.Struct({ a: S.Number }),
     });
 
     const skill = Skill.of()
@@ -137,12 +152,13 @@ describe('Skill', () => {
       .done(S.Struct({ out: S.String }))
       .dependsOn([layer])
       .define(({ layers }) => {
-        return { out: `${layers.layerA.a}` };
+        const { config } = layers.layerA;
+        return { out: `${config.a}` };
       });
 
     const { done } = await skill.invoke(
       { x: 1 },
-      { layers: { layerA: { a: 42 } } },
+      { layers: { layerA: { config: { a: 42 } } } },
     );
     expect(done).toEqual({ out: '42' });
   });
@@ -150,11 +166,11 @@ describe('Skill', () => {
   test('use accepts multiple layers via chaining', async () => {
     const layerA = DepedencyLayer.of({
       name: 'layerA',
-      shape: S.Struct({ a: S.Number }),
+      config: S.Struct({ a: S.Number }),
     });
     const layerB = DepedencyLayer.of({
       name: 'layerB',
-      shape: S.Struct({ b: S.String }),
+      config: S.Struct({ b: S.String }),
     });
 
     const skill = Skill.of()
@@ -164,12 +180,19 @@ describe('Skill', () => {
       .dependsOn(layerA)
       .dependsOn(layerB)
       .define(({ layers }) => {
-        return { out: `${layers.layerA.a}-${layers.layerB.b}` };
+        const { config: configA } = layers.layerA;
+        const { config: configB } = layers.layerB;
+        return { out: `${configA.a}-${configB.b}` };
       });
 
     const { done } = await skill.invoke(
       { x: 1 },
-      { layers: { layerA: { a: 99 }, layerB: { b: 'world' } } },
+      {
+        layers: {
+          layerA: { config: { a: 99 } },
+          layerB: { config: { b: 'world' } },
+        },
+      },
     );
     expect(done).toEqual({ out: '99-world' });
   });
@@ -177,7 +200,7 @@ describe('Skill', () => {
   test('throws on duplicate layer names', () => {
     const layer = DepedencyLayer.of({
       name: 'dup',
-      shape: S.Struct({ x: S.Number }),
+      config: S.Struct({ x: S.Number }),
     });
 
     expect(() =>
@@ -204,45 +227,35 @@ describe('Skill', () => {
       .done(S.Struct({ result: S.String }))
       .define(({ input }) => ({ result: input.query }));
 
-    // @ts-expect-error - wrongKey is not in the input schema
-    await expect(skill.invoke({ wrongKey: 123 })).rejects.toThrow();
+    await expect(
+      skill.invoke({ wrongKey: 123 } as unknown as { query: string }),
+    ).rejects.toThrow();
   });
 });
 
 describe('Skill type tests', () => {
   test('define callback receives typed input', () => {
+    const inputShape = S.Struct({ query: S.String });
     const skill = Skill.of()
-      .input(S.Struct({ query: S.String }))
+      .input(inputShape)
       .chunk(S.String)
       .done(S.Struct({ result: S.String }))
       .define(({ input }) => {
-        // input is { query: string }
-        void (input.query as string);
+        expectTypeOf(input).toEqualTypeOf(inputShape.Type);
         return { result: input.query };
       });
 
     expect(skill).toBeDefined();
   });
 
-  test('define callback rejects wrong input type', () => {
-    Skill.of()
-      .input(S.Struct({ query: S.String }))
-      .chunk(S.String)
-      .done(S.Struct({ result: S.String }))
-      .define(({ input }) => {
-        // @ts-expect-error - input.query is string, not number
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const _: number = input.query;
-        return { result: input.query };
-      });
-  });
-
   test('define callback receives typed emit', () => {
+    const chunkShape = S.Struct({ text: S.String });
     const skill = Skill.of()
       .input(S.Struct({ q: S.String }))
-      .chunk(S.Struct({ text: S.String }))
+      .chunk(chunkShape)
       .done(S.Struct({ r: S.String }))
       .define(({ emit }) => {
+        expectTypeOf(emit).parameters.toEqualTypeOf<[typeof chunkShape.Type]>();
         emit({ text: 'chunk' });
         return { r: 'done' };
       });
@@ -251,10 +264,12 @@ describe('Skill type tests', () => {
   });
 
   test('define callback receives typed layers from use()', () => {
+    type LayerDepType = { bar: string };
+    const layerConfigShape = S.Struct({ foo: S.String });
     const myLayerFoo = DepedencyLayer.of({
       name: 'myLayerFoo',
-      shape: S.Struct({ foo: S.String }),
-    });
+      config: layerConfigShape,
+    }).define<LayerDepType>();
 
     const skill = Skill.of()
       .input(S.Struct({ q: S.String }))
@@ -262,30 +277,17 @@ describe('Skill type tests', () => {
       .done(S.Struct({ r: S.String }))
       .dependsOn(myLayerFoo)
       .define(({ layers }) => {
-        void (layers.myLayerFoo.foo as string);
-        return { r: layers.myLayerFoo.foo };
+        const layerValue = layers.myLayerFoo;
+        expectTypeOf(layers).toHaveProperty('myLayerFoo');
+        expectTypeOf(layerValue.config).toEqualTypeOf(layerConfigShape.Type);
+        expectTypeOf(layerValue).toEqualTypeOf<
+          LayerDepType & { config: typeof layerConfigShape.Type }
+        >();
+        const { config } = layers.myLayerFoo;
+        return { r: config.foo };
       });
 
     expect(skill).toBeDefined();
-  });
-
-  test('define callback rejects wrong layers property', () => {
-    const myLayerFoo = DepedencyLayer.of({
-      name: 'myLayerFoo',
-      shape: S.Struct({ foo: S.String }),
-    });
-
-    Skill.of()
-      .input(S.Struct({ q: S.String }))
-      .chunk(S.String)
-      .done(S.Struct({ r: S.String }))
-      .dependsOn(myLayerFoo)
-      .define(({ layers }) => {
-        // @ts-expect-error - layers has myLayerFoo, not nonexistent
-        const _: string = layers.nonexistent;
-        void _;
-        return { r: 'x' };
-      });
   });
 
   test('define callback return is typed from done schema', () => {

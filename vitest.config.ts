@@ -9,5 +9,8 @@ export default defineConfig({
       reporter: ['text', 'json', 'html'],
       exclude: ['node_modules/', 'dist/'],
     },
+    //typecheck: {
+    //  include: ['**/*.spec.ts', '**/*.spec-d.ts'],
+    //},
   },
 });

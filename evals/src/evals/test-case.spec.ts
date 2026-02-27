@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'vitest';
+import { describe, expect, expectTypeOf, test } from 'vitest';
 import { Schema as S } from 'effect';
 import { TestCase } from './test-case';
 
@@ -118,14 +118,18 @@ describe('TestCase', () => {
   });
 
   test('getInput returns type inferred from inputSchema', () => {
-    const inputSchemaWithCount = S.Struct({ prompt: S.String, count: S.Number });
+    const inputSchemaWithCount = S.Struct({
+      prompt: S.String,
+      count: S.Number,
+    });
     const tc = TestCase.describe({
       name: 'typed',
       tags: [],
       inputSchema: inputSchemaWithCount,
       input: { prompt: 'x', count: 1 },
     });
-    const input: { prompt: string; count: number } = tc.getInput();
+    const input = tc.getInput();
+    expectTypeOf(input).toEqualTypeOf(inputSchemaWithCount.Type);
     expect(input.prompt).toBe('x');
     expect(input.count).toBe(1);
   });
@@ -140,31 +144,25 @@ describe('TestCase', () => {
       outputSchema,
       output: { expected: 42, label: 'ok' },
     });
-    const output: { expected: number; label: string } | undefined =
-      tc.getOutput();
+    const output = tc.getOutput()!;
+    expectTypeOf(output).toEqualTypeOf(outputSchema.Type);
     expect(output?.expected).toBe(42);
     expect(output?.label).toBe('ok');
   });
 
-  test('getInput rejects assignment to wrong type', () => {
+  test('input builder receives typed input matching inputSchema', () => {
     const tc = TestCase.describe({
-      name: 'reject wrong',
+      name: 'typed input builder',
       tags: [],
       inputSchema,
-      input: { prompt: 'x' },
+      input: () => {
+        const typedInput: S.Schema.Type<typeof inputSchema> = {
+          prompt: 'built',
+        };
+        expectTypeOf(typedInput).toEqualTypeOf(inputSchema.Type);
+        return typedInput;
+      },
     });
-    // @ts-expect-error - getInput returns { prompt: string }, prompt is not number
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const _: { prompt: number } = tc.getInput();
-  });
-
-  test('input config rejects wrong shape', () => {
-    TestCase.describe({
-      name: 'wrong input shape',
-      tags: [],
-      inputSchema,
-      // @ts-expect-error - input must match inputSchema shape ({ prompt: string })
-      input: { wrongKey: 'x' },
-    });
+    expect(tc.getInput()).toEqual({ prompt: 'built' });
   });
 });

@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'vitest';
+import { describe, expect, expectTypeOf, test } from 'vitest';
 import { Schema as S } from 'effect';
 import { AgentFactory } from './agent-factory';
 import { AgentNetworkEvent } from './agent-network/agent-network-event';
@@ -63,9 +63,12 @@ describe('AgentFactory', () => {
       .listensTo([AddTask, RemoveTask])
       .emits([TaskAdded])
       .logic(({ triggerEvent, emit }) => {
-        // @ts-expect-error - triggerEvent.name is 'add-task' | 'remove-task', not 'other'
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const _: 'other-event' = triggerEvent.name;
+        expectTypeOf(triggerEvent.name).toEqualTypeOf<
+          'add-task' | 'remove-task'
+        >();
+        expectTypeOf(emit).parameters.toEqualTypeOf<
+          [ReturnType<typeof TaskAdded.make>]
+        >();
 
         if (triggerEvent.name === 'add-task') {
           emit(TaskAdded.make({ title: triggerEvent.payload.title }));
