@@ -4,6 +4,7 @@ Agents are units of work. You build them with the `AgentFactory` builder, declar
 
 ## Basic Usage
 
+{% code title="echo-agent.ts" %}
 ```ts
 import { AgentFactory, AgentNetworkEvent, S } from '@m4trix/core/matrix';
 
@@ -21,6 +22,7 @@ const echoAgent = AgentFactory.run()
   })
   .produce({});
 ```
+{% endcode %}
 
 ## Lifecycle
 
@@ -33,9 +35,9 @@ const echoAgent = AgentFactory.run()
 
 The builder provides end-to-end type inference:
 
-- **Trigger events** — `triggerEvent` in `.logic()` is typed as a union of all `listensTo` event envelopes
-- **Emit payloads** — The `emit()` function only accepts payloads matching declared `emits` events
-- **Parameters** — `params` in `.logic()` matches the schema from `.params()`
+* **Trigger events** — `triggerEvent` in `.logic()` is typed as a union of all `listensTo` event envelopes
+* **Emit payloads** — The `emit()` function only accepts payloads matching declared `emits` events
+* **Parameters** — `params` in `.logic()` matches the schema from `.params()`
 
 ## Catch-All Agents
 
