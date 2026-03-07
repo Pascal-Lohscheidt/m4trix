@@ -1,12 +1,12 @@
-import { Effect, type Scope } from 'effect';
 import type { Schema as S } from 'effect';
+import { Effect, type Scope } from 'effect';
 import type { AgentFactory } from '../agent-factory';
+import { expose } from '../io/expose';
+import type { ExposedAPI, ExposeOptions } from '../io/types';
 import type { AgentNetworkEventDef } from './agent-network-event';
 import { ChannelName, ConfiguredChannel, Sink } from './channel';
-import { createEventPlane, run } from './event-plane';
 import type { Envelope, EventPlane } from './event-plane';
-import { expose } from '../io/expose';
-import type { ExposeOptions, ExposedAPI } from '../io/types';
+import { createEventPlane, run } from './event-plane';
 import type { AgentNetworkStore } from './stores/agent-network-store';
 import { createInMemoryNetworkStore } from './stores/inmemory-network-store';
 
@@ -17,7 +17,7 @@ type EventDef = AgentNetworkEventDef<string, S.Schema.Any>;
 /** Structural interface for any Agent – avoids variance issues with private fields. */
 export interface AnyAgent {
   getId(): string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // biome-ignore lint/suspicious/noExplicitAny: needed for builder pattern
   invoke(options?: any): Promise<void>;
   /** Event names this agent listens to. Empty = listen to all. */
   getListensTo?(): readonly string[];
@@ -187,7 +187,7 @@ export class AgentNetwork {
       },
       registry(registry: Record<string, AgentFactory>) {
         reg.registry = registry;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        // biome-ignore lint/suspicious/noExplicitAny: needed for builder pattern
         return builder as SpawnerBuilder<any>;
       },
       defaultBinding(

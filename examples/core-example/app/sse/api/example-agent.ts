@@ -1,7 +1,8 @@
-import { AgentFactory, S } from '@m4trix/core';
-import OpenAI from 'openai';
-import { MessageEvent, MessageStreamChunkEvent, ReasoningForProblemReuqested } from './events';
+import { AgentFactory } from '@m4trix/core';
 import { filter, from, lastValueFrom, map, reduce, take, tap } from 'rxjs';
+import OpenAI from 'openai';
+
+import { MessageEvent, MessageStreamChunkEvent, ReasoningForProblemReuqested } from './events';
 
 export const exampleAgent = AgentFactory.run()
   .listensTo([MessageEvent])
@@ -42,7 +43,6 @@ export const exampleAgent = AgentFactory.run()
       ],
     });
 
-    // Streaming the response from the OpenAI API
     const finalResponse = await lastValueFrom(
       from(stream).pipe(
         map((chunk) => chunk.choices[0]?.delta?.content),
@@ -54,7 +54,7 @@ export const exampleAgent = AgentFactory.run()
             role: 'assistant',
           }),
         ),
-        tap(emit), // Emit the stream chunks
+        tap(emit),
         filter(MessageStreamChunkEvent.is),
         reduce((acc, event) => acc + event.payload.chunk, ''),
         take(1),

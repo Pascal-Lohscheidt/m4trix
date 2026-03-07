@@ -6,7 +6,6 @@ const api = network.expose({
   protocol: 'sse',
   select: { channels: 'client' },
   triggerEvents: [MessageEvent],
-  //tracingLayer: consoleTracerLayer,
   onRequest: ({ emitStartEvent, req, payload }) =>
     emitStartEvent({
       contextId: req.contextId ?? crypto.randomUUID(),
@@ -22,5 +21,6 @@ const handler = NextEndpoint.from(api, {
   requestToContextId: (req) => req.headers.get('x-correlation-id') ?? crypto.randomUUID(),
   requestToRunId: () => crypto.randomUUID(),
 }).handler();
+
 export const GET = handler;
 export const POST = handler;

@@ -60,7 +60,7 @@ export class PromptDictionary<T extends Record<string, any>> {
    */
   get<P extends Path<T>>(path: P, locale: string = 'en'): PathValue<T, P> | string | undefined {
     const segments = (path as string).split('/');
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // biome-ignore lint/suspicious/noExplicitAny: needed for builder pattern
     let result: any = this.data;
     for (const seg of segments) {
       result = result?.[seg];

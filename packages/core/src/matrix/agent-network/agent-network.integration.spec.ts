@@ -46,7 +46,7 @@ describe('AgentNetwork integration', () => {
           AgentFactory.run()
             .listensTo([weatherSet])
             .emits([weatherForecast])
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            // biome-ignore lint/suspicious/noExplicitAny: needed for builder pattern
             .logic(logicSpy as any)
             .produce({}),
         )
@@ -136,7 +136,7 @@ describe('AgentNetwork integration', () => {
           AgentFactory.run()
             .listensTo([weatherSet])
             .emits([weatherForecast])
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            // biome-ignore lint/suspicious/noExplicitAny: needed for builder pattern
             .logic(weatherSpy as any)
             .produce({}),
         )
@@ -147,7 +147,7 @@ describe('AgentNetwork integration', () => {
           AgentFactory.run()
             .listensTo([orderPlaced])
             .emits([orderConfirmed])
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            // biome-ignore lint/suspicious/noExplicitAny: needed for builder pattern
             .logic(orderSpy as any)
             .produce({}),
         )
@@ -236,7 +236,7 @@ describe('AgentNetwork integration', () => {
           AgentFactory.run()
             .listensTo([eventA, eventB])
             .emits([resultEvent])
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            // biome-ignore lint/suspicious/noExplicitAny: needed for builder pattern
             .logic(multiSpy as any)
             .produce({}),
         )
@@ -410,7 +410,7 @@ describe('AgentNetwork integration', () => {
           AgentFactory.run()
             .listensTo([mainEvent, logsEvent])
             .emits([combined])
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            // biome-ignore lint/suspicious/noExplicitAny: needed for builder pattern
             .logic(combinedSpy as any)
             .produce({}),
         )
@@ -496,7 +496,7 @@ describe('AgentNetwork integration', () => {
         registerAgent(
           AgentFactory.run()
             .emits([resultEvent])
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            // biome-ignore lint/suspicious/noExplicitAny: needed for builder pattern
             .logic(catchAllSpy as any)
             .produce({}),
         )
@@ -575,7 +575,7 @@ describe('AgentNetwork integration', () => {
           AgentFactory.run()
             .listensTo([tick])
             .emits([tock])
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            // biome-ignore lint/suspicious/noExplicitAny: needed for builder pattern
             .logic(counterSpy as any)
             .produce({}),
         )

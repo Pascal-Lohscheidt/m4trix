@@ -4,7 +4,7 @@ import {
   ReasoningForProblemReuqested,
   ReasoningForProblemThoughtChunkCreated,
 } from './events';
-import { from, lastValueFrom, map, of, tap } from 'rxjs';
+import { from, lastValueFrom, map, tap } from 'rxjs';
 import { reasoningSkill } from '@/skills/reasoning.skill';
 
 export const reasoningAgent = AgentFactory.run()

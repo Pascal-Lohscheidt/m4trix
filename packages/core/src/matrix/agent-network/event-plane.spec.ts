@@ -1,11 +1,10 @@
+import { Effect, Fiber, Queue, Schema as S } from 'effect';
 import { describe, expect, test, vitest } from 'vitest';
-import { Effect, Fiber, Queue } from 'effect';
-import { Schema as S } from 'effect';
 import { AgentFactory } from '../agent-factory';
 import { AgentNetwork } from './agent-network';
 import { AgentNetworkEvent, type EventMeta } from './agent-network-event';
-import { createEventPlane, run, runSubscriber, type Envelope } from './event-plane';
 import { ChannelName } from './channel';
+import { createEventPlane, type Envelope, run, runSubscriber } from './event-plane';
 import { createInMemoryNetworkStore } from './stores/inmemory-network-store';
 
 const meta = { runId: 'test-run', contextId: 'test-context' };
@@ -173,7 +172,7 @@ describe('EventPlane', () => {
         const agent = AgentFactory.run()
           .listensTo([requestEvt])
           .emits([responseEvt])
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          // biome-ignore lint/suspicious/noExplicitAny: needed for builder pattern
           .logic(logicSpy as any)
           .produce({});
         registerAgent(agent).subscribe(main).publishTo(client);
@@ -245,7 +244,7 @@ describe('EventPlane', () => {
       const WeatherAgent = AgentFactory.run()
         .listensTo([weatherSet])
         .emits([weatherForecast])
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        // biome-ignore lint/suspicious/noExplicitAny: needed for builder pattern
         .logic(logicSpy as any);
 
       const network = AgentNetwork.setup(({ mainChannel, createChannel, registerAgent }) => {
@@ -361,7 +360,7 @@ describe('EventPlane', () => {
       const WeatherAgent = AgentFactory.run()
         .listensTo([weatherSet])
         .emits([weatherForecast])
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        // biome-ignore lint/suspicious/noExplicitAny: needed for builder pattern
         .logic(runLogicSpy as any);
 
       const network = AgentNetwork.setup(({ mainChannel, createChannel, registerAgent }) => {

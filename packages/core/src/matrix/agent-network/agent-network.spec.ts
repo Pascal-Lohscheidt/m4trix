@@ -1,10 +1,9 @@
+import { Effect, Queue, Schema as S } from 'effect';
 import { describe, expect, test, vitest } from 'vitest';
-import { Effect, Queue } from 'effect';
-import { Schema as S } from 'effect';
-import type { EventMeta } from './agent-network-event';
-import { AgentNetwork } from './agent-network';
-import { AgentNetworkEvent } from './agent-network-event';
 import { AgentFactory } from '../agent-factory';
+import { AgentNetwork } from './agent-network';
+import type { EventMeta } from './agent-network-event';
+import { AgentNetworkEvent } from './agent-network-event';
 import { ChannelName } from './channel';
 import { EventAggregator } from './event-aggregator';
 
@@ -302,7 +301,7 @@ describe('AgentNetwork', () => {
       const WeatherAgent = AgentFactory.run()
         .listensTo([weatherSet])
         .emits([weatherForecast])
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        // biome-ignore lint/suspicious/noExplicitAny: needed for builder pattern
         .logic(logicSpy as any);
 
       const network = AgentNetwork.setup(({ mainChannel, createChannel, registerAgent }) => {
