@@ -42,7 +42,7 @@ function setupEchoNetwork() {
   const responseEvent = AgentNetworkEvent.of('echo-response', S.Struct({ reply: S.String }));
 
   const network = AgentNetwork.setup(({ mainChannel, createChannel, sink, registerAgent }) => {
-    const main = mainChannel('main');
+    const main = mainChannel;
     const client = createChannel('client').sink(sink.httpStream());
     registerAgent(
       AgentFactory.run()
@@ -164,8 +164,7 @@ describe('NextEndpoint integration', () => {
   });
 
   test('auth rejection returns error Response with correct status', async () => {
-    const network = AgentNetwork.setup(({ mainChannel, createChannel, sink }) => {
-      mainChannel('main');
+    const network = AgentNetwork.setup(({ createChannel, sink }) => {
       createChannel('client').sink(sink.httpStream());
     });
 
@@ -185,8 +184,7 @@ describe('NextEndpoint integration', () => {
   });
 
   test('auth with 403 Forbidden', async () => {
-    const network = AgentNetwork.setup(({ mainChannel, createChannel, sink }) => {
-      mainChannel('main');
+    const network = AgentNetwork.setup(({ createChannel, sink }) => {
       createChannel('client').sink(sink.httpStream());
     });
 
@@ -253,7 +251,7 @@ describe('NextEndpoint integration', () => {
     const resultEvent = AgentNetworkEvent.of('task-done', S.Struct({ result: S.String }));
 
     const network = AgentNetwork.setup(({ mainChannel, createChannel, sink, registerAgent }) => {
-      const main = mainChannel('main');
+      const main = mainChannel;
       const client = createChannel('client').sink(sink.httpStream());
       registerAgent(
         AgentFactory.run()
@@ -322,7 +320,7 @@ describe('NextEndpoint integration', () => {
     );
 
     const network = AgentNetwork.setup(({ mainChannel, createChannel, sink, registerAgent }) => {
-      const main = mainChannel('main');
+      const main = mainChannel;
       const client = createChannel('client').sink(sink.httpStream());
       registerAgent(
         AgentFactory.run()

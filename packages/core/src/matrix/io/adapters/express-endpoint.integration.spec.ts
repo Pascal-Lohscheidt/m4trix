@@ -97,7 +97,7 @@ function setupEchoNetwork() {
   const responseEvent = AgentNetworkEvent.of('echo-response', S.Struct({ reply: S.String }));
 
   const network = AgentNetwork.setup(({ mainChannel, createChannel, sink, registerAgent }) => {
-    const main = mainChannel('main');
+    const main = mainChannel;
     const client = createChannel('client').sink(sink.httpStream());
     registerAgent(
       AgentFactory.run()
@@ -176,8 +176,7 @@ describe('ExpressEndpoint integration', () => {
   });
 
   test('auth rejection sets status and sends error body (no SSE headers)', async () => {
-    const network = AgentNetwork.setup(({ mainChannel, createChannel, sink }) => {
-      mainChannel('main');
+    const network = AgentNetwork.setup(({ createChannel, sink }) => {
       createChannel('client').sink(sink.httpStream());
     });
 
@@ -246,7 +245,7 @@ describe('ExpressEndpoint integration', () => {
     const resultEvent = AgentNetworkEvent.of('task-done', S.Struct({ result: S.String }));
 
     const network = AgentNetwork.setup(({ mainChannel, createChannel, sink, registerAgent }) => {
-      const main = mainChannel('main');
+      const main = mainChannel;
       const client = createChannel('client').sink(sink.httpStream());
       registerAgent(
         AgentFactory.run()

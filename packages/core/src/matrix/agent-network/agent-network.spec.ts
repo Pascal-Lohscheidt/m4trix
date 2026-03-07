@@ -10,8 +10,7 @@ import { EventAggregator } from './event-aggregator';
 describe('AgentNetwork', () => {
   describe('setup - channels', () => {
     test('creates a main channel and additional channels', () => {
-      const network = AgentNetwork.setup(({ mainChannel, createChannel }) => {
-        mainChannel('main');
+      const network = AgentNetwork.setup(({ createChannel }) => {
         createChannel('client');
       });
 
@@ -24,7 +23,7 @@ describe('AgentNetwork', () => {
       const weatherSet = AgentNetworkEvent.of('weather-set', S.Struct({ temp: S.Number }));
 
       const network = AgentNetwork.setup(({ mainChannel, sink }) => {
-        const main = mainChannel('main')
+        const main = mainChannel
           .events([weatherSet])
           .sink(sink.kafka({ topic: 'main' }));
 
@@ -55,7 +54,7 @@ describe('AgentNetwork', () => {
         ]);
       });
 
-      expect(network.getChannels().size).toBe(1);
+      expect(network.getChannels().size).toBe(2);
     });
   });
 
@@ -66,7 +65,7 @@ describe('AgentNetwork', () => {
         .produce({});
 
       const network = AgentNetwork.setup(({ mainChannel, createChannel, registerAgent }) => {
-        const main = mainChannel('main');
+        const main = mainChannel;
         const client = createChannel('client');
 
         registerAgent(agent).subscribe(main).publishTo(client);
@@ -88,7 +87,7 @@ describe('AgentNetwork', () => {
         .produce({});
 
       const network = AgentNetwork.setup(({ mainChannel, createChannel, registerAgent }) => {
-        const main = mainChannel('main');
+        const main = mainChannel;
         const logs = createChannel('logs');
 
         registerAgent(agent).subscribe(main).subscribe(logs);
@@ -102,7 +101,7 @@ describe('AgentNetwork', () => {
     test('defines store at setup time, shared across event planes', async () => {
       const evt = AgentNetworkEvent.of('ping', S.Struct({ n: S.Number }));
       const network = AgentNetwork.setup(({ mainChannel, createChannel, registerAgent }) => {
-        const main = mainChannel('main');
+        const main = mainChannel;
         const client = createChannel('client');
         const agent = AgentFactory.run()
           .listensTo([evt])
@@ -156,7 +155,7 @@ describe('AgentNetwork', () => {
         });
 
       const network = AgentNetwork.setup(({ mainChannel, createChannel, registerAggregator }) => {
-        const main = mainChannel('main');
+        const main = mainChannel;
         const client = createChannel('client');
 
         registerAggregator(aggregator).subscribe(main).publishTo(client);
@@ -190,7 +189,7 @@ describe('AgentNetwork', () => {
       const onSpawnSpy = vitest.fn();
 
       const network = AgentNetwork.setup(({ mainChannel, createChannel, spawner }) => {
-        const main = mainChannel('main');
+        const main = mainChannel;
         createChannel('client');
 
         spawner(AgentFactory)
@@ -227,7 +226,7 @@ describe('AgentNetwork', () => {
       const network = AgentNetwork.setup(
         ({ mainChannel, createChannel, sink, registerAgent, spawner }) => {
           // 1) channels
-          const main = mainChannel('main')
+          const main = mainChannel
             .events([daemon_spawn, weather_set, weather_forecast_created])
             .sink(sink.kafka({ topic: 'main' }));
 
@@ -305,7 +304,7 @@ describe('AgentNetwork', () => {
         .logic(logicSpy as any);
 
       const network = AgentNetwork.setup(({ mainChannel, createChannel, registerAgent }) => {
-        const main = mainChannel('main');
+        const main = mainChannel;
         const client = createChannel('client');
         const agent = WeatherAgent.produce({});
         registerAgent(agent).subscribe(main).publishTo(client);
@@ -356,7 +355,7 @@ describe('AgentNetwork', () => {
       const WeatherAgent = AgentFactory.run().listensTo([weatherSet]).logic(logicSpy);
 
       const network = AgentNetwork.setup(({ mainChannel, createChannel, registerAgent }) => {
-        const main = mainChannel('main');
+        const main = mainChannel;
         const client = createChannel('client');
         const agent = WeatherAgent.produce({});
         registerAgent(agent).subscribe(main).publishTo(client);

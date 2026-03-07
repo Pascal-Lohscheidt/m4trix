@@ -12,8 +12,7 @@ const meta = { runId: 'test-run', contextId: 'test-context' };
 describe('EventPlane', () => {
   describe('createEventPlane', () => {
     test('creates a plane with one PubSub per channel', async () => {
-      const network = AgentNetwork.setup(({ mainChannel, createChannel }) => {
-        mainChannel('main');
+      const network = AgentNetwork.setup(({ createChannel }) => {
         createChannel('client');
       });
 
@@ -28,9 +27,7 @@ describe('EventPlane', () => {
     });
 
     test('accepts custom capacity', async () => {
-      const network = AgentNetwork.setup(({ mainChannel }) => {
-        mainChannel('main');
-      });
+      const network = AgentNetwork.setup(() => {});
 
       await Effect.runPromise(createEventPlane({ network, capacity: 32 }));
     });
@@ -38,9 +35,7 @@ describe('EventPlane', () => {
 
   describe('publish and subscribe', () => {
     test('subscriber receives published message', async () => {
-      const network = AgentNetwork.setup(({ mainChannel }) => {
-        mainChannel('main');
-      });
+      const network = AgentNetwork.setup(() => {});
 
       const program = Effect.gen(function* () {
         const plane = yield* createEventPlane({ network });
@@ -64,9 +59,7 @@ describe('EventPlane', () => {
     });
 
     test('multiple subscribers each receive the same message (broadcast)', async () => {
-      const network = AgentNetwork.setup(({ mainChannel }) => {
-        mainChannel('main');
-      });
+      const network = AgentNetwork.setup(() => {});
 
       const program = Effect.gen(function* () {
         const plane = yield* createEventPlane({ network });
@@ -92,8 +85,7 @@ describe('EventPlane', () => {
 
   describe('publishToChannels', () => {
     test('publishes to all target channels', async () => {
-      const network = AgentNetwork.setup(({ mainChannel, createChannel }) => {
-        mainChannel('main');
+      const network = AgentNetwork.setup(({ createChannel }) => {
         createChannel('client');
         createChannel('logs');
       });
@@ -167,7 +159,7 @@ describe('EventPlane', () => {
       });
 
       const network = AgentNetwork.setup(({ mainChannel, createChannel, registerAgent }) => {
-        const main = mainChannel('main');
+        const main = mainChannel;
         const client = createChannel('client');
         const agent = AgentFactory.run()
           .listensTo([requestEvt])
@@ -248,7 +240,7 @@ describe('EventPlane', () => {
         .logic(logicSpy as any);
 
       const network = AgentNetwork.setup(({ mainChannel, createChannel, registerAgent }) => {
-        const main = mainChannel('main');
+        const main = mainChannel;
         const client = createChannel('client');
         const agent = WeatherAgent.produce({});
         registerAgent(agent).subscribe(main).publishTo(client);
@@ -303,7 +295,7 @@ describe('EventPlane', () => {
       const WeatherAgent = AgentFactory.run().listensTo([weatherSet]).logic(filterSpy);
 
       const network = AgentNetwork.setup(({ mainChannel, createChannel, registerAgent }) => {
-        const main = mainChannel('main');
+        const main = mainChannel;
         const client = createChannel('client');
         const agent = WeatherAgent.produce({});
         registerAgent(agent).subscribe(main).publishTo(client);
@@ -364,7 +356,7 @@ describe('EventPlane', () => {
         .logic(runLogicSpy as any);
 
       const network = AgentNetwork.setup(({ mainChannel, createChannel, registerAgent }) => {
-        const main = mainChannel('main');
+        const main = mainChannel;
         const client = createChannel('client');
         const agent = WeatherAgent.produce({});
         registerAgent(agent).subscribe(main).publishTo(client);
@@ -417,7 +409,7 @@ describe('EventPlane', () => {
       const responseEvt = AgentNetworkEvent.of('response', S.Struct({ echoed: S.Number }));
 
       const network = AgentNetwork.setup(({ mainChannel, createChannel, registerAgent }) => {
-        const main = mainChannel('main');
+        const main = mainChannel;
         const client = createChannel('client');
         const agent = AgentFactory.run()
           .listensTo([requestEvt])
@@ -474,9 +466,7 @@ describe('EventPlane', () => {
 
   describe('getRunEvents and getContextEvents', () => {
     test('records events on publish and getRunEvents returns them', async () => {
-      const network = AgentNetwork.setup(({ mainChannel }) => {
-        mainChannel('main');
-      });
+      const network = AgentNetwork.setup(() => {});
 
       const program = Effect.gen(function* () {
         const plane = yield* createEventPlane({ network });
@@ -502,9 +492,7 @@ describe('EventPlane', () => {
     });
 
     test('getRunEvents returns empty for unknown runId or contextId', async () => {
-      const network = AgentNetwork.setup(({ mainChannel }) => {
-        mainChannel('main');
-      });
+      const network = AgentNetwork.setup(() => {});
 
       const program = Effect.gen(function* () {
         const plane = yield* createEventPlane({ network });
@@ -516,9 +504,7 @@ describe('EventPlane', () => {
     });
 
     test('getContextEvents returns map of event arrays by runId', async () => {
-      const network = AgentNetwork.setup(({ mainChannel }) => {
-        mainChannel('main');
-      });
+      const network = AgentNetwork.setup(() => {});
 
       const program = Effect.gen(function* () {
         const plane = yield* createEventPlane({ network });
@@ -564,8 +550,7 @@ describe('EventPlane', () => {
     });
 
     test('records events on publishToChannels only once per envelope', async () => {
-      const network = AgentNetwork.setup(({ mainChannel, createChannel }) => {
-        mainChannel('main');
+      const network = AgentNetwork.setup(({ createChannel }) => {
         createChannel('client');
         createChannel('logs');
       });
@@ -596,9 +581,7 @@ describe('EventPlane', () => {
 
   describe('shutdown', () => {
     test('shuts down all PubSubs', async () => {
-      const network = AgentNetwork.setup(({ mainChannel }) => {
-        mainChannel('main');
-      });
+      const network = AgentNetwork.setup(() => {});
 
       const program = Effect.gen(function* () {
         const plane = yield* createEventPlane({ network });

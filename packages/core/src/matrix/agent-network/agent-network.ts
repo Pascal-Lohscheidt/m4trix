@@ -67,8 +67,8 @@ export type SpawnerBuilder<
 
 /* ─── Setup Context ─── */
 
-export type SetupContext = {
-  mainChannel: (name: string) => ConfiguredChannel;
+export type AgentNetworkSetupContext = {
+  mainChannel: ConfiguredChannel;
   createChannel: (name: string) => ConfiguredChannel;
   sink: typeof Sink;
   registerAgent: (agent: AnyAgent) => AgentBinding;
@@ -111,15 +111,13 @@ export class AgentNetwork {
 
   /* ─── Public Static Factory ─── */
 
-  static setup(callback: (ctx: SetupContext) => void): AgentNetwork {
+  static setup(callback: (ctx: AgentNetworkSetupContext) => void): AgentNetwork {
     const network = new AgentNetwork();
+    const mainChannel = network.addChannel('main');
+    network.setMainChannel(mainChannel);
 
-    const ctx: SetupContext = {
-      mainChannel: (name: string) => {
-        const channel = network.addChannel(name);
-        network.setMainChannel(channel);
-        return channel;
-      },
+    const ctx: AgentNetworkSetupContext = {
+      mainChannel,
       createChannel: (name: string) => network.addChannel(name),
       sink: Sink,
       registerAgent: (agent) => network.registerAgentInternal(agent),
@@ -136,6 +134,10 @@ export class AgentNetwork {
 
   private addChannel(name: string): ConfiguredChannel {
     const channelName = ChannelName(name);
+    const existing = this.channels.get(channelName);
+    if (existing) {
+      return existing;
+    }
     const channel = new ConfiguredChannel(channelName);
     this.channels.set(channelName, channel);
     return channel;

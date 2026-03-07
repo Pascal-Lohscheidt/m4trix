@@ -62,7 +62,7 @@ describe('expose integration', () => {
       );
 
       const network = AgentNetwork.setup(({ mainChannel, createChannel, sink, registerAgent }) => {
-        const main = mainChannel('main');
+        const main = mainChannel;
         const client = createChannel('client').sink(sink.httpStream());
         registerAgent(
           AgentFactory.run()
@@ -116,7 +116,7 @@ describe('expose integration', () => {
       const requestEvt = AgentNetworkEvent.of('request', S.Struct({ foo: S.String }));
       const responseEvt = AgentNetworkEvent.of('response', S.Struct({ ok: S.Boolean }));
       const network = AgentNetwork.setup(({ mainChannel, createChannel, sink, registerAgent }) => {
-        const main = mainChannel('main');
+        const main = mainChannel;
         const client = createChannel('client').sink(sink.httpStream());
         registerAgent(
           AgentFactory.run()
@@ -171,7 +171,7 @@ describe('expose integration', () => {
         S.Struct({ response: S.String }),
       );
       const network = AgentNetwork.setup(({ mainChannel, createChannel, sink, registerAgent }) => {
-        const main = mainChannel('main');
+        const main = mainChannel;
         const client = createChannel('client').sink(sink.httpStream());
         registerAgent(
           AgentFactory.run()
@@ -212,7 +212,7 @@ describe('expose integration', () => {
       const taskDoneEvent = AgentNetworkEvent.of('task-done', S.Struct({ result: S.String }));
 
       const network = AgentNetwork.setup(({ mainChannel, createChannel, sink, registerAgent }) => {
-        const main = mainChannel('main');
+        const main = mainChannel;
         const client = createChannel('client').sink(sink.httpStream());
         registerAgent(
           AgentFactory.run()
@@ -269,7 +269,7 @@ describe('expose integration', () => {
       const queryResultEvent = AgentNetworkEvent.of('query-result', S.Struct({ answer: S.String }));
 
       const network = AgentNetwork.setup(({ mainChannel, createChannel, sink, registerAgent }) => {
-        const main = mainChannel('main');
+        const main = mainChannel;
         const client = createChannel('client').sink(sink.httpStream());
         registerAgent(
           AgentFactory.run()
@@ -328,7 +328,7 @@ describe('expose integration', () => {
       const requestEvt = AgentNetworkEvent.of('request', S.Struct({ request: S.String }));
       const responseEvt = AgentNetworkEvent.of('response', S.Struct({ ok: S.Boolean }));
       const network = AgentNetwork.setup(({ mainChannel, createChannel, sink, registerAgent }) => {
-        const main = mainChannel('main');
+        const main = mainChannel;
         const client = createChannel('client').sink(sink.httpStream());
         registerAgent(
           AgentFactory.run()
@@ -380,8 +380,7 @@ describe('expose integration', () => {
 
   describe('auth', () => {
     test('auth rejects request with ExposeAuthError', async () => {
-      const network = AgentNetwork.setup(({ mainChannel, createChannel, sink }) => {
-        mainChannel('main');
+      const network = AgentNetwork.setup(({ createChannel, sink }) => {
         createChannel('client').sink(sink.httpStream());
       });
 
@@ -411,7 +410,7 @@ describe('expose integration', () => {
       const requestEvt = AgentNetworkEvent.of('request', S.Struct({ x: S.Number }));
       const responseEvt = AgentNetworkEvent.of('response', S.Struct({ ok: S.Boolean }));
       const network = AgentNetwork.setup(({ mainChannel, createChannel, sink, registerAgent }) => {
-        const main = mainChannel('main');
+        const main = mainChannel;
         const client = createChannel('client').sink(sink.httpStream());
         registerAgent(
           AgentFactory.run()
@@ -466,7 +465,7 @@ describe('expose integration', () => {
       const requestEvt = AgentNetworkEvent.of('request', S.Struct({ x: S.Number }));
       const responseEvt = AgentNetworkEvent.of('response', S.Struct({ doubled: S.Number }));
       const network = AgentNetwork.setup(({ mainChannel, createChannel, sink, registerAgent }) => {
-        const main = mainChannel('main');
+        const main = mainChannel;
         const client = createChannel('client').sink(sink.httpStream());
         registerAgent(
           AgentFactory.run()
@@ -528,7 +527,7 @@ describe('expose integration', () => {
       const requestEvt = AgentNetworkEvent.of('request', S.Struct({ x: S.Number }));
       const responseEvt = AgentNetworkEvent.of('response', S.Struct({ ok: S.Boolean }));
       const network = AgentNetwork.setup(({ mainChannel, createChannel, sink, registerAgent }) => {
-        const main = mainChannel('main');
+        const main = mainChannel;
         const client = createChannel('client').sink(sink.httpStream());
         registerAgent(
           AgentFactory.run()
@@ -579,7 +578,7 @@ describe('expose integration', () => {
         S.Struct({ meta: S.Struct({ runId: S.String, contextId: S.String }) }),
       );
       const network = AgentNetwork.setup(({ mainChannel, createChannel, sink, registerAgent }) => {
-        const main = mainChannel('main');
+        const main = mainChannel;
         const client = createChannel('client').sink(sink.httpStream());
         registerAgent(
           AgentFactory.run()
@@ -646,7 +645,7 @@ describe('expose integration', () => {
         S.Struct({ meta: S.Struct({ runId: S.String, contextId: S.String }) }),
       );
       const network = AgentNetwork.setup(({ mainChannel, createChannel, sink, registerAgent }) => {
-        const main = mainChannel('main');
+        const main = mainChannel;
         const client = createChannel('client').sink(sink.httpStream());
         registerAgent(
           AgentFactory.run()
@@ -704,7 +703,7 @@ describe('expose integration', () => {
       const aEvt = AgentNetworkEvent.of('a', S.Struct({ v: S.Number }));
       const bEvt = AgentNetworkEvent.of('b', S.Struct({ v: S.Number }));
       const network = AgentNetwork.setup(({ mainChannel, createChannel, sink, registerAgent }) => {
-        const main = mainChannel('main');
+        const main = mainChannel;
         const client = createChannel('client').sink(sink.httpStream());
         registerAgent(
           AgentFactory.run()
@@ -753,7 +752,7 @@ describe('expose integration', () => {
       const aEvt = AgentNetworkEvent.of('a', S.Struct({ v: S.Number }));
       const bEvt = AgentNetworkEvent.of('b', S.Struct({ v: S.Number }));
       const network = AgentNetwork.setup(({ mainChannel, createChannel, sink, registerAgent }) => {
-        const main = mainChannel('main');
+        const main = mainChannel;
         const client = createChannel('client').sink(sink.httpStream());
         registerAgent(
           AgentFactory.run()

@@ -40,7 +40,7 @@ describe('AgentNetwork integration', () => {
       );
 
       const network = AgentNetwork.setup(({ mainChannel, createChannel, registerAgent }) => {
-        const main = mainChannel('main');
+        const main = mainChannel;
         const client = createChannel('client');
         registerAgent(
           AgentFactory.run()
@@ -128,7 +128,7 @@ describe('AgentNetwork integration', () => {
       );
 
       const network = AgentNetwork.setup(({ mainChannel, createChannel, registerAgent }) => {
-        const main = mainChannel('main');
+        const main = mainChannel;
         const weatherOut = createChannel('weather-out');
         const orderOut = createChannel('order-out');
 
@@ -230,7 +230,7 @@ describe('AgentNetwork integration', () => {
       );
 
       const network = AgentNetwork.setup(({ mainChannel, createChannel, registerAgent }) => {
-        const main = mainChannel('main');
+        const main = mainChannel;
         const out = createChannel('out');
         registerAgent(
           AgentFactory.run()
@@ -300,7 +300,7 @@ describe('AgentNetwork integration', () => {
       );
 
       const network = AgentNetwork.setup(({ mainChannel, createChannel, registerAgent }) => {
-        const main = mainChannel('main');
+        const main = mainChannel;
         const enriched = createChannel('enriched');
         const finalized = createChannel('finalized');
 
@@ -402,7 +402,7 @@ describe('AgentNetwork integration', () => {
       );
 
       const network = AgentNetwork.setup(({ mainChannel, createChannel, registerAgent }) => {
-        const main = mainChannel('main');
+        const main = mainChannel;
         const logs = createChannel('logs');
         const out = createChannel('out');
 
@@ -491,7 +491,7 @@ describe('AgentNetwork integration', () => {
       );
 
       const network = AgentNetwork.setup(({ mainChannel, createChannel, registerAgent }) => {
-        const main = mainChannel('main');
+        const main = mainChannel;
         const out = createChannel('out');
         registerAgent(
           AgentFactory.run()
@@ -569,7 +569,7 @@ describe('AgentNetwork integration', () => {
       );
 
       const network = AgentNetwork.setup(({ mainChannel, createChannel, registerAgent }) => {
-        const main = mainChannel('main');
+        const main = mainChannel;
         const out = createChannel('out');
         registerAgent(
           AgentFactory.run()
@@ -628,7 +628,7 @@ describe('AgentNetwork integration', () => {
       );
 
       const network = AgentNetwork.setup(({ mainChannel, createChannel, sink, registerAgent }) => {
-        const main = mainChannel('main');
+        const main = mainChannel;
         const client = createChannel('client').sink(sink.httpStream());
         registerAgent(
           AgentFactory.run()
@@ -684,8 +684,7 @@ describe('AgentNetwork integration', () => {
     });
 
     test('resolveChannels prefers channels with http-stream sink when select.channels not set', async () => {
-      const network = AgentNetwork.setup(({ mainChannel, createChannel, sink }) => {
-        mainChannel('main');
+      const network = AgentNetwork.setup(({ createChannel, sink }) => {
         createChannel('a');
         createChannel('client').sink(sink.httpStream());
       });
@@ -729,8 +728,7 @@ describe('AgentNetwork integration', () => {
     });
 
     test('channel with multiple sinks including http-stream is exposed', async () => {
-      const network = AgentNetwork.setup(({ mainChannel, createChannel, sink }) => {
-        mainChannel('main');
+      const network = AgentNetwork.setup(({ createChannel, sink }) => {
         createChannel('out')
           .sink(sink.httpStream())
           .sink(sink.kafka({ topic: 'events' }));
