@@ -13,9 +13,6 @@ jobs:
     steps:
       - checkout
       - run:
-          name: Install Turbo
-          command: npm install -g turbo
-      - run:
           name: Install dependencies
           command: pnpm install
       - run:
@@ -34,14 +31,11 @@ jobs:
     steps:
       - checkout
       - run:
-          name: Install Turbo
-          command: npm install -g turbo
-      - run:
           name: Install dependencies
           command: pnpm install
       - run:
           name: Build packages
-          command: turbo run build
+          command: pnpm exec turbo run build
       - store_artifacts:
           path: dist
           destination: dist
@@ -51,9 +45,6 @@ jobs:
       - image: cimg/node:20.0
     steps:
       - checkout
-      - run:
-          name: Install Turbo
-          command: npm install -g turbo
       - run:
           name: Install dependencies
           command: pnpm install
@@ -79,9 +70,6 @@ jobs:
     steps:
       - checkout
       - run:
-          name: Install Turbo
-          command: npm install -g turbo
-      - run:
           name: Install dependencies
           command: pnpm install
       - run:
@@ -105,9 +93,6 @@ jobs:
       - image: cimg/node:20.0
     steps:
       - checkout
-      - run:
-          name: Install Turbo
-          command: npm install -g turbo
       - run:
           name: Install dependencies
           command: pnpm install
@@ -133,9 +118,6 @@ jobs:
     steps:
       - checkout
       - run:
-          name: Install Turbo
-          command: npm install -g turbo
-      - run:
           name: Install dependencies
           command: pnpm install
       - run:
@@ -159,9 +141,6 @@ jobs:
       - image: cimg/node:20.0
     steps:
       - checkout
-      - run:
-          name: Install Turbo
-          command: npm install -g turbo
       - run:
           name: Install dependencies
           command: pnpm install
