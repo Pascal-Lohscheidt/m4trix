@@ -1,5 +1,5 @@
-import { Socket } from 'socket.io';
-import { Hooks, SetupSocketHandlersParams } from './socket-factory-types';
+import type { Socket } from 'socket.io';
+import type { Hooks, SetupSocketHandlersParams } from './socket-factory-types';
 
 export class SocketIoFactory {
   private socket: Socket;
@@ -80,17 +80,11 @@ export class SocketIoFactory {
     }
 
     if (onVoiceOutputTranscriptDelta) {
-      this.socket.on(
-        prefix('voice:output_transcript_delta'),
-        onVoiceOutputTranscriptDelta
-      );
+      this.socket.on(prefix('voice:output_transcript_delta'), onVoiceOutputTranscriptDelta);
     }
 
     if (onVoiceOutputTranscriptFull) {
-      this.socket.on(
-        prefix('voice:output_transcript_full'),
-        onVoiceOutputTranscriptFull
-      );
+      this.socket.on(prefix('voice:output_transcript_full'), onVoiceOutputTranscriptFull);
     }
   }
 

@@ -7,38 +7,38 @@
  * Scope: core | evals
  */
 
-import { execSync } from "node:child_process";
-import { readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { execSync } from 'node:child_process';
+import { readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const ROOT = join(fileURLToPath(import.meta.url), "../..");
+const ROOT = join(fileURLToPath(import.meta.url), '../..');
 
 const SCOPE_TO_PATH: Record<string, string> = {
-  core: "packages/core/",
-  evals: "packages/evals/",
-  stream: "packages/stream/",
-  react: "packages/react/",
-  ui: "packages/ui/",
+  core: 'packages/core/',
+  evals: 'packages/evals/',
+  stream: 'packages/stream/',
+  react: 'packages/react/',
+  ui: 'packages/ui/',
 };
 
 const SCOPE_TO_TAG_PREFIX: Record<string, string> = {
-  core: "@m4trix/core@",
-  evals: "@m4trix/evals@",
-  stream: "@m4trix/stream@",
-  react: "@m4trix/react@",
-  ui: "@m4trix/ui@",
+  core: '@m4trix/core@',
+  evals: '@m4trix/evals@',
+  stream: '@m4trix/stream@',
+  react: '@m4trix/react@',
+  ui: '@m4trix/ui@',
 };
 
 const SCOPE_TO_PACKAGE_JSON: Record<string, string> = {
-  core: "packages/core/package.json",
-  evals: "packages/evals/package.json",
-  stream: "packages/stream/package.json",
-  react: "packages/react/package.json",
-  ui: "packages/ui/package.json",
+  core: 'packages/core/package.json',
+  evals: 'packages/evals/package.json',
+  stream: 'packages/stream/package.json',
+  react: 'packages/react/package.json',
+  ui: 'packages/ui/package.json',
 };
 
-type BumpType = "major" | "minor" | "patch" | "none";
+type BumpType = 'major' | 'minor' | 'patch' | 'none';
 
 const BUMP_PRIORITY: Record<BumpType, number> = {
   major: 3,
@@ -48,45 +48,45 @@ const BUMP_PRIORITY: Record<BumpType, number> = {
 };
 
 function parseConventionalCommit(message: string): BumpType {
-  const firstLine = message.split("\n")[0];
+  const firstLine = message.split('\n')[0];
   const hasBreakingInBody =
     /BREAKING CHANGE:/i.test(message) || /^breaking change:/im.test(message);
   const hasExclamation = /^[a-z]+(\([^)]+\))?!:/.test(firstLine);
 
   if (hasBreakingInBody || hasExclamation) {
-    return "major";
+    return 'major';
   }
 
   const typeMatch = firstLine.match(/^([a-z]+)(?:\([^)]+\))?!?:\s/i);
-  if (!typeMatch) return "none";
+  if (!typeMatch) return 'none';
 
   const type = typeMatch[1].toLowerCase();
   switch (type) {
-    case "feat":
-      return "minor";
-    case "fix":
-    case "perf":
-      return "patch";
-    case "docs":
-    case "style":
-    case "test":
-    case "chore":
-    case "refactor":
+    case 'feat':
+      return 'minor';
+    case 'fix':
+    case 'perf':
+      return 'patch';
+    case 'docs':
+    case 'style':
+    case 'test':
+    case 'chore':
+    case 'refactor':
     default:
-      return "none";
+      return 'none';
   }
 }
 
 function bumpVersion(version: string, bump: BumpType): string {
-  const [major, minor, patch] = version.split(".").map(Number);
+  const [major, minor, patch] = version.split('.').map(Number);
   switch (bump) {
-    case "major":
+    case 'major':
       return `${major + 1}.0.0`;
-    case "minor":
+    case 'minor':
       return `${major}.${minor + 1}.0`;
-    case "patch":
+    case 'patch':
       return `${major}.${minor}.${patch + 1}`;
-    case "none":
+    case 'none':
       return version;
   }
 }
@@ -105,11 +105,11 @@ function main(): void {
 
   // Get last tag for this package
   const tags = execSync(`git tag -l '${tagPrefix}*' --sort=-version:refname`, {
-    encoding: "utf-8",
+    encoding: 'utf-8',
     cwd: ROOT,
   })
     .trim()
-    .split("\n")
+    .split('\n')
     .filter(Boolean);
 
   const lastTag = tags[0];
@@ -117,27 +117,27 @@ function main(): void {
 
   if (!lastTag) {
     // No tag: read version from package.json
-    const pkg = JSON.parse(readFileSync(packageJsonPath, "utf-8"));
-    currentVersion = pkg.version || "0.1.0";
+    const pkg = JSON.parse(readFileSync(packageJsonPath, 'utf-8'));
+    currentVersion = pkg.version || '0.1.0';
   } else {
-    currentVersion = lastTag.replace(tagPrefix, "");
+    currentVersion = lastTag.replace(tagPrefix, '');
   }
 
   // Get commits since last tag that touch this package's path
-  const revRange = lastTag ? `${lastTag}..HEAD` : "HEAD";
-  const commitHashes = execSync(
-    `git log ${revRange} --format=%H -- ${pathPrefix}`,
-    { encoding: "utf-8", cwd: ROOT }
-  )
+  const revRange = lastTag ? `${lastTag}..HEAD` : 'HEAD';
+  const commitHashes = execSync(`git log ${revRange} --format=%H -- ${pathPrefix}`, {
+    encoding: 'utf-8',
+    cwd: ROOT,
+  })
     .trim()
-    .split("\n")
+    .split('\n')
     .filter(Boolean);
 
-  let maxBump: BumpType = "none";
+  let maxBump: BumpType = 'none';
 
   for (const hash of commitHashes) {
     const message = execSync(`git log -1 --format=%B ${hash}`, {
-      encoding: "utf-8",
+      encoding: 'utf-8',
       cwd: ROOT,
     });
     const bump = parseConventionalCommit(message);
@@ -147,17 +147,17 @@ function main(): void {
   }
 
   // If we have commits but all are docs/chore/etc, default to patch
-  if (maxBump === "none" && commitHashes.length > 0) {
-    maxBump = "patch";
+  if (maxBump === 'none' && commitHashes.length > 0) {
+    maxBump = 'patch';
   }
 
   const newVersion = bumpVersion(currentVersion, maxBump);
   const newTag = `${tagPrefix}${newVersion}`;
 
   // Update package.json
-  const pkg = JSON.parse(readFileSync(packageJsonPath, "utf-8"));
+  const pkg = JSON.parse(readFileSync(packageJsonPath, 'utf-8'));
   pkg.version = newVersion;
-  writeFileSync(packageJsonPath, JSON.stringify(pkg, null, 2) + "\n");
+  writeFileSync(packageJsonPath, JSON.stringify(pkg, null, 2) + '\n');
 
   // Create tag
   execSync(`git tag ${newTag}`, { cwd: ROOT });

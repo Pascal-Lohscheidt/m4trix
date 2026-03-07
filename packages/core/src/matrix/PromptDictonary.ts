@@ -41,9 +41,7 @@ export class PromptDictionary<T extends Record<string, any>> {
   /**
    * Create a PromptDictionary from a raw JSON object.
    */
-  static fromJSON<D extends Record<string, unknown>>(
-    data: D
-  ): PromptDictionary<D> {
+  static fromJSON<D extends Record<string, unknown>>(data: D): PromptDictionary<D> {
     return new PromptDictionary<D>(data);
   }
 
@@ -60,10 +58,7 @@ export class PromptDictionary<T extends Record<string, any>> {
    * @param path - Nested path like "greeting/hello"
    * @param locale - Optional locale key if the target is an object of locales.
    */
-  get<P extends Path<T>>(
-    path: P,
-    locale: string = 'en'
-  ): PathValue<T, P> | string | undefined {
+  get<P extends Path<T>>(path: P, locale: string = 'en'): PathValue<T, P> | string | undefined {
     const segments = (path as string).split('/');
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let result: any = this.data;

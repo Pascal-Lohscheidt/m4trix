@@ -93,44 +93,36 @@ function parseSSE(text: string): unknown[] {
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 function setupEchoNetwork() {
-  const requestEvent = AgentNetworkEvent.of(
-    'echo-request',
-    S.Struct({ message: S.String }),
-  );
-  const responseEvent = AgentNetworkEvent.of(
-    'echo-response',
-    S.Struct({ reply: S.String }),
-  );
+  const requestEvent = AgentNetworkEvent.of('echo-request', S.Struct({ message: S.String }));
+  const responseEvent = AgentNetworkEvent.of('echo-response', S.Struct({ reply: S.String }));
 
-  const network = AgentNetwork.setup(
-    ({ mainChannel, createChannel, sink, registerAgent }) => {
-      const main = mainChannel('main');
-      const client = createChannel('client').sink(sink.httpStream());
-      registerAgent(
-        AgentFactory.run()
-          .listensTo([requestEvent])
-          .emits([responseEvent])
-          .logic(async ({ triggerEvent, emit }) => {
-            const msg = (triggerEvent.payload as { message: string }).message;
-            emit({
-              name: 'echo-response',
-              payload: { reply: `Echo: ${msg}` },
-            });
-          })
-          .produce({}),
-      )
-        .subscribe(main)
-        .publishTo(client);
-    },
-  );
+  const network = AgentNetwork.setup(({ mainChannel, createChannel, sink, registerAgent }) => {
+    const main = mainChannel('main');
+    const client = createChannel('client').sink(sink.httpStream());
+    registerAgent(
+      AgentFactory.run()
+        .listensTo([requestEvent])
+        .emits([responseEvent])
+        .logic(async ({ triggerEvent, emit }) => {
+          const msg = (triggerEvent.payload as { message: string }).message;
+          emit({
+            name: 'echo-response',
+            payload: { reply: `Echo: ${msg}` },
+          });
+        })
+        .produce({}),
+    )
+      .subscribe(main)
+      .publishTo(client);
+  });
   return { network, requestEvent };
 }
 
 const defaultIdOptions = {
   requestToContextId: (req: ExpressRequest): string =>
-    (
-      req as { headers?: { get?: (n: string) => string | null } }
-    ).headers?.get?.('x-correlation-id') ?? crypto.randomUUID(),
+    (req as { headers?: { get?: (n: string) => string | null } }).headers?.get?.(
+      'x-correlation-id',
+    ) ?? crypto.randomUUID(),
   requestToRunId: (): string => crypto.randomUUID(),
 };
 
@@ -184,12 +176,10 @@ describe('ExpressEndpoint integration', () => {
   });
 
   test('auth rejection sets status and sends error body (no SSE headers)', async () => {
-    const network = AgentNetwork.setup(
-      ({ mainChannel, createChannel, sink }) => {
-        mainChannel('main');
-        createChannel('client').sink(sink.httpStream());
-      },
-    );
+    const network = AgentNetwork.setup(({ mainChannel, createChannel, sink }) => {
+      mainChannel('main');
+      createChannel('client').sink(sink.httpStream());
+    });
 
     const api = network.expose({
       protocol: 'sse',
@@ -252,36 +242,28 @@ describe('ExpressEndpoint integration', () => {
   });
 
   test('onRequest can map payload before emitting', async () => {
-    const requestEvent = AgentNetworkEvent.of(
-      'task',
-      S.Struct({ task: S.String }),
-    );
-    const resultEvent = AgentNetworkEvent.of(
-      'task-done',
-      S.Struct({ result: S.String }),
-    );
+    const requestEvent = AgentNetworkEvent.of('task', S.Struct({ task: S.String }));
+    const resultEvent = AgentNetworkEvent.of('task-done', S.Struct({ result: S.String }));
 
-    const network = AgentNetwork.setup(
-      ({ mainChannel, createChannel, sink, registerAgent }) => {
-        const main = mainChannel('main');
-        const client = createChannel('client').sink(sink.httpStream());
-        registerAgent(
-          AgentFactory.run()
-            .listensTo([requestEvent])
-            .emits([resultEvent])
-            .logic(async ({ triggerEvent, emit }) => {
-              const task = (triggerEvent.payload as { task: string }).task;
-              emit({
-                name: 'task-done',
-                payload: { result: `Done: ${task}` },
-              });
-            })
-            .produce({}),
-        )
-          .subscribe(main)
-          .publishTo(client);
-      },
-    );
+    const network = AgentNetwork.setup(({ mainChannel, createChannel, sink, registerAgent }) => {
+      const main = mainChannel('main');
+      const client = createChannel('client').sink(sink.httpStream());
+      registerAgent(
+        AgentFactory.run()
+          .listensTo([requestEvent])
+          .emits([resultEvent])
+          .logic(async ({ triggerEvent, emit }) => {
+            const task = (triggerEvent.payload as { task: string }).task;
+            emit({
+              name: 'task-done',
+              payload: { result: `Done: ${task}` },
+            });
+          })
+          .produce({}),
+      )
+        .subscribe(main)
+        .publishTo(client);
+    });
 
     const program = Effect.gen(function* () {
       const plane = yield* network.run();
@@ -360,8 +342,8 @@ describe('ExpressEndpoint integration', () => {
   });
 
   test('throws for unsupported protocol', () => {
-    expect(() =>
-      ExpressEndpoint.from({ protocol: 'ws' } as never, defaultIdOptions),
-    ).toThrow('unsupported protocol');
+    expect(() => ExpressEndpoint.from({ protocol: 'ws' } as never, defaultIdOptions)).toThrow(
+      'unsupported protocol',
+    );
   });
 });

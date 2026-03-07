@@ -37,10 +37,7 @@ describe('Channel', () => {
     });
 
     test('.events() attaches event definitions', () => {
-      const evt = AgentNetworkEvent.of(
-        'some-event',
-        S.Struct({ value: S.Number }),
-      );
+      const evt = AgentNetworkEvent.of('some-event', S.Struct({ value: S.Number }));
 
       const ch = new ConfiguredChannel(ChannelName('main')).events([evt]);
 
@@ -49,9 +46,7 @@ describe('Channel', () => {
     });
 
     test('.sink() attaches a sink definition', () => {
-      const ch = new ConfiguredChannel(ChannelName('main')).sink(
-        Sink.kafka({ topic: 'my-topic' }),
-      );
+      const ch = new ConfiguredChannel(ChannelName('main')).sink(Sink.kafka({ topic: 'my-topic' }));
 
       expect(ch.getSinks()).toEqual([
         {
@@ -76,9 +71,7 @@ describe('Channel', () => {
     test('builder methods are chainable', () => {
       const evt = AgentNetworkEvent.of('evt', S.String);
 
-      const ch = new ConfiguredChannel(ChannelName('main'))
-        .events([evt])
-        .sink(Sink.httpStream());
+      const ch = new ConfiguredChannel(ChannelName('main')).events([evt]).sink(Sink.httpStream());
 
       expect(ch.getEvents()).toHaveLength(1);
       expect(ch.getSinks()[0]?.type).toBe('http-stream');

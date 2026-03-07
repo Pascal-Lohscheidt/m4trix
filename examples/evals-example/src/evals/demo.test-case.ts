@@ -84,8 +84,7 @@ export const mediumPromptCase = TestCase.describe({
   inputSchema,
   reruns: 10,
   input: {
-    prompt:
-      'Write a short summary about testing and observability in one sentence.',
+    prompt: 'Write a short summary about testing and observability in one sentence.',
   },
   outputSchema,
   output: { expectedMinScore: 50 },

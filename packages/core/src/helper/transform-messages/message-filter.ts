@@ -1,10 +1,7 @@
-import { BaseMessage, HumanMessage, AIMessage } from '@langchain/core/messages';
+import { type BaseMessage, HumanMessage, AIMessage } from '@langchain/core/messages';
 
 // Type for message filters
-export type MessageFilter = (
-  message: BaseMessage,
-  tags?: Array<string>
-) => boolean;
+export type MessageFilter = (message: BaseMessage, tags?: Array<string>) => boolean;
 // Predefined filters
 const humanAndAI: MessageFilter = (message) =>
   message instanceof HumanMessage || message instanceof AIMessage;
@@ -16,7 +13,7 @@ const includingTags: MessageFilter = (message, tags) => {
     return tags.some((tag) =>
       Array.isArray(message.additional_kwargs?.tags)
         ? message.additional_kwargs?.tags.includes(tag)
-        : false
+        : false,
     );
   }
   return true;
@@ -27,7 +24,7 @@ const excludingTags: MessageFilter = (message, tags) => {
     return !tags.some((tag) =>
       Array.isArray(message.additional_kwargs?.tags)
         ? message.additional_kwargs?.tags.includes(tag)
-        : false
+        : false,
     );
   }
   return true;

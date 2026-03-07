@@ -33,10 +33,7 @@ async function extractPayload(req: ExposeRequest): Promise<unknown> {
 }
 
 /** Resolve which channel(s) to subscribe to from select options */
-function resolveChannels(
-  network: AgentNetwork,
-  select?: ExposeOptions['select'],
-): ChannelName[] {
+function resolveChannels(network: AgentNetwork, select?: ExposeOptions['select']): ChannelName[] {
   const channels = network.getChannels();
   if (select?.channels) {
     const ch = select.channels;
@@ -100,18 +97,8 @@ function streamFromDequeue(
  * const api = agentNetwork.expose({ protocol: "sse", auth, select });
  * export const GET = NextEndpoint.from(api, { requestToContextId, requestToRunId }).handler();
  */
-export function expose(
-  network: AgentNetwork,
-  options: ExposeOptions,
-): ExposedAPI {
-  const {
-    auth,
-    select,
-    plane: providedPlane,
-    onRequest,
-    triggerEvents,
-    tracingLayer,
-  } = options;
+export function expose(network: AgentNetwork, options: ExposeOptions): ExposedAPI {
+  const { auth, select, plane: providedPlane, onRequest, triggerEvents, tracingLayer } = options;
   const triggerEventDef = triggerEvents?.[0];
   const triggerEventName = triggerEventDef?.name ?? 'request';
   const channels = resolveChannels(network, select);
@@ -131,8 +118,7 @@ export function expose(
 
     const program = Effect.gen(function* () {
       const plane =
-        providedPlane ??
-        (yield* createEventPlane({ network, store: network.getStore() }));
+        providedPlane ?? (yield* createEventPlane({ network, store: network.getStore() }));
       if (!providedPlane) {
         const emitQueue = yield* Queue.unbounded<{
           channels: readonly ConfiguredChannel[];
@@ -177,9 +163,7 @@ export function expose(
           meta,
           payload: opts.event.payload,
         };
-        Effect.runPromise(plane.publish(targetChannel, envelope)).catch(
-          () => {},
-        );
+        Effect.runPromise(plane.publish(targetChannel, envelope)).catch(() => {});
       };
 
       // Subscribe to first channel before emitting (so we don't miss agent output)
@@ -231,10 +215,7 @@ export function expose(
       if (auth) {
         const result = await auth(req);
         if (!result.allowed) {
-          throw new ExposeAuthError(
-            result.message ?? 'Unauthorized',
-            result.status ?? 401,
-          );
+          throw new ExposeAuthError(result.message ?? 'Unauthorized', result.status ?? 401);
         }
       }
       return consumer ? createStream(req, consumer) : createStream(req);

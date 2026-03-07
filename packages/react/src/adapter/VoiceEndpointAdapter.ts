@@ -41,24 +41,18 @@ export class BaseVoiceEndpointAdapter extends VoiceEndpointAdapter {
   /**
    * Send a voice file to the API endpoint and return a Pump stream of audio chunks
    */
-  async sendVoiceFile({
-    blob,
-    metadata,
-  }: SendVoiceFileParams): Promise<Response> {
+  async sendVoiceFile({ blob, metadata }: SendVoiceFileParams): Promise<Response> {
     const formData = new FormData();
     formData.append('audio', blob);
     if (metadata) {
       formData.append('metadata', JSON.stringify(metadata));
     }
     this.logger.debug('Sending voice file to', this.config.endpoint, formData);
-    const response = await fetch(
-      `${this.config.baseUrl || ''}${this.config.endpoint}`,
-      {
-        method: 'POST',
-        headers: this.config.headers,
-        body: formData,
-      }
-    );
+    const response = await fetch(`${this.config.baseUrl || ''}${this.config.endpoint}`, {
+      method: 'POST',
+      headers: this.config.headers,
+      body: formData,
+    });
     if (!response.ok) {
       throw new Error(`API error: ${response.status} ${await response.text()}`);
     }

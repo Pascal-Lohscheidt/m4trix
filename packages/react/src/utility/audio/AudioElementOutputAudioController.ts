@@ -1,8 +1,8 @@
 import {
   OutputAudioController,
-  PlayAudioParams,
-  PlayAudioStreamParams,
-  InitializeChunkStreamParams,
+  type PlayAudioParams,
+  type PlayAudioStreamParams,
+  type InitializeChunkStreamParams,
 } from './OutputAudioController';
 
 /**
@@ -24,10 +24,7 @@ export class AudioElementOutputAudioController extends OutputAudioController {
    * Play either a Blob or a URL string.
    * Uses <audio> under the hood for maximum browser compatibility.
    */
-  public async playAudio({
-    source,
-    onComplete,
-  }: PlayAudioParams): Promise<void> {
+  public async playAudio({ source, onComplete }: PlayAudioParams): Promise<void> {
     // Tear down any previous playback
     if (this.currentHtmlAudio) {
       this.currentHtmlAudio.pause();
@@ -77,10 +74,7 @@ export class AudioElementOutputAudioController extends OutputAudioController {
     if (!response.ok || !response.body) {
       throw new Error(`Invalid response (${response.status})`);
     }
-    if (
-      typeof MediaSource === 'undefined' ||
-      !MediaSource.isTypeSupported(mimeCodec)
-    ) {
+    if (typeof MediaSource === 'undefined' || !MediaSource.isTypeSupported(mimeCodec)) {
       throw new Error(`Unsupported MIME type or codec: ${mimeCodec}`);
     }
 
@@ -126,17 +120,14 @@ export class AudioElementOutputAudioController extends OutputAudioController {
 
         pump();
       },
-      { once: true }
+      { once: true },
     );
 
     // 5) Kick off playback
     try {
       await audio.play();
     } catch (err) {
-      this.logger.error(
-        'Streaming playback failed, user gesture may be required',
-        err
-      );
+      this.logger.error('Streaming playback failed, user gesture may be required', err);
     }
   }
 
@@ -166,16 +157,12 @@ export class AudioElementOutputAudioController extends OutputAudioController {
 
     // Check for codec support before proceeding
     if (!MediaSource.isTypeSupported(mimeCodec)) {
-      this.logger.warn(
-        `Codec ${mimeCodec} not supported, falling back to standard audio/mpeg`
-      );
+      this.logger.warn(`Codec ${mimeCodec} not supported, falling back to standard audio/mpeg`);
       mimeCodec = 'audio/mpeg';
 
       // Double check for mpeg support
       if (!MediaSource.isTypeSupported(mimeCodec)) {
-        throw new Error(
-          'Neither the specified codec nor the fallback codec are supported'
-        );
+        throw new Error('Neither the specified codec nor the fallback codec are supported');
       }
     }
 
@@ -226,10 +213,7 @@ export class AudioElementOutputAudioController extends OutputAudioController {
           try {
             sourceBuffer = mediaSource.addSourceBuffer(mimeCodec);
             // Increase buffer size for smoother playback
-            if (
-              mediaSource.duration === Infinity ||
-              isNaN(mediaSource.duration)
-            ) {
+            if (mediaSource.duration === Infinity || isNaN(mediaSource.duration)) {
               mediaSource.duration = 1000; // Set a large duration to allow for more buffering
             }
             this.logger.debug('SourceBuffer created successfully');
@@ -238,7 +222,7 @@ export class AudioElementOutputAudioController extends OutputAudioController {
             reject(new Error(`Failed to create SourceBuffer: ${err}`));
           }
         },
-        { once: true }
+        { once: true },
       );
     });
 
@@ -269,9 +253,7 @@ export class AudioElementOutputAudioController extends OutputAudioController {
 
           try {
             sourceBuffer.appendBuffer(nextChunk);
-            logger.debug(
-              `Processed queued chunk of size ${nextChunk.byteLength}`
-            );
+            logger.debug(`Processed queued chunk of size ${nextChunk.byteLength}`);
 
             // Start playback on first successful append if not started yet
             if (!playbackStarted && hasReceivedFirstChunk) {
@@ -303,11 +285,7 @@ export class AudioElementOutputAudioController extends OutputAudioController {
 
       // Ensure we have enough data before playing
       // (wait for at least 3 chunks or enough buffered time)
-      if (
-        receivedChunksCount < 3 &&
-        audio.buffered.length > 0 &&
-        audio.buffered.end(0) < 0.5
-      ) {
+      if (receivedChunksCount < 3 && audio.buffered.length > 0 && audio.buffered.end(0) < 0.5) {
         logger.debug('Not enough data buffered yet, delaying playback');
         return;
       }
@@ -315,9 +293,7 @@ export class AudioElementOutputAudioController extends OutputAudioController {
       try {
         // Ensure audio element is ready
         if (audio.readyState === 0) {
-          logger.debug(
-            'Audio element not ready yet, waiting for canplay event'
-          );
+          logger.debug('Audio element not ready yet, waiting for canplay event');
           await new Promise<void>((resolve) => {
             audio.addEventListener('canplay', () => resolve(), { once: true });
           });
@@ -336,25 +312,18 @@ export class AudioElementOutputAudioController extends OutputAudioController {
               await audio.play();
               logger.debug('Started playback after user interaction');
             } catch (innerErr) {
-              logger.error(
-                'Still failed to play after user interaction',
-                innerErr
-              );
+              logger.error('Still failed to play after user interaction', innerErr);
             }
           },
-          { once: true }
+          { once: true },
         );
       }
     };
 
     // Define function for adding chunks
-    const addChunkToStream = async (
-      chunk: ArrayBuffer | Blob
-    ): Promise<void> => {
+    const addChunkToStream = async (chunk: ArrayBuffer | Blob): Promise<void> => {
       if (!sourceBuffer) {
-        throw new Error(
-          'Streaming context was closed or not properly initialized.'
-        );
+        throw new Error('Streaming context was closed or not properly initialized.');
       }
 
       // Convert Blob to ArrayBuffer if needed
@@ -375,9 +344,7 @@ export class AudioElementOutputAudioController extends OutputAudioController {
       // Log first chunk received
       if (!hasReceivedFirstChunk) {
         hasReceivedFirstChunk = true;
-        logger.debug(
-          `First chunk received, size: ${arrayBufferChunk.byteLength} bytes`
-        );
+        logger.debug(`First chunk received, size: ${arrayBufferChunk.byteLength} bytes`);
       }
 
       receivedChunksCount++;
@@ -385,18 +352,14 @@ export class AudioElementOutputAudioController extends OutputAudioController {
       // Add the chunk to the queue
       pendingChunks.push(arrayBufferChunk);
       logger.debug(
-        `Added chunk #${receivedChunksCount} to queue (size: ${arrayBufferChunk.byteLength} bytes)`
+        `Added chunk #${receivedChunksCount} to queue (size: ${arrayBufferChunk.byteLength} bytes)`,
       );
 
       // Start processing the queue if not already processing
       await processQueue();
 
       // Try to start playback if we have enough data (and not started yet)
-      if (
-        !playbackStarted &&
-        hasReceivedFirstChunk &&
-        receivedChunksCount >= 3
-      ) {
+      if (!playbackStarted && hasReceivedFirstChunk && receivedChunksCount >= 3) {
         await tryStartPlayback();
       }
     };
@@ -406,10 +369,7 @@ export class AudioElementOutputAudioController extends OutputAudioController {
       if (mediaSource && mediaSource.readyState === 'open') {
         try {
           // Wait for any pending chunks to be processed
-          if (
-            pendingChunks.length > 0 ||
-            (sourceBuffer && sourceBuffer.updating)
-          ) {
+          if (pendingChunks.length > 0 || (sourceBuffer && sourceBuffer.updating)) {
             logger.debug('Waiting for pending chunks before ending stream');
             setTimeout(() => endChunkStream(), 200);
             return;

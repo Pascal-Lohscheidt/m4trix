@@ -10,8 +10,8 @@
 
 import {
   OutputAudioController,
-  PlayAudioParams,
-  InitializeChunkStreamParams,
+  type PlayAudioParams,
+  type InitializeChunkStreamParams,
 } from './OutputAudioController';
 
 // ─── PCM constants ─────────────────────────────────────────────────────
@@ -41,10 +41,7 @@ export class WebAudioOutputAudioController extends OutputAudioController {
   // ─────────────────────────────────────────────────────────────────────
   // One‑shot playback
   // ─────────────────────────────────────────────────────────────────────
-  public async playAudio({
-    source,
-    onComplete,
-  }: PlayAudioParams): Promise<void> {
+  public async playAudio({ source, onComplete }: PlayAudioParams): Promise<void> {
     await this.stopPlayback();
     const buf = await this.sourceToArrayBuffer(source);
     const decoded = await this.decode(buf);
@@ -63,9 +60,7 @@ export class WebAudioOutputAudioController extends OutputAudioController {
   // ─────────────────────────────────────────────────────────────────────
   // PCM streaming
   // ─────────────────────────────────────────────────────────────────────
-  public async initializeChunkStream({
-    onComplete,
-  }: InitializeChunkStreamParams): Promise<{
+  public async initializeChunkStream({ onComplete }: InitializeChunkStreamParams): Promise<{
     addChunkToStream: (chunk: ArrayBuffer | Blob) => Promise<void>;
     endChunkStream: () => void;
   }> {
@@ -81,9 +76,7 @@ export class WebAudioOutputAudioController extends OutputAudioController {
         this.logger.warn('Attempt to add chunk after stream ended – ignoring.');
         return;
       }
-      const bytes = new Uint8Array(
-        pkt instanceof Blob ? await pkt.arrayBuffer() : pkt
-      );
+      const bytes = new Uint8Array(pkt instanceof Blob ? await pkt.arrayBuffer() : pkt);
       if (bytes.length === 0) return;
 
       const merged = new Uint8Array(pending.length + bytes.length);
@@ -101,14 +94,10 @@ export class WebAudioOutputAudioController extends OutputAudioController {
         // underlying byteOffset is odd
         const aligned = sliceBytes.buffer.slice(
           sliceBytes.byteOffset,
-          sliceBytes.byteOffset + sliceBytes.byteLength
+          sliceBytes.byteOffset + sliceBytes.byteLength,
         );
         const int16 = new Int16Array(aligned);
-        const buf = this.audioCtx.createBuffer(
-          CHANNELS,
-          int16.length,
-          STREAM_SAMPLE_RATE
-        );
+        const buf = this.audioCtx.createBuffer(CHANNELS, int16.length, STREAM_SAMPLE_RATE);
         const data = buf.getChannelData(0);
         for (let i = 0; i < int16.length; i++) data[i] = int16[i] / 32768;
         this.scheduleBuffer(buf);
@@ -174,9 +163,7 @@ export class WebAudioOutputAudioController extends OutputAudioController {
   }
 
   private decode(buf: ArrayBuffer): Promise<AudioBuffer> {
-    return new Promise((res, rej) =>
-      this.audioCtx.decodeAudioData(buf, res, rej)
-    );
+    return new Promise((res, rej) => this.audioCtx.decodeAudioData(buf, res, rej));
   }
 
   // ─── Lifecycle methods ───────────────────────────────────────────────
@@ -217,8 +204,7 @@ export class WebAudioOutputAudioController extends OutputAudioController {
         } catch {
           /* ignore */
         }
-        if (this.audioCtx.state === 'running')
-          document.removeEventListener('click', resume);
+        if (this.audioCtx.state === 'running') document.removeEventListener('click', resume);
       };
       document.addEventListener('click', resume);
     }

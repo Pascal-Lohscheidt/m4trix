@@ -15,14 +15,12 @@ export async function ensureFullWords({
   const lastBoundary = Math.max(
     combined.lastIndexOf(' '),
     combined.lastIndexOf('\n'),
-    combined.lastIndexOf('\t')
+    combined.lastIndexOf('\t'),
   );
 
   if (lastBoundary !== -1 || lastChunk) {
-    const emitPart =
-      lastBoundary !== -1 ? combined.slice(0, lastBoundary + 1) : combined;
-    const leftoverPart =
-      lastBoundary !== -1 ? combined.slice(lastBoundary + 1) : '';
+    const emitPart = lastBoundary !== -1 ? combined.slice(0, lastBoundary + 1) : combined;
+    const leftoverPart = lastBoundary !== -1 ? combined.slice(lastBoundary + 1) : '';
 
     if (emitPart.trim().length > 0) {
       push(emitPart);

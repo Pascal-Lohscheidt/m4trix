@@ -1,10 +1,6 @@
 import { AgentFactory, S } from '@m4trix/core';
 import OpenAI from 'openai';
-import {
-  MessageEvent,
-  MessageStreamChunkEvent,
-  ReasoningForProblemReuqested,
-} from './events';
+import { MessageEvent, MessageStreamChunkEvent, ReasoningForProblemReuqested } from './events';
 import { filter, from, lastValueFrom, map, reduce, take, tap } from 'rxjs';
 
 export const exampleAgent = AgentFactory.run()
@@ -36,8 +32,7 @@ export const exampleAgent = AgentFactory.run()
       messages: [
         {
           role: 'system',
-          content:
-            'You are a helpful assistant. Think step by step and explain your reasoning.',
+          content: 'You are a helpful assistant. Think step by step and explain your reasoning.',
         },
         ...messageHistory.map((event) => ({
           role: event.payload.role as 'user' | 'assistant',

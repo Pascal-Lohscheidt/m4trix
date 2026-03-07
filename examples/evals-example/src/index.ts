@@ -35,9 +35,7 @@ async function runExample(): Promise<void> {
   const done = new Promise<void>((resolve) => {
     const unsub = runner.subscribeRunEvents((event) => {
       if (event.type === 'RunCompleted') {
-        console.log(
-          `Completed: ${event.passedTestCases}/${event.totalTestCases} passed`,
-        );
+        console.log(`Completed: ${event.passedTestCases}/${event.totalTestCases} passed`);
         console.log(`Artifact: ${event.artifactPath}`);
         unsub();
         resolve();

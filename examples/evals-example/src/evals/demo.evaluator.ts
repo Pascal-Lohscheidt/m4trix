@@ -31,10 +31,7 @@ const promptComplexityDeltaScore = Score.of<{
     `${data.complexity.toFixed(2)} (Target delta: ${data.deltaFromTarget >= 0 ? '+' : ''}${data.deltaFromTarget.toFixed(2)})`,
   formatAggregate: (data) =>
     `Avg: ${data.complexity.toFixed(2)} (Target delta: ${data.deltaFromTarget >= 0 ? '+' : ''}${data.deltaFromTarget.toFixed(2)})`,
-  aggregateValues: Score.aggregate.averageFields([
-    'complexity',
-    'deltaFromTarget',
-  ]),
+  aggregateValues: Score.aggregate.averageFields(['complexity', 'deltaFromTarget']),
 });
 
 function sleep(ms: number): Promise<void> {
@@ -66,10 +63,7 @@ export const demoScoreEvaluator = Evaluator.use({
         { label: 'demo-error' },
       );
     }
-    const promptHash = Array.from(input.prompt).reduce(
-      (sum, char) => sum + char.charCodeAt(0),
-      0,
-    );
+    const promptHash = Array.from(input.prompt).reduce((sum, char) => sum + char.charCodeAt(0), 0);
     const rawScore = (promptHash + input.prompt.length * ctx.seed) % 101;
     const expectedMinScore = output?.expectedMinScore;
     const value = Math.max(8, Math.min(100, rawScore));
@@ -155,18 +149,12 @@ export const demoMultiScoreEvaluator = Evaluator.use({
     await sleep(80);
     const expectedMinScore = output?.expectedMinScore ?? 50;
     const baseline = Math.max(10, expectedMinScore - 5);
-    const percentValue = Math.min(
-      100,
-      (input.prompt.length * 3 + ctx.seed) % 101,
-    );
+    const percentValue = Math.min(100, (input.prompt.length * 3 + ctx.seed) % 101);
     const passed = percentValue >= expectedMinScore;
     const qualityDelta = percentValue - baseline;
     const complexityScore = Math.min(
       100,
-      Math.round(
-        (input.prompt.length + input.prompt.split(/\s+/).length * 2 + ctx.seed) /
-          2,
-      ),
+      Math.round((input.prompt.length + input.prompt.split(/\s+/).length * 2 + ctx.seed) / 2),
     );
     const complexityDeltaFromTarget = complexityScore - 40;
     const latencyMs = Date.now() - start;
@@ -217,9 +205,7 @@ export const demoDiffEvaluator = Evaluator.use({
     const expected = output?.expectedResponse;
     if (expected === undefined) {
       return {
-        scores: [
-          percentScore.make({ value: 0 }, { definePassed: () => false }),
-        ],
+        scores: [percentScore.make({ value: 0 }, { definePassed: () => false })],
         metrics: [],
       };
     }

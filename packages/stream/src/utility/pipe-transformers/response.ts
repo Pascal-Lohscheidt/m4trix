@@ -1,4 +1,4 @@
-import { StreamTransformer } from '../../Pump';
+import type { StreamTransformer } from '../../Pump';
 
 export interface HttpStreamOptions<T> {
   /** HTTP ResponseInit (status, headers, etc.) */
@@ -28,7 +28,7 @@ export interface HttpStreamOptions<T> {
  * ```
  */
 export function httpStreamResponse<T>(
-  options: HttpStreamOptions<T> = {}
+  options: HttpStreamOptions<T> = {},
 ): StreamTransformer<T, Response> {
   const { init, encoder } = options;
   const encodeFn =
@@ -46,8 +46,7 @@ export function httpStreamResponse<T>(
 
   const transform = (chunk: T): T => {
     const encoded = encodeFn(chunk);
-    const bytes =
-      typeof encoded === 'string' ? new TextEncoder().encode(encoded) : encoded;
+    const bytes = typeof encoded === 'string' ? new TextEncoder().encode(encoded) : encoded;
     writer.write(bytes);
     return chunk;
   };

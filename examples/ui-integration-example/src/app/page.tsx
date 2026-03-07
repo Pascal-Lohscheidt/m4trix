@@ -25,10 +25,7 @@ export default function Home() {
       const element = document.getElementById(id);
       if (element) {
         const rect = element.getBoundingClientRect();
-        positions.push([
-          rect.left + rect.width / 2,
-          rect.top + rect.height / 2,
-        ]);
+        positions.push([rect.left + rect.width / 2, rect.top + rect.height / 2]);
       }
     });
 
@@ -70,9 +67,7 @@ export default function Home() {
         </div>
 
         <div className="mb-6">
-          <h2 className="text-lg font-medium text-gray-700 mb-3">
-            Activity Overview
-          </h2>
+          <h2 className="text-lg font-medium text-gray-700 mb-3">Activity Overview</h2>
           <div
             className="h-48 bg-gray-50 rounded border border-dashed border-gray-300 flex items-center justify-center"
             id="chart-container"
@@ -83,9 +78,7 @@ export default function Home() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="border border-dashed border-gray-300 rounded p-4">
-            <h3 className="text-md font-medium text-gray-700 mb-2">
-              Recent Orders
-            </h3>
+            <h3 className="text-md font-medium text-gray-700 mb-2">Recent Orders</h3>
             <div className="space-y-2">
               {[1, 2, 3].map((item) => (
                 <div
@@ -93,11 +86,7 @@ export default function Home() {
                   className="flex justify-between items-center p-2 bg-gray-50 rounded"
                 >
                   <span className="text-gray-600">Order #{item}0234</span>
-                  <a
-                    href="#"
-                    className="text-blue-500 text-sm"
-                    id={`order-link-${item}`}
-                  >
+                  <a href="#" className="text-blue-500 text-sm" id={`order-link-${item}`}>
                     View
                   </a>
                 </div>
@@ -106,9 +95,7 @@ export default function Home() {
           </div>
 
           <div className="border border-dashed border-gray-300 rounded p-4">
-            <h3 className="text-md font-medium text-gray-700 mb-2">
-              Quick Actions
-            </h3>
+            <h3 className="text-md font-medium text-gray-700 mb-2">Quick Actions</h3>
             <div className="grid grid-cols-2 gap-2">
               <a
                 href="#"

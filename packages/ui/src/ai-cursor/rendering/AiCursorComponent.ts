@@ -1,7 +1,7 @@
-import { LitElement, PropertyValues, TemplateResult, html } from 'lit';
+import { LitElement, type PropertyValues, type TemplateResult, html } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { createRef, ref } from 'lit/directives/ref.js';
-import { createTimeline, Timeline } from 'animejs';
+import { createTimeline, type Timeline } from 'animejs';
 import { AiCursorComponentStyle } from './AiCursorComponent.style';
 
 export type Props = {
@@ -11,9 +11,7 @@ export type Props = {
    */
   eventHooks: {
     defineSetPosition: (fn: (position: [number, number]) => void) => void;
-    defineAddPositionToQueue: (
-      fn: (position: [number, number]) => void
-    ) => void;
+    defineAddPositionToQueue: (fn: (position: [number, number]) => void) => void;
     definePlayQueue: (fn: () => void) => void;
     defineSetShowCursor: (fn: (show: boolean) => void) => void;
   };

@@ -111,8 +111,7 @@ describe('Evaluator', () => {
       }) => {
         void output;
         return {
-          accuracy:
-            input.prompt.length + (ctx.llm === 'mock-llm-client' ? 1 : 0),
+          accuracy: input.prompt.length + (ctx.llm === 'mock-llm-client' ? 1 : 0),
         };
       },
     );

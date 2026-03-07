@@ -1,5 +1,5 @@
 /** @jsxImportSource react */
-import React from 'react';
+import type React from 'react';
 import { Text } from 'ink';
 import type { CliState, EvalsData } from '../../types';
 import { Pane, SectionHeader } from '../../components';
@@ -31,11 +31,7 @@ export function NewEvaluationView({
           const selected = index === state.evaluatorMenuIndex;
           const inSelection = state.selectedEvaluatorIds.includes(evaluator.id);
           return (
-            <Text
-              key={evaluator.id}
-              color={selected ? 'cyan' : 'gray'}
-              bold={selected}
-            >
+            <Text key={evaluator.id} color={selected ? 'cyan' : 'gray'} bold={selected}>
               {selected ? '▸ ' : '  '}
               {inSelection ? '[x] ' : '[ ] '}
               {evaluator.name}
@@ -56,8 +52,7 @@ export function NewEvaluationView({
         })}
         <SectionHeader>Config preview</SectionHeader>
         <Text color="gray">
-          {focusedEvaluator?.configPreview ??
-            'Select an evaluator to inspect config.'}
+          {focusedEvaluator?.configPreview ?? 'Select an evaluator to inspect config.'}
         </Text>
       </Pane>
     </>

@@ -19,8 +19,7 @@ const api = network.expose({
 });
 
 const handler = NextEndpoint.from(api, {
-  requestToContextId: (req) =>
-    req.headers.get('x-correlation-id') ?? crypto.randomUUID(),
+  requestToContextId: (req) => req.headers.get('x-correlation-id') ?? crypto.randomUUID(),
   requestToRunId: () => crypto.randomUUID(),
 }).handler();
 export const GET = handler;

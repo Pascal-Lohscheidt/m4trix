@@ -1,20 +1,16 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  VoiceEndpointAdapter,
   BaseVoiceEndpointAdapter,
+  type VoiceEndpointAdapter,
 } from '../../adapter/VoiceEndpointAdapter';
-import { Logger } from '../../utility/Logger';
-import { WebAudioInputAudioController } from '../../utility/audio/WebAudioInputAudioController';
-import { OutputAudioController } from '../../utility/audio/OutputAudioController';
-import type {
-  BaseUseConversationOptions,
-  DownstreamMode,
-  VoiceAgentState,
-} from './shared-types';
 import { AudioElementOutputAudioController } from '../../utility/audio/AudioElementOutputAudioController';
-import { InputAudioController } from '../../utility/audio/InputAudioController';
+import type { InputAudioController } from '../../utility/audio/InputAudioController';
+import type { OutputAudioController } from '../../utility/audio/OutputAudioController';
+import { WebAudioInputAudioController } from '../../utility/audio/WebAudioInputAudioController';
+import { Logger } from '../../utility/Logger';
+import type { BaseUseConversationOptions, DownstreamMode, VoiceAgentState } from './shared-types';
 
 // Types
 export type EndpointConversationOptions<
@@ -56,26 +52,17 @@ export function useConversation<T extends Record<string, unknown>>(
     audioConfig = {},
     requestData = {} as T,
     endpointConfig = {},
-  }: EndpointConversationOptions<T>
+  }: EndpointConversationOptions<T>,
 ): UseEndpointConversationResult {
   // Refs
-  const { current: logger } = useRef<Logger>(
-    new Logger('@m4trix/core > useConversation')
-  );
-  const inputAudioControllerRef = useRef<
-    WebAudioInputAudioController | undefined
-  >(undefined);
-  const outputAudioControllerRef = useRef<OutputAudioController | undefined>(
-    undefined
-  );
+  const { current: logger } = useRef<Logger>(new Logger('@m4trix/core > useConversation'));
+  const inputAudioControllerRef = useRef<WebAudioInputAudioController | undefined>(undefined);
+  const outputAudioControllerRef = useRef<OutputAudioController | undefined>(undefined);
 
-  const endpointAdapterRef = useRef<VoiceEndpointAdapter | undefined>(
-    undefined
-  );
+  const endpointAdapterRef = useRef<VoiceEndpointAdapter | undefined>(undefined);
 
   // State
-  const [voiceAgentState, setVoiceAgentState] =
-    useState<VoiceAgentState>('READY');
+  const [voiceAgentState, setVoiceAgentState] = useState<VoiceAgentState>('READY');
   const [error, setError] = useState<Error | null>(null);
 
   // ================================================
@@ -88,7 +75,7 @@ export function useConversation<T extends Record<string, unknown>>(
       logger.error(`Error during ${state}:`, err);
       onError?.(state, err);
     },
-    [onError]
+    [onError],
   );
 
   const startRecording = useCallback(() => {
@@ -181,7 +168,7 @@ export function useConversation<T extends Record<string, unknown>>(
                   if (outputAudioControllerRef.current) {
                     return outputAudioControllerRef.current.stopPlayback();
                   }
-                }
+                },
               );
             } catch (err) {
               if (err instanceof Error) {
@@ -198,14 +185,7 @@ export function useConversation<T extends Record<string, unknown>>(
         }
       }
     }
-  }, [
-    onStopRecording,
-    requestData,
-    autoPlay,
-    downstreamMode,
-    handleError,
-    onReceive,
-  ]);
+  }, [onStopRecording, requestData, autoPlay, downstreamMode, handleError, onReceive]);
 
   // Setup endpoint adapter and audio controllers
   useEffect(() => {
@@ -227,14 +207,11 @@ export function useConversation<T extends Record<string, unknown>>(
 
       // Set up audio controllers
       if (!inputAudioControllerRef.current) {
-        inputAudioControllerRef.current = new WebAudioInputAudioController(
-          audioConfig
-        );
+        inputAudioControllerRef.current = new WebAudioInputAudioController(audioConfig);
       }
 
       if (!outputAudioControllerRef.current) {
-        outputAudioControllerRef.current =
-          new AudioElementOutputAudioController();
+        outputAudioControllerRef.current = new AudioElementOutputAudioController();
       }
     } catch (err) {
       if (err instanceof Error) {

@@ -1,4 +1,4 @@
-import { VoiceSocketAdapter, VoiceSocketConfig } from './VoiceSocketAdapter';
+import { VoiceSocketAdapter, type VoiceSocketConfig } from './VoiceSocketAdapter';
 
 export class VoiceWebsocketAdapter extends VoiceSocketAdapter {
   protected socket: WebSocket | null = null;
@@ -68,7 +68,7 @@ export class VoiceWebsocketAdapter extends VoiceSocketAdapter {
 
   async sendVoiceChunk(
     chunk: ArrayBuffer | Blob,
-    metadata?: Record<string, unknown>
+    metadata?: Record<string, unknown>,
   ): Promise<void> {
     let chunkToSend: ArrayBuffer;
     if (chunk instanceof Blob) {
@@ -77,8 +77,7 @@ export class VoiceWebsocketAdapter extends VoiceSocketAdapter {
       chunkToSend = chunk;
     }
 
-    if (!this.socket || !this.isConnected)
-      throw new Error('Socket not connected');
+    if (!this.socket || !this.isConnected) throw new Error('Socket not connected');
 
     // If metadata is provided, we could send it as a separate text frame
     if (metadata) {
@@ -90,8 +89,7 @@ export class VoiceWebsocketAdapter extends VoiceSocketAdapter {
   }
 
   sendVoiceFile(blob: Blob, metadata?: Record<string, unknown>): void {
-    if (!this.socket || !this.isConnected)
-      throw new Error('Socket not connected');
+    if (!this.socket || !this.isConnected) throw new Error('Socket not connected');
 
     // If metadata is provided, we could send it as a separate text frame
     if (metadata) {

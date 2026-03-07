@@ -1,5 +1,5 @@
 /** @jsxImportSource react */
-import React from 'react';
+import type React from 'react';
 import { Box, Text } from 'ink';
 
 export function Banner(): React.ReactNode {

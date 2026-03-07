@@ -3,14 +3,8 @@
 import { createRunner } from '../runner';
 import { getDefaultConcurrency, getSimpleCliUsage, parseSimpleCliArgs } from './args';
 import { printBanner } from './banner';
-import {
-  generateDatasetJsonCommandInk,
-  generateDatasetJsonCommandPlain,
-} from './generate';
-import {
-  runSimpleEvalCommandInk,
-  runSimpleEvalCommandPlain,
-} from './run';
+import { generateDatasetJsonCommandInk, generateDatasetJsonCommandPlain } from './generate';
+import { runSimpleEvalCommandInk, runSimpleEvalCommandPlain } from './run';
 
 function printUsageAndExit(exitCode: number): never {
   const printer = exitCode === 0 ? console.log : console.error;

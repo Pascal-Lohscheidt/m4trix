@@ -147,9 +147,7 @@
             { "name": "contract_match", "score": 100 },
             { "name": "arg_validity", "score": 100 }
           ],
-          "checks": [
-            { "name": "tool_calls", "passed": true, "detail": "0 unexpected" }
-          ],
+          "checks": [{ "name": "tool_calls", "passed": true, "detail": "0 unexpected" }],
           "failures": [],
           "meta": {
             "model": "gpt-4o-mini",
@@ -172,9 +170,21 @@
     }
   ],
   "evaluators": [
-    { "id": "json-schema-validator", "name": "JSON Schema Validator", "configPreview": "strict=true" },
-    { "id": "tool-call-contract-checker", "name": "Tool-call Contract Checker", "configPreview": "unexpectedCalls=error" },
-    { "id": "rubric-judge", "name": "Rubric Judge (LLM)", "configPreview": "model=gpt-4o-mini; scale=0-100" },
+    {
+      "id": "json-schema-validator",
+      "name": "JSON Schema Validator",
+      "configPreview": "strict=true"
+    },
+    {
+      "id": "tool-call-contract-checker",
+      "name": "Tool-call Contract Checker",
+      "configPreview": "unexpectedCalls=error"
+    },
+    {
+      "id": "rubric-judge",
+      "name": "Rubric Judge (LLM)",
+      "configPreview": "model=gpt-4o-mini; scale=0-100"
+    },
     { "id": "pii-leak-detector", "name": "PII Leak Detector", "configPreview": "redact=false" }
   ]
 }

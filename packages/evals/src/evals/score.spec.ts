@@ -72,10 +72,7 @@ describe('Score', () => {
     const withoutOverride = customScore.make({ value: 50 });
     expect(withoutOverride.name).toBeUndefined();
 
-    const withOverride = customScore.make(
-      { value: 50 },
-      { name: 'Quality vs baseline' },
-    );
+    const withOverride = customScore.make({ value: 50 }, { name: 'Quality vs baseline' });
     expect(withOverride.name).toBe('Quality vs baseline');
   });
 
@@ -110,9 +107,7 @@ describe('Score', () => {
     });
 
     expect(formatScoreData(customScore, { value: 50 })).toBe('val: 50');
-    expect(
-      formatScoreData(customScore, { value: 50 }, { isAggregated: true }),
-    ).toBe('avg: 50');
+    expect(formatScoreData(customScore, { value: 50 }, { isAggregated: true })).toBe('avg: 50');
   });
 
   test('Score.aggregate.averageFields averages numeric fields', () => {
@@ -156,11 +151,7 @@ describe('Score', () => {
   });
 
   test('Score.aggregate.all combines binary passed flags', () => {
-    const result = Score.aggregate.all([
-      { passed: true },
-      { passed: true },
-      { passed: false },
-    ]);
+    const result = Score.aggregate.all([{ passed: true }, { passed: true }, { passed: false }]);
     expect(result.passed).toBe(false);
     expect(result.passedCount).toBe(2);
     expect(result.totalCount).toBe(3);

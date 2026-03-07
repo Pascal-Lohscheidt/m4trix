@@ -1,8 +1,5 @@
-import {
-  AudioProcessingConfig,
-  InputAudioController,
-} from './InputAudioController';
-import { AudioContextState } from './InputAudioController';
+import { type AudioProcessingConfig, InputAudioController } from './InputAudioController';
+import type { AudioContextState } from './InputAudioController';
 
 /**
  * Represents the current state of the voice agent in the conversation flow.
@@ -98,16 +95,13 @@ export class WebAudioInputAudioController extends InputAudioController {
       this.mediaRecorder.start(DEFAULT_SLICING_INTERVAL);
       this.logger.debug('MediaRecorder started');
     } catch (err) {
-      const error =
-        err instanceof Error ? err : new Error('Failed to start recording');
+      const error = err instanceof Error ? err : new Error('Failed to start recording');
       this.logger.error(error);
       onError?.(error);
     }
   }
 
-  public async stopRecording({
-    onRecordingCompleted,
-  }: StopRecordingCallbacks = {}): Promise<void> {
+  public async stopRecording({ onRecordingCompleted }: StopRecordingCallbacks = {}): Promise<void> {
     this.logger.debug('Stopping recording');
     if (!this.mediaRecorder || this.mediaRecorder.state === 'inactive') return;
 

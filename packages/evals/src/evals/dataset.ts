@@ -17,19 +17,13 @@ interface DatasetDefineConfig {
   excludedPaths?: PathMatcher[];
 }
 
-function matchesAny(
-  value: string,
-  matchers: ReadonlyArray<string | RegExp>,
-): boolean {
+function matchesAny(value: string, matchers: ReadonlyArray<string | RegExp>): boolean {
   return matchers.some((matcher) =>
     typeof matcher === 'string' ? value === matcher : matcher.test(value),
   );
 }
 
-function matchesAnyPath(
-  filePath: string,
-  matchers: ReadonlyArray<string | RegExp>,
-): boolean {
+function matchesAnyPath(filePath: string, matchers: ReadonlyArray<string | RegExp>): boolean {
   return matchers.some((matcher) => {
     if (typeof matcher === 'string') {
       return simpleGlobMatch(matcher, filePath);
@@ -85,10 +79,7 @@ export class Dataset {
     return this._config.excludedPaths;
   }
 
-  matchesTestCase(
-    testCase: TestCase<unknown>,
-    filePath: string,
-  ): boolean {
+  matchesTestCase(testCase: TestCase<unknown>, filePath: string): boolean {
     const tags = testCase.getTags();
 
     if (this._config.excludedTags.length > 0) {

@@ -52,9 +52,7 @@ export abstract class InputAudioController {
     onError,
   }: StartRecordingCallbacks): Promise<void>;
 
-  public abstract stopRecording({
-    onRecordingCompleted,
-  }: StopRecordingCallbacks): Promise<void>;
+  public abstract stopRecording({ onRecordingCompleted }: StopRecordingCallbacks): Promise<void>;
 
   /**
    * Cleans up all audio recording resources.

@@ -1,5 +1,5 @@
 /** @jsxImportSource react */
-import React from 'react';
+import type React from 'react';
 import { Text } from 'ink';
 
 interface ListItemProps {
@@ -8,11 +8,7 @@ interface ListItemProps {
   itemKey: string;
 }
 
-export function ListItem({
-  selected,
-  label,
-  itemKey,
-}: ListItemProps): React.ReactNode {
+export function ListItem({ selected, label, itemKey }: ListItemProps): React.ReactNode {
   return (
     <Text key={itemKey} color={selected ? 'cyan' : 'gray'} bold={selected}>
       {selected ? '▸ ' : '  '}

@@ -1,15 +1,11 @@
 /** @jsxImportSource react */
-import React, { useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import type React from 'react';
+import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { Box, Text, useApp, useInput } from 'ink';
 import { useScreenSize } from 'fullscreen-ink';
 
 import { getBreadcrumbText, getFooterText } from './components';
-import {
-  isBackKey,
-  isPrintableCharacter,
-  isQuitInput,
-  isSearchInput,
-} from './keys';
+import { isBackKey, isPrintableCharacter, isQuitInput, isSearchInput } from './keys';
 import {
   createInitialState,
   applyRunnerEvent,
@@ -46,27 +42,17 @@ function clampCursor(
     ...state,
     datasetMenuIndex: Math.max(0, Math.min(state.datasetMenuIndex, datasetMax)),
     runMenuIndex: Math.max(0, Math.min(state.runMenuIndex, runMax)),
-    evaluatorMenuIndex: Math.max(
-      0,
-      Math.min(state.evaluatorMenuIndex, evaluatorMax),
-    ),
+    evaluatorMenuIndex: Math.max(0, Math.min(state.evaluatorMenuIndex, evaluatorMax)),
   };
 }
 
-export function EvalsCliApp({
-  data,
-  args,
-  runner,
-}: EvalsCliAppProps): React.ReactNode {
+export function EvalsCliApp({ data, args, runner }: EvalsCliAppProps): React.ReactNode {
   const { exit } = useApp();
   const { width: stdoutWidth, height: stdoutHeight } = useScreenSize();
   const [liveData, setLiveData] = useState<EvalsData>(data);
   const [runtimeMessage, setRuntimeMessage] = useState<string | undefined>();
   const overviewRowCountRef = useRef(0);
-  const [state, dispatch] = useReducer(
-    reduceCliState,
-    createInitialState(data, args),
-  );
+  const [state, dispatch] = useReducer(reduceCliState, createInitialState(data, args));
 
   useEffect(() => {
     setLiveData(data);
@@ -99,21 +85,12 @@ export function EvalsCliApp({
   const clampedState = clampCursor(
     state,
     filteredDatasets.length,
-    getDatasetByMenuIndex(filteredDatasets, state.datasetMenuIndex)?.runs
-      .length ?? 0,
+    getDatasetByMenuIndex(filteredDatasets, state.datasetMenuIndex)?.runs.length ?? 0,
   );
-  const selectedDataset = getDatasetByMenuIndex(
-    filteredDatasets,
-    clampedState.datasetMenuIndex,
-  );
-  const selectedRun = getRunByMenuIndex(
-    selectedDataset,
-    clampedState.runMenuIndex,
-  );
+  const selectedDataset = getDatasetByMenuIndex(filteredDatasets, clampedState.datasetMenuIndex);
+  const selectedRun = getRunByMenuIndex(selectedDataset, clampedState.runMenuIndex);
   const visibleEvaluators = liveData.evaluators.filter((evaluator) =>
-    evaluator.name
-      .toLowerCase()
-      .includes(clampedState.searchQuery.toLowerCase()),
+    evaluator.name.toLowerCase().includes(clampedState.searchQuery.toLowerCase()),
   );
 
   useInput((input, key) => {
@@ -227,9 +204,7 @@ export function EvalsCliApp({
           );
         })
         .catch((error) => {
-          setRuntimeMessage(
-            error instanceof Error ? error.message : 'Failed to start evaluation.',
-          );
+          setRuntimeMessage(error instanceof Error ? error.message : 'Failed to start evaluation.');
         });
     }
   });
@@ -255,13 +230,7 @@ export function EvalsCliApp({
       );
     }
     if (clampedState.level === 'runs') {
-      return (
-        <RunsView
-          state={clampedState}
-          dataset={selectedDataset}
-          selectedRun={selectedRun}
-        />
-      );
+      return <RunsView state={clampedState} dataset={selectedDataset} selectedRun={selectedRun} />;
     }
     return (
       <RunDetailsView
@@ -274,25 +243,9 @@ export function EvalsCliApp({
   };
 
   return (
-    <Box
-      flexDirection="column"
-      flexGrow={1}
-      width={stdoutWidth}
-      height={stdoutHeight}
-    >
-      <Box
-        borderStyle="round"
-        borderColor="cyan"
-        paddingX={1}
-        width={stdoutWidth}
-      >
-        <Text>
-          {getBreadcrumbText(
-            clampedState,
-            selectedDataset?.name,
-            selectedRun?.label,
-          )}
-        </Text>
+    <Box flexDirection="column" flexGrow={1} width={stdoutWidth} height={stdoutHeight}>
+      <Box borderStyle="round" borderColor="cyan" paddingX={1} width={stdoutWidth}>
+        <Text>{getBreadcrumbText(clampedState, selectedDataset?.name, selectedRun?.label)}</Text>
       </Box>
 
       {clampedState.startupWarnings.length > 0 && (
@@ -319,29 +272,20 @@ export function EvalsCliApp({
           paddingX={1}
           width={stdoutWidth}
         >
-          <Text color="magenta" bold>Search: </Text>
+          <Text color="magenta" bold>
+            Search:{' '}
+          </Text>
           <Text color="white">{clampedState.searchQuery}</Text>
         </Box>
       )}
 
       {runtimeMessage && (
-        <Box
-          marginTop={1}
-          borderStyle="round"
-          borderColor="blue"
-          paddingX={1}
-          width={stdoutWidth}
-        >
+        <Box marginTop={1} borderStyle="round" borderColor="blue" paddingX={1} width={stdoutWidth}>
           <Text color="blue">{runtimeMessage}</Text>
         </Box>
       )}
 
-      <Box
-        marginTop={1}
-        flexGrow={1}
-        width={stdoutWidth}
-        flexDirection="row"
-      >
+      <Box marginTop={1} flexGrow={1} width={stdoutWidth} flexDirection="row">
         {renderContent()}
       </Box>
 

@@ -32,9 +32,7 @@ describe('AiCursor', () => {
       const aiCursor = window.document.body.querySelector('ai-cursor');
       expect(aiCursor).toBeDefined();
 
-      const span = aiCursor?.shadowRoot?.querySelector(
-        '#cursor-graphic-parent'
-      );
+      const span = aiCursor?.shadowRoot?.querySelector('#cursor-graphic-parent');
 
       // since the mouse cursor uses css to animate the position, we need to check the styling in JSDom
       // it is questionable if this a very valuable test.
@@ -50,6 +48,6 @@ describe('AiCursor', () => {
     },
     {
       timeout: 10_000,
-    }
+    },
   );
 });

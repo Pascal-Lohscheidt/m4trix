@@ -1,11 +1,11 @@
 'use client';
 // Voice conversation hook for handling audio recording and playback via socket connection
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { VoiceSocketAdapter } from '../../adapter/socket/VoiceSocketAdapter';
+import type { VoiceSocketAdapter } from '../../adapter/socket/VoiceSocketAdapter';
 import { VoiceSocketIOAdapter } from '../../adapter/socket/VoiceSocketIOAdapter';
 import { Logger } from '../../utility/Logger';
 import { WebAudioInputAudioController } from '../../utility/audio/WebAudioInputAudioController';
-import { OutputAudioController } from '../../utility/audio/OutputAudioController';
+import type { OutputAudioController } from '../../utility/audio/OutputAudioController';
 import { WebAudioOutputAudioController } from '../../utility/audio/WebAudioOutputAudioController';
 import type {
   BaseUseConversationOptions,
@@ -14,20 +14,19 @@ import type {
   VoiceAgentState,
 } from './shared-types';
 
-export type SocketConversationOptions<
-  T extends Record<string, unknown> = Record<string, unknown>,
-> = BaseUseConversationOptions & {
-  scope?: string;
-  downstreamMode?: DownstreamMode;
-  upstreamMode?: UpstreamMode;
-  handsFreeEnginePlugin?: unknown[];
-  socketConfig?: {
-    baseUrl?: string;
-    socketAdapter?: VoiceSocketAdapter;
-    headers?: Record<string, string>;
+export type SocketConversationOptions<T extends Record<string, unknown> = Record<string, unknown>> =
+  BaseUseConversationOptions & {
+    scope?: string;
+    downstreamMode?: DownstreamMode;
+    upstreamMode?: UpstreamMode;
+    handsFreeEnginePlugin?: unknown[];
+    socketConfig?: {
+      baseUrl?: string;
+      socketAdapter?: VoiceSocketAdapter;
+      headers?: Record<string, string>;
+    };
+    requestData?: T;
   };
-  requestData?: T;
-};
 
 export interface UseSocketConversationResult {
   startRecording: () => void;
@@ -55,23 +54,16 @@ export function useSocketConversation<T extends Record<string, unknown>>({
   socketConfig = {},
 }: SocketConversationOptions<T>): UseSocketConversationResult {
   // Refs
-  const { current: logger } = useRef<Logger>(
-    new Logger('SuTr > useSocketConversation')
-  );
-  const inputAudioControllerRef = useRef<
-    WebAudioInputAudioController | undefined
-  >(undefined);
+  const { current: logger } = useRef<Logger>(new Logger('SuTr > useSocketConversation'));
+  const inputAudioControllerRef = useRef<WebAudioInputAudioController | undefined>(undefined);
 
-  const outputAudioControllerRef = useRef<OutputAudioController | undefined>(
-    undefined
-  );
+  const outputAudioControllerRef = useRef<OutputAudioController | undefined>(undefined);
 
   const socketAdapterRef = useRef<VoiceSocketAdapter | undefined>(undefined);
   const [socket, setSocket] = useState<unknown | null>(null);
 
   // State
-  const [voiceAgentState, setVoiceAgentState] =
-    useState<VoiceAgentState>('READY');
+  const [voiceAgentState, setVoiceAgentState] = useState<VoiceAgentState>('READY');
   const [error, setError] = useState<Error | null>(null);
 
   // ================================================
@@ -90,7 +82,7 @@ export function useSocketConversation<T extends Record<string, unknown>>({
       logger.error(`Error during ${state}:`, err);
       onError?.(state, err);
     },
-    [onError]
+    [onError],
   );
 
   const subscribeToSocketEventsForChunkDownstreaming = useCallback(
@@ -114,7 +106,7 @@ export function useSocketConversation<T extends Record<string, unknown>>({
           if (chunk instanceof ArrayBuffer) {
             chunkCount++;
             logger.debug(
-              `Received voice chunk #${chunkCount} from socket, size: ${chunk.byteLength} bytes`
+              `Received voice chunk #${chunkCount} from socket, size: ${chunk.byteLength} bytes`,
             );
 
             if (!chunk || chunk.byteLength === 0) {
@@ -124,14 +116,9 @@ export function useSocketConversation<T extends Record<string, unknown>>({
 
             try {
               await addChunkToStream(chunk);
-              logger.debug(
-                `Successfully added chunk #${chunkCount} to audio stream`
-              );
+              logger.debug(`Successfully added chunk #${chunkCount} to audio stream`);
             } catch (err) {
-              logger.error(
-                `Failed to add chunk #${chunkCount} to audio stream`,
-                err
-              );
+              logger.error(`Failed to add chunk #${chunkCount} to audio stream`, err);
               if (err instanceof Error) {
                 handleError('DOWNSTREAMING', err);
               }
@@ -143,7 +130,7 @@ export function useSocketConversation<T extends Record<string, unknown>>({
 
         const endOfStreamEmitter = (): void => {
           logger.debug(
-            `Received end of stream signal after ${chunkCount} chunks, ending chunk stream`
+            `Received end of stream signal after ${chunkCount} chunks, ending chunk stream`,
           );
           endChunkStream();
           setVoiceAgentState('READY');
@@ -155,10 +142,7 @@ export function useSocketConversation<T extends Record<string, unknown>>({
         return () => {
           logger.debug('Cleaning up socket event listeners');
           socketAdapter.off('chunk-received', chunkReceivedEmitter);
-          socketAdapter.off(
-            'received-end-of-response-stream',
-            endOfStreamEmitter
-          );
+          socketAdapter.off('received-end-of-response-stream', endOfStreamEmitter);
           endChunkStream();
         };
       } catch (err) {
@@ -168,7 +152,7 @@ export function useSocketConversation<T extends Record<string, unknown>>({
         return () => {};
       }
     },
-    [handleError]
+    [handleError],
   );
 
   const hookupSocketAdapter = useCallback(
@@ -202,7 +186,7 @@ export function useSocketConversation<T extends Record<string, unknown>>({
         }
       }
     },
-    [handleError, voiceAgentState]
+    [handleError, voiceAgentState],
   );
 
   const startRecording = useCallback(() => {
@@ -249,9 +233,7 @@ export function useSocketConversation<T extends Record<string, unknown>>({
               }
 
               setVoiceAgentState('DOWNSTREAMING');
-              await subscribeToSocketEventsForChunkDownstreaming(
-                socketAdapterRef.current!
-              );
+              await subscribeToSocketEventsForChunkDownstreaming(socketAdapterRef.current!);
 
               // Handle receiving the audio response
               onReceive?.(
@@ -268,7 +250,7 @@ export function useSocketConversation<T extends Record<string, unknown>>({
                   if (outputAudioControllerRef.current) {
                     return outputAudioControllerRef.current.stopPlayback();
                   }
-                }
+                },
               );
 
               // Event listeners are cleaned up automatically
@@ -286,12 +268,7 @@ export function useSocketConversation<T extends Record<string, unknown>>({
         }
       }
     }
-  }, [
-    onStopRecording,
-    handleError,
-    subscribeToSocketEventsForChunkDownstreaming,
-    onReceive,
-  ]);
+  }, [onStopRecording, handleError, subscribeToSocketEventsForChunkDownstreaming, onReceive]);
 
   // Setup Socket Adapter and AudioControllers
   useEffect(() => {
@@ -317,9 +294,7 @@ export function useSocketConversation<T extends Record<string, unknown>>({
 
       // Set up audio controllers
       if (!inputAudioControllerRef.current) {
-        inputAudioControllerRef.current = new WebAudioInputAudioController(
-          audioConfig
-        );
+        inputAudioControllerRef.current = new WebAudioInputAudioController(audioConfig);
       }
 
       if (!outputAudioControllerRef.current) {

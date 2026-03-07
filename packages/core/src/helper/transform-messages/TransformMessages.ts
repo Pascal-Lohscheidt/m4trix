@@ -1,10 +1,6 @@
-import { BaseMessage, AIMessage, ToolMessage } from '@langchain/core/messages';
+import { type BaseMessage, AIMessage, ToolMessage } from '@langchain/core/messages';
 import { Effect, pipe } from 'effect';
-import {
-  MessageFilter,
-  MessageFilterType,
-  typeOnFilter,
-} from './message-filter';
+import { type MessageFilter, type MessageFilterType, typeOnFilter } from './message-filter';
 import { FormatType, typeOnFormatter } from './formatter';
 
 /**
@@ -41,10 +37,7 @@ class TransformMessages {
   /**
    * Filter messages based on a predicate function
    */
-  filter(
-    predicate: MessageFilter | MessageFilterType,
-    tags?: Array<string>
-  ): TransformMessages {
+  filter(predicate: MessageFilter | MessageFilterType, tags?: Array<string>): TransformMessages {
     let finalPredicate: MessageFilter;
     if (typeof predicate === 'string') {
       finalPredicate = typeOnFilter[predicate];
@@ -55,10 +48,8 @@ class TransformMessages {
     return new TransformMessages(
       pipe(
         this.effect,
-        Effect.map((messages) =>
-          messages.filter((message) => finalPredicate(message, tags))
-        )
-      )
+        Effect.map((messages) => messages.filter((message) => finalPredicate(message, tags))),
+      ),
     );
   }
 
@@ -67,10 +58,7 @@ class TransformMessages {
    * Tool calls should not be separated from the last human message.
    * Ensures all tool call conversations in the last n messages are complete.
    */
-  safelyTakeLast(
-    n: number,
-    pruneAfterNOvershootingMessages: number = 0
-  ): TransformMessages {
+  safelyTakeLast(n: number, pruneAfterNOvershootingMessages: number = 0): TransformMessages {
     return new TransformMessages(
       pipe(
         this.effect,
@@ -88,10 +76,7 @@ class TransformMessages {
 
           // Check the first message if it is a tool call message
           // if it is iterate backwards until we find the AI message
-          if (
-            lastSlice[0] instanceof ToolMessage &&
-            lastSlice[0].tool_call_id
-          ) {
+          if (lastSlice[0] instanceof ToolMessage && lastSlice[0].tool_call_id) {
             let messagesToInclude: Array<BaseMessage> = [];
             const remainingMessages = messages.slice(0, start);
             for (let i = remainingMessages.length - 1; i >= 0; i--) {
@@ -124,17 +109,15 @@ class TransformMessages {
                 messagesToInclude.push(msg);
               } else {
                 // This should not happen messages invalid
-                throw new Error(
-                  'Messages array invalid no adjacent AI message found'
-                );
+                throw new Error('Messages array invalid no adjacent AI message found');
               }
             }
             return [...messagesToInclude.reverse(), ...lastSlice];
           } else {
             return lastSlice;
           }
-        })
-      )
+        }),
+      ),
     );
   }
 
@@ -145,8 +128,8 @@ class TransformMessages {
     return new TransformMessages(
       pipe(
         this.effect,
-        Effect.map((messages) => messages.slice(-n))
-      )
+        Effect.map((messages) => messages.slice(-n)),
+      ),
     );
   }
 
@@ -157,8 +140,8 @@ class TransformMessages {
     return new TransformMessages(
       pipe(
         this.effect,
-        Effect.map((messages) => messages.slice(0, n))
-      )
+        Effect.map((messages) => messages.slice(0, n)),
+      ),
     );
   }
 
@@ -169,8 +152,8 @@ class TransformMessages {
     return new TransformMessages(
       pipe(
         this.effect,
-        Effect.map((messages) => messages.slice(n))
-      )
+        Effect.map((messages) => messages.slice(n)),
+      ),
     );
   }
 
@@ -181,22 +164,20 @@ class TransformMessages {
     return new TransformMessages(
       pipe(
         this.effect,
-        Effect.map((messages) => [...messages].reverse())
-      )
+        Effect.map((messages) => [...messages].reverse()),
+      ),
     );
   }
 
   /**
    * Map over messages with a transformation function
    */
-  map<T extends BaseMessage>(
-    fn: (message: BaseMessage) => T
-  ): TransformMessages {
+  map<T extends BaseMessage>(fn: (message: BaseMessage) => T): TransformMessages {
     return new TransformMessages(
       pipe(
         this.effect,
-        Effect.map((messages) => messages.map(fn))
-      )
+        Effect.map((messages) => messages.map(fn)),
+      ),
     );
   }
 
@@ -213,8 +194,8 @@ class TransformMessages {
           }
           const formatter = typeOnFormatter[formatType];
           return formatter(messages);
-        })
-      )
+        }),
+      ),
     );
     return result;
   }
@@ -252,8 +233,8 @@ class TransformMessages {
     const result = Effect.runSync(
       pipe(
         this.effect,
-        Effect.map((messages) => JSON.stringify(messages, null, 2))
-      )
+        Effect.map((messages) => JSON.stringify(messages, null, 2)),
+      ),
     );
     return result;
   }
@@ -265,8 +246,8 @@ class TransformMessages {
     const result = Effect.runSync(
       pipe(
         this.effect,
-        Effect.map((messages) => messages.length)
-      )
+        Effect.map((messages) => messages.length),
+      ),
     );
     return result;
   }

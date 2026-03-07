@@ -1,7 +1,6 @@
+import { Effect, Schema as S } from 'effect';
 import { describe, expect, test } from 'vitest';
-import { Effect } from 'effect';
 import { AgentNetworkEvent } from './agent-network-event';
-import { Schema as S } from 'effect';
 
 describe('AgentNetworkEvent', () => {
   test('should create an event definition', () => {
@@ -12,10 +11,7 @@ describe('AgentNetworkEvent', () => {
   });
 
   test('make (payload only) creates unbound event for emit', () => {
-    const AddTask = AgentNetworkEvent.of(
-      'add-task',
-      S.Struct({ title: S.String }),
-    );
+    const AddTask = AgentNetworkEvent.of('add-task', S.Struct({ title: S.String }));
 
     const result = AddTask.make({ title: 'Do the thing' });
 
@@ -26,10 +22,7 @@ describe('AgentNetworkEvent', () => {
   });
 
   test('makeBound creates full envelope with meta', () => {
-    const AddTask = AgentNetworkEvent.of(
-      'add-task',
-      S.Struct({ title: S.String }),
-    );
+    const AddTask = AgentNetworkEvent.of('add-task', S.Struct({ title: S.String }));
 
     const result = AddTask.makeBound(
       { runId: 'run-1', contextId: 'ctx-1' },
@@ -44,10 +37,7 @@ describe('AgentNetworkEvent', () => {
   });
 
   test('makeEffect returns Effect for Effect pipelines', () => {
-    const AddTask = AgentNetworkEvent.of(
-      'add-task',
-      S.Struct({ title: S.String }),
-    );
+    const AddTask = AgentNetworkEvent.of('add-task', S.Struct({ title: S.String }));
 
     const result = Effect.runSync(AddTask.makeEffect({ title: 'Do the thing' }));
 
@@ -58,16 +48,10 @@ describe('AgentNetworkEvent', () => {
   });
 
   test('makeBoundEffect returns full envelope as Effect', () => {
-    const AddTask = AgentNetworkEvent.of(
-      'add-task',
-      S.Struct({ title: S.String }),
-    );
+    const AddTask = AgentNetworkEvent.of('add-task', S.Struct({ title: S.String }));
 
     const result = Effect.runSync(
-      AddTask.makeBoundEffect(
-        { runId: 'run-1', contextId: 'ctx-1' },
-        { title: 'Do the thing' },
-      ),
+      AddTask.makeBoundEffect({ runId: 'run-1', contextId: 'ctx-1' }, { title: 'Do the thing' }),
     );
 
     expect(result).toEqual({
@@ -78,10 +62,7 @@ describe('AgentNetworkEvent', () => {
   });
 
   test('is type guard narrows unknown to event', () => {
-    const AddTask = AgentNetworkEvent.of(
-      'add-task',
-      S.Struct({ title: S.String }),
-    );
+    const AddTask = AgentNetworkEvent.of('add-task', S.Struct({ title: S.String }));
 
     const valid = {
       name: 'add-task' as const,

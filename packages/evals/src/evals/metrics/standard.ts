@@ -31,6 +31,5 @@ export const latencyMetric = Metric.of<LatencyData>({
   id: 'latency',
   name: 'Latency',
   aggregate: aggregateLatencyAverage,
-  format: (data, options) =>
-    options?.isAggregated ? `Avg: ${data.ms}ms` : `${data.ms}ms`,
+  format: (data, options) => (options?.isAggregated ? `Avg: ${data.ms}ms` : `${data.ms}ms`),
 });

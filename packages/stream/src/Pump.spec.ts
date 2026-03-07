@@ -490,10 +490,7 @@ describe('Pump', () => {
       // Middle windows should all be fully defined
       expect(windows[3]).toEqual(['this rolling window', 'friend']);
 
-      expect(windows[4]).toEqual([
-        'is a bit more confusing logic',
-        'this rolling window',
-      ]);
+      expect(windows[4]).toEqual(['is a bit more confusing logic', 'this rolling window']);
 
       expect(windows[5]).toEqual([undefined, 'is a bit more confusing logic']);
     });
@@ -555,11 +552,7 @@ describe('Pump', () => {
       // Verify each onClose captured the correct transformation state
       expect(originalNumbers).toEqual([1, 2, 3]);
       expect(doubledNumbers).toEqual([2, 4, 6]);
-      expect(stringifiedNumbers).toEqual([
-        'Number: 2',
-        'Number: 4',
-        'Number: 6',
-      ]);
+      expect(stringifiedNumbers).toEqual(['Number: 2', 'Number: 4', 'Number: 6']);
     });
 
     it('should handle async callbacks in onClose', async () => {

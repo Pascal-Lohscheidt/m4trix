@@ -24,9 +24,7 @@ function extractFinalAnswer(fullResponse: string): string {
   return paragraphs[paragraphs.length - 1]?.trim() ?? fullResponse.trim();
 }
 
-function buildMessages(
-  problemToSolve: string,
-): OpenAI.ChatCompletionMessageParam[] {
+function buildMessages(problemToSolve: string): OpenAI.ChatCompletionMessageParam[] {
   return [
     { role: 'system', content: REACT_SYSTEM_PROMPT },
     { role: 'user', content: `Problem to solve:\n\n${problemToSolve}` },

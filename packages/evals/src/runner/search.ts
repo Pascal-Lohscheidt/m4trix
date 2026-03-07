@@ -1,9 +1,6 @@
 import type { CollectedTestCase, SearchTestCasesQuery } from './events';
 
-function matchesAny(
-  value: string,
-  matchers: ReadonlyArray<string | RegExp> | undefined,
-): boolean {
+function matchesAny(value: string, matchers: ReadonlyArray<string | RegExp> | undefined): boolean {
   if (!matchers || matchers.length === 0) {
     return true;
   }
@@ -12,10 +9,7 @@ function matchesAny(
   );
 }
 
-function matchesPath(
-  value: string,
-  matchers: ReadonlyArray<string | RegExp> | undefined,
-): boolean {
+function matchesPath(value: string, matchers: ReadonlyArray<string | RegExp> | undefined): boolean {
   if (!matchers || matchers.length === 0) {
     return true;
   }
@@ -38,16 +32,10 @@ export function searchCollectedTestCases(
   return all.filter((item) => {
     const tags = item.testCase.getTags();
 
-    if (
-      query.excludedTags &&
-      tags.some((tag) => matchesAny(tag, query.excludedTags))
-    ) {
+    if (query.excludedTags && tags.some((tag) => matchesAny(tag, query.excludedTags))) {
       return false;
     }
-    if (
-      query.excludedPaths &&
-      matchesPath(item.filePath, query.excludedPaths)
-    ) {
+    if (query.excludedPaths && matchesPath(item.filePath, query.excludedPaths)) {
       return false;
     }
 

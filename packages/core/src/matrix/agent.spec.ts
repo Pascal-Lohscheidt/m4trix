@@ -27,10 +27,7 @@ describe('Agent', () => {
   test('emit function is available in logic context', async () => {
     const emitSpy = vitest.fn();
 
-    const TaskAdded = AgentNetworkEvent.of(
-      'task-added',
-      S.Struct({ title: S.String }),
-    );
+    const TaskAdded = AgentNetworkEvent.of('task-added', S.Struct({ title: S.String }));
 
     const agent = AgentFactory.run()
       .emits([TaskAdded])
@@ -49,10 +46,7 @@ describe('Agent', () => {
   test('invoke accepts a triggerEvent', async () => {
     const triggerSpy = vitest.fn();
 
-    const TaskRequested = AgentNetworkEvent.of(
-      'task-requested',
-      S.Struct({ title: S.String }),
-    );
+    const TaskRequested = AgentNetworkEvent.of('task-requested', S.Struct({ title: S.String }));
 
     const agent = AgentFactory.run()
       .listensTo([TaskRequested])
@@ -74,10 +68,7 @@ describe('Agent', () => {
   test('invoke accepts a custom emit function', async () => {
     const customEmit = vitest.fn();
 
-    const TaskAdded = AgentNetworkEvent.of(
-      'task-added',
-      S.Struct({ title: S.String }),
-    );
+    const TaskAdded = AgentNetworkEvent.of('task-added', S.Struct({ title: S.String }));
 
     const agent = AgentFactory.run()
       .emits([TaskAdded])

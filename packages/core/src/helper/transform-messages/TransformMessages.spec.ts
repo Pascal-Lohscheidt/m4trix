@@ -19,29 +19,21 @@ describe('TransformMessages', () => {
   });
 
   it('should filter Human and AI messages', async () => {
-    const result = TransformMessages.from(messages)
-      .filter(MessageFilterType.HumanAndAI)
-      .toArray();
+    const result = TransformMessages.from(messages).filter(MessageFilterType.HumanAndAI).toArray();
     expect(result).toHaveLength(4);
-    expect(
-      result.every(
-        (msg) => msg instanceof HumanMessage || msg instanceof AIMessage
-      )
-    ).toBe(true);
+    expect(result.every((msg) => msg instanceof HumanMessage || msg instanceof AIMessage)).toBe(
+      true,
+    );
   });
 
   it('should filter only Human messages', async () => {
-    const result = TransformMessages.from(messages)
-      .filter(MessageFilterType.HumanOnly)
-      .toArray();
+    const result = TransformMessages.from(messages).filter(MessageFilterType.HumanOnly).toArray();
     expect(result).toHaveLength(2);
     expect(result.every((msg) => msg instanceof HumanMessage)).toBe(true);
   });
 
   it('should filter only AI messages', async () => {
-    const result = TransformMessages.from(messages)
-      .filter(MessageFilterType.AIOnly)
-      .toArray();
+    const result = TransformMessages.from(messages).filter(MessageFilterType.AIOnly).toArray();
     expect(result).toHaveLength(2);
     expect(result.every((msg) => msg instanceof AIMessage)).toBe(true);
   });
@@ -76,17 +68,13 @@ describe('TransformMessages', () => {
   });
 
   it('should count messages', async () => {
-    const count = TransformMessages.from(messages)
-      .filter(MessageFilterType.HumanOnly)
-      .count();
+    const count = TransformMessages.from(messages).filter(MessageFilterType.HumanOnly).count();
     expect(count).toBe(2);
   });
 
   it('should format messages as concise', async () => {
     const testMessages = messages.slice(0, 2);
-    const result = TransformMessages.from(testMessages).format(
-      FormatType.Concise
-    );
+    const result = TransformMessages.from(testMessages).format(FormatType.Concise);
     expect(typeof result).toBe('string');
     expect(result as string).toContain('Human: Hello');
     expect(result as string).toContain('AI: Hi there!');
@@ -94,9 +82,7 @@ describe('TransformMessages', () => {
 
   it('should format messages as JSON', async () => {
     const testMessages = messages.slice(0, 2);
-    const jsonStr = TransformMessages.from(testMessages).format(
-      FormatType.JSON
-    );
+    const jsonStr = TransformMessages.from(testMessages).format(FormatType.JSON);
     const parsed = JSON.parse(jsonStr as string);
     expect(Array.isArray(parsed)).toBe(true);
     expect(parsed[0].kwargs.content).toBe('Hello');
@@ -105,9 +91,7 @@ describe('TransformMessages', () => {
 
   it('should format messages as verbose', async () => {
     const testMessages = messages.slice(0, 2);
-    const result = TransformMessages.from(testMessages).format(
-      FormatType.Verbose
-    );
+    const result = TransformMessages.from(testMessages).format(FormatType.Verbose);
     expect(typeof result).toBe('string');
     expect(result as string).toContain('Human:\nHello');
     expect(result as string).toContain('AI:\nHi there!');
@@ -115,18 +99,14 @@ describe('TransformMessages', () => {
 
   it('should format messages as redact-ai', async () => {
     const testMessages = messages.slice(0, 2);
-    const result = TransformMessages.from(testMessages).format(
-      FormatType.RedactAi
-    );
+    const result = TransformMessages.from(testMessages).format(FormatType.RedactAi);
     expect(typeof result).toBe('string');
     expect(result as string).toContain('AI: [...]');
   });
 
   it('should format messages as redact-human', async () => {
     const testMessages = messages.slice(0, 2);
-    const result = TransformMessages.from(testMessages).format(
-      FormatType.RedactHuman
-    );
+    const result = TransformMessages.from(testMessages).format(FormatType.RedactHuman);
     expect(typeof result).toBe('string');
     expect(result as string).toContain('AI: [...]');
   });
@@ -185,9 +165,7 @@ describe('TransformMessages', () => {
         new AIMessage('I am good!'),
       ];
 
-      const result = TransformMessages.from(simpleMessages)
-        .safelyTakeLast(2)
-        .toArray();
+      const result = TransformMessages.from(simpleMessages).safelyTakeLast(2).toArray();
       expect(result).toHaveLength(2);
       expect(result[0]).toEqual(simpleMessages[2]); // 'How are you?'
       expect(result[1]).toEqual(simpleMessages[3]); // 'I am good!'
@@ -212,9 +190,7 @@ describe('TransformMessages', () => {
       ];
 
       // Taking last 3 messages should include the ToolMessage as the first message in the slice
-      const result = TransformMessages.from(messagesWithToolCall)
-        .safelyTakeLast(3)
-        .toArray();
+      const result = TransformMessages.from(messagesWithToolCall).safelyTakeLast(3).toArray();
       // Should include the AI message with tool call, ToolMessage, and the last 3 messages
       expect(result).toHaveLength(4);
       expect(result[0]).toEqual(messagesWithToolCall[1]); // AI message with tool call
@@ -246,9 +222,7 @@ describe('TransformMessages', () => {
         new AIMessage('Glad I could help!'),
       ];
 
-      const result = TransformMessages.from(multiToolMessages)
-        .safelyTakeLast(3)
-        .toArray();
+      const result = TransformMessages.from(multiToolMessages).safelyTakeLast(3).toArray();
       // Should include the AI message with both tool calls, both ToolMessages, and the last 3 messages
       expect(result).toHaveLength(5);
       expect(result[0]).toEqual(multiToolMessages[1]); // AI message with tool calls
@@ -277,9 +251,7 @@ describe('TransformMessages', () => {
         new AIMessage('You are welcome'),
       ];
 
-      const result = TransformMessages.from(messagesWithGap)
-        .safelyTakeLast(3)
-        .toArray();
+      const result = TransformMessages.from(messagesWithGap).safelyTakeLast(3).toArray();
       // Should include the AI message with tool call, ToolMessage, and the last 3 messages
       expect(result).toHaveLength(4);
       expect(result[0]).toEqual(messagesWithGap[3]); // AI message with tool call
@@ -329,12 +301,8 @@ describe('TransformMessages', () => {
         .toArray();
       // Should only include the last 2 messages since pruning stops the search
       expect(result).toHaveLength(2);
-      expect(result[0]).toEqual(
-        messagesWithManyToolCalls[messagesWithManyToolCalls.length - 2]
-      ); // 'Thanks'
-      expect(result[1]).toEqual(
-        messagesWithManyToolCalls[messagesWithManyToolCalls.length - 1]
-      ); // 'You are welcome'
+      expect(result[0]).toEqual(messagesWithManyToolCalls[messagesWithManyToolCalls.length - 2]); // 'Thanks'
+      expect(result[1]).toEqual(messagesWithManyToolCalls[messagesWithManyToolCalls.length - 1]); // 'You are welcome'
     });
 
     it('should not destroy order of messages', async () => {
@@ -366,26 +334,14 @@ describe('TransformMessages', () => {
       ];
 
       // With pruneAfterNOvershootingMessages = 1, it should stop searching after 1 message
-      const result = TransformMessages.from(messagesWithManyToolCalls)
-        .safelyTakeLast(2)
-        .toArray();
+      const result = TransformMessages.from(messagesWithManyToolCalls).safelyTakeLast(2).toArray();
       // Should only include the last 2 messages since pruning stops the search
       expect(result).toHaveLength(5);
-      expect(result[0]).toEqual(
-        messagesWithManyToolCalls[messagesWithManyToolCalls.length - 5]
-      ); // 'Start'
-      expect(result[1]).toEqual(
-        messagesWithManyToolCalls[messagesWithManyToolCalls.length - 4]
-      ); // 'First tool call'
-      expect(result[2]).toEqual(
-        messagesWithManyToolCalls[messagesWithManyToolCalls.length - 3]
-      ); // 'result1'
-      expect(result[3]).toEqual(
-        messagesWithManyToolCalls[messagesWithManyToolCalls.length - 2]
-      ); // 'Second request'
-      expect(result[4]).toEqual(
-        messagesWithManyToolCalls[messagesWithManyToolCalls.length - 1]
-      ); // 'You are welcome'
+      expect(result[0]).toEqual(messagesWithManyToolCalls[messagesWithManyToolCalls.length - 5]); // 'Start'
+      expect(result[1]).toEqual(messagesWithManyToolCalls[messagesWithManyToolCalls.length - 4]); // 'First tool call'
+      expect(result[2]).toEqual(messagesWithManyToolCalls[messagesWithManyToolCalls.length - 3]); // 'result1'
+      expect(result[3]).toEqual(messagesWithManyToolCalls[messagesWithManyToolCalls.length - 2]); // 'Second request'
+      expect(result[4]).toEqual(messagesWithManyToolCalls[messagesWithManyToolCalls.length - 1]); // 'You are welcome'
     });
 
     it('should work with chained operations', async () => {
@@ -417,9 +373,7 @@ describe('TransformMessages', () => {
         new AIMessage('I am good!'),
       ];
 
-      const result = TransformMessages.from(emptyToolCallsMessages)
-        .safelyTakeLast(2)
-        .toArray();
+      const result = TransformMessages.from(emptyToolCallsMessages).safelyTakeLast(2).toArray();
       expect(result).toHaveLength(2);
       expect(result[0]).toEqual(emptyToolCallsMessages[2]); // 'How are you?'
       expect(result[1]).toEqual(emptyToolCallsMessages[3]); // 'I am good!'
@@ -443,9 +397,7 @@ describe('TransformMessages', () => {
       ];
 
       // Taking last 2 messages - ToolMessage is not the first in the slice
-      const result = TransformMessages.from(messagesWithToolCall)
-        .safelyTakeLast(2)
-        .toArray();
+      const result = TransformMessages.from(messagesWithToolCall).safelyTakeLast(2).toArray();
       // Should just return the last 2 messages normally
       expect(result).toHaveLength(2);
       expect(result[0]).toEqual(messagesWithToolCall[3]); // 'Thanks!'
@@ -461,7 +413,7 @@ describe('TransformMessages', () => {
       ];
 
       await expect(
-        TransformMessages.from(invalidMessages).safelyTakeLast(2).toArray()
+        TransformMessages.from(invalidMessages).safelyTakeLast(2).toArray(),
       ).rejects.toThrow('Messages array invalid no adjacent AI message found');
     });
   });

@@ -14,9 +14,7 @@ function lastNonEmptyName(items: ReadonlyArray<{ name?: string }>): string | und
   return undefined;
 }
 
-export function aggregateScoreItems(
-  items: ReadonlyArray<ScoreItem>,
-): ScoreItem | undefined {
+export function aggregateScoreItems(items: ReadonlyArray<ScoreItem>): ScoreItem | undefined {
   if (items.length === 0) return undefined;
   const def = getScoreDef(items[0]);
   if (!def?.aggregateValues) return items[items.length - 1];
@@ -30,9 +28,7 @@ export function aggregateScoreItems(
   };
 }
 
-export function aggregateMetricItems(
-  items: ReadonlyArray<MetricItem>,
-): MetricItem | undefined {
+export function aggregateMetricItems(items: ReadonlyArray<MetricItem>): MetricItem | undefined {
   if (items.length === 0) return undefined;
   const def = getMetricById(items[0].id);
   if (!def?.aggregate) return items[items.length - 1];
@@ -45,12 +41,16 @@ export function aggregateMetricItems(
   };
 }
 
-export function toNumericScoreFromScores(
-  scores: ReadonlyArray<ScoreItem>,
-): number | undefined {
+export function toNumericScoreFromScores(scores: ReadonlyArray<ScoreItem>): number | undefined {
   for (const item of scores) {
     const def = getScoreDef(item);
-    if (def && def.displayStrategy === 'bar' && typeof item.data === 'object' && item.data !== null && 'value' in item.data) {
+    if (
+      def &&
+      def.displayStrategy === 'bar' &&
+      typeof item.data === 'object' &&
+      item.data !== null &&
+      'value' in item.data
+    ) {
       const value = (item.data as { value: unknown }).value;
       if (typeof value === 'number' && Number.isFinite(value)) {
         return value;
@@ -72,21 +72,14 @@ export function toNumericScore(value: unknown): number | undefined {
     return undefined;
   }
   const obj = value as Record<string, unknown>;
-  if (
-    'score' in obj &&
-    typeof obj.score === 'number' &&
-    Number.isFinite(obj.score)
-  ) {
+  if ('score' in obj && typeof obj.score === 'number' && Number.isFinite(obj.score)) {
     return obj.score;
   }
   const numberValues = Object.values(value).filter(
-    (entry): entry is number =>
-      typeof entry === 'number' && Number.isFinite(entry),
+    (entry): entry is number => typeof entry === 'number' && Number.isFinite(entry),
   );
   if (numberValues.length === 0) {
     return undefined;
   }
-  return (
-    numberValues.reduce((sum, entry) => sum + entry, 0) / numberValues.length
-  );
+  return numberValues.reduce((sum, entry) => sum + entry, 0) / numberValues.length;
 }

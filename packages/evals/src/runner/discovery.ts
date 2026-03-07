@@ -1,17 +1,13 @@
-import { Dirent } from 'node:fs';
+import type { Dirent } from 'node:fs';
 import { readdir } from 'node:fs/promises';
-import { resolve, relative } from 'node:path';
+import { relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import type { Dataset } from '../evals/dataset';
 import type { Evaluator } from '../evals/evaluator';
 import type { TestCase } from '../evals/test-case';
-import type {
-  CollectedDataset,
-  CollectedEvaluator,
-  CollectedTestCase,
-} from './events';
 import type { RunnerDiscoveryConfig } from './config';
+import type { CollectedDataset, CollectedEvaluator, CollectedTestCase } from './events';
 
 type JitiModuleLoader = {
   (id: string): unknown;
@@ -41,9 +37,7 @@ function isDatasetLike(value: unknown): value is Dataset {
   return hasMethod(value, 'getName') && hasMethod(value, 'matchesTestCase');
 }
 
-function isEvaluatorLike(
-  value: unknown,
-): value is Evaluator<unknown, unknown, unknown, unknown> {
+function isEvaluatorLike(value: unknown): value is Evaluator<unknown, unknown, unknown, unknown> {
   return (
     hasMethod(value, 'getName') &&
     hasMethod(value, 'resolveContext') &&
@@ -52,11 +46,7 @@ function isEvaluatorLike(
 }
 
 function isTestCaseLike(value: unknown): value is TestCase<unknown> {
-  return (
-    hasMethod(value, 'getName') &&
-    hasMethod(value, 'getTags') &&
-    hasMethod(value, 'getInput')
-  );
+  return hasMethod(value, 'getName') && hasMethod(value, 'getTags') && hasMethod(value, 'getInput');
 }
 
 async function walkDirectory(
@@ -95,10 +85,7 @@ async function walkDirectory(
   return out;
 }
 
-function hasOneSuffix(
-  filePath: string,
-  suffixes: ReadonlyArray<string>,
-): boolean {
+function hasOneSuffix(filePath: string, suffixes: ReadonlyArray<string>): boolean {
   return suffixes.some((suffix) => filePath.endsWith(suffix));
 }
 
@@ -133,9 +120,7 @@ export async function collectDatasetsFromFiles(
   config: RunnerDiscoveryConfig,
 ): Promise<ReadonlyArray<CollectedDataset>> {
   const files = await walkDirectory(config.rootDir, config.excludeDirectories);
-  const matched = files.filter((filePath) =>
-    hasOneSuffix(filePath, config.datasetSuffixes),
-  );
+  const matched = files.filter((filePath) => hasOneSuffix(filePath, config.datasetSuffixes));
 
   const found = await Promise.all(
     matched.map(async (absolutePath) => {
@@ -157,9 +142,7 @@ export async function collectEvaluatorsFromFiles(
   config: RunnerDiscoveryConfig,
 ): Promise<ReadonlyArray<CollectedEvaluator>> {
   const files = await walkDirectory(config.rootDir, config.excludeDirectories);
-  const matched = files.filter((filePath) =>
-    hasOneSuffix(filePath, config.evaluatorSuffixes),
-  );
+  const matched = files.filter((filePath) => hasOneSuffix(filePath, config.evaluatorSuffixes));
 
   const found = await Promise.all(
     matched.map(async (absolutePath) => {
@@ -181,9 +164,7 @@ export async function collectTestCasesFromFiles(
   config: RunnerDiscoveryConfig,
 ): Promise<ReadonlyArray<CollectedTestCase>> {
   const files = await walkDirectory(config.rootDir, config.excludeDirectories);
-  const matched = files.filter((filePath) =>
-    hasOneSuffix(filePath, config.testCaseSuffixes),
-  );
+  const matched = files.filter((filePath) => hasOneSuffix(filePath, config.testCaseSuffixes));
 
   const found = await Promise.all(
     matched.map(async (absolutePath) => {

@@ -36,9 +36,7 @@ describe('Dataset', () => {
       includedTags: ['agent'],
     });
 
-    expect(ds.matchesTestCase(makeTestCase(['agent', 'fast']), 'a.ts')).toBe(
-      true,
-    );
+    expect(ds.matchesTestCase(makeTestCase(['agent', 'fast']), 'a.ts')).toBe(true);
     expect(ds.matchesTestCase(makeTestCase(['slow']), 'a.ts')).toBe(false);
   });
 
@@ -58,12 +56,8 @@ describe('Dataset', () => {
       excludedTags: ['slow'],
     });
 
-    expect(ds.matchesTestCase(makeTestCase(['agent', 'slow']), 'a.ts')).toBe(
-      false,
-    );
-    expect(ds.matchesTestCase(makeTestCase(['agent', 'fast']), 'a.ts')).toBe(
-      true,
-    );
+    expect(ds.matchesTestCase(makeTestCase(['agent', 'slow']), 'a.ts')).toBe(false);
+    expect(ds.matchesTestCase(makeTestCase(['agent', 'fast']), 'a.ts')).toBe(true);
   });
 
   test('excludedTags takes precedence over includedTags', () => {
@@ -82,12 +76,8 @@ describe('Dataset', () => {
       includedPaths: ['src/**/*.test-case.ts'],
     });
 
-    expect(
-      ds.matchesTestCase(makeTestCase([]), 'src/agents/title.test-case.ts'),
-    ).toBe(true);
-    expect(ds.matchesTestCase(makeTestCase([]), 'lib/other.test-case.ts')).toBe(
-      false,
-    );
+    expect(ds.matchesTestCase(makeTestCase([]), 'src/agents/title.test-case.ts')).toBe(true);
+    expect(ds.matchesTestCase(makeTestCase([]), 'lib/other.test-case.ts')).toBe(false);
   });
 
   test('includedPaths filters by regex', () => {
@@ -96,12 +86,8 @@ describe('Dataset', () => {
       includedPaths: [/\/agents\//],
     });
 
-    expect(
-      ds.matchesTestCase(makeTestCase([]), 'src/agents/title.test-case.ts'),
-    ).toBe(true);
-    expect(
-      ds.matchesTestCase(makeTestCase([]), 'src/utils/helper.test-case.ts'),
-    ).toBe(false);
+    expect(ds.matchesTestCase(makeTestCase([]), 'src/agents/title.test-case.ts')).toBe(true);
+    expect(ds.matchesTestCase(makeTestCase([]), 'src/utils/helper.test-case.ts')).toBe(false);
   });
 
   test('excludedPaths removes matching file paths', () => {
@@ -110,12 +96,8 @@ describe('Dataset', () => {
       excludedPaths: [/fixtures/],
     });
 
-    expect(
-      ds.matchesTestCase(makeTestCase([]), 'src/fixtures/broken.test-case.ts'),
-    ).toBe(false);
-    expect(
-      ds.matchesTestCase(makeTestCase([]), 'src/agents/good.test-case.ts'),
-    ).toBe(true);
+    expect(ds.matchesTestCase(makeTestCase([]), 'src/fixtures/broken.test-case.ts')).toBe(false);
+    expect(ds.matchesTestCase(makeTestCase([]), 'src/agents/good.test-case.ts')).toBe(true);
   });
 
   test('combined tag and path filters (AND logic)', () => {
@@ -125,15 +107,9 @@ describe('Dataset', () => {
       includedPaths: ['src/**/*.test-case.ts'],
     });
 
-    expect(
-      ds.matchesTestCase(makeTestCase(['agent']), 'src/foo.test-case.ts'),
-    ).toBe(true);
-    expect(
-      ds.matchesTestCase(makeTestCase(['other']), 'src/foo.test-case.ts'),
-    ).toBe(false);
-    expect(
-      ds.matchesTestCase(makeTestCase(['agent']), 'lib/foo.test-case.ts'),
-    ).toBe(false);
+    expect(ds.matchesTestCase(makeTestCase(['agent']), 'src/foo.test-case.ts')).toBe(true);
+    expect(ds.matchesTestCase(makeTestCase(['other']), 'src/foo.test-case.ts')).toBe(false);
+    expect(ds.matchesTestCase(makeTestCase(['agent']), 'lib/foo.test-case.ts')).toBe(false);
   });
 
   test('returns an immutable Dataset instance', () => {

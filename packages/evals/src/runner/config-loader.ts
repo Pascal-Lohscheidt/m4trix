@@ -4,11 +4,7 @@ import { resolve } from 'node:path';
 import * as jitiModule from 'jiti';
 
 import type { RunnerConfigOverrides } from './config';
-import {
-  toRunnerConfigOverrides,
-  type ConfigType,
-  type M4trixEvalConfigFactory,
-} from './config';
+import { type ConfigType, type M4trixEvalConfigFactory, toRunnerConfigOverrides } from './config';
 
 const CONFIG_FILE_NAME = 'm4trix-eval.config.ts';
 
@@ -27,25 +23,20 @@ function getJitiLoader(): JitiLoader {
     (jitiModule as { createJiti?: unknown; default?: unknown }).createJiti ??
     (jitiModule as { default?: unknown }).default;
   if (typeof createJiti !== 'function') {
-    throw new Error(
-      'Failed to initialize jiti for m4trix eval config loading.',
-    );
+    throw new Error('Failed to initialize jiti for m4trix eval config loading.');
   }
-  cachedLoader = (
-    createJiti as (id: string, options?: Record<string, unknown>) => JitiLoader
-  )(import.meta.url, {
-    interopDefault: true,
-    moduleCache: true,
-  });
+  cachedLoader = (createJiti as (id: string, options?: Record<string, unknown>) => JitiLoader)(
+    import.meta.url,
+    {
+      interopDefault: true,
+      moduleCache: true,
+    },
+  );
   return cachedLoader;
 }
 
 function resolveConfigModuleExport(loadedModule: unknown): unknown {
-  if (
-    loadedModule &&
-    typeof loadedModule === 'object' &&
-    'default' in loadedModule
-  ) {
+  if (loadedModule && typeof loadedModule === 'object' && 'default' in loadedModule) {
     return (loadedModule as { default: unknown }).default;
   }
   return loadedModule;
@@ -66,9 +57,7 @@ function resolveConfigValue(value: unknown): ConfigType | undefined {
   return value as ConfigType;
 }
 
-export function loadRunnerConfigFile(
-  cwd = process.cwd(),
-): RunnerConfigOverrides | undefined {
+export function loadRunnerConfigFile(cwd = process.cwd()): RunnerConfigOverrides | undefined {
   const configPath = resolve(cwd, CONFIG_FILE_NAME);
   if (!existsSync(configPath)) {
     return undefined;

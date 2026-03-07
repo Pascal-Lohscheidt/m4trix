@@ -1,12 +1,10 @@
 /** @jsxImportSource react */
-import React, { useEffect, useMemo, useState } from 'react';
+import type React from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { resolve } from 'node:path';
 import { Box, Text } from 'ink';
 import { LineGraph } from '@pppp606/ink-chart';
-import {
-  parseArtifactFile,
-  type ParsedTestCaseProgress,
-} from '../../../runner';
+import { parseArtifactFile, type ParsedTestCaseProgress } from '../../../runner';
 import { toNumericScoreFromScores } from '../../../runner/score-utils';
 import type { CliState, EvalDataset, EvalRun } from '../../types';
 import { ListItem, Pane, SectionHeader, TextBar } from '../../components';
@@ -22,9 +20,7 @@ interface RunScore {
   value: number;
 }
 
-function extractRunAverageScore(
-  testCases: ParsedTestCaseProgress[],
-): number | undefined {
+function extractRunAverageScore(testCases: ParsedTestCaseProgress[]): number | undefined {
   const scores: number[] = [];
   for (const tc of testCases) {
     for (const es of tc.evaluatorScores) {

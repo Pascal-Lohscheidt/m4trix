@@ -1,6 +1,6 @@
-import { type Schema as S } from 'effect';
+import type { Schema as S } from 'effect';
 import type { AgentNetworkEventDef } from './agent-network-event';
-import { ChannelName } from '../identifiers/channel-name';
+import type { ChannelName } from '../identifiers/channel-name';
 
 export { ChannelName } from '../identifiers/channel-name';
 

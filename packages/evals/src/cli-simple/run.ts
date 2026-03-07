@@ -60,9 +60,7 @@ interface TestCaseEventAcc {
   }>;
 }
 
-function buildTestCaseSummaries(
-  byId: Map<string, TestCaseEventAcc>,
-): TestCaseScoreSummary[] {
+function buildTestCaseSummaries(byId: Map<string, TestCaseEventAcc>): TestCaseScoreSummary[] {
   const summaries: TestCaseScoreSummary[] = [];
   for (const { name, events } of byId.values()) {
     const passed = events.every((e) => e.passed);
@@ -74,20 +72,15 @@ function buildTestCaseSummaries(
         .filter((n): n is number => n !== undefined),
     );
     const averageScore =
-      allScores.length > 0
-        ? allScores.reduce((a, b) => a + b, 0) / allScores.length
-        : undefined;
-    const sumSq =
-      allScores.length > 0 ? allScores.reduce((s, v) => s + v * v, 0) : 0;
+      allScores.length > 0 ? allScores.reduce((a, b) => a + b, 0) / allScores.length : undefined;
+    const sumSq = allScores.length > 0 ? allScores.reduce((s, v) => s + v * v, 0) : 0;
     const total = allScores.reduce((a, b) => a + b, 0);
     const stdDev = sampleStdDev(total, sumSq, allScores.length);
     let firstAggregatedScore: ScoreItem | undefined;
     for (const evaluatorScores of events[0]?.evaluatorScores ?? []) {
       const scoreIdToItems = new Map<string, ScoreItem[]>();
       for (const ev of events) {
-        const es = ev.evaluatorScores.find(
-          (x) => x.evaluatorId === evaluatorScores.evaluatorId,
-        );
+        const es = ev.evaluatorScores.find((x) => x.evaluatorId === evaluatorScores.evaluatorId);
         for (const s of es?.scores ?? []) {
           const list = scoreIdToItems.get(s.id) ?? [];
           list.push(s);
@@ -148,17 +141,13 @@ function getEvaluatorSummaryLines(
   scoreItemsByKey: Map<string, ScoreItem[]>,
 ): string[] {
   const lines: string[] = [];
-  const scoreKeys = [...scoreItemsByKey.keys()].filter((k) =>
-    k.startsWith(`${evaluatorId}:`),
-  );
+  const scoreKeys = [...scoreItemsByKey.keys()].filter((k) => k.startsWith(`${evaluatorId}:`));
   if (scoreKeys.length === 0) {
     lines.push(`- ${evaluatorName.padEnd(28)} no scores`);
     return lines;
   }
   const passedFailed =
-    aggregate != null
-      ? ` passed=${aggregate.passed} failed=${aggregate.failed}`
-      : '';
+    aggregate != null ? ` passed=${aggregate.passed} failed=${aggregate.failed}` : '';
   const scoreLines: string[] = [];
   for (const key of scoreKeys) {
     const items = scoreItemsByKey.get(key) ?? [];
@@ -166,14 +155,9 @@ function getEvaluatorSummaryLines(
     if (!agg) continue;
     const def = agg.def ?? getScoreById(agg.id);
     const label = agg.name ?? def?.name ?? def?.id ?? agg.id;
-    const formatted = def
-      ? def.formatAggregate(agg.data)
-      : 'n/a';
+    const formatted = def ? def.formatAggregate(agg.data) : 'n/a';
     const numeric = toNumericScore(agg.data);
-    const colored =
-      numeric !== undefined
-        ? colorize(formatted, scoreToColor(numeric))
-        : formatted;
+    const colored = numeric !== undefined ? colorize(formatted, scoreToColor(numeric)) : formatted;
     scoreLines.push(`    ${label}: ${colored}`);
   }
   if (scoreLines.length > 0) {
@@ -201,9 +185,7 @@ function aggregateEvaluatorScoresFromEvents(
   metrics?: ReadonlyArray<{ id: string; data: unknown }>;
 }> {
   if (events.length === 0) return [];
-  const evaluatorIds = new Set(
-    events.flatMap((e) => e.evaluatorScores.map((x) => x.evaluatorId)),
-  );
+  const evaluatorIds = new Set(events.flatMap((e) => e.evaluatorScores.map((x) => x.evaluatorId)));
   const result: Array<{
     evaluatorId: string;
     scores: ReadonlyArray<ScoreItem>;
@@ -242,8 +224,7 @@ function aggregateEvaluatorScoresFromEvents(
       evaluatorId,
       scores: aggregatedScores,
       passed,
-      metrics:
-        aggregatedMetrics.length > 0 ? aggregatedMetrics : undefined,
+      metrics: aggregatedMetrics.length > 0 ? aggregatedMetrics : undefined,
     });
   }
   return result;
@@ -266,9 +247,7 @@ function formatEvaluatorScoreLine(
       if (def) {
         const formatted = def.format(m.data, options);
         const label = m.name ?? def.name;
-        metricParts.push(
-          label ? `[${label}: ${formatted}]` : `[${formatted}]`,
-        );
+        metricParts.push(label ? `[${label}: ${formatted}]` : `[${formatted}]`);
       }
     }
   }
@@ -280,17 +259,13 @@ function formatEvaluatorScoreLine(
     if (!def) {
       const numeric = toNumericScore(item.data);
       formatted =
-        numeric !== undefined
-          ? colorize(numeric.toFixed(2), scoreToColor(numeric))
-          : 'n/a';
+        numeric !== undefined ? colorize(numeric.toFixed(2), scoreToColor(numeric)) : 'n/a';
     } else {
       const raw = formatScoreData(def, item.data, options);
       switch (def.displayStrategy) {
         case 'bar': {
           const numeric =
-            typeof item.data === 'object' &&
-            item.data !== null &&
-            'value' in item.data
+            typeof item.data === 'object' && item.data !== null && 'value' in item.data
               ? (item.data as { value: unknown }).value
               : toNumericScore(item.data);
           if (typeof numeric === 'number' && Number.isFinite(numeric)) {
@@ -345,8 +320,7 @@ export async function runSimpleEvalCommandPlain(
     );
   }
 
-  const evaluators =
-    await runner.resolveEvaluatorsByNamePattern(evaluatorPattern);
+  const evaluators = await runner.resolveEvaluatorsByNamePattern(evaluatorPattern);
   if (evaluators.length === 0) {
     const known = await runner.collectEvaluators();
     const available = known
@@ -426,8 +400,7 @@ export async function runSimpleEvalCommandPlain(
           .filter((item): item is number => item !== undefined);
         const averageScore =
           numericScores.length > 0
-            ? numericScores.reduce((sum, value) => sum + value, 0) /
-              numericScores.length
+            ? numericScores.reduce((sum, value) => sum + value, 0) / numericScores.length
             : undefined;
 
         const testCaseId = event.testCaseId;
@@ -476,8 +449,7 @@ export async function runSimpleEvalCommandPlain(
         const isLastRerun = event.rerunIndex >= event.rerunTotal;
         const isNonTty = !process.stdout.isTTY;
         // When not TTY and we have reruns, only print the final aggregated block
-        const skipPrintNonTty =
-          isNonTty && event.rerunTotal > 1 && !isLastRerun;
+        const skipPrintNonTty = isNonTty && event.rerunTotal > 1 && !isLastRerun;
 
         if (isSameTestCase && lastPrintedLineCount > 0 && !skipPrintNonTty) {
           cursorUp(lastPrintedLineCount);
@@ -488,10 +460,7 @@ export async function runSimpleEvalCommandPlain(
           evaluatorNameById,
         );
         const isAggregated = existing.events.length > 1;
-        const durationMs = existing.events.reduce(
-          (s, e) => s + e.durationMs,
-          0,
-        );
+        const durationMs = existing.events.reduce((s, e) => s + e.durationMs, 0);
 
         const lines: string[] = [];
         const statusSuffix = event.errorMessage
@@ -504,21 +473,14 @@ export async function runSimpleEvalCommandPlain(
           lines.push(colorize(event.errorMessage, ansi.red));
         }
         for (const item of aggregatedScores) {
-          const name =
-            evaluatorNameById.get(item.evaluatorId) ?? item.evaluatorId;
+          const name = evaluatorNameById.get(item.evaluatorId) ?? item.evaluatorId;
           lines.push(
-            ...formatEvaluatorScoreLine(
-              name,
-              item.scores,
-              item.passed,
-              item.metrics,
-              { isAggregated },
-            ),
+            ...formatEvaluatorScoreLine(name, item.scores, item.passed, item.metrics, {
+              isAggregated,
+            }),
           );
           const lastEvent = existing.events[existing.events.length - 1];
-          const lastEs = lastEvent?.evaluatorScores.find(
-            (x) => x.evaluatorId === item.evaluatorId,
-          );
+          const lastEs = lastEvent?.evaluatorScores.find((x) => x.evaluatorId === item.evaluatorId);
           if (!item.passed && lastEs?.logs && lastEs.logs.length > 0) {
             for (const log of lastEs.logs) {
               if (log.type === 'diff') {
@@ -571,13 +533,9 @@ export async function runSimpleEvalCommandPlain(
   console.log(`Run: ${colorize(snapshot.runId, ansi.cyan)}`);
   console.log(`Dataset: ${colorize(snapshot.datasetName, ansi.bold)}`);
   console.log(
-    `Evaluators: ${evaluators
-      .map((item) => item.evaluator.getName() ?? item.id)
-      .join(', ')}`,
+    `Evaluators: ${evaluators.map((item) => item.evaluator.getName() ?? item.id).join(', ')}`,
   );
-  console.log(
-    `Total test cases: ${colorize(String(snapshot.totalTestCases), ansi.bold)}`,
-  );
+  console.log(`Total test cases: ${colorize(String(snapshot.totalTestCases), ansi.bold)}`);
   console.log('');
   drawSpinner();
   spinnerTimer = setInterval(drawSpinner, 100);
@@ -595,10 +553,7 @@ export async function runSimpleEvalCommandPlain(
   console.log('');
   console.log(colorize('=== Run Summary ===', `${ansi.bold}${ansi.cyan}`));
   console.log(
-    `- passed: ${colorize(
-      `${completed.passedTestCases}/${completed.totalTestCases}`,
-      ansi.green,
-    )}`,
+    `- passed: ${colorize(`${completed.passedTestCases}/${completed.totalTestCases}`, ansi.green)}`,
   );
   console.log(
     `- failed: ${colorize(
@@ -608,11 +563,7 @@ export async function runSimpleEvalCommandPlain(
   );
   if (overallScoreCount > 0) {
     const overallAverage = overallScoreTotal / overallScoreCount;
-    const overallSd = sampleStdDev(
-      overallScoreTotal,
-      overallScoreSumSq,
-      overallScoreCount,
-    );
+    const overallSd = sampleStdDev(overallScoreTotal, overallScoreSumSq, overallScoreCount);
     const avgStr =
       overallSd !== undefined
         ? `${overallAverage.toFixed(2)} ± ${overallSd.toFixed(2)}`
@@ -640,9 +591,7 @@ export async function runSimpleEvalCommandPlain(
   if (testCaseSummaries.length > 0) {
     console.log(colorize('- test case scores:', ansi.magenta));
     for (const summary of testCaseSummaries) {
-      const status = summary.passed
-        ? colorize('PASS', ansi.green)
-        : colorize('FAIL', ansi.red);
+      const status = summary.passed ? colorize('PASS', ansi.green) : colorize('FAIL', ansi.red);
       if (summary.averageScore === undefined) {
         console.log(
           `  ${status} ${summary.name.padEnd(24)} score=n/a ${colorize(`(${summary.durationMs}ms)`, ansi.dim)}`,
@@ -653,8 +602,7 @@ export async function runSimpleEvalCommandPlain(
         summary.isAggregated && summary.aggregatedScoreItem
           ? (() => {
               const def =
-                summary.aggregatedScoreItem.def ??
-                getScoreById(summary.aggregatedScoreItem.id);
+                summary.aggregatedScoreItem.def ?? getScoreById(summary.aggregatedScoreItem.id);
               return def
                 ? def.formatAggregate(summary.aggregatedScoreItem.data)
                 : summary.averageScore!.toFixed(2);

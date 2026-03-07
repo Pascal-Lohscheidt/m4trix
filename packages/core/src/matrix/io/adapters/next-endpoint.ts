@@ -26,7 +26,10 @@ export type NextEndpointOptions = {
  * export const POST = handler;
  */
 export const NextEndpoint = {
-  from(api: ExposedAPI, options: NextEndpointOptions): {
+  from(
+    api: ExposedAPI,
+    options: NextEndpointOptions,
+  ): {
     handler(): NextGetHandler;
   } {
     if (api.protocol !== 'sse') {
@@ -46,8 +49,7 @@ export const NextEndpoint = {
 
           try {
             const encoder = new TextEncoder();
-            const { readable, writable } =
-              new TransformStream<Uint8Array>();
+            const { readable, writable } = new TransformStream<Uint8Array>();
 
             // Signal that the consumer callback has been entered (auth passed, stream ready)
             let consumerStarted!: () => void;

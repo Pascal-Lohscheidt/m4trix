@@ -1,12 +1,12 @@
-import { Schema as S } from 'effect';
+import type { Schema as S } from 'effect';
 import { Agent } from './agent';
-import {
+import type {
   AgentNetworkEventDef,
-  type ContextEvents,
-  type EventMeta,
-  type RunEvents,
+  ContextEvents,
+  EventMeta,
+  RunEvents,
 } from './agent-network/agent-network-event';
-import { BaseSchemaDefintion } from './types';
+import type { BaseSchemaDefintion } from './types';
 
 type EventDef = AgentNetworkEventDef<string, S.Schema.Any>;
 
@@ -31,11 +31,7 @@ type LogicFn<TParams, TTriggerEvent, TEmitEvent> = (ctx: {
   contextEvents: ContextEvents;
 }) => Promise<void>;
 
-type ConstructorParams<
-  TParams,
-  TListensTo extends EventDef,
-  TEmits extends EventDef,
-> = {
+type ConstructorParams<TParams, TListensTo extends EventDef, TEmits extends EventDef> = {
   logic?: LogicFn<TParams, EventEnvelope<TListensTo>, EmitPayload<TEmits>>;
   paramsSchema?: BaseSchemaDefintion;
   listensTo?: ReadonlyArray<TListensTo>;
@@ -49,9 +45,7 @@ export class AgentFactory<
 > {
   private _listensTo: ReadonlyArray<TListensTo>;
   private _emits: ReadonlyArray<TEmits>;
-  private _logic:
-    | LogicFn<TParams, EventEnvelope<TListensTo>, EmitPayload<TEmits>>
-    | undefined;
+  private _logic: LogicFn<TParams, EventEnvelope<TListensTo>, EmitPayload<TEmits>> | undefined;
   private _paramsSchema: BaseSchemaDefintion | undefined;
 
   private constructor({
@@ -66,11 +60,7 @@ export class AgentFactory<
     this._emits = emits;
   }
 
-  private getConstructorState(): ConstructorParams<
-    TParams,
-    TListensTo,
-    TEmits
-  > {
+  private getConstructorState(): ConstructorParams<TParams, TListensTo, TEmits> {
     return {
       logic: this._logic,
       paramsSchema: this._paramsSchema,
@@ -89,9 +79,7 @@ export class AgentFactory<
     return this._emits;
   }
 
-  getLogic():
-    | LogicFn<TParams, EventEnvelope<TListensTo>, EmitPayload<TEmits>>
-    | undefined {
+  getLogic(): LogicFn<TParams, EventEnvelope<TListensTo>, EmitPayload<TEmits>> | undefined {
     return this._logic;
   }
 
@@ -106,33 +94,23 @@ export class AgentFactory<
 
     return new AgentFactory({
       ...rest,
-      logic: logic as LogicFn<
-        TSchema['Type'],
-        EventEnvelope<TListensTo>,
-        EmitPayload<TEmits>
-      >,
+      logic: logic as LogicFn<TSchema['Type'], EventEnvelope<TListensTo>, EmitPayload<TEmits>>,
       paramsSchema: params,
     });
   }
 
-  listensTo<E extends EventDef>(
-    events: Array<E>,
-  ): AgentFactory<TParams, TListensTo | E, TEmits> {
+  listensTo<E extends EventDef>(events: Array<E>): AgentFactory<TParams, TListensTo | E, TEmits> {
     return new AgentFactory<TParams, TListensTo | E, TEmits>({
       ...(this.getConstructorState() as unknown as ConstructorParams<
         TParams,
         TListensTo | E,
         TEmits
       >),
-      listensTo: [...this._listensTo, ...events] as ReadonlyArray<
-        TListensTo | E
-      >,
+      listensTo: [...this._listensTo, ...events] as ReadonlyArray<TListensTo | E>,
     });
   }
 
-  emits<E extends EventDef>(
-    events: Array<E>,
-  ): AgentFactory<TParams, TListensTo, TEmits | E> {
+  emits<E extends EventDef>(events: Array<E>): AgentFactory<TParams, TListensTo, TEmits | E> {
     return new AgentFactory<TParams, TListensTo, TEmits | E>({
       ...(this.getConstructorState() as unknown as ConstructorParams<
         TParams,
@@ -152,9 +130,7 @@ export class AgentFactory<
     });
   }
 
-  produce(
-    params: TParams,
-  ): Agent<TParams, EventEnvelope<TListensTo>, EmitPayload<TEmits>> {
+  produce(params: TParams): Agent<TParams, EventEnvelope<TListensTo>, EmitPayload<TEmits>> {
     const listensTo = this._listensTo.map((e) => e.name);
     return new Agent<TParams, EventEnvelope<TListensTo>, EmitPayload<TEmits>>(
       this._logic!,

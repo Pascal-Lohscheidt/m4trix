@@ -9,33 +9,26 @@ export default function SpeechToSpeechPage() {
   const [response, setResponse] = useState<string>('');
   const socketUrl = useRef('http://localhost:8080');
 
-  const { startRecording, stopRecording, voiceAgentState } = useConversation(
-    'speech',
-    {
-      backendMode: 'socket',
-      upstreamMode: 'STREAM_WHILE_TALK',
-      downstreamMode: 'STREAM',
-      autoPlay: true,
-      onStartRecording: () => {
-        setTranscript('');
-        setResponse('');
-      },
-      onStopRecording: () => {
-        console.log('Recording stopped');
-      },
-      onReceive: (
-        blob: Blob,
-        _playResponse: () => void,
-        _stopResponse: () => void
-      ) => {
-        // This would handle the received audio response
-        console.log('Received response blob:', blob);
-      },
-      backendConfig: {
-        baseUrl: socketUrl.current,
-      },
-    }
-  );
+  const { startRecording, stopRecording, voiceAgentState } = useConversation('speech', {
+    backendMode: 'socket',
+    upstreamMode: 'STREAM_WHILE_TALK',
+    downstreamMode: 'STREAM',
+    autoPlay: true,
+    onStartRecording: () => {
+      setTranscript('');
+      setResponse('');
+    },
+    onStopRecording: () => {
+      console.log('Recording stopped');
+    },
+    onReceive: (blob: Blob, _playResponse: () => void, _stopResponse: () => void) => {
+      // This would handle the received audio response
+      console.log('Received response blob:', blob);
+    },
+    backendConfig: {
+      baseUrl: socketUrl.current,
+    },
+  });
 
   const isRecording = voiceAgentState === 'RECORDING';
 
@@ -90,9 +83,7 @@ export default function SpeechToSpeechPage() {
               {transcript && (
                 <div className="rounded-lg overflow-hidden border border-gray-200">
                   <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
-                    <h3 className="text-sm font-semibold text-gray-700">
-                      You said:
-                    </h3>
+                    <h3 className="text-sm font-semibold text-gray-700">You said:</h3>
                   </div>
                   <div className="p-4 bg-white">
                     <p className="text-gray-800 font-medium">{transcript}</p>
@@ -103,9 +94,7 @@ export default function SpeechToSpeechPage() {
               {response && (
                 <div className="rounded-lg overflow-hidden border border-gray-200">
                   <div className="bg-blue-50 px-4 py-2 border-b border-gray-200">
-                    <h3 className="text-sm font-semibold text-blue-700">
-                      Response:
-                    </h3>
+                    <h3 className="text-sm font-semibold text-blue-700">Response:</h3>
                   </div>
                   <div className="p-4 bg-white">
                     <p className="text-gray-800 font-medium">{response}</p>

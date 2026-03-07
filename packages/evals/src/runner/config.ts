@@ -49,27 +49,15 @@ export const defaultRunnerConfig: RunnerConfig = {
   discovery: {
     rootDir: process.cwd(),
     datasetSuffixes: ['.dataset.ts', '.dataset.tsx', '.dataset.js', '.dataset.mjs'],
-    evaluatorSuffixes: [
-      '.evaluator.ts',
-      '.evaluator.tsx',
-      '.evaluator.js',
-      '.evaluator.mjs',
-    ],
-    testCaseSuffixes: [
-      '.test-case.ts',
-      '.test-case.tsx',
-      '.test-case.js',
-      '.test-case.mjs',
-    ],
+    evaluatorSuffixes: ['.evaluator.ts', '.evaluator.tsx', '.evaluator.js', '.evaluator.mjs'],
+    testCaseSuffixes: ['.test-case.ts', '.test-case.tsx', '.test-case.js', '.test-case.mjs'],
     excludeDirectories: ['node_modules', 'dist', '.next', '.git', '.pnpm-store'],
   },
   artifactDirectory: '.eval-results',
   maxConcurrency: 1,
 };
 
-export function toRunnerConfigOverrides(
-  config?: ConfigType,
-): RunnerConfigOverrides | undefined {
+export function toRunnerConfigOverrides(config?: ConfigType): RunnerConfigOverrides | undefined {
   if (!config) {
     return undefined;
   }

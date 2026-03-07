@@ -7,22 +7,22 @@
  * Scope: core | evals
  */
 
-import { execSync } from "node:child_process";
+import { execSync } from 'node:child_process';
 
 const SCOPE_TO_PATH: Record<string, string> = {
-  core: "packages/core/",
-  evals: "packages/evals/",
-  stream: "packages/stream/",
-  react: "packages/react/",
-  ui: "packages/ui/",
+  core: 'packages/core/',
+  evals: 'packages/evals/',
+  stream: 'packages/stream/',
+  react: 'packages/react/',
+  ui: 'packages/ui/',
 };
 
 const SCOPE_TO_TAG_PREFIX: Record<string, string> = {
-  core: "@m4trix/core@",
-  evals: "@m4trix/evals@",
-  stream: "@m4trix/stream@",
-  react: "@m4trix/react@",
-  ui: "@m4trix/ui@",
+  core: '@m4trix/core@',
+  evals: '@m4trix/evals@',
+  stream: '@m4trix/stream@',
+  react: '@m4trix/react@',
+  ui: '@m4trix/ui@',
 };
 
 function main(): void {
@@ -38,10 +38,10 @@ function main(): void {
 
   // Get last tag for this package
   const tags = execSync(`git tag -l '${tagPrefix}*' --sort=-version:refname`, {
-    encoding: "utf-8",
+    encoding: 'utf-8',
   })
     .trim()
-    .split("\n")
+    .split('\n')
     .filter(Boolean);
 
   const lastTag = tags[0];
@@ -53,15 +53,13 @@ function main(): void {
 
   // Get changed files since last tag
   const changedFiles = execSync(`git diff --name-only ${lastTag}..HEAD`, {
-    encoding: "utf-8",
+    encoding: 'utf-8',
   })
     .trim()
-    .split("\n")
+    .split('\n')
     .filter(Boolean);
 
-  const hasRelevantChanges = changedFiles.some((file) =>
-    file.startsWith(pathPrefix)
-  );
+  const hasRelevantChanges = changedFiles.some((file) => file.startsWith(pathPrefix));
 
   if (hasRelevantChanges) {
     process.exit(0);

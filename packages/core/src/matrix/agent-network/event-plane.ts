@@ -1,10 +1,6 @@
-import { Cause, Effect, Fiber, PubSub, Queue, Scope } from 'effect';
+import { Cause, Effect, type Fiber, PubSub, Queue, type Scope } from 'effect';
 import type { AgentNetwork, AnyAgent } from './agent-network';
-import type {
-  ContextEvents,
-  EventMeta,
-  RunEvents,
-} from './agent-network-event';
+import type { ContextEvents, EventMeta, RunEvents } from './agent-network-event';
 import type { ChannelName, ConfiguredChannel } from './channel';
 import type { AgentNetworkStore } from './stores/agent-network-store';
 import { createInMemoryNetworkStore } from './stores/inmemory-network-store';
@@ -20,10 +16,7 @@ export type Envelope = {
 /* ─── EventPlane ─── */
 
 export type EventPlane = {
-  readonly publish: (
-    channel: ChannelName,
-    envelope: Envelope,
-  ) => Effect.Effect<boolean>;
+  readonly publish: (channel: ChannelName, envelope: Envelope) => Effect.Effect<boolean>;
   readonly publishToChannels: (
     channels: readonly ConfiguredChannel[],
     envelope: Envelope,
@@ -51,9 +44,7 @@ type CreateEventPlaneOptions = {
  * bounded back-pressure. Use `Effect.scoped` when running to ensure proper
  * cleanup.
  */
-export const createEventPlane = (
-  options: CreateEventPlaneOptions,
-): Effect.Effect<EventPlane> =>
+export const createEventPlane = (options: CreateEventPlaneOptions): Effect.Effect<EventPlane> =>
   Effect.gen(function* () {
     const {
       network,
@@ -80,15 +71,10 @@ export const createEventPlane = (
       store.storeEvent(contextId, runId, envelope);
     };
 
-    const publishToPubSub = (
-      channel: ChannelName,
-      envelope: Envelope,
-    ): Effect.Effect<boolean> => PubSub.publish(getPubsub(channel), envelope);
+    const publishToPubSub = (channel: ChannelName, envelope: Envelope): Effect.Effect<boolean> =>
+      PubSub.publish(getPubsub(channel), envelope);
 
-    const publish = (
-      channel: ChannelName,
-      envelope: Envelope,
-    ): Effect.Effect<boolean> =>
+    const publish = (channel: ChannelName, envelope: Envelope): Effect.Effect<boolean> =>
       Effect.sync(() => recordEvent(envelope)).pipe(
         Effect.flatMap(() => publishToPubSub(channel, envelope)),
         Effect.withSpan('event.publish', {
@@ -204,10 +190,7 @@ export const runSubscriber = (
         if (listensTo.length > 0 && !listensTo.includes(envelope.name)) {
           return;
         }
-        const runEvents = plane.getRunEvents(
-          envelope.meta.runId,
-          envelope.meta.contextId,
-        );
+        const runEvents = plane.getRunEvents(envelope.meta.runId, envelope.meta.contextId);
         const contextEvents = plane.getContextEvents(envelope.meta.contextId);
         yield* Effect.withSpan('agent.listen', {
           attributes: {
@@ -242,9 +225,7 @@ export const runSubscriber = (
                         }),
                       ).catch(() => {});
                     } else {
-                      Effect.runFork(
-                        plane.publishToChannels(publishesTo, fullEnvelope),
-                      );
+                      Effect.runFork(plane.publishToChannels(publishesTo, fullEnvelope));
                     }
                   },
                   runEvents,
@@ -294,14 +275,7 @@ export const run = (
     for (const reg of registrations.values()) {
       for (const channel of reg.subscribedTo) {
         const dequeue = yield* plane.subscribe(channel.name);
-        yield* runSubscriber(
-          reg.agent,
-          reg.publishesTo,
-          dequeue,
-          plane,
-          emitQueue,
-          channel.name,
-        );
+        yield* runSubscriber(reg.agent, reg.publishesTo, dequeue, plane, emitQueue, channel.name);
       }
     }
 

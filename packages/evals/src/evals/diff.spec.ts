@@ -1,10 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import {
-  createDiffLogEntry,
-  getDiffLines,
-  getDiffString,
-  printJsonDiff,
-} from './diff';
+import { createDiffLogEntry, getDiffLines, getDiffString, printJsonDiff } from './diff';
 
 describe('diff', () => {
   test('object key reorder produces no differences', () => {

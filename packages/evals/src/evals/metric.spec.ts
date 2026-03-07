@@ -30,10 +30,7 @@ describe('Metric', () => {
     const withoutOverride = customMetric.make({ ms: 100 });
     expect(withoutOverride.name).toBeUndefined();
 
-    const withOverride = customMetric.make(
-      { ms: 100 },
-      { name: 'Latency (model only)' },
-    );
+    const withOverride = customMetric.make({ ms: 100 }, { name: 'Latency (model only)' });
     expect(withOverride.name).toBe('Latency (model only)');
   });
 

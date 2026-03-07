@@ -9,10 +9,7 @@ export interface PersistenceMessage {
   payload: unknown;
 }
 
-async function appendJsonLine(
-  artifactPath: string,
-  payload: unknown,
-): Promise<void> {
+async function appendJsonLine(artifactPath: string, payload: unknown): Promise<void> {
   await mkdir(dirname(artifactPath), { recursive: true });
   await appendFile(artifactPath, `${JSON.stringify(payload)}\n`, 'utf8');
 }

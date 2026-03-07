@@ -1,4 +1,4 @@
-import { AIMessage, BaseMessage } from '@langchain/core/messages';
+import { AIMessage, type BaseMessage } from '@langchain/core/messages';
 
 // Format types
 export enum FormatType {

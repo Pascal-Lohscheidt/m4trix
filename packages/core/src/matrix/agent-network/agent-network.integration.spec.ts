@@ -1,10 +1,9 @@
+import { Effect, Queue, Schema as S } from 'effect';
 import { describe, expect, test, vitest } from 'vitest';
-import { Effect, Queue } from 'effect';
-import { Schema as S } from 'effect';
-import type { EventMeta } from './agent-network-event';
-import { AgentNetwork } from './agent-network';
-import { AgentNetworkEvent } from './agent-network-event';
 import { AgentFactory } from '../agent-factory';
+import { AgentNetwork } from './agent-network';
+import type { EventMeta } from './agent-network-event';
+import { AgentNetworkEvent } from './agent-network-event';
 import { ChannelName } from './channel';
 
 // Define meta with contextId to fix linter error
@@ -18,10 +17,7 @@ async function takeFirst(stream: AsyncIterable<unknown>): Promise<unknown> {
 describe('AgentNetwork integration', () => {
   describe('single agent flow', () => {
     test('agent receives event, processes, and emits to output channel', async () => {
-      const weatherSet = AgentNetworkEvent.of(
-        'weather-set',
-        S.Struct({ temp: S.Number }),
-      );
+      const weatherSet = AgentNetworkEvent.of('weather-set', S.Struct({ temp: S.Number }));
       const weatherForecast = AgentNetworkEvent.of(
         'weather-forecast-created',
         S.Struct({ forecast: S.String }),
@@ -43,22 +39,20 @@ describe('AgentNetwork integration', () => {
         },
       );
 
-      const network = AgentNetwork.setup(
-        ({ mainChannel, createChannel, registerAgent }) => {
-          const main = mainChannel('main');
-          const client = createChannel('client');
-          registerAgent(
-            AgentFactory.run()
-              .listensTo([weatherSet])
-              .emits([weatherForecast])
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              .logic(logicSpy as any)
-              .produce({}),
-          )
-            .subscribe(main)
-            .publishTo(client);
-        },
-      );
+      const network = AgentNetwork.setup(({ mainChannel, createChannel, registerAgent }) => {
+        const main = mainChannel('main');
+        const client = createChannel('client');
+        registerAgent(
+          AgentFactory.run()
+            .listensTo([weatherSet])
+            .emits([weatherForecast])
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            .logic(logicSpy as any)
+            .produce({}),
+        )
+          .subscribe(main)
+          .publishTo(client);
+      });
 
       const program = Effect.gen(function* () {
         const plane = yield* network.run();
@@ -78,9 +72,7 @@ describe('AgentNetwork integration', () => {
         return { emitted, logicSpy };
       });
 
-      const { emitted, logicSpy: spy } = await Effect.runPromise(
-        program.pipe(Effect.scoped),
-      );
+      const { emitted, logicSpy: spy } = await Effect.runPromise(program.pipe(Effect.scoped));
 
       expect(emitted).toMatchObject({
         name: 'weather-forecast-created',
@@ -92,14 +84,8 @@ describe('AgentNetwork integration', () => {
 
   describe('multiple agents on same channel', () => {
     test('each agent receives only events it listens to', async () => {
-      const weatherSet = AgentNetworkEvent.of(
-        'weather-set',
-        S.Struct({ temp: S.Number }),
-      );
-      const orderPlaced = AgentNetworkEvent.of(
-        'order-placed',
-        S.Struct({ orderId: S.String }),
-      );
+      const weatherSet = AgentNetworkEvent.of('weather-set', S.Struct({ temp: S.Number }));
+      const orderPlaced = AgentNetworkEvent.of('order-placed', S.Struct({ orderId: S.String }));
       const weatherForecast = AgentNetworkEvent.of(
         'weather-forecast-created',
         S.Struct({ forecast: S.String }),
@@ -141,35 +127,33 @@ describe('AgentNetwork integration', () => {
         },
       );
 
-      const network = AgentNetwork.setup(
-        ({ mainChannel, createChannel, registerAgent }) => {
-          const main = mainChannel('main');
-          const weatherOut = createChannel('weather-out');
-          const orderOut = createChannel('order-out');
+      const network = AgentNetwork.setup(({ mainChannel, createChannel, registerAgent }) => {
+        const main = mainChannel('main');
+        const weatherOut = createChannel('weather-out');
+        const orderOut = createChannel('order-out');
 
-          registerAgent(
-            AgentFactory.run()
-              .listensTo([weatherSet])
-              .emits([weatherForecast])
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              .logic(weatherSpy as any)
-              .produce({}),
-          )
-            .subscribe(main)
-            .publishTo(weatherOut);
+        registerAgent(
+          AgentFactory.run()
+            .listensTo([weatherSet])
+            .emits([weatherForecast])
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            .logic(weatherSpy as any)
+            .produce({}),
+        )
+          .subscribe(main)
+          .publishTo(weatherOut);
 
-          registerAgent(
-            AgentFactory.run()
-              .listensTo([orderPlaced])
-              .emits([orderConfirmed])
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              .logic(orderSpy as any)
-              .produce({}),
-          )
-            .subscribe(main)
-            .publishTo(orderOut);
-        },
-      );
+        registerAgent(
+          AgentFactory.run()
+            .listensTo([orderPlaced])
+            .emits([orderConfirmed])
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            .logic(orderSpy as any)
+            .produce({}),
+        )
+          .subscribe(main)
+          .publishTo(orderOut);
+      });
 
       const program = Effect.gen(function* () {
         const plane = yield* network.run();
@@ -223,10 +207,7 @@ describe('AgentNetwork integration', () => {
     test('agent listening to multiple events receives each matching event', async () => {
       const eventA = AgentNetworkEvent.of('event-a', S.Struct({ a: S.Number }));
       const eventB = AgentNetworkEvent.of('event-b', S.Struct({ b: S.String }));
-      const resultEvent = AgentNetworkEvent.of(
-        'result',
-        S.Struct({ value: S.String }),
-      );
+      const resultEvent = AgentNetworkEvent.of('result', S.Struct({ value: S.String }));
 
       const multiSpy = vitest.fn(
         async ({
@@ -248,22 +229,20 @@ describe('AgentNetwork integration', () => {
         },
       );
 
-      const network = AgentNetwork.setup(
-        ({ mainChannel, createChannel, registerAgent }) => {
-          const main = mainChannel('main');
-          const out = createChannel('out');
-          registerAgent(
-            AgentFactory.run()
-              .listensTo([eventA, eventB])
-              .emits([resultEvent])
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              .logic(multiSpy as any)
-              .produce({}),
-          )
-            .subscribe(main)
-            .publishTo(out);
-        },
-      );
+      const network = AgentNetwork.setup(({ mainChannel, createChannel, registerAgent }) => {
+        const main = mainChannel('main');
+        const out = createChannel('out');
+        registerAgent(
+          AgentFactory.run()
+            .listensTo([eventA, eventB])
+            .emits([resultEvent])
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            .logic(multiSpy as any)
+            .produce({}),
+        )
+          .subscribe(main)
+          .publishTo(out);
+      });
 
       const program = Effect.gen(function* () {
         const plane = yield* network.run();
@@ -285,10 +264,7 @@ describe('AgentNetwork integration', () => {
           payload: { b: 'hello' },
         });
 
-        const [first, second] = yield* Effect.all([
-          Queue.take(outDequeue),
-          Queue.take(outDequeue),
-        ]);
+        const [first, second] = yield* Effect.all([Queue.take(outDequeue), Queue.take(outDequeue)]);
 
         return { first, second, multiSpy };
       });
@@ -313,10 +289,7 @@ describe('AgentNetwork integration', () => {
 
   describe('agent chain', () => {
     test('event flows through multiple agents in sequence', async () => {
-      const taskCreated = AgentNetworkEvent.of(
-        'task-created',
-        S.Struct({ title: S.String }),
-      );
+      const taskCreated = AgentNetworkEvent.of('task-created', S.Struct({ title: S.String }));
       const taskEnriched = AgentNetworkEvent.of(
         'task-enriched',
         S.Struct({ title: S.String, slug: S.String }),
@@ -326,54 +299,52 @@ describe('AgentNetwork integration', () => {
         S.Struct({ title: S.String, slug: S.String, id: S.String }),
       );
 
-      const network = AgentNetwork.setup(
-        ({ mainChannel, createChannel, registerAgent }) => {
-          const main = mainChannel('main');
-          const enriched = createChannel('enriched');
-          const finalized = createChannel('finalized');
+      const network = AgentNetwork.setup(({ mainChannel, createChannel, registerAgent }) => {
+        const main = mainChannel('main');
+        const enriched = createChannel('enriched');
+        const finalized = createChannel('finalized');
 
-          registerAgent(
-            AgentFactory.run()
-              .listensTo([taskCreated])
-              .emits([taskEnriched])
-              .logic(async ({ triggerEvent, emit }) => {
-                const p = triggerEvent.payload as { title: string };
-                emit({
-                  name: 'task-enriched',
-                  payload: {
-                    title: p.title,
-                    slug: p.title.toLowerCase().replace(/\s+/g, '-'),
-                  },
-                });
-              })
-              .produce({}),
-          )
-            .subscribe(main)
-            .publishTo(enriched);
+        registerAgent(
+          AgentFactory.run()
+            .listensTo([taskCreated])
+            .emits([taskEnriched])
+            .logic(async ({ triggerEvent, emit }) => {
+              const p = triggerEvent.payload as { title: string };
+              emit({
+                name: 'task-enriched',
+                payload: {
+                  title: p.title,
+                  slug: p.title.toLowerCase().replace(/\s+/g, '-'),
+                },
+              });
+            })
+            .produce({}),
+        )
+          .subscribe(main)
+          .publishTo(enriched);
 
-          registerAgent(
-            AgentFactory.run()
-              .listensTo([taskEnriched])
-              .emits([taskFinalized])
-              .logic(async ({ triggerEvent, emit }) => {
-                const p = triggerEvent.payload as {
-                  title: string;
-                  slug: string;
-                };
-                emit({
-                  name: 'task-finalized',
-                  payload: {
-                    ...p,
-                    id: `task-${p.slug}`,
-                  },
-                });
-              })
-              .produce({}),
-          )
-            .subscribe(enriched)
-            .publishTo(finalized);
-        },
-      );
+        registerAgent(
+          AgentFactory.run()
+            .listensTo([taskEnriched])
+            .emits([taskFinalized])
+            .logic(async ({ triggerEvent, emit }) => {
+              const p = triggerEvent.payload as {
+                title: string;
+                slug: string;
+              };
+              emit({
+                name: 'task-finalized',
+                payload: {
+                  ...p,
+                  id: `task-${p.slug}`,
+                },
+              });
+            })
+            .produce({}),
+        )
+          .subscribe(enriched)
+          .publishTo(finalized);
+      });
 
       const program = Effect.gen(function* () {
         const plane = yield* network.run();
@@ -409,18 +380,9 @@ describe('AgentNetwork integration', () => {
 
   describe('agent subscribed to multiple channels', () => {
     test('agent receives events from all subscribed channels', async () => {
-      const mainEvent = AgentNetworkEvent.of(
-        'main-event',
-        S.Struct({ from: S.Literal('main') }),
-      );
-      const logsEvent = AgentNetworkEvent.of(
-        'logs-event',
-        S.Struct({ from: S.Literal('logs') }),
-      );
-      const combined = AgentNetworkEvent.of(
-        'combined',
-        S.Struct({ source: S.String }),
-      );
+      const mainEvent = AgentNetworkEvent.of('main-event', S.Struct({ from: S.Literal('main') }));
+      const logsEvent = AgentNetworkEvent.of('logs-event', S.Struct({ from: S.Literal('logs') }));
+      const combined = AgentNetworkEvent.of('combined', S.Struct({ source: S.String }));
 
       const combinedSpy = vitest.fn(
         async ({
@@ -439,25 +401,23 @@ describe('AgentNetwork integration', () => {
         },
       );
 
-      const network = AgentNetwork.setup(
-        ({ mainChannel, createChannel, registerAgent }) => {
-          const main = mainChannel('main');
-          const logs = createChannel('logs');
-          const out = createChannel('out');
+      const network = AgentNetwork.setup(({ mainChannel, createChannel, registerAgent }) => {
+        const main = mainChannel('main');
+        const logs = createChannel('logs');
+        const out = createChannel('out');
 
-          registerAgent(
-            AgentFactory.run()
-              .listensTo([mainEvent, logsEvent])
-              .emits([combined])
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              .logic(combinedSpy as any)
-              .produce({}),
-          )
-            .subscribe(main)
-            .subscribe(logs)
-            .publishTo(out);
-        },
-      );
+        registerAgent(
+          AgentFactory.run()
+            .listensTo([mainEvent, logsEvent])
+            .emits([combined])
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            .logic(combinedSpy as any)
+            .produce({}),
+        )
+          .subscribe(main)
+          .subscribe(logs)
+          .publishTo(out);
+      });
 
       const program = Effect.gen(function* () {
         const plane = yield* network.run();
@@ -508,10 +468,7 @@ describe('AgentNetwork integration', () => {
 
   describe('agent without listensTo', () => {
     test('agent receives all events when listensTo is empty', async () => {
-      const resultEvent = AgentNetworkEvent.of(
-        'result',
-        S.Struct({ received: S.String }),
-      );
+      const resultEvent = AgentNetworkEvent.of('result', S.Struct({ received: S.String }));
 
       const catchAllSpy = vitest.fn(
         async ({
@@ -533,21 +490,19 @@ describe('AgentNetwork integration', () => {
         },
       );
 
-      const network = AgentNetwork.setup(
-        ({ mainChannel, createChannel, registerAgent }) => {
-          const main = mainChannel('main');
-          const out = createChannel('out');
-          registerAgent(
-            AgentFactory.run()
-              .emits([resultEvent])
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              .logic(catchAllSpy as any)
-              .produce({}),
-          )
-            .subscribe(main)
-            .publishTo(out);
-        },
-      );
+      const network = AgentNetwork.setup(({ mainChannel, createChannel, registerAgent }) => {
+        const main = mainChannel('main');
+        const out = createChannel('out');
+        registerAgent(
+          AgentFactory.run()
+            .emits([resultEvent])
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            .logic(catchAllSpy as any)
+            .produce({}),
+        )
+          .subscribe(main)
+          .publishTo(out);
+      });
 
       const program = Effect.gen(function* () {
         const plane = yield* network.run();
@@ -569,10 +524,7 @@ describe('AgentNetwork integration', () => {
           payload: { x: 'foo' },
         });
 
-        const [first, second] = yield* Effect.all([
-          Queue.take(outDequeue),
-          Queue.take(outDequeue),
-        ]);
+        const [first, second] = yield* Effect.all([Queue.take(outDequeue), Queue.take(outDequeue)]);
 
         return { first, second, catchAllSpy };
       });
@@ -616,22 +568,20 @@ describe('AgentNetwork integration', () => {
         },
       );
 
-      const network = AgentNetwork.setup(
-        ({ mainChannel, createChannel, registerAgent }) => {
-          const main = mainChannel('main');
-          const out = createChannel('out');
-          registerAgent(
-            AgentFactory.run()
-              .listensTo([tick])
-              .emits([tock])
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              .logic(counterSpy as any)
-              .produce({}),
-          )
-            .subscribe(main)
-            .publishTo(out);
-        },
-      );
+      const network = AgentNetwork.setup(({ mainChannel, createChannel, registerAgent }) => {
+        const main = mainChannel('main');
+        const out = createChannel('out');
+        registerAgent(
+          AgentFactory.run()
+            .listensTo([tick])
+            .emits([tock])
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            .logic(counterSpy as any)
+            .produce({}),
+        )
+          .subscribe(main)
+          .publishTo(out);
+      });
 
       const program = Effect.gen(function* () {
         const plane = yield* network.run();
@@ -671,37 +621,32 @@ describe('AgentNetwork integration', () => {
 
   describe('http-stream sink', () => {
     test('events on channel with http-stream sink are exposed to stream', async () => {
-      const weatherSet = AgentNetworkEvent.of(
-        'weather-set',
-        S.Struct({ temp: S.Number }),
-      );
+      const weatherSet = AgentNetworkEvent.of('weather-set', S.Struct({ temp: S.Number }));
       const weatherForecast = AgentNetworkEvent.of(
         'weather-forecast-created',
         S.Struct({ forecast: S.String }),
       );
 
-      const network = AgentNetwork.setup(
-        ({ mainChannel, createChannel, sink, registerAgent }) => {
-          const main = mainChannel('main');
-          const client = createChannel('client').sink(sink.httpStream());
-          registerAgent(
-            AgentFactory.run()
-              .listensTo([weatherSet])
-              .emits([weatherForecast])
-              .logic(async ({ triggerEvent, emit }) => {
-                emit({
-                  name: 'weather-forecast-created',
-                  payload: {
-                    forecast: `Temp was ${(triggerEvent.payload as { temp: number }).temp}`,
-                  },
-                });
-              })
-              .produce({}),
-          )
-            .subscribe(main)
-            .publishTo(client);
-        },
-      );
+      const network = AgentNetwork.setup(({ mainChannel, createChannel, sink, registerAgent }) => {
+        const main = mainChannel('main');
+        const client = createChannel('client').sink(sink.httpStream());
+        registerAgent(
+          AgentFactory.run()
+            .listensTo([weatherSet])
+            .emits([weatherForecast])
+            .logic(async ({ triggerEvent, emit }) => {
+              emit({
+                name: 'weather-forecast-created',
+                payload: {
+                  forecast: `Temp was ${(triggerEvent.payload as { temp: number }).temp}`,
+                },
+              });
+            })
+            .produce({}),
+        )
+          .subscribe(main)
+          .publishTo(client);
+      });
 
       const program = Effect.gen(function* () {
         const plane = yield* network.run();
@@ -739,13 +684,11 @@ describe('AgentNetwork integration', () => {
     });
 
     test('resolveChannels prefers channels with http-stream sink when select.channels not set', async () => {
-      const network = AgentNetwork.setup(
-        ({ mainChannel, createChannel, sink }) => {
-          mainChannel('main');
-          createChannel('a');
-          createChannel('client').sink(sink.httpStream());
-        },
-      );
+      const network = AgentNetwork.setup(({ mainChannel, createChannel, sink }) => {
+        mainChannel('main');
+        createChannel('a');
+        createChannel('client').sink(sink.httpStream());
+      });
 
       const program = Effect.gen(function* () {
         const plane = yield* network.run();
@@ -776,9 +719,7 @@ describe('AgentNetwork integration', () => {
         return { channel: clientCh.name, envelope };
       });
 
-      const { channel, envelope } = await Effect.runPromise(
-        program.pipe(Effect.scoped),
-      );
+      const { channel, envelope } = await Effect.runPromise(program.pipe(Effect.scoped));
 
       expect(channel).toBe('client');
       expect(envelope).toMatchObject({
@@ -788,14 +729,12 @@ describe('AgentNetwork integration', () => {
     });
 
     test('channel with multiple sinks including http-stream is exposed', async () => {
-      const network = AgentNetwork.setup(
-        ({ mainChannel, createChannel, sink }) => {
-          mainChannel('main');
-          createChannel('out')
-            .sink(sink.httpStream())
-            .sink(sink.kafka({ topic: 'events' }));
-        },
-      );
+      const network = AgentNetwork.setup(({ mainChannel, createChannel, sink }) => {
+        mainChannel('main');
+        createChannel('out')
+          .sink(sink.httpStream())
+          .sink(sink.kafka({ topic: 'events' }));
+      });
 
       const program = Effect.gen(function* () {
         const plane = yield* network.run();

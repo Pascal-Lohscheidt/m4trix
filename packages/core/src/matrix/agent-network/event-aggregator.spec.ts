@@ -5,14 +5,8 @@ import { EventAggregator } from './event-aggregator';
 
 describe('EventAggregator', () => {
   test('creates an aggregator instance with the configured listensTo set', () => {
-    const MessageEvent = AgentNetworkEvent.of(
-      'message',
-      S.Struct({ text: S.String }),
-    );
-    const SummaryEvent = AgentNetworkEvent.of(
-      'summary',
-      S.Struct({ summary: S.String }),
-    );
+    const MessageEvent = AgentNetworkEvent.of('message', S.Struct({ text: S.String }));
+    const SummaryEvent = AgentNetworkEvent.of('summary', S.Struct({ summary: S.String }));
 
     const aggregator = EventAggregator.listensTo([MessageEvent])
       .emits([SummaryEvent])
@@ -24,14 +18,8 @@ describe('EventAggregator', () => {
   });
 
   test('emitWhen(false) prevents any emission', async () => {
-    const MessageEvent = AgentNetworkEvent.of(
-      'message',
-      S.Struct({ text: S.String }),
-    );
-    const SummaryEvent = AgentNetworkEvent.of(
-      'summary',
-      S.Struct({ summary: S.String }),
-    );
+    const MessageEvent = AgentNetworkEvent.of('message', S.Struct({ text: S.String }));
+    const SummaryEvent = AgentNetworkEvent.of('summary', S.Struct({ summary: S.String }));
 
     const mapSpy = vitest.fn();
     const emitSpy = vitest.fn();
@@ -57,14 +45,8 @@ describe('EventAggregator', () => {
   });
 
   test('mapToEmit receives triggerEvent, runEvents, and contextEvents', async () => {
-    const MessageEvent = AgentNetworkEvent.of(
-      'message',
-      S.Struct({ text: S.String }),
-    );
-    const SummaryEvent = AgentNetworkEvent.of(
-      'summary',
-      S.Struct({ summary: S.String }),
-    );
+    const MessageEvent = AgentNetworkEvent.of('message', S.Struct({ text: S.String }));
+    const SummaryEvent = AgentNetworkEvent.of('summary', S.Struct({ summary: S.String }));
 
     const emitSpy = vitest.fn();
     const emitWhenSpy = vitest.fn().mockReturnValue(true);
@@ -92,23 +74,14 @@ describe('EventAggregator', () => {
       ),
       emit: emitSpy,
       runEvents: [
-        MessageEvent.makeBound(
-          { runId: 'run-1', contextId: 'ctx-1' },
-          { text: 'older-event' },
-        ),
+        MessageEvent.makeBound({ runId: 'run-1', contextId: 'ctx-1' }, { text: 'older-event' }),
       ],
       contextEvents: {
         all: [
-          MessageEvent.makeBound(
-            { runId: 'run-1', contextId: 'ctx-1' },
-            { text: 'older-event' },
-          ),
+          MessageEvent.makeBound({ runId: 'run-1', contextId: 'ctx-1' }, { text: 'older-event' }),
         ],
         byRun: () => [
-          MessageEvent.makeBound(
-            { runId: 'run-1', contextId: 'ctx-1' },
-            { text: 'older-event' },
-          ),
+          MessageEvent.makeBound({ runId: 'run-1', contextId: 'ctx-1' }, { text: 'older-event' }),
         ],
         map: new Map(),
       },
@@ -123,22 +96,14 @@ describe('EventAggregator', () => {
   });
 
   test('mapToEmit has typed triggerEvent and emit payload', () => {
-    const MessageEvent = AgentNetworkEvent.of(
-      'message',
-      S.Struct({ text: S.String }),
-    );
-    const SummaryEvent = AgentNetworkEvent.of(
-      'summary',
-      S.Struct({ summary: S.String }),
-    );
+    const MessageEvent = AgentNetworkEvent.of('message', S.Struct({ text: S.String }));
+    const SummaryEvent = AgentNetworkEvent.of('summary', S.Struct({ summary: S.String }));
 
     EventAggregator.listensTo([MessageEvent])
       .emits([SummaryEvent])
       .mapToEmit(({ triggerEvent, emit }) => {
         expectTypeOf(triggerEvent.name).toEqualTypeOf<'message'>();
-        expectTypeOf(emit).parameters.toEqualTypeOf<
-          [ReturnType<typeof SummaryEvent.make>]
-        >();
+        expectTypeOf(emit).parameters.toEqualTypeOf<[ReturnType<typeof SummaryEvent.make>]>();
 
         emit(SummaryEvent.make({ summary: triggerEvent.payload.text }));
       });

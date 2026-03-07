@@ -1,12 +1,6 @@
 import { describe, expect, expectTypeOf, test } from 'vitest';
 import { Effect, Schema as S } from 'effect';
-import {
-  LayerName,
-  Skill,
-  DepedencyLayer,
-  Done,
-  type SkillInstance,
-} from './skill';
+import { LayerName, Skill, DepedencyLayer, Done, type SkillInstance } from './skill';
 
 describe('LayerName', () => {
   test('accepts valid camelCase strings', () => {
@@ -65,7 +59,9 @@ describe('SkillDependency', () => {
       name: 'ok',
       config: S.Struct({ x: S.Number }),
     }).define<{ config: string }>();
-    expectTypeOf(badDep).toEqualTypeOf<"DepType must not contain 'config' - it is reserved by the layer">();
+    expectTypeOf(
+      badDep,
+    ).toEqualTypeOf<"DepType must not contain 'config' - it is reserved by the layer">();
   });
 });
 
@@ -164,10 +160,7 @@ describe('Skill', () => {
         return { out: `${config.a}` };
       });
 
-    const { done } = await skill.invoke(
-      { x: 1 },
-      { layers: { layerA: { config: { a: 42 } } } },
-    );
+    const { done } = await skill.invoke({ x: 1 }, { layers: { layerA: { config: { a: 42 } } } });
     expect(done).toEqual({ out: '42' });
   });
 
@@ -223,9 +216,7 @@ describe('Skill', () => {
   });
 
   test('define throws when input/chunk/done not called', () => {
-    expect(() => Skill.of().define(() => ({ r: 'x' }))).toThrow(
-      /Skill.define requires input\(\)/,
-    );
+    expect(() => Skill.of().define(() => ({ r: 'x' }))).toThrow(/Skill.define requires input\(\)/);
   });
 
   test('invoke decodes input and validates', async () => {
@@ -235,9 +226,7 @@ describe('Skill', () => {
       .done(S.Struct({ result: S.String }))
       .define(({ input }) => ({ result: input.query }));
 
-    await expect(
-      skill.invoke({ wrongKey: 123 } as unknown as { query: string }),
-    ).rejects.toThrow();
+    await expect(skill.invoke({ wrongKey: 123 } as unknown as { query: string })).rejects.toThrow();
   });
 });
 

@@ -28,9 +28,7 @@ interface SubscribeOptions {
   runId?: string;
 }
 
-function parseRegexLiteral(
-  pattern: string,
-): { source: string; flags: string } | undefined {
+function parseRegexLiteral(pattern: string): { source: string; flags: string } | undefined {
   if (!pattern.startsWith('/')) {
     return undefined;
   }
@@ -53,9 +51,7 @@ function createNameMatcher(pattern: string): (value: string) => boolean {
   }
 
   if (normalizedPattern.includes('*')) {
-    const escaped = normalizedPattern
-      .replace(/[.+^${}()|[\]\\]/g, '\\$&')
-      .replace(/\*/g, '.*');
+    const escaped = normalizedPattern.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*');
     const regex = new RegExp(`^${escaped}$`, 'i');
     return (value: string) => regex.test(value);
   }
@@ -67,12 +63,8 @@ export interface RunnerApi {
   collectDatasets(): Promise<ReadonlyArray<CollectedDataset>>;
   collectEvaluators(): Promise<ReadonlyArray<CollectedEvaluator>>;
   resolveDatasetByName(name: string): Promise<CollectedDataset | undefined>;
-  resolveEvaluatorsByNamePattern(
-    pattern: string,
-  ): Promise<ReadonlyArray<CollectedEvaluator>>;
-  searchTestCases(
-    query?: SearchTestCasesQuery,
-  ): Promise<ReadonlyArray<CollectedTestCase>>;
+  resolveEvaluatorsByNamePattern(pattern: string): Promise<ReadonlyArray<CollectedEvaluator>>;
+  searchTestCases(query?: SearchTestCasesQuery): Promise<ReadonlyArray<CollectedTestCase>>;
   collectDatasetTestCases(datasetId: string): Promise<ReadonlyArray<CollectedTestCase>>;
   runDatasetWith(request: RunDatasetRequest): Promise<RunSnapshot>;
   subscribeRunEvents(
@@ -95,12 +87,13 @@ function mergeRunnerOverrides(
   if (!next) {
     return base;
   }
-  const discovery = base.discovery || next.discovery
-    ? {
-        ...(base.discovery ?? {}),
-        ...(next.discovery ?? {}),
-      }
-    : undefined;
+  const discovery =
+    base.discovery || next.discovery
+      ? {
+          ...(base.discovery ?? {}),
+          ...(next.discovery ?? {}),
+        }
+      : undefined;
   return {
     ...base,
     ...next,
@@ -129,9 +122,7 @@ class EffectRunner implements RunnerApi {
     }>(),
   );
 
-  private readonly snapshotsRef = Effect.runSync(
-    Ref.make(new Map<string, RunSnapshot>()),
-  );
+  private readonly snapshotsRef = Effect.runSync(Ref.make(new Map<string, RunSnapshot>()));
   private readonly listeners = new Set<{
     runId?: string;
     listener: (event: RunnerEvent) => void;
@@ -141,9 +132,7 @@ class EffectRunner implements RunnerApi {
 
   private readonly evaluatorsById = new Map<string, CollectedEvaluator>();
 
-  private readonly schedulerFiber = Effect.runFork(
-    this.createSchedulerEffect(),
-  );
+  private readonly schedulerFiber = Effect.runFork(this.createSchedulerEffect());
 
   private readonly persistenceFiber = Effect.runFork(
     createPersistenceWorker(this.persistenceQueue),
@@ -193,16 +182,12 @@ class EffectRunner implements RunnerApi {
     );
   }
 
-  async searchTestCases(
-    query?: SearchTestCasesQuery,
-  ): Promise<ReadonlyArray<CollectedTestCase>> {
+  async searchTestCases(query?: SearchTestCasesQuery): Promise<ReadonlyArray<CollectedTestCase>> {
     const testCases = await collectTestCasesFromFiles(this.config.discovery);
     return searchCollectedTestCases(testCases, query);
   }
 
-  async collectDatasetTestCases(
-    datasetId: string,
-  ): Promise<ReadonlyArray<CollectedTestCase>> {
+  async collectDatasetTestCases(datasetId: string): Promise<ReadonlyArray<CollectedTestCase>> {
     if (this.datasetsById.size === 0) {
       await this.collectDatasets();
     }
@@ -242,10 +227,7 @@ class EffectRunner implements RunnerApi {
 
     const totalEvaluations = selectedTestCases.reduce(
       (sum, tc) =>
-        sum +
-        (typeof tc.testCase.getReruns === 'function'
-          ? tc.testCase.getReruns()
-          : 1),
+        sum + (typeof tc.testCase.getReruns === 'function' ? tc.testCase.getReruns() : 1),
       0,
     );
 
@@ -295,8 +277,7 @@ class EffectRunner implements RunnerApi {
       }),
     );
 
-    const maxConcurrency =
-      request.concurrency ?? this.config.maxConcurrency ?? 1;
+    const maxConcurrency = request.concurrency ?? this.config.maxConcurrency ?? 1;
 
     await Effect.runPromise(
       Queue.offer(this.runQueue, {
@@ -330,9 +311,9 @@ class EffectRunner implements RunnerApi {
   }
 
   getAllRunSnapshots(): ReadonlyArray<RunSnapshot> {
-    return Array.from(
-      Effect.runSync(Ref.get(this.snapshotsRef)).values(),
-    ).sort((a, b) => b.queuedAt - a.queuedAt);
+    return Array.from(Effect.runSync(Ref.get(this.snapshotsRef)).values()).sort(
+      (a, b) => b.queuedAt - a.queuedAt,
+    );
   }
 
   async loadRunSnapshotsFromArtifacts(): Promise<ReadonlyArray<RunSnapshot>> {

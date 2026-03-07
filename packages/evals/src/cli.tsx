@@ -17,9 +17,7 @@ async function main(): Promise<void> {
     void runner.shutdown().finally(() => process.exit(0));
   });
 
-  withFullScreen(
-    <EvalsCliApp data={data} args={args} runner={runner} />,
-  ).start();
+  withFullScreen(<EvalsCliApp data={data} args={args} runner={runner} />).start();
 }
 
 void main();

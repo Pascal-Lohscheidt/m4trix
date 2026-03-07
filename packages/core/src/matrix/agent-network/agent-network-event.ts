@@ -28,18 +28,13 @@ export type ContextEvents = {
 // Re-export Schema from effect for convenience
 export { Schema as S } from 'effect';
 
-export type AgentNetworkEventDef<
-  EventName extends string,
-  PayloadSchema extends S.Schema.Any,
-> = {
+export type AgentNetworkEventDef<EventName extends string, PayloadSchema extends S.Schema.Any> = {
   readonly _tag: 'AgentNetworkEventDef';
   readonly name: EventName;
   readonly payload: PayloadSchema;
 
   /** Decode unknown payload -> typed payload (Effect) */
-  readonly decodePayload: (
-    u: unknown,
-  ) => Effect.Effect<S.Schema.Type<PayloadSchema>, ParseError>;
+  readonly decodePayload: (u: unknown) => Effect.Effect<S.Schema.Type<PayloadSchema>, ParseError>;
 
   /** Decode the full envelope (meta + payload) */
   readonly decode: (
@@ -76,10 +71,7 @@ export type AgentNetworkEventDef<
    */
   readonly makeEffect: (
     payload: unknown,
-  ) => Effect.Effect<
-    { name: EventName; payload: S.Schema.Type<PayloadSchema> },
-    ParseError
-  >;
+  ) => Effect.Effect<{ name: EventName; payload: S.Schema.Type<PayloadSchema> }, ParseError>;
 
   /**
    * Effect version of makeBound. Use when composing in Effect pipelines.
@@ -121,14 +113,9 @@ export const AgentNetworkEvent = {
     });
     const decodeEnvelope = S.decodeUnknown(envelopeSchema);
 
-    const make = (
-      payload: unknown,
-    ): { name: EventName; payload: S.Schema.Type<PS> } => {
+    const make = (payload: unknown): { name: EventName; payload: S.Schema.Type<PS> } => {
       const decoded = Effect.runSync(
-        decodePayload(payload) as unknown as Effect.Effect<
-          S.Schema.Type<PS>,
-          ParseError
-        >,
+        decodePayload(payload) as unknown as Effect.Effect<S.Schema.Type<PS>, ParseError>,
       );
       return { name, payload: decoded };
     };
@@ -146,24 +133,15 @@ export const AgentNetworkEvent = {
 
     const makeEffect = (
       payload: unknown,
-    ): Effect.Effect<
-      { name: EventName; payload: S.Schema.Type<PS> },
-      ParseError
-    > =>
-      (
-        decodePayload(payload) as unknown as Effect.Effect<
-          S.Schema.Type<PS>,
-          ParseError
-        >
-      ).pipe(Effect.map((p: S.Schema.Type<PS>) => ({ name, payload: p })));
+    ): Effect.Effect<{ name: EventName; payload: S.Schema.Type<PS> }, ParseError> =>
+      (decodePayload(payload) as unknown as Effect.Effect<S.Schema.Type<PS>, ParseError>).pipe(
+        Effect.map((p: S.Schema.Type<PS>) => ({ name, payload: p })),
+      );
 
     const makeBoundEffect = (
       meta: unknown,
       payload: unknown,
-    ): Effect.Effect<
-      Envelope<EventName, EventMeta, S.Schema.Type<PS>>,
-      ParseError
-    > =>
+    ): Effect.Effect<Envelope<EventName, EventMeta, S.Schema.Type<PS>>, ParseError> =>
       decodeEnvelope({ name, meta, payload }) as unknown as Effect.Effect<
         Envelope<EventName, EventMeta, S.Schema.Type<PS>>,
         ParseError
@@ -181,10 +159,7 @@ export const AgentNetworkEvent = {
         EventName,
         PS
       >['decodePayload'],
-      decode: decodeEnvelope as unknown as AgentNetworkEventDef<
-        EventName,
-        PS
-      >['decode'],
+      decode: decodeEnvelope as unknown as AgentNetworkEventDef<EventName, PS>['decode'],
       make,
       makeBound,
       makeEffect,

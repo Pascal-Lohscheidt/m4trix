@@ -1,5 +1,5 @@
 /** @jsxImportSource react */
-import React from 'react';
+import type React from 'react';
 import { Text } from 'ink';
 
 interface TextBarProps {
@@ -51,7 +51,9 @@ export function TextBar({
         filledBar + emptyBar
       )}
       {'] '}
-      <Text color={color ?? 'white'} bold>{format(value)}</Text>
+      <Text color={color ?? 'white'} bold>
+        {format(value)}
+      </Text>
     </Text>
   );
 }

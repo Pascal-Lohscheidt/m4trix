@@ -47,11 +47,7 @@ export const binaryScore = Score.of<BinaryScoreData>({
   formatValue: (data) => (data.passed ? 'PASSED' : 'NOT PASSED'),
   formatAggregate: (data) => {
     const base = data.passed ? 'All: PASSED' : 'Some: FAILED';
-    if (
-      data.passedCount != null &&
-      data.totalCount != null &&
-      data.totalCount > 1
-    ) {
+    if (data.passedCount != null && data.totalCount != null && data.totalCount > 1) {
       return `${base} (${data.passedCount}/${data.totalCount})`;
     }
     return base;

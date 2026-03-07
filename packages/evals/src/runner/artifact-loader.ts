@@ -30,9 +30,7 @@ export interface ParsedTestCaseProgress {
   }>;
 }
 
-export async function loadRunSnapshotsFromArtifacts(
-  config: RunnerConfig,
-): Promise<RunSnapshot[]> {
+export async function loadRunSnapshotsFromArtifacts(config: RunnerConfig): Promise<RunSnapshot[]> {
   const baseDir = resolve(config.artifactDirectory);
   let entries: string[];
   try {
@@ -142,13 +140,9 @@ async function parseArtifactToSnapshot(
         : 'queued';
 
   const progress = aggregateTestCaseProgress(lines);
-  const completedTestCases = runCompleted
-    ? runQueued.totalTestCases
-    : progress.completedTestCases;
-  const passedTestCases =
-    runCompleted?.passedTestCases ?? progress.passedTestCases;
-  const failedTestCases =
-    runCompleted?.failedTestCases ?? progress.failedTestCases;
+  const completedTestCases = runCompleted ? runQueued.totalTestCases : progress.completedTestCases;
+  const passedTestCases = runCompleted?.passedTestCases ?? progress.passedTestCases;
+  const failedTestCases = runCompleted?.failedTestCases ?? progress.failedTestCases;
 
   return {
     runId: runQueued.runId,
@@ -205,9 +199,7 @@ function aggregateTestCaseProgress(lines: string[]): {
   return { completedTestCases, passedTestCases, failedTestCases };
 }
 
-export async function parseArtifactFile(
-  artifactPath: string,
-): Promise<ParsedTestCaseProgress[]> {
+export async function parseArtifactFile(artifactPath: string): Promise<ParsedTestCaseProgress[]> {
   try {
     const content = await readFile(artifactPath, 'utf8');
     const lines = content.split('\n').filter((line) => line.trim().length > 0);

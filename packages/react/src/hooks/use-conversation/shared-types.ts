@@ -15,7 +15,7 @@ export type BaseUseConversationOptions = {
   onReceive?: (
     blob: Blob,
     playResponseVoice: () => Promise<void> | void,
-    stopResponseVoice: () => Promise<void> | void
+    stopResponseVoice: () => Promise<void> | void,
   ) => void;
   onError?: (stateWhileErrorHappened: VoiceAgentState, error: Error) => void;
   autoPlay?: boolean;

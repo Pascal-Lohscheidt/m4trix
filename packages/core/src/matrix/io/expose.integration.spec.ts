@@ -11,10 +11,7 @@ async function takeFirst(stream: AsyncIterable<unknown>): Promise<unknown> {
   return undefined;
 }
 
-async function takeN(
-  stream: AsyncIterable<unknown>,
-  n: number,
-): Promise<unknown[]> {
+async function takeN(stream: AsyncIterable<unknown>, n: number): Promise<unknown[]> {
   const out: unknown[] = [];
   for await (const e of stream) {
     out.push(e);
@@ -42,9 +39,7 @@ function mockGetRequest(url = 'http://test/api'): Request {
 }
 
 /** Take first event or undefined when the stream ends/aborts without yielding */
-async function takeFirstOrTimeout(
-  stream: AsyncIterable<unknown>,
-): Promise<unknown> {
+async function takeFirstOrTimeout(stream: AsyncIterable<unknown>): Promise<unknown> {
   try {
     for await (const e of stream) return e;
   } catch (e) {
@@ -66,28 +61,25 @@ describe('expose integration', () => {
         S.Struct({ response: S.String }),
       );
 
-      const network = AgentNetwork.setup(
-        ({ mainChannel, createChannel, sink, registerAgent }) => {
-          const main = mainChannel('main');
-          const client = createChannel('client').sink(sink.httpStream());
-          registerAgent(
-            AgentFactory.run()
-              .listensTo([requestEvent])
-              .emits([responseEvent])
-              .logic(async ({ triggerEvent, emit }) => {
-                const req = (triggerEvent.payload as { request: string })
-                  .request;
-                emit({
-                  name: 'reasoning-response',
-                  payload: { response: `Echo: ${req}` },
-                });
-              })
-              .produce({}),
-          )
-            .subscribe(main)
-            .publishTo(client);
-        },
-      );
+      const network = AgentNetwork.setup(({ mainChannel, createChannel, sink, registerAgent }) => {
+        const main = mainChannel('main');
+        const client = createChannel('client').sink(sink.httpStream());
+        registerAgent(
+          AgentFactory.run()
+            .listensTo([requestEvent])
+            .emits([responseEvent])
+            .logic(async ({ triggerEvent, emit }) => {
+              const req = (triggerEvent.payload as { request: string }).request;
+              emit({
+                name: 'reasoning-response',
+                payload: { response: `Echo: ${req}` },
+              });
+            })
+            .produce({}),
+        )
+          .subscribe(main)
+          .publishTo(client);
+      });
 
       const program = Effect.gen(function* () {
         const plane = yield* network.run();
@@ -121,34 +113,26 @@ describe('expose integration', () => {
     });
 
     test('uses default triggerEvents ["request"] when not specified', async () => {
-      const requestEvt = AgentNetworkEvent.of(
-        'request',
-        S.Struct({ foo: S.String }),
-      );
-      const responseEvt = AgentNetworkEvent.of(
-        'response',
-        S.Struct({ ok: S.Boolean }),
-      );
-      const network = AgentNetwork.setup(
-        ({ mainChannel, createChannel, sink, registerAgent }) => {
-          const main = mainChannel('main');
-          const client = createChannel('client').sink(sink.httpStream());
-          registerAgent(
-            AgentFactory.run()
-              .listensTo([requestEvt])
-              .emits([responseEvt])
-              .logic(async ({ emit }) => {
-                emit({
-                  name: 'response',
-                  payload: { ok: true },
-                });
-              })
-              .produce({}),
-          )
-            .subscribe(main)
-            .publishTo(client);
-        },
-      );
+      const requestEvt = AgentNetworkEvent.of('request', S.Struct({ foo: S.String }));
+      const responseEvt = AgentNetworkEvent.of('response', S.Struct({ ok: S.Boolean }));
+      const network = AgentNetwork.setup(({ mainChannel, createChannel, sink, registerAgent }) => {
+        const main = mainChannel('main');
+        const client = createChannel('client').sink(sink.httpStream());
+        registerAgent(
+          AgentFactory.run()
+            .listensTo([requestEvt])
+            .emits([responseEvt])
+            .logic(async ({ emit }) => {
+              emit({
+                name: 'response',
+                payload: { ok: true },
+              });
+            })
+            .produce({}),
+        )
+          .subscribe(main)
+          .publishTo(client);
+      });
 
       const program = Effect.gen(function* () {
         const plane = yield* network.run();
@@ -181,36 +165,30 @@ describe('expose integration', () => {
     });
 
     test('default path (no plane, no onRequest) triggers agent via auto-publish', async () => {
-      const requestEvt = AgentNetworkEvent.of(
-        'reasoning-request',
-        S.Struct({ request: S.String }),
-      );
+      const requestEvt = AgentNetworkEvent.of('reasoning-request', S.Struct({ request: S.String }));
       const responseEvt = AgentNetworkEvent.of(
         'reasoning-response',
         S.Struct({ response: S.String }),
       );
-      const network = AgentNetwork.setup(
-        ({ mainChannel, createChannel, sink, registerAgent }) => {
-          const main = mainChannel('main');
-          const client = createChannel('client').sink(sink.httpStream());
-          registerAgent(
-            AgentFactory.run()
-              .listensTo([requestEvt])
-              .emits([responseEvt])
-              .logic(async ({ triggerEvent, emit }) => {
-                const req = (triggerEvent.payload as { request: string })
-                  .request;
-                emit({
-                  name: 'reasoning-response',
-                  payload: { response: `Echo: ${req}` },
-                });
-              })
-              .produce({}),
-          )
-            .subscribe(main)
-            .publishTo(client);
-        },
-      );
+      const network = AgentNetwork.setup(({ mainChannel, createChannel, sink, registerAgent }) => {
+        const main = mainChannel('main');
+        const client = createChannel('client').sink(sink.httpStream());
+        registerAgent(
+          AgentFactory.run()
+            .listensTo([requestEvt])
+            .emits([responseEvt])
+            .logic(async ({ triggerEvent, emit }) => {
+              const req = (triggerEvent.payload as { request: string }).request;
+              emit({
+                name: 'reasoning-response',
+                payload: { response: `Echo: ${req}` },
+              });
+            })
+            .produce({}),
+        )
+          .subscribe(main)
+          .publishTo(client);
+      });
 
       const api = network.expose({
         protocol: 'sse',
@@ -219,9 +197,7 @@ describe('expose integration', () => {
       });
 
       const req = mockPostRequest({ request: 'What is 2+2?' });
-      const received = await api.createStream({ request: req }, (stream) =>
-        takeFirst(stream),
-      );
+      const received = await api.createStream({ request: req }, (stream) => takeFirst(stream));
 
       expect(received).toMatchObject({
         name: 'reasoning-response',
@@ -232,36 +208,28 @@ describe('expose integration', () => {
 
   describe('onRequest override', () => {
     test('onRequest can map payload before emitting', async () => {
-      const requestEvent = AgentNetworkEvent.of(
-        'task-request',
-        S.Struct({ task: S.String }),
-      );
-      const taskDoneEvent = AgentNetworkEvent.of(
-        'task-done',
-        S.Struct({ result: S.String }),
-      );
+      const requestEvent = AgentNetworkEvent.of('task-request', S.Struct({ task: S.String }));
+      const taskDoneEvent = AgentNetworkEvent.of('task-done', S.Struct({ result: S.String }));
 
-      const network = AgentNetwork.setup(
-        ({ mainChannel, createChannel, sink, registerAgent }) => {
-          const main = mainChannel('main');
-          const client = createChannel('client').sink(sink.httpStream());
-          registerAgent(
-            AgentFactory.run()
-              .listensTo([requestEvent])
-              .emits([taskDoneEvent])
-              .logic(async ({ triggerEvent, emit }) => {
-                const task = (triggerEvent.payload as { task: string }).task;
-                emit({
-                  name: 'task-done',
-                  payload: { result: `Done: ${task}` },
-                });
-              })
-              .produce({}),
-          )
-            .subscribe(main)
-            .publishTo(client);
-        },
-      );
+      const network = AgentNetwork.setup(({ mainChannel, createChannel, sink, registerAgent }) => {
+        const main = mainChannel('main');
+        const client = createChannel('client').sink(sink.httpStream());
+        registerAgent(
+          AgentFactory.run()
+            .listensTo([requestEvent])
+            .emits([taskDoneEvent])
+            .logic(async ({ triggerEvent, emit }) => {
+              const task = (triggerEvent.payload as { task: string }).task;
+              emit({
+                name: 'task-done',
+                payload: { result: `Done: ${task}` },
+              });
+            })
+            .produce({}),
+        )
+          .subscribe(main)
+          .publishTo(client);
+      });
 
       const program = Effect.gen(function* () {
         const plane = yield* network.run();
@@ -297,36 +265,28 @@ describe('expose integration', () => {
     });
 
     test('onRequest can map from query params (GET)', async () => {
-      const requestEvent = AgentNetworkEvent.of(
-        'query-request',
-        S.Struct({ q: S.String }),
-      );
-      const queryResultEvent = AgentNetworkEvent.of(
-        'query-result',
-        S.Struct({ answer: S.String }),
-      );
+      const requestEvent = AgentNetworkEvent.of('query-request', S.Struct({ q: S.String }));
+      const queryResultEvent = AgentNetworkEvent.of('query-result', S.Struct({ answer: S.String }));
 
-      const network = AgentNetwork.setup(
-        ({ mainChannel, createChannel, sink, registerAgent }) => {
-          const main = mainChannel('main');
-          const client = createChannel('client').sink(sink.httpStream());
-          registerAgent(
-            AgentFactory.run()
-              .listensTo([requestEvent])
-              .emits([queryResultEvent])
-              .logic(async ({ triggerEvent, emit }) => {
-                const q = (triggerEvent.payload as { q: string }).q;
-                emit({
-                  name: 'query-result',
-                  payload: { answer: q },
-                });
-              })
-              .produce({}),
-          )
-            .subscribe(main)
-            .publishTo(client);
-        },
-      );
+      const network = AgentNetwork.setup(({ mainChannel, createChannel, sink, registerAgent }) => {
+        const main = mainChannel('main');
+        const client = createChannel('client').sink(sink.httpStream());
+        registerAgent(
+          AgentFactory.run()
+            .listensTo([requestEvent])
+            .emits([queryResultEvent])
+            .logic(async ({ triggerEvent, emit }) => {
+              const q = (triggerEvent.payload as { q: string }).q;
+              emit({
+                name: 'query-result',
+                payload: { answer: q },
+              });
+            })
+            .produce({}),
+        )
+          .subscribe(main)
+          .publishTo(client);
+      });
 
       const program = Effect.gen(function* () {
         const plane = yield* network.run();
@@ -365,34 +325,26 @@ describe('expose integration', () => {
     });
 
     test('onRequest can skip emitting', async () => {
-      const requestEvt = AgentNetworkEvent.of(
-        'request',
-        S.Struct({ request: S.String }),
-      );
-      const responseEvt = AgentNetworkEvent.of(
-        'response',
-        S.Struct({ ok: S.Boolean }),
-      );
-      const network = AgentNetwork.setup(
-        ({ mainChannel, createChannel, sink, registerAgent }) => {
-          const main = mainChannel('main');
-          const client = createChannel('client').sink(sink.httpStream());
-          registerAgent(
-            AgentFactory.run()
-              .listensTo([requestEvt])
-              .emits([responseEvt])
-              .logic(async ({ emit }) => {
-                emit({
-                  name: 'response',
-                  payload: { ok: true },
-                });
-              })
-              .produce({}),
-          )
-            .subscribe(main)
-            .publishTo(client);
-        },
-      );
+      const requestEvt = AgentNetworkEvent.of('request', S.Struct({ request: S.String }));
+      const responseEvt = AgentNetworkEvent.of('response', S.Struct({ ok: S.Boolean }));
+      const network = AgentNetwork.setup(({ mainChannel, createChannel, sink, registerAgent }) => {
+        const main = mainChannel('main');
+        const client = createChannel('client').sink(sink.httpStream());
+        registerAgent(
+          AgentFactory.run()
+            .listensTo([requestEvt])
+            .emits([responseEvt])
+            .logic(async ({ emit }) => {
+              emit({
+                name: 'response',
+                payload: { ok: true },
+              });
+            })
+            .produce({}),
+        )
+          .subscribe(main)
+          .publishTo(client);
+      });
 
       const program = Effect.gen(function* () {
         const plane = yield* network.run();
@@ -417,9 +369,7 @@ describe('expose integration', () => {
         });
 
         return yield* Effect.tryPromise(() =>
-          api.createStream({ request: req }, (stream) =>
-            takeFirstOrTimeout(stream),
-          ),
+          api.createStream({ request: req }, (stream) => takeFirstOrTimeout(stream)),
         );
       });
 
@@ -430,12 +380,10 @@ describe('expose integration', () => {
 
   describe('auth', () => {
     test('auth rejects request with ExposeAuthError', async () => {
-      const network = AgentNetwork.setup(
-        ({ mainChannel, createChannel, sink }) => {
-          mainChannel('main');
-          createChannel('client').sink(sink.httpStream());
-        },
-      );
+      const network = AgentNetwork.setup(({ mainChannel, createChannel, sink }) => {
+        mainChannel('main');
+        createChannel('client').sink(sink.httpStream());
+      });
 
       const api = network.expose({
         protocol: 'sse',
@@ -450,9 +398,7 @@ describe('expose integration', () => {
 
       let err: ExposeAuthError;
       try {
-        await api.createStream({ request: mockPostRequest({}) }, (stream) =>
-          takeFirst(stream),
-        );
+        await api.createStream({ request: mockPostRequest({}) }, (stream) => takeFirst(stream));
         throw new Error('Expected ExposeAuthError');
       } catch (e) {
         err = e as ExposeAuthError;
@@ -462,34 +408,26 @@ describe('expose integration', () => {
     });
 
     test('auth allows request when returning allowed: true', async () => {
-      const requestEvt = AgentNetworkEvent.of(
-        'request',
-        S.Struct({ x: S.Number }),
-      );
-      const responseEvt = AgentNetworkEvent.of(
-        'response',
-        S.Struct({ ok: S.Boolean }),
-      );
-      const network = AgentNetwork.setup(
-        ({ mainChannel, createChannel, sink, registerAgent }) => {
-          const main = mainChannel('main');
-          const client = createChannel('client').sink(sink.httpStream());
-          registerAgent(
-            AgentFactory.run()
-              .listensTo([requestEvt])
-              .emits([responseEvt])
-              .logic(async ({ emit }) => {
-                emit({
-                  name: 'response',
-                  payload: { ok: true },
-                });
-              })
-              .produce({}),
-          )
-            .subscribe(main)
-            .publishTo(client);
-        },
-      );
+      const requestEvt = AgentNetworkEvent.of('request', S.Struct({ x: S.Number }));
+      const responseEvt = AgentNetworkEvent.of('response', S.Struct({ ok: S.Boolean }));
+      const network = AgentNetwork.setup(({ mainChannel, createChannel, sink, registerAgent }) => {
+        const main = mainChannel('main');
+        const client = createChannel('client').sink(sink.httpStream());
+        registerAgent(
+          AgentFactory.run()
+            .listensTo([requestEvt])
+            .emits([responseEvt])
+            .logic(async ({ emit }) => {
+              emit({
+                name: 'response',
+                payload: { ok: true },
+              });
+            })
+            .produce({}),
+        )
+          .subscribe(main)
+          .publishTo(client);
+      });
 
       const program = Effect.gen(function* () {
         const plane = yield* network.run();
@@ -525,35 +463,27 @@ describe('expose integration', () => {
 
   describe('Express req.body', () => {
     test('extracts payload from Express req.body when present', async () => {
-      const requestEvt = AgentNetworkEvent.of(
-        'request',
-        S.Struct({ x: S.Number }),
-      );
-      const responseEvt = AgentNetworkEvent.of(
-        'response',
-        S.Struct({ doubled: S.Number }),
-      );
-      const network = AgentNetwork.setup(
-        ({ mainChannel, createChannel, sink, registerAgent }) => {
-          const main = mainChannel('main');
-          const client = createChannel('client').sink(sink.httpStream());
-          registerAgent(
-            AgentFactory.run()
-              .listensTo([requestEvt])
-              .emits([responseEvt])
-              .logic(async ({ triggerEvent, emit }) => {
-                const p = triggerEvent.payload as { x: number };
-                emit({
-                  name: 'response',
-                  payload: { doubled: p.x * 2 },
-                });
-              })
-              .produce({}),
-          )
-            .subscribe(main)
-            .publishTo(client);
-        },
-      );
+      const requestEvt = AgentNetworkEvent.of('request', S.Struct({ x: S.Number }));
+      const responseEvt = AgentNetworkEvent.of('response', S.Struct({ doubled: S.Number }));
+      const network = AgentNetwork.setup(({ mainChannel, createChannel, sink, registerAgent }) => {
+        const main = mainChannel('main');
+        const client = createChannel('client').sink(sink.httpStream());
+        registerAgent(
+          AgentFactory.run()
+            .listensTo([requestEvt])
+            .emits([responseEvt])
+            .logic(async ({ triggerEvent, emit }) => {
+              const p = triggerEvent.payload as { x: number };
+              emit({
+                name: 'response',
+                payload: { doubled: p.x * 2 },
+              });
+            })
+            .produce({}),
+        )
+          .subscribe(main)
+          .publishTo(client);
+      });
 
       const program = Effect.gen(function* () {
         const plane = yield* network.run();
@@ -595,31 +525,23 @@ describe('expose integration', () => {
 
   describe('triggerEvents and setRunId/setContextId', () => {
     test('triggerEvents default ["request"] when not specified', async () => {
-      const requestEvt = AgentNetworkEvent.of(
-        'request',
-        S.Struct({ x: S.Number }),
-      );
-      const responseEvt = AgentNetworkEvent.of(
-        'response',
-        S.Struct({ ok: S.Boolean }),
-      );
-      const network = AgentNetwork.setup(
-        ({ mainChannel, createChannel, sink, registerAgent }) => {
-          const main = mainChannel('main');
-          const client = createChannel('client').sink(sink.httpStream());
-          registerAgent(
-            AgentFactory.run()
-              .listensTo([requestEvt])
-              .emits([responseEvt])
-              .logic(async ({ emit }) => {
-                emit({ name: 'response', payload: { ok: true } });
-              })
-              .produce({}),
-          )
-            .subscribe(main)
-            .publishTo(client);
-        },
-      );
+      const requestEvt = AgentNetworkEvent.of('request', S.Struct({ x: S.Number }));
+      const responseEvt = AgentNetworkEvent.of('response', S.Struct({ ok: S.Boolean }));
+      const network = AgentNetwork.setup(({ mainChannel, createChannel, sink, registerAgent }) => {
+        const main = mainChannel('main');
+        const client = createChannel('client').sink(sink.httpStream());
+        registerAgent(
+          AgentFactory.run()
+            .listensTo([requestEvt])
+            .emits([responseEvt])
+            .logic(async ({ emit }) => {
+              emit({ name: 'response', payload: { ok: true } });
+            })
+            .produce({}),
+        )
+          .subscribe(main)
+          .publishTo(client);
+      });
 
       const program = Effect.gen(function* () {
         const plane = yield* network.run();
@@ -651,39 +573,34 @@ describe('expose integration', () => {
     });
 
     test('setRunId and setContextId override before emitStartEvent', async () => {
-      const requestEvt = AgentNetworkEvent.of(
-        'request',
-        S.Struct({ x: S.Number }),
-      );
+      const requestEvt = AgentNetworkEvent.of('request', S.Struct({ x: S.Number }));
       const responseEvt = AgentNetworkEvent.of(
         'response',
         S.Struct({ meta: S.Struct({ runId: S.String, contextId: S.String }) }),
       );
-      const network = AgentNetwork.setup(
-        ({ mainChannel, createChannel, sink, registerAgent }) => {
-          const main = mainChannel('main');
-          const client = createChannel('client').sink(sink.httpStream());
-          registerAgent(
-            AgentFactory.run()
-              .listensTo([requestEvt])
-              .emits([responseEvt])
-              .logic(async ({ triggerEvent, emit }) => {
-                emit({
-                  name: 'response',
-                  payload: {
-                    meta: {
-                      runId: triggerEvent.meta.runId,
-                      contextId: triggerEvent.meta.contextId,
-                    },
+      const network = AgentNetwork.setup(({ mainChannel, createChannel, sink, registerAgent }) => {
+        const main = mainChannel('main');
+        const client = createChannel('client').sink(sink.httpStream());
+        registerAgent(
+          AgentFactory.run()
+            .listensTo([requestEvt])
+            .emits([responseEvt])
+            .logic(async ({ triggerEvent, emit }) => {
+              emit({
+                name: 'response',
+                payload: {
+                  meta: {
+                    runId: triggerEvent.meta.runId,
+                    contextId: triggerEvent.meta.contextId,
                   },
-                });
-              })
-              .produce({}),
-          )
-            .subscribe(main)
-            .publishTo(client);
-        },
-      );
+                },
+              });
+            })
+            .produce({}),
+        )
+          .subscribe(main)
+          .publishTo(client);
+      });
 
       const program = Effect.gen(function* () {
         const plane = yield* network.run();
@@ -723,39 +640,34 @@ describe('expose integration', () => {
     });
 
     test('emitStartEvent with explicit contextId and runId', async () => {
-      const requestEvt = AgentNetworkEvent.of(
-        'request',
-        S.Struct({ x: S.Number }),
-      );
+      const requestEvt = AgentNetworkEvent.of('request', S.Struct({ x: S.Number }));
       const responseEvt = AgentNetworkEvent.of(
         'response',
         S.Struct({ meta: S.Struct({ runId: S.String, contextId: S.String }) }),
       );
-      const network = AgentNetwork.setup(
-        ({ mainChannel, createChannel, sink, registerAgent }) => {
-          const main = mainChannel('main');
-          const client = createChannel('client').sink(sink.httpStream());
-          registerAgent(
-            AgentFactory.run()
-              .listensTo([requestEvt])
-              .emits([responseEvt])
-              .logic(async ({ triggerEvent, emit }) => {
-                emit({
-                  name: 'response',
-                  payload: {
-                    meta: {
-                      runId: triggerEvent.meta.runId,
-                      contextId: triggerEvent.meta.contextId,
-                    },
+      const network = AgentNetwork.setup(({ mainChannel, createChannel, sink, registerAgent }) => {
+        const main = mainChannel('main');
+        const client = createChannel('client').sink(sink.httpStream());
+        registerAgent(
+          AgentFactory.run()
+            .listensTo([requestEvt])
+            .emits([responseEvt])
+            .logic(async ({ triggerEvent, emit }) => {
+              emit({
+                name: 'response',
+                payload: {
+                  meta: {
+                    runId: triggerEvent.meta.runId,
+                    contextId: triggerEvent.meta.contextId,
                   },
-                });
-              })
-              .produce({}),
-          )
-            .subscribe(main)
-            .publishTo(client);
-        },
-      );
+                },
+              });
+            })
+            .produce({}),
+        )
+          .subscribe(main)
+          .publishTo(client);
+      });
 
       const program = Effect.gen(function* () {
         const plane = yield* network.run();
@@ -791,23 +703,21 @@ describe('expose integration', () => {
     test('triggerEvents uses first for emit', async () => {
       const aEvt = AgentNetworkEvent.of('a', S.Struct({ v: S.Number }));
       const bEvt = AgentNetworkEvent.of('b', S.Struct({ v: S.Number }));
-      const network = AgentNetwork.setup(
-        ({ mainChannel, createChannel, sink, registerAgent }) => {
-          const main = mainChannel('main');
-          const client = createChannel('client').sink(sink.httpStream());
-          registerAgent(
-            AgentFactory.run()
-              .listensTo([aEvt])
-              .emits([bEvt])
-              .logic(async ({ emit }) => {
-                emit({ name: 'b', payload: { v: 2 } });
-              })
-              .produce({}),
-          )
-            .subscribe(main)
-            .publishTo(client);
-        },
-      );
+      const network = AgentNetwork.setup(({ mainChannel, createChannel, sink, registerAgent }) => {
+        const main = mainChannel('main');
+        const client = createChannel('client').sink(sink.httpStream());
+        registerAgent(
+          AgentFactory.run()
+            .listensTo([aEvt])
+            .emits([bEvt])
+            .logic(async ({ emit }) => {
+              emit({ name: 'b', payload: { v: 2 } });
+            })
+            .produce({}),
+        )
+          .subscribe(main)
+          .publishTo(client);
+      });
 
       const program = Effect.gen(function* () {
         const plane = yield* network.run();
@@ -839,36 +749,31 @@ describe('expose integration', () => {
 
   describe('event filter', () => {
     test('select.events filters streamed events', async () => {
-      const requestEvt = AgentNetworkEvent.of(
-        'request',
-        S.Struct({ x: S.Number }),
-      );
+      const requestEvt = AgentNetworkEvent.of('request', S.Struct({ x: S.Number }));
       const aEvt = AgentNetworkEvent.of('a', S.Struct({ v: S.Number }));
       const bEvt = AgentNetworkEvent.of('b', S.Struct({ v: S.Number }));
-      const network = AgentNetwork.setup(
-        ({ mainChannel, createChannel, sink, registerAgent }) => {
-          const main = mainChannel('main');
-          const client = createChannel('client').sink(sink.httpStream());
-          registerAgent(
-            AgentFactory.run()
-              .listensTo([requestEvt])
-              .emits([aEvt, bEvt])
-              .logic(async ({ emit }) => {
-                emit({
-                  name: 'a',
-                  payload: { v: 1 },
-                });
-                emit({
-                  name: 'b',
-                  payload: { v: 2 },
-                });
-              })
-              .produce({}),
-          )
-            .subscribe(main)
-            .publishTo(client);
-        },
-      );
+      const network = AgentNetwork.setup(({ mainChannel, createChannel, sink, registerAgent }) => {
+        const main = mainChannel('main');
+        const client = createChannel('client').sink(sink.httpStream());
+        registerAgent(
+          AgentFactory.run()
+            .listensTo([requestEvt])
+            .emits([aEvt, bEvt])
+            .logic(async ({ emit }) => {
+              emit({
+                name: 'a',
+                payload: { v: 1 },
+              });
+              emit({
+                name: 'b',
+                payload: { v: 2 },
+              });
+            })
+            .produce({}),
+        )
+          .subscribe(main)
+          .publishTo(client);
+      });
 
       const program = Effect.gen(function* () {
         const plane = yield* network.run();

@@ -51,9 +51,7 @@ export abstract class OutputAudioController {
   /**
    * Initialize a streaming audio context for chunk-based playback.
    */
-  public abstract initializeChunkStream(
-    params: InitializeChunkStreamParams
-  ): Promise<{
+  public abstract initializeChunkStream(params: InitializeChunkStreamParams): Promise<{
     addChunkToStream: (chunk: ArrayBuffer | Blob) => Promise<void>;
     endChunkStream: () => void;
   }>;

@@ -52,11 +52,7 @@ function preprocessForDiff(value: unknown, options?: JsonDiffOptions): unknown {
     }
     return filtered;
   }
-  if (
-    value !== null &&
-    typeof value === 'object' &&
-    !Array.isArray(value)
-  ) {
+  if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
     const result: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(value)) {
       result[k] = preprocessForDiff(v, options);
@@ -104,16 +100,8 @@ function createDiffString(
   const actualProcessed = preprocessForDiff(actual, diffOptions);
 
   if (diffOptions?.keysOnly) {
-    const expectedKeys = JSON.stringify(
-      extractKeys(expectedProcessed),
-      null,
-      2,
-    );
-    const actualKeys = JSON.stringify(
-      extractKeys(actualProcessed),
-      null,
-      2,
-    );
+    const expectedKeys = JSON.stringify(extractKeys(expectedProcessed), null, 2);
+    const actualKeys = JSON.stringify(extractKeys(actualProcessed), null, 2);
     const parts = diffLines(expectedKeys, actualKeys);
     return formatDiffParts(parts);
   }
@@ -128,9 +116,7 @@ function createDiffString(
   const parts = diffLines(expectedStr, actualStr);
 
   if (diffOptions?.outputNewOnly) {
-    const filtered = parts.filter(
-      (p: { added?: boolean }) => p.added === true,
-    );
+    const filtered = parts.filter((p: { added?: boolean }) => p.added === true);
     return formatDiffParts(filtered);
   }
 
@@ -183,10 +169,7 @@ function formatLogMessage(msg: unknown): string {
 /**
  * Creates a LogEntry for storage in run artifacts. Use for logging objects or text.
  */
-export function createLogEntry(
-  message: unknown,
-  options?: { label?: string },
-): LogEntry {
+export function createLogEntry(message: unknown, options?: { label?: string }): LogEntry {
   return {
     type: 'log',
     label: options?.label,

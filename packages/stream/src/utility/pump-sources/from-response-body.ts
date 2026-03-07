@@ -1,4 +1,4 @@
-import { Source } from '../../Pump';
+import type { Source } from '../../Pump';
 
 /**
  * Creates a source from a Response body that can be used with Pump.from()

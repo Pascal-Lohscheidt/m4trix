@@ -3,13 +3,8 @@ import { Effect, Fiber, Queue } from 'effect';
 import { Schema as S } from 'effect';
 import { AgentFactory } from '../agent-factory';
 import { AgentNetwork } from './agent-network';
-import { AgentNetworkEvent, EventMeta } from './agent-network-event';
-import {
-  createEventPlane,
-  run,
-  runSubscriber,
-  type Envelope,
-} from './event-plane';
+import { AgentNetworkEvent, type EventMeta } from './agent-network-event';
+import { createEventPlane, run, runSubscriber, type Envelope } from './event-plane';
 import { ChannelName } from './channel';
 import { createInMemoryNetworkStore } from './stores/inmemory-network-store';
 
@@ -85,10 +80,7 @@ describe('EventPlane', () => {
           payload: {},
         });
 
-        const [r1, r2] = yield* Effect.all([
-          Queue.take(dequeue1),
-          Queue.take(dequeue2),
-        ]);
+        const [r1, r2] = yield* Effect.all([Queue.take(dequeue1), Queue.take(dequeue2)]);
         return [r1, r2];
       });
 
@@ -131,9 +123,7 @@ describe('EventPlane', () => {
         return { fromClient, fromLogs, mainCh };
       });
 
-      const { fromClient, fromLogs } = await Effect.runPromise(
-        program.pipe(Effect.scoped),
-      );
+      const { fromClient, fromLogs } = await Effect.runPromise(program.pipe(Effect.scoped));
 
       expect(fromClient).toMatchObject({ name: 'multi', payload: { x: 1 } });
       expect(fromLogs).toMatchObject({ name: 'multi', payload: { x: 1 } });
@@ -142,10 +132,7 @@ describe('EventPlane', () => {
 
   describe('runSubscriber', () => {
     test('invokes agent with runEvents and contextEvents', async () => {
-      const requestEvt = AgentNetworkEvent.of(
-        'request',
-        S.Struct({ x: S.Number }),
-      );
+      const requestEvt = AgentNetworkEvent.of('request', S.Struct({ x: S.Number }));
       const responseEvt = AgentNetworkEvent.of(
         'response',
         S.Struct({ historyCount: S.Number, contextRunIds: S.Array(S.String) }),
@@ -160,7 +147,10 @@ describe('EventPlane', () => {
             contextEvents: {
               all: readonly { name: string; meta: EventMeta; payload: unknown }[];
               byRun(runId: string): readonly { name: string; meta: EventMeta; payload: unknown }[];
-              map: ReadonlyMap<string, readonly { name: string; meta: EventMeta; payload: unknown }[]>;
+              map: ReadonlyMap<
+                string,
+                readonly { name: string; meta: EventMeta; payload: unknown }[]
+              >;
             };
           },
         ],
@@ -177,31 +167,24 @@ describe('EventPlane', () => {
         });
       });
 
-      const network = AgentNetwork.setup(
-        ({ mainChannel, createChannel, registerAgent }) => {
-          const main = mainChannel('main');
-          const client = createChannel('client');
-          const agent = AgentFactory.run()
-            .listensTo([requestEvt])
-            .emits([responseEvt])
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            .logic(logicSpy as any)
-            .produce({});
-          registerAgent(agent).subscribe(main).publishTo(client);
-        },
-      );
+      const network = AgentNetwork.setup(({ mainChannel, createChannel, registerAgent }) => {
+        const main = mainChannel('main');
+        const client = createChannel('client');
+        const agent = AgentFactory.run()
+          .listensTo([requestEvt])
+          .emits([responseEvt])
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .logic(logicSpy as any)
+          .produce({});
+        registerAgent(agent).subscribe(main).publishTo(client);
+      });
 
       const program = Effect.gen(function* () {
         const plane = yield* createEventPlane({ network });
         const [reg] = [...network.getAgentRegistrations().values()];
         const dequeue = yield* plane.subscribe(reg!.subscribedTo[0]!.name);
 
-        const fiber = yield* runSubscriber(
-          reg!.agent,
-          reg!.publishesTo,
-          dequeue,
-          plane,
-        );
+        const fiber = yield* runSubscriber(reg!.agent, reg!.publishesTo, dequeue, plane);
 
         yield* plane.publish(reg!.subscribedTo[0]!.name, {
           name: 'request',
@@ -217,9 +200,7 @@ describe('EventPlane', () => {
         return { emitted, logicSpy };
       });
 
-      const { emitted, logicSpy: spy } = await Effect.runPromise(
-        program.pipe(Effect.scoped),
-      );
+      const { emitted, logicSpy: spy } = await Effect.runPromise(program.pipe(Effect.scoped));
 
       expect(emitted).toMatchObject({
         name: 'response',
@@ -240,10 +221,7 @@ describe('EventPlane', () => {
     });
 
     test('invokes agent with envelope and wires emit to publish', async () => {
-      const weatherSet = AgentNetworkEvent.of(
-        'weather-set',
-        S.Struct({ temp: S.Number }),
-      );
+      const weatherSet = AgentNetworkEvent.of('weather-set', S.Struct({ temp: S.Number }));
       const weatherForecast = AgentNetworkEvent.of(
         'weather-forecast-created',
         S.Struct({ forecast: S.String }),
@@ -270,27 +248,20 @@ describe('EventPlane', () => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .logic(logicSpy as any);
 
-      const network = AgentNetwork.setup(
-        ({ mainChannel, createChannel, registerAgent }) => {
-          const main = mainChannel('main');
-          const client = createChannel('client');
-          const agent = WeatherAgent.produce({});
-          registerAgent(agent).subscribe(main).publishTo(client);
-          return { main, client };
-        },
-      );
+      const network = AgentNetwork.setup(({ mainChannel, createChannel, registerAgent }) => {
+        const main = mainChannel('main');
+        const client = createChannel('client');
+        const agent = WeatherAgent.produce({});
+        registerAgent(agent).subscribe(main).publishTo(client);
+        return { main, client };
+      });
 
       const program = Effect.gen(function* () {
         const plane = yield* createEventPlane({ network });
         const [reg] = [...network.getAgentRegistrations().values()];
         const dequeue = yield* plane.subscribe(reg!.subscribedTo[0]!.name);
 
-        const fiber = yield* runSubscriber(
-          reg!.agent,
-          reg!.publishesTo,
-          dequeue,
-          plane,
-        );
+        const fiber = yield* runSubscriber(reg!.agent, reg!.publishesTo, dequeue, plane);
 
         yield* plane.publish(reg!.subscribedTo[0]!.name, {
           name: 'weather-set',
@@ -326,37 +297,25 @@ describe('EventPlane', () => {
     });
 
     test('does NOT invoke agent when event name is not in listensTo', async () => {
-      const weatherSet = AgentNetworkEvent.of(
-        'weather-set',
-        S.Struct({ temp: S.Number }),
-      );
+      const weatherSet = AgentNetworkEvent.of('weather-set', S.Struct({ temp: S.Number }));
 
       const filterSpy = vitest.fn().mockResolvedValue(undefined);
 
-      const WeatherAgent = AgentFactory.run()
-        .listensTo([weatherSet])
-        .logic(filterSpy);
+      const WeatherAgent = AgentFactory.run().listensTo([weatherSet]).logic(filterSpy);
 
-      const network = AgentNetwork.setup(
-        ({ mainChannel, createChannel, registerAgent }) => {
-          const main = mainChannel('main');
-          const client = createChannel('client');
-          const agent = WeatherAgent.produce({});
-          registerAgent(agent).subscribe(main).publishTo(client);
-        },
-      );
+      const network = AgentNetwork.setup(({ mainChannel, createChannel, registerAgent }) => {
+        const main = mainChannel('main');
+        const client = createChannel('client');
+        const agent = WeatherAgent.produce({});
+        registerAgent(agent).subscribe(main).publishTo(client);
+      });
 
       const program = Effect.gen(function* () {
         const plane = yield* createEventPlane({ network });
         const [reg] = [...network.getAgentRegistrations().values()];
         const dequeue = yield* plane.subscribe(reg!.subscribedTo[0]!.name);
 
-        const fiber = yield* runSubscriber(
-          reg!.agent,
-          reg!.publishesTo,
-          dequeue,
-          plane,
-        );
+        const fiber = yield* runSubscriber(reg!.agent, reg!.publishesTo, dequeue, plane);
 
         yield* plane.publish(reg!.subscribedTo[0]!.name, {
           name: 'other-event',
@@ -378,10 +337,7 @@ describe('EventPlane', () => {
 
   describe('run', () => {
     test('agents receive and process published events', async () => {
-      const weatherSet = AgentNetworkEvent.of(
-        'weather-set',
-        S.Struct({ temp: S.Number }),
-      );
+      const weatherSet = AgentNetworkEvent.of('weather-set', S.Struct({ temp: S.Number }));
       const weatherForecast = AgentNetworkEvent.of(
         'weather-forecast-created',
         S.Struct({ forecast: S.String }),
@@ -408,23 +364,19 @@ describe('EventPlane', () => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .logic(runLogicSpy as any);
 
-      const network = AgentNetwork.setup(
-        ({ mainChannel, createChannel, registerAgent }) => {
-          const main = mainChannel('main');
-          const client = createChannel('client');
-          const agent = WeatherAgent.produce({});
-          registerAgent(agent).subscribe(main).publishTo(client);
-        },
-      );
+      const network = AgentNetwork.setup(({ mainChannel, createChannel, registerAgent }) => {
+        const main = mainChannel('main');
+        const client = createChannel('client');
+        const agent = WeatherAgent.produce({});
+        registerAgent(agent).subscribe(main).publishTo(client);
+      });
 
       const program = Effect.gen(function* () {
         const plane = yield* createEventPlane({ network });
         const mainCh = network.getMainChannel()!;
         const clientCh = network.getChannels().get('client')!;
 
-        const runFiber = yield* Effect.fork(
-          run(network, plane).pipe(Effect.scoped),
-        );
+        const runFiber = yield* Effect.fork(run(network, plane).pipe(Effect.scoped));
 
         yield* Effect.sleep('10 millis');
 
@@ -442,9 +394,7 @@ describe('EventPlane', () => {
         return { emitted, runLogicSpy };
       });
 
-      const { emitted, runLogicSpy: spy } = await Effect.runPromise(
-        program.pipe(Effect.scoped),
-      );
+      const { emitted, runLogicSpy: spy } = await Effect.runPromise(program.pipe(Effect.scoped));
 
       expect(emitted).toMatchObject({
         name: 'weather-forecast-created',
@@ -464,32 +414,24 @@ describe('EventPlane', () => {
 
   describe('consecutive events in same store', () => {
     test('trigger event and agent-emitted event are stored in the same store', async () => {
-      const requestEvt = AgentNetworkEvent.of(
-        'request',
-        S.Struct({ id: S.Number }),
-      );
-      const responseEvt = AgentNetworkEvent.of(
-        'response',
-        S.Struct({ echoed: S.Number }),
-      );
+      const requestEvt = AgentNetworkEvent.of('request', S.Struct({ id: S.Number }));
+      const responseEvt = AgentNetworkEvent.of('response', S.Struct({ echoed: S.Number }));
 
-      const network = AgentNetwork.setup(
-        ({ mainChannel, createChannel, registerAgent }) => {
-          const main = mainChannel('main');
-          const client = createChannel('client');
-          const agent = AgentFactory.run()
-            .listensTo([requestEvt])
-            .emits([responseEvt])
-            .logic(async ({ triggerEvent, emit }) => {
-              emit({
-                name: 'response',
-                payload: { echoed: triggerEvent.payload.id },
-              });
-            })
-            .produce({});
-          registerAgent(agent).subscribe(main).publishTo(client);
-        },
-      );
+      const network = AgentNetwork.setup(({ mainChannel, createChannel, registerAgent }) => {
+        const main = mainChannel('main');
+        const client = createChannel('client');
+        const agent = AgentFactory.run()
+          .listensTo([requestEvt])
+          .emits([responseEvt])
+          .logic(async ({ triggerEvent, emit }) => {
+            emit({
+              name: 'response',
+              payload: { echoed: triggerEvent.payload.id },
+            });
+          })
+          .produce({});
+        registerAgent(agent).subscribe(main).publishTo(client);
+      });
 
       const program = Effect.gen(function* () {
         const store = createInMemoryNetworkStore<Envelope>();
@@ -497,12 +439,7 @@ describe('EventPlane', () => {
         const [reg] = [...network.getAgentRegistrations().values()];
         const dequeue = yield* plane.subscribe(reg!.subscribedTo[0]!.name);
 
-        const fiber = yield* runSubscriber(
-          reg!.agent,
-          reg!.publishesTo,
-          dequeue,
-          plane,
-        );
+        const fiber = yield* runSubscriber(reg!.agent, reg!.publishesTo, dequeue, plane);
 
         yield* plane.publish(reg!.subscribedTo[0]!.name, {
           name: 'request',
@@ -520,9 +457,7 @@ describe('EventPlane', () => {
         return { runEvents, contextEvents };
       });
 
-      const { runEvents, contextEvents } = await Effect.runPromise(
-        program.pipe(Effect.scoped),
-      );
+      const { runEvents, contextEvents } = await Effect.runPromise(program.pipe(Effect.scoped));
 
       expect(runEvents).toHaveLength(2);
       expect(runEvents[0]).toMatchObject({
@@ -626,9 +561,7 @@ describe('EventPlane', () => {
       expect(run2Events[0]).toMatchObject({ name: 'b' });
 
       expect(contextEvents.all).toHaveLength(3);
-      expect(contextEvents.all.map((e) => e.name)).toEqual(
-        expect.arrayContaining(['a', 'b', 'c']),
-      );
+      expect(contextEvents.all.map((e) => e.name)).toEqual(expect.arrayContaining(['a', 'b', 'c']));
     });
 
     test('records events on publishToChannels only once per envelope', async () => {

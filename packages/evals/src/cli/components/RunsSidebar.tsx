@@ -1,5 +1,5 @@
 /** @jsxImportSource react */
-import React from 'react';
+import type React from 'react';
 import { Text } from 'ink';
 import type { CliState, EvalDataset, EvalRun } from '../types';
 import { ListItem } from './ListItem';
@@ -15,10 +15,7 @@ interface RunsSidebarProps {
   runs: EvalRun[];
 }
 
-export function RunsSidebar({
-  state,
-  runs,
-}: RunsSidebarProps): React.ReactNode {
+export function RunsSidebar({ state, runs }: RunsSidebarProps): React.ReactNode {
   const focused = state.focus === 'left';
   return (
     <Pane width={LEFT_PANE_WIDTH} focused={focused}>

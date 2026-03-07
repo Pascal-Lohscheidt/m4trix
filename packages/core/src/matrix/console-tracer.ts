@@ -1,4 +1,4 @@
-import { Context, Exit, Layer, Option, Tracer } from 'effect';
+import { type Context, Exit, Layer, type Option, Tracer } from 'effect';
 
 const randomHexString = (length: number): string => {
   const chars = 'abcdef0123456789';
@@ -28,8 +28,7 @@ class ConsoleSpan implements Tracer.Span {
     readonly kind: Tracer.SpanKind,
     private readonly depth: number,
   ) {
-    this.traceId =
-      parent._tag === 'Some' ? parent.value.traceId : randomHexString(32);
+    this.traceId = parent._tag === 'Some' ? parent.value.traceId : randomHexString(32);
     this.spanId = randomHexString(16);
     this.links = Array.from(links);
     this.status = { _tag: 'Started', startTime };
@@ -55,11 +54,7 @@ class ConsoleSpan implements Tracer.Span {
     this.attributes.set(key, value);
   }
 
-  event(
-    _name: string,
-    _startTime: bigint,
-    _attributes?: Record<string, unknown>,
-  ): void {
+  event(_name: string, _startTime: bigint, _attributes?: Record<string, unknown>): void {
     // no-op for console tracer
   }
 
@@ -94,15 +89,7 @@ function getDepth(parent: Option.Option<Tracer.AnySpan>): number {
  */
 export const consoleTracer: Tracer.Tracer = Tracer.make({
   span: (name, parent, context, links, startTime, kind) =>
-    new ConsoleSpan(
-      name,
-      parent,
-      context,
-      links,
-      startTime,
-      kind,
-      getDepth(parent),
-    ),
+    new ConsoleSpan(name, parent, context, links, startTime, kind, getDepth(parent)),
   context: (f) => f(),
 });
 
@@ -110,6 +97,4 @@ export const consoleTracer: Tracer.Tracer = Tracer.make({
  * Layer that provides the console tracer. Pipe your program with
  * `Effect.provide(consoleTracerLayer)` before running to see spans in stdout.
  */
-export const consoleTracerLayer: Layer.Layer<never> = Layer.setTracer(
-  consoleTracer,
-);
+export const consoleTracerLayer: Layer.Layer<never> = Layer.setTracer(consoleTracer);

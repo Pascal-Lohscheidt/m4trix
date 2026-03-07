@@ -1,4 +1,4 @@
-import { BaseMessage } from '../Message';
+import type { BaseMessage } from '../Message';
 
 // ========================
 // PROMPT TYPES
@@ -9,7 +9,7 @@ export class ChatPrompt {
 
   constructor(
     public messages: BaseMessage[],
-    public options: Record<string, unknown> = {}
+    public options: Record<string, unknown> = {},
   ) {}
 
   format(): string {

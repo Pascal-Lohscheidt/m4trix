@@ -24,10 +24,7 @@ export type MessageStream<T> = AsyncIterable<StreamChunk<T>>;
  *
  * @template T The type of data contained in the source
  */
-export type Source<T> =
-  | AsyncIterable<T>
-  | ReadableStream<T>
-  | NodeJS.ReadableStream;
+export type Source<T> = AsyncIterable<T> | ReadableStream<T> | NodeJS.ReadableStream;
 
 /**
  * A transformer for stream data that also provides a response.
@@ -75,9 +72,7 @@ export class Pump<T> {
         return 'getReader' in obj && typeof obj.getReader === 'function';
       }
 
-      function isNodeReadableStream(
-        obj: Source<U>
-      ): obj is NodeJS.ReadableStream {
+      function isNodeReadableStream(obj: Source<U>): obj is NodeJS.ReadableStream {
         return (
           'pipe' in obj &&
           'on' in obj &&
@@ -183,19 +178,12 @@ export class Pump<T> {
    * @returns A new Pump instance with transformed data
    */
   statefulMap<Context, U = T>(handlers: {
-    onFirstChunk(
-      chunk: T,
-      yieldData: (data: U) => void
-    ): Context | Promise<Context>;
-    onChunk(
-      chunk: T,
-      context: Context,
-      yieldData: (data: U) => void
-    ): Context | Promise<Context>;
+    onFirstChunk(chunk: T, yieldData: (data: U) => void): Context | Promise<Context>;
+    onChunk(chunk: T, context: Context, yieldData: (data: U) => void): Context | Promise<Context>;
     onClose?(
       lastChunk: T | undefined,
       context: Context,
-      yieldData: (data: U) => void
+      yieldData: (data: U) => void,
     ): void | Promise<void>;
   }): Pump<U> {
     const { src } = this;
@@ -272,19 +260,19 @@ export class Pump<T> {
     onFirstChunk(
       chunk: T,
       yieldData: (data: U) => void,
-      unlockCloseEvent: () => void
+      unlockCloseEvent: () => void,
     ): Context | Promise<Context>;
     onChunk(
       chunk: T,
       context: Context,
       yieldData: (data: U) => void,
-      unlockCloseEvent: () => void
+      unlockCloseEvent: () => void,
     ): Context | Promise<Context>;
     onClose?(
       lastChunk: T | undefined,
       context: Context,
       yieldData: (data: U) => void,
-      unlockCloseEvent: () => void
+      unlockCloseEvent: () => void,
     ): void | Promise<void>;
   }): Pump<U> {
     const { src } = this;
@@ -307,12 +295,7 @@ export class Pump<T> {
       for await (const { data, done } of src) {
         if (done) {
           if (context && handlers.onClose) {
-            await handlers.onClose(
-              lastChunk,
-              context,
-              yieldData,
-              unlockCloseEvent
-            );
+            await handlers.onClose(lastChunk, context, yieldData, unlockCloseEvent);
           }
 
           const timestamp = Date.now();
@@ -339,19 +322,10 @@ export class Pump<T> {
           break;
         }
         if (!initialized) {
-          context = await handlers.onFirstChunk(
-            data,
-            yieldData,
-            unlockCloseEvent
-          );
+          context = await handlers.onFirstChunk(data, yieldData, unlockCloseEvent);
           initialized = true;
         } else if (context) {
-          context = await handlers.onChunk(
-            data,
-            context,
-            yieldData,
-            unlockCloseEvent
-          );
+          context = await handlers.onChunk(data, context, yieldData, unlockCloseEvent);
         }
 
         lastChunk = data;
@@ -410,10 +384,7 @@ export class Pump<T> {
    * @returns A pump that emits arrays of bundled items
    */
   bundle(
-    closeBundleCondition: (
-      chunk: T,
-      accumulatedChunks: Array<T>
-    ) => boolean | Promise<boolean>
+    closeBundleCondition: (chunk: T, accumulatedChunks: Array<T>) => boolean | Promise<boolean>,
   ): Pump<Array<T>> {
     async function* gen(this: Pump<T>): AsyncGenerator<StreamChunk<Array<T>>> {
       let buffer: Array<T> = [];
@@ -629,7 +600,7 @@ export class Pump<T> {
       push: (chunk: T) => void;
       lastChunk: boolean;
       setBuffer: (buffer: T[]) => void;
-    }) => void | Promise<void>
+    }) => void | Promise<void>,
   ): Pump<T> {
     async function* gen(this: Pump<T>): AsyncGenerator<StreamChunk<T>> {
       let buffer: Array<T> = [];
@@ -712,16 +683,14 @@ export class Pump<T> {
   slidingWindow<N extends number, U>(
     size: N,
     step: number,
-    fn: (window: Array<T | undefined>) => U | Promise<U>
+    fn: (window: Array<T | undefined>) => U | Promise<U>,
   ): Pump<U>;
   slidingWindow<U>(
     size: number,
     step: number,
-    fn?: (window: Array<T | undefined>) => U | Promise<U>
+    fn?: (window: Array<T | undefined>) => U | Promise<U>,
   ): Pump<Array<T | undefined>> | Pump<U> {
-    async function* gen(
-      this: Pump<T>
-    ): AsyncGenerator<StreamChunk<Array<T | undefined>>> {
+    async function* gen(this: Pump<T>): AsyncGenerator<StreamChunk<Array<T | undefined>>> {
       const history: Array<T> = [];
       let offset = 0;
       let lastSeq = 0;
@@ -729,7 +698,7 @@ export class Pump<T> {
       function buildWindow(
         _offset: number,
         _size: number,
-        _history: Array<T>
+        _history: Array<T>,
       ): Array<T | undefined> {
         const window: Array<T | undefined> = Array(_size).fill(undefined);
         let windowIndex = 0;

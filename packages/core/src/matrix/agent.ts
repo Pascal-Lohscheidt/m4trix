@@ -1,8 +1,5 @@
 import { randomUUID } from 'crypto';
-import type {
-  ContextEvents,
-  RunEvents,
-} from './agent-network/agent-network-event';
+import type { ContextEvents, RunEvents } from './agent-network/agent-network-event';
 
 type LogicFn<TParams, TTriggerEvent, TEmitEvent> = (ctx: {
   params: TParams;

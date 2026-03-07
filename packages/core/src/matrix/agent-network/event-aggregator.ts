@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto';
-import { Schema as S } from 'effect';
+import type { Schema as S } from 'effect';
 import type {
   AgentNetworkEventDef,
   ContextEvents,
@@ -38,10 +38,7 @@ type ConstructorParams<TListensTo extends EventDef, TEmits extends EventDef> = {
   emitWhen?: EmitWhenFn<EventEnvelope<TListensTo>>;
 };
 
-export class EventAggregator<
-  TListensTo extends EventDef = never,
-  TEmits extends EventDef = never,
-> {
+export class EventAggregator<TListensTo extends EventDef = never, TEmits extends EventDef = never> {
   private _listensTo: ReadonlyArray<TListensTo>;
   private _emits: ReadonlyArray<TEmits>;
   private _emitWhen: EmitWhenFn<EventEnvelope<TListensTo>> | undefined;
@@ -56,15 +53,11 @@ export class EventAggregator<
     this._emitWhen = emitWhen;
   }
 
-  static listensTo<E extends EventDef>(
-    events: Array<E>,
-  ): EventAggregator<E, never> {
+  static listensTo<E extends EventDef>(events: Array<E>): EventAggregator<E, never> {
     return new EventAggregator<E, never>({ listensTo: [...events] });
   }
 
-  emits<E extends EventDef>(
-    events: Array<E>,
-  ): EventAggregator<TListensTo, TEmits | E> {
+  emits<E extends EventDef>(events: Array<E>): EventAggregator<TListensTo, TEmits | E> {
     return new EventAggregator<TListensTo, TEmits | E>({
       listensTo: this._listensTo,
       emits: [...this._emits, ...events] as ReadonlyArray<TEmits | E>,
@@ -72,9 +65,7 @@ export class EventAggregator<
     });
   }
 
-  emitWhen(
-    fn: EmitWhenFn<EventEnvelope<TListensTo>>,
-  ): EventAggregator<TListensTo, TEmits> {
+  emitWhen(fn: EmitWhenFn<EventEnvelope<TListensTo>>): EventAggregator<TListensTo, TEmits> {
     return new EventAggregator<TListensTo, TEmits>({
       listensTo: this._listensTo,
       emits: this._emits,
@@ -85,10 +76,7 @@ export class EventAggregator<
   mapToEmit(
     fn: MapToEmitFn<EventEnvelope<TListensTo>, EmitPayload<TEmits>>,
   ): EventAggregatorInstance<EventEnvelope<TListensTo>, EmitPayload<TEmits>> {
-    return new EventAggregatorInstance<
-      EventEnvelope<TListensTo>,
-      EmitPayload<TEmits>
-    >({
+    return new EventAggregatorInstance<EventEnvelope<TListensTo>, EmitPayload<TEmits>>({
       listensTo: this._listensTo.map((eventDef) => eventDef.name),
       emitWhen: this._emitWhen ?? (() => true),
       mapToEmit: fn,

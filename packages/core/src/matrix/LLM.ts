@@ -1,5 +1,5 @@
 import { Effect, Console } from 'effect';
-import { ChatPrompt } from './formattables/Prompt';
+import type { ChatPrompt } from './formattables/Prompt';
 
 // ========================
 // PROVIDER TYPES
@@ -112,10 +112,7 @@ export interface LLMConfig {
 // ========================
 
 interface ModelAdapter {
-  chat(
-    prompt: ChatPrompt,
-    config: ModelConfig
-  ): Effect.Effect<LLMResponse, Error>;
+  chat(prompt: ChatPrompt, config: ModelConfig): Effect.Effect<LLMResponse, Error>;
   run(prompt: string, config: ModelConfig): Effect.Effect<LLMResponse, Error>;
 }
 
@@ -165,7 +162,7 @@ export class LLM {
 
   private attemptWithModel(
     modelConfig: ModelConfig,
-    operation: (config: ModelConfig) => Effect.Effect<LLMResponse, Error>
+    operation: (config: ModelConfig) => Effect.Effect<LLMResponse, Error>,
   ): Effect.Effect<LLMResponse, Error> {
     return Effect.gen(function* () {
       try {
@@ -173,16 +170,14 @@ export class LLM {
         yield* Console.log(`✅ Success with model: ${modelConfig.model}`);
         return result;
       } catch (error) {
-        yield* Console.log(
-          `❌ Failed with model: ${modelConfig.model}, error: ${error}`
-        );
+        yield* Console.log(`❌ Failed with model: ${modelConfig.model}, error: ${error}`);
         return yield* Effect.fail(error as Error);
       }
     });
   }
 
   private executeWithFallback(
-    operation: (config: ModelConfig) => Effect.Effect<LLMResponse, Error>
+    operation: (config: ModelConfig) => Effect.Effect<LLMResponse, Error>,
   ): Effect.Effect<LLMResponse, Error> {
     if (!this.iterateOnFail || this.models.length === 1) {
       return operation(this.models[0]);
@@ -197,7 +192,6 @@ export class LLM {
           return yield* operation(modelConfig);
         } catch (error) {
           lastError = error as Error;
-          continue;
         }
       }
 
@@ -206,15 +200,11 @@ export class LLM {
   }
 
   chat(prompt: ChatPrompt): Effect.Effect<LLMResponse, Error> {
-    return this.executeWithFallback((config) =>
-      this.adapter.chat(prompt, config)
-    );
+    return this.executeWithFallback((config) => this.adapter.chat(prompt, config));
   }
 
   run(prompt: string): Effect.Effect<LLMResponse, Error> {
-    return this.executeWithFallback((config) =>
-      this.adapter.run(prompt, config)
-    );
+    return this.executeWithFallback((config) => this.adapter.run(prompt, config));
   }
 
   // ========================
@@ -230,10 +220,4 @@ export class LLM {
 // EXPORTS
 // ========================
 
-export {
-  KnownProviders,
-  Models,
-  ModelTier,
-  type ProviderConfig,
-  type ModelConfig,
-};
+export { KnownProviders, Models, type ModelTier, type ProviderConfig, type ModelConfig };

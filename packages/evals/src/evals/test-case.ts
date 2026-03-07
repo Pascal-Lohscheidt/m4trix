@@ -1,4 +1,4 @@
-import { Schema as S } from 'effect';
+import type { Schema as S } from 'effect';
 
 type InputOrBuilder<T> = T | (() => T);
 

@@ -64,7 +64,7 @@ export abstract class VoiceSocketAdapter {
 
   abstract sendVoiceChunk(
     chunk: ArrayBuffer | Blob,
-    metadata?: Record<string, unknown>
+    metadata?: Record<string, unknown>,
   ): Promise<void>;
 
   abstract commitVoiceMessage(): void;

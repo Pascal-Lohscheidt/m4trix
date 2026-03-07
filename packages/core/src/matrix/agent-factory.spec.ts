@@ -10,14 +10,8 @@ describe('AgentFactory', () => {
   });
 
   test('listensTo accumulates event types', () => {
-    const AddTask = AgentNetworkEvent.of(
-      'add-task',
-      S.Struct({ title: S.String }),
-    );
-    const RemoveTask = AgentNetworkEvent.of(
-      'remove-task',
-      S.Struct({ id: S.String }),
-    );
+    const AddTask = AgentNetworkEvent.of('add-task', S.Struct({ title: S.String }));
+    const RemoveTask = AgentNetworkEvent.of('remove-task', S.Struct({ id: S.String }));
 
     const factory = AgentFactory.run().listensTo([AddTask, RemoveTask]);
 
@@ -28,14 +22,8 @@ describe('AgentFactory', () => {
   });
 
   test('emits accumulates event types', () => {
-    const TaskAdded = AgentNetworkEvent.of(
-      'task-added',
-      S.Struct({ title: S.String }),
-    );
-    const TaskRemoved = AgentNetworkEvent.of(
-      'task-removed',
-      S.Struct({ id: S.String }),
-    );
+    const TaskAdded = AgentNetworkEvent.of('task-added', S.Struct({ title: S.String }));
+    const TaskRemoved = AgentNetworkEvent.of('task-removed', S.Struct({ id: S.String }));
 
     const factory = AgentFactory.run().emits([TaskAdded, TaskRemoved]);
 
@@ -46,29 +34,16 @@ describe('AgentFactory', () => {
   });
 
   test('logic receives triggerEvent and emit function', () => {
-    const AddTask = AgentNetworkEvent.of(
-      'add-task',
-      S.Struct({ title: S.String }),
-    );
-    const RemoveTask = AgentNetworkEvent.of(
-      'remove-task',
-      S.Struct({ id: S.String }),
-    );
-    const TaskAdded = AgentNetworkEvent.of(
-      'task-added',
-      S.Struct({ title: S.String }),
-    );
+    const AddTask = AgentNetworkEvent.of('add-task', S.Struct({ title: S.String }));
+    const RemoveTask = AgentNetworkEvent.of('remove-task', S.Struct({ id: S.String }));
+    const TaskAdded = AgentNetworkEvent.of('task-added', S.Struct({ title: S.String }));
 
     const factory = AgentFactory.run()
       .listensTo([AddTask, RemoveTask])
       .emits([TaskAdded])
       .logic(({ triggerEvent, emit }) => {
-        expectTypeOf(triggerEvent.name).toEqualTypeOf<
-          'add-task' | 'remove-task'
-        >();
-        expectTypeOf(emit).parameters.toEqualTypeOf<
-          [ReturnType<typeof TaskAdded.make>]
-        >();
+        expectTypeOf(triggerEvent.name).toEqualTypeOf<'add-task' | 'remove-task'>();
+        expectTypeOf(emit).parameters.toEqualTypeOf<[ReturnType<typeof TaskAdded.make>]>();
 
         if (triggerEvent.name === 'add-task') {
           emit(TaskAdded.make({ title: triggerEvent.payload.title }));

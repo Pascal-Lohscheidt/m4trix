@@ -1,4 +1,4 @@
-import { Effect, Scope } from 'effect';
+import { Effect, type Scope } from 'effect';
 import type { Schema as S } from 'effect';
 import type { AgentFactory } from '../agent-factory';
 import type { AgentNetworkEventDef } from './agent-network-event';
@@ -54,10 +54,7 @@ export type SpawnCallbackContext<
 export type SpawnerBuilder<
   TRegistry extends Record<string, AgentFactory> = Record<string, AgentFactory>,
 > = {
-  listen(
-    channel: ConfiguredChannel,
-    event: EventDef,
-  ): SpawnerBuilder<TRegistry>;
+  listen(channel: ConfiguredChannel, event: EventDef): SpawnerBuilder<TRegistry>;
   registry<R extends Record<string, AgentFactory>>(reg: R): SpawnerBuilder<R>;
   defaultBinding(
     fn: (ctx: { kind: string }) => {
@@ -65,9 +62,7 @@ export type SpawnerBuilder<
       publishTo: string[];
     },
   ): SpawnerBuilder<TRegistry>;
-  onSpawn(
-    fn: (ctx: SpawnCallbackContext<TRegistry>) => AnyAgent,
-  ): SpawnerBuilder<TRegistry>;
+  onSpawn(fn: (ctx: SpawnCallbackContext<TRegistry>) => AnyAgent): SpawnerBuilder<TRegistry>;
 };
 
 /* ─── Setup Context ─── */
@@ -98,9 +93,7 @@ type SpawnerRegistration = {
     subscribe: string[];
     publishTo: string[];
   };
-  onSpawnFn?: (
-    ctx: SpawnCallbackContext<Record<string, AgentFactory>>,
-  ) => AnyAgent;
+  onSpawnFn?: (ctx: SpawnCallbackContext<Record<string, AgentFactory>>) => AnyAgent;
 };
 
 /* ─── AgentNetwork ─── */
@@ -130,8 +123,7 @@ export class AgentNetwork {
       createChannel: (name: string) => network.addChannel(name),
       sink: Sink,
       registerAgent: (agent) => network.registerAgentInternal(agent),
-      registerAggregator: (aggregator) =>
-        network.registerAggregatorInternal(aggregator),
+      registerAggregator: (aggregator) => network.registerAggregatorInternal(aggregator),
       spawner: (factory) => network.createSpawnerInternal(factory),
     };
 
@@ -179,9 +171,7 @@ export class AgentNetwork {
     return this.registerAgentInternal(aggregator);
   }
 
-  private createSpawnerInternal(
-    factoryClass: typeof AgentFactory,
-  ): SpawnerBuilder {
+  private createSpawnerInternal(factoryClass: typeof AgentFactory): SpawnerBuilder {
     const reg: SpawnerRegistration = {
       factoryClass,
       registry: {},
@@ -209,11 +199,7 @@ export class AgentNetwork {
         reg.defaultBindingFn = fn;
         return builder;
       },
-      onSpawn(
-        fn: (
-          ctx: SpawnCallbackContext<Record<string, AgentFactory>>,
-        ) => AnyAgent,
-      ) {
+      onSpawn(fn: (ctx: SpawnCallbackContext<Record<string, AgentFactory>>) => AnyAgent) {
         reg.onSpawnFn = fn;
         return builder;
       },

@@ -1,4 +1,4 @@
-import { Schema as S } from 'effect';
+import type { Schema as S } from 'effect';
 import type { CreateDiffLogEntryOptions } from './diff';
 
 export interface EvalMiddleware<TCtx> {
@@ -18,22 +18,14 @@ export interface EvaluateMeta {
   datasetId: string;
 }
 
-export interface EvaluateArgs<
-  TInput,
-  TOutput = unknown,
-  TCtx = Record<string, never>,
-> {
+export interface EvaluateArgs<TInput, TOutput = unknown, TCtx = Record<string, never>> {
   input: TInput;
   ctx: TCtx;
   output?: TOutput;
   /** Metadata about the current evaluator invocation. */
   meta: EvaluateMeta;
   /** Records a diff for this test case; stored in run artifact and shown by CLI */
-  logDiff: (
-    expected: unknown,
-    actual: unknown,
-    options?: CreateDiffLogEntryOptions,
-  ) => void;
+  logDiff: (expected: unknown, actual: unknown, options?: CreateDiffLogEntryOptions) => void;
   /** Logs a message or object for this test case; stored in run artifact and shown by CLI */
   log: (message: unknown, options?: { label?: string }) => void;
   /**
@@ -81,9 +73,7 @@ export class Evaluator<
 > {
   private readonly _config: EvaluatorConfig<TInput, TOutput, TScore, TCtx>;
 
-  private constructor(
-    config: EvaluatorConfig<TInput, TOutput, TScore, TCtx>,
-  ) {
+  private constructor(config: EvaluatorConfig<TInput, TOutput, TScore, TCtx>) {
     this._config = config;
   }
 
@@ -100,43 +90,25 @@ export class Evaluator<
     };
   }
 
-  static use<TCtx>(
-    middleware: EvalMiddleware<TCtx>,
-  ): Evaluator<unknown, unknown, unknown, TCtx> {
+  static use<TCtx>(middleware: EvalMiddleware<TCtx>): Evaluator<unknown, unknown, unknown, TCtx> {
     return new Evaluator<unknown, unknown, unknown, TCtx>({
       middlewares: [middleware as EvalMiddleware<unknown>],
     });
   }
 
-  use<TNew>(
-    middleware: EvalMiddleware<TNew>,
-  ): Evaluator<TInput, TOutput, TScore, TCtx & TNew> {
+  use<TNew>(middleware: EvalMiddleware<TNew>): Evaluator<TInput, TOutput, TScore, TCtx & TNew> {
     const state = this.getState();
     return new Evaluator<TInput, TOutput, TScore, TCtx & TNew>({
-      ...(state as unknown as EvaluatorConfig<
-        TInput,
-        TOutput,
-        TScore,
-        TCtx & TNew
-      >),
+      ...(state as unknown as EvaluatorConfig<TInput, TOutput, TScore, TCtx & TNew>),
       middlewares: [...state.middlewares, middleware as EvalMiddleware<unknown>],
     });
   }
 
-  define<
-    TI extends S.Schema.Any,
-    TO extends S.Schema.Any,
-    TS extends S.Schema.Any,
-  >(
+  define<TI extends S.Schema.Any, TO extends S.Schema.Any, TS extends S.Schema.Any>(
     config: EvaluatorDefineConfig<TI, TO, TS>,
   ): Evaluator<S.Schema.Type<TI>, S.Schema.Type<TO>, S.Schema.Type<TS>, TCtx> {
     const { middlewares } = this.getState();
-    return new Evaluator<
-      S.Schema.Type<TI>,
-      S.Schema.Type<TO>,
-      S.Schema.Type<TS>,
-      TCtx
-    >({
+    return new Evaluator<S.Schema.Type<TI>, S.Schema.Type<TO>, S.Schema.Type<TS>, TCtx>({
       name: config.name,
       inputSchema: config.inputSchema,
       outputSchema: config.outputSchema,
@@ -189,9 +161,7 @@ export class Evaluator<
   }
 
   async resolveContext(): Promise<TCtx> {
-    const parts = await Promise.all(
-      this._config.middlewares.map((mw) => mw.resolve()),
-    );
+    const parts = await Promise.all(this._config.middlewares.map((mw) => mw.resolve()));
     return Object.assign({}, ...parts) as TCtx;
   }
 }

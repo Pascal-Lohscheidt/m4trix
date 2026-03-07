@@ -10,9 +10,11 @@ export function aggregateAverage(values: ReadonlyArray<{ value: number }>): {
 }
 
 /** Average with sample std dev (for percentScore when aggregated) */
-export function aggregateAverageWithVariance(
-  values: ReadonlyArray<{ value: number }>,
-): { value: number; stdDev?: number; count: number } {
+export function aggregateAverageWithVariance(values: ReadonlyArray<{ value: number }>): {
+  value: number;
+  stdDev?: number;
+  count: number;
+} {
   if (values.length === 0) {
     return { value: 0, count: 0 };
   }
@@ -76,9 +78,7 @@ export function aggregateTokenCountSum(
 }
 
 /** Average latency across reruns */
-export function aggregateLatencyAverage(
-  values: ReadonlyArray<{ ms: number }>,
-): { ms: number } {
+export function aggregateLatencyAverage(values: ReadonlyArray<{ ms: number }>): { ms: number } {
   if (values.length === 0) {
     return { ms: 0 };
   }

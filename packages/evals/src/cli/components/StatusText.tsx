@@ -1,5 +1,5 @@
 /** @jsxImportSource react */
-import React from 'react';
+import type React from 'react';
 import { Text } from 'ink';
 import type { EvalStatus } from '../types';
 

@@ -31,13 +31,11 @@ export type LayerName = string & Brand.Brand<'LayerName'>;
 
 export const LayerName = Brand.refined<LayerName>(
   (s: unknown) => typeof s === 'string' && CAMEL_CASE_REGEX.test(s),
-  (s: unknown) =>
-    Brand.error(`Expected camelCase (e.g. myLayerFoo), got: ${s}`),
+  (s: unknown) => Brand.error(`Expected camelCase (e.g. myLayerFoo), got: ${s}`),
 );
 
 /** Error type when DepType contains reserved 'config' - produces explicit type error */
-type ReservedConfigError =
-  "DepType must not contain 'config' - it is reserved by the layer";
+type ReservedConfigError = "DepType must not contain 'config' - it is reserved by the layer";
 
 /** Definition of a single skill dependency with a branded name and config schema */
 export type DepedencyLayerDef<
@@ -50,16 +48,13 @@ export type DepedencyLayerDef<
   readonly name: LayerName;
   readonly _name: N;
   readonly config: ConfigSchema;
-  readonly decodeConfig: (
-    u: unknown,
-  ) => Effect.Effect<S.Schema.Type<ConfigSchema>, ParseError>;
+  readonly decodeConfig: (u: unknown) => Effect.Effect<S.Schema.Type<ConfigSchema>, ParseError>;
 };
 
 /** Layer value: DepType spread plus config (config is decoded from schema) */
-type LayerValue<DepType, ConfigSchema extends S.Schema.Any> = Omit<
-  DepType,
-  'config'
-> & { config: S.Schema.Type<ConfigSchema> };
+type LayerValue<DepType, ConfigSchema extends S.Schema.Any> = Omit<DepType, 'config'> & {
+  config: S.Schema.Type<ConfigSchema>;
+};
 
 /** Build layers object type from a tuple of dependency definitions */
 type DependenciesToLayers<T> =
@@ -67,23 +62,24 @@ type DependenciesToLayers<T> =
     ? { [K in N]: LayerValue<DepType, ConfigSchema> }
     : never;
 
-type UnionToIntersection<U> = (
-  U extends unknown ? (k: U) => void : never
-) extends (k: infer I) => void
+type UnionToIntersection<U> = (U extends unknown ? (k: U) => void : never) extends (
+  k: infer I,
+) => void
   ? I
   : never;
 
 /** Build layers object from union of dependency types */
-export type LayersFromDeps<
-  T extends DepedencyLayerDef<string, unknown, S.Schema.Any>,
-> = [T] extends [never]
+export type LayersFromDeps<T extends DepedencyLayerDef<string, unknown, S.Schema.Any>> = [
+  T,
+] extends [never]
   ? Record<string, never>
   : UnionToIntersection<DependenciesToLayers<T>>;
 
-type DepedencyLayerBuilder<
-  N extends string,
-  ConfigSchema extends S.Schema.Any,
-> = DepedencyLayerDef<N, object, ConfigSchema> & {
+type DepedencyLayerBuilder<N extends string, ConfigSchema extends S.Schema.Any> = DepedencyLayerDef<
+  N,
+  object,
+  ConfigSchema
+> & {
   define<_DepType>(): 'config' extends keyof _DepType
     ? ReservedConfigError
     : DepedencyLayerDef<N, _DepType, ConfigSchema>;
@@ -112,9 +108,9 @@ export const DepedencyLayer = {
 };
 
 /** Normalize single or array of layers to readonly array */
-function toLayerArray<
-  D extends DepedencyLayerDef<string, unknown, S.Schema.Any>,
->(layers: [D, ...D[]] | [ReadonlyArray<D>]): ReadonlyArray<D> {
+function toLayerArray<D extends DepedencyLayerDef<string, unknown, S.Schema.Any>>(
+  layers: [D, ...D[]] | [ReadonlyArray<D>],
+): ReadonlyArray<D> {
   if (layers.length === 1 && Array.isArray(layers[0])) {
     return layers[0];
   }
@@ -122,9 +118,9 @@ function toLayerArray<
 }
 
 /** Check for duplicate layer names and throw if found */
-function assertUniqueLayerNames<
-  D extends DepedencyLayerDef<string, unknown, S.Schema.Any>,
->(layers: ReadonlyArray<D>): void {
+function assertUniqueLayerNames<D extends DepedencyLayerDef<string, unknown, S.Schema.Any>>(
+  layers: ReadonlyArray<D>,
+): void {
   const seen = new Set<string>();
   for (const dep of layers) {
     const key = dep.name as string;
@@ -209,20 +205,14 @@ export class Skill<
   private _inputSchema: S.Schema<TInput> | undefined;
   private _chunkSchema: S.Schema<TChunk> | undefined;
   private _doneSchema: S.Schema<TDone> | undefined;
-  private _layers: ReadonlyArray<
-    DepedencyLayerDef<string, unknown, S.Schema.Any>
-  >;
-  private _defineFn:
-    | DefineFn<TInput, TChunk, TDone, LayersFromDeps<TDeps>>
-    | undefined;
+  private _layers: ReadonlyArray<DepedencyLayerDef<string, unknown, S.Schema.Any>>;
+  private _defineFn: DefineFn<TInput, TChunk, TDone, LayersFromDeps<TDeps>> | undefined;
 
   private constructor(params: ConstructorParams<TInput, TChunk, TDone, TDeps>) {
     this._inputSchema = params.inputSchema;
     this._chunkSchema = params.chunkSchema;
     this._doneSchema = params.doneSchema;
-    this._layers = params.layers as ReadonlyArray<
-      DepedencyLayerDef<string, unknown, S.Schema.Any>
-    >;
+    this._layers = params.layers as ReadonlyArray<DepedencyLayerDef<string, unknown, S.Schema.Any>>;
     this._defineFn = params.defineFn;
   }
 
@@ -236,9 +226,7 @@ export class Skill<
     };
   }
 
-  static of(
-    _options?: SkillRuntimeOptions,
-  ): Skill<unknown, unknown, unknown, never> {
+  static of(_options?: SkillRuntimeOptions): Skill<unknown, unknown, unknown, never> {
     return new Skill<unknown, unknown, unknown, never>({
       layers: [],
     });
@@ -293,12 +281,7 @@ export class Skill<
     const allLayers = [...this._layers, ...normalized];
     assertUniqueLayerNames(allLayers);
     return new Skill({
-      ...(this.getState() as unknown as ConstructorParams<
-        TInput,
-        TChunk,
-        TDone,
-        TDeps | D
-      >),
+      ...(this.getState() as unknown as ConstructorParams<TInput, TChunk, TDone, TDeps | D>),
       layers: allLayers as unknown as ReadonlyArray<TDeps | D>,
     }) as Skill<TInput, TChunk, TDone, TDeps | D>;
   }
@@ -329,9 +312,7 @@ export class Skill<
       const layersObj = runtime?.layers ?? ({} as LayersFromDeps<TDeps>);
       const chunks: TChunk[] = [];
       const emit = (chunk: TChunk): void => {
-        const decoded = Effect.runSync(
-          decodeChunk(chunk) as Effect.Effect<TChunk, ParseError>,
-        );
+        const decoded = Effect.runSync(decodeChunk(chunk) as Effect.Effect<TChunk, ParseError>);
         chunks.push(decoded);
       };
       const done = await defineFn({
@@ -339,9 +320,7 @@ export class Skill<
         emit,
         layers: layersObj,
       });
-      const decodedDone = Effect.runSync(
-        decodeDone(done) as Effect.Effect<TDone, ParseError>,
-      );
+      const decodedDone = Effect.runSync(decodeDone(done) as Effect.Effect<TDone, ParseError>);
       return { chunks, done: decodedDone };
     };
 
@@ -356,9 +335,7 @@ export class Skill<
         const layersObj = runtime?.layers ?? ({} as LayersFromDeps<TDeps>);
         const chunks: TChunk[] = [];
         const emit = (chunk: TChunk): void => {
-          const decoded = Effect.runSync(
-            decodeChunk(chunk) as Effect.Effect<TChunk, ParseError>,
-          );
+          const decoded = Effect.runSync(decodeChunk(chunk) as Effect.Effect<TChunk, ParseError>);
           chunks.push(decoded);
         };
         const done = await defineFn({
@@ -366,9 +343,7 @@ export class Skill<
           emit,
           layers: layersObj,
         });
-        const decodedDone = Effect.runSync(
-          decodeDone(done) as Effect.Effect<TDone, ParseError>,
-        );
+        const decodedDone = Effect.runSync(decodeDone(done) as Effect.Effect<TDone, ParseError>);
         for (const c of chunks) {
           yield c;
         }

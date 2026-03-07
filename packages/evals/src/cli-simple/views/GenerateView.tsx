@@ -1,5 +1,6 @@
 /** @jsxImportSource react */
-import React, { useEffect, useState } from 'react';
+import type React from 'react';
+import { useEffect, useState } from 'react';
 import { Box, Text } from 'ink';
 
 import type { RunnerApi } from '../../runner';
@@ -51,11 +52,7 @@ export function GenerateView({
       const parsed = parse(absoluteDatasetPath);
       const outputPath = join(parsed.dir, `${parsed.name}.cases.json`);
 
-      await writeFile(
-        outputPath,
-        `${JSON.stringify(payload, null, 2)}\n`,
-        'utf8',
-      );
+      await writeFile(outputPath, `${JSON.stringify(payload, null, 2)}\n`, 'utf8');
 
       if (!cancelled) {
         setResult({

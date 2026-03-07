@@ -6,9 +6,7 @@ import { MessageEvent, MessageStreamChunkEvent } from './events';
 const eventAggregator = EventAggregator.listensTo([MessageStreamChunkEvent])
   .emits([MessageEvent])
   .emitWhen(({ triggerEvent }) => {
-    return (
-      triggerEvent.payload.role === 'assistant' && triggerEvent.payload.isFinal
-    );
+    return triggerEvent.payload.role === 'assistant' && triggerEvent.payload.isFinal;
   })
   .mapToEmit(({ emit }) => {
     console.log('Double aggregation');

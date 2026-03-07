@@ -20,9 +20,7 @@ export type ExposeRequest = {
 };
 
 /** Auth result: allow or deny with optional status */
-export type AuthResult =
-  | { allowed: true }
-  | { allowed: false; status?: number; message?: string };
+export type AuthResult = { allowed: true } | { allowed: false; status?: number; message?: string };
 
 /** Channel/event selection for the exposed stream */
 export type ExposeSelect = {
@@ -40,11 +38,7 @@ export type OnRequestContext<T = unknown> = {
   setRunId: (id: string) => void;
   setContextId: (id: string) => void;
   /** Emit the start event. Pass { contextId, runId, event } where event is the unbound version of one of triggerEvents (e.g. MessageEvent.make(payload)). */
-  emitStartEvent: (opts: {
-    contextId: string;
-    runId: string;
-    event: UnboundEvent;
-  }) => void;
+  emitStartEvent: (opts: { contextId: string; runId: string; event: UnboundEvent }) => void;
   /** The raw request context */
   req: ExposeRequest;
   /** Pre-parsed request body (JSON for POST, or {} for GET) */
@@ -74,10 +68,7 @@ export type ExposedStream = AsyncIterable<Envelope>;
 /** Factory that creates a stream for a given request. Runs the network in scope. */
 export type StreamFactory = {
   (req: ExposeRequest): Promise<ExposedStream>;
-  <T>(
-    req: ExposeRequest,
-    consumer: (stream: ExposedStream) => Promise<T>,
-  ): Promise<T>;
+  <T>(req: ExposeRequest, consumer: (stream: ExposedStream) => Promise<T>): Promise<T>;
 };
 
 /** API returned by agentNetwork.expose() - consumed by adapters */

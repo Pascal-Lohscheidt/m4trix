@@ -11,23 +11,9 @@ import {
   type ScoreDef,
 } from '../../../evals';
 import { toNumericScore } from '../../../runner/score-utils';
-import {
-  parseArtifactFile,
-  type ParsedTestCaseProgress,
-} from '../../../runner';
-import type {
-  CliState,
-  EvalDataset,
-  EvalRun,
-  EvaluatorOption,
-} from '../../types';
-import {
-  Pane,
-  RunsSidebar,
-  SectionHeader,
-  Sparkline,
-  TextBar,
-} from '../../components';
+import { parseArtifactFile, type ParsedTestCaseProgress } from '../../../runner';
+import type { CliState, EvalDataset, EvalRun, EvaluatorOption } from '../../types';
+import { Pane, RunsSidebar, SectionHeader, Sparkline, TextBar } from '../../components';
 
 const DETAILS_PAGE_SIZE = 20;
 
@@ -37,11 +23,7 @@ function scoreColor(score: number): 'green' | 'yellow' | 'red' {
   return 'red';
 }
 
-function formatScorePart(item: {
-  id: string;
-  data: unknown;
-  def?: ScoreDef<unknown>;
-}): string {
+function formatScorePart(item: { id: string; data: unknown; def?: ScoreDef<unknown> }): string {
   const def: ScoreDef<unknown> | undefined = item.def ?? getScoreById(item.id);
   if (!def) {
     const numeric = toNumericScore(item.data);
@@ -50,9 +32,7 @@ function formatScorePart(item: {
   const formatted = formatScoreData(def, item.data);
   if (def.displayStrategy === 'bar') {
     const numeric =
-      typeof item.data === 'object' &&
-      item.data !== null &&
-      'value' in item.data
+      typeof item.data === 'object' && item.data !== null && 'value' in item.data
         ? (item.data as { value: unknown }).value
         : toNumericScore(item.data);
     if (typeof numeric === 'number' && Number.isFinite(numeric)) {
@@ -124,18 +104,11 @@ function buildDetailRows(
     </Text>,
     <Text key="sp1"> </Text>,
     <SectionHeader key="scores-h">Scores (0–100)</SectionHeader>,
-    ...dimensions.map((d) => (
-      <TextBar key={`dim-${d.name}`} label={d.name} value={d.score} />
-    )),
+    ...dimensions.map((d) => <TextBar key={`dim-${d.name}`} label={d.name} value={d.score} />),
     <Text key="sp2"> </Text>,
     <SectionHeader key="checks-h">Checks (boolean)</SectionHeader>,
     ...checks.map((c) => (
-      <CheckRow
-        key={`chk-${c.name}`}
-        name={c.name}
-        passed={c.passed}
-        detail={c.detail}
-      />
+      <CheckRow key={`chk-${c.name}`} name={c.name} passed={c.passed} detail={c.detail} />
     )),
     <Text key="sp3"> </Text>,
     <SectionHeader key="perf-h">Performance</SectionHeader>,
@@ -187,8 +160,7 @@ function buildDetailRows(
         </Text>,
       );
       for (const item of tc.evaluatorScores) {
-        const name =
-          evaluatorNameById.get(item.evaluatorId) ?? item.evaluatorId;
+        const name = evaluatorNameById.get(item.evaluatorId) ?? item.evaluatorId;
         rows.push(
           <Text key={`tc-${tc.testCaseId}-${item.evaluatorId}`}>
             {'   '}
@@ -233,10 +205,7 @@ function buildDetailRows(
           }
         } else {
           rows.push(
-            <Text
-              key={`tc-${tc.testCaseId}-${item.evaluatorId}-n/a`}
-              color="gray"
-            >
+            <Text key={`tc-${tc.testCaseId}-${item.evaluatorId}-n/a`} color="gray">
               {'      '}
               n/a
             </Text>,
@@ -252,13 +221,7 @@ function buildDetailRows(
                 rows.push(
                   <Text
                     key={`tc-${tc.testCaseId}-${item.evaluatorId}-${logIdx}-${lineIdx}`}
-                    color={
-                      type === 'remove'
-                        ? 'red'
-                        : type === 'add'
-                          ? 'green'
-                          : 'gray'
-                    }
+                    color={type === 'remove' ? 'red' : type === 'add' ? 'green' : 'gray'}
                   >
                     {'      '}
                     {line}

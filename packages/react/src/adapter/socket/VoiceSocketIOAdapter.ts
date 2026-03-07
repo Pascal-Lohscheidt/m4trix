@@ -1,5 +1,5 @@
-import { VoiceSocketAdapter, VoiceSocketConfig } from './VoiceSocketAdapter';
-import { Socket, io } from 'socket.io-client';
+import { VoiceSocketAdapter, type VoiceSocketConfig } from './VoiceSocketAdapter';
+import { type Socket, io } from 'socket.io-client';
 
 // Define an interface that extends the VoiceSocketAdapter with Socket.IO specific properties
 export class VoiceSocketIOAdapter extends VoiceSocketAdapter {
@@ -73,14 +73,13 @@ export class VoiceSocketIOAdapter extends VoiceSocketAdapter {
 
   async sendVoiceChunk(
     chunk: ArrayBuffer | Blob,
-    metadata?: Record<string, unknown>
+    metadata?: Record<string, unknown>,
   ): Promise<void> {
     this.logger.debug(
       'Sending voice chunk %i',
-      chunk instanceof Blob ? chunk.size : chunk.byteLength
+      chunk instanceof Blob ? chunk.size : chunk.byteLength,
     );
-    if (!this.socket || !this.isConnected)
-      throw new Error('Socket not connected');
+    if (!this.socket || !this.isConnected) throw new Error('Socket not connected');
 
     let chunkToSend: ArrayBuffer;
     if (chunk instanceof Blob) {
@@ -97,16 +96,14 @@ export class VoiceSocketIOAdapter extends VoiceSocketAdapter {
 
   sendVoiceFile(blob: Blob, metadata?: Record<string, unknown>): void {
     this.logger.debug('Sending voice file', blob, metadata);
-    if (!this.socket || !this.isConnected)
-      throw new Error('Socket not connected');
+    if (!this.socket || !this.isConnected) throw new Error('Socket not connected');
 
     this.socket.emit('voice:send_file', blob, metadata);
     this.emit('file-sent', blob);
   }
 
   commitVoiceMessage(): void {
-    if (!this.socket || !this.isConnected)
-      throw new Error('Socket not connected');
+    if (!this.socket || !this.isConnected) throw new Error('Socket not connected');
 
     this.socket.emit('voice:commit');
   }

@@ -14,7 +14,10 @@ export function loadMockData(): EvalsData {
 }
 
 function toSlug(input: string): string {
-  return input.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  return input
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
 }
 
 function toEvalRun(snapshot: RunSnapshot): EvalRun {
@@ -72,10 +75,7 @@ function toEvalRun(snapshot: RunSnapshot): EvalRun {
   };
 }
 
-function toEvalDataset(
-  item: CollectedDataset,
-  snapshots: ReadonlyArray<RunSnapshot>,
-): EvalDataset {
+function toEvalDataset(item: CollectedDataset, snapshots: ReadonlyArray<RunSnapshot>): EvalDataset {
   const runs = snapshots
     .filter((snapshot) => snapshot.datasetId === item.id)
     .sort((a, b) => b.queuedAt - a.queuedAt)
@@ -106,9 +106,7 @@ export async function loadRunnerData(runner: RunnerApi): Promise<EvalsData> {
   const memSnapshots = runner.getAllRunSnapshots();
   const seen = new Set(memSnapshots.map((s) => s.runId));
   const fromDisk = diskSnapshots.filter((s) => !seen.has(s.runId));
-  const snapshots = [...memSnapshots, ...fromDisk].sort(
-    (a, b) => b.queuedAt - a.queuedAt,
-  );
+  const snapshots = [...memSnapshots, ...fromDisk].sort((a, b) => b.queuedAt - a.queuedAt);
 
   if (datasets.length === 0 && evaluators.length === 0) {
     return loadMockData();
@@ -181,14 +179,20 @@ export function getFilteredDatasets(data: EvalsData, searchQuery: string): EvalD
   return data.datasets.filter((dataset) => dataset.name.toLowerCase().includes(query));
 }
 
-export function getDatasetByMenuIndex(datasets: EvalDataset[], menuIndex: number): EvalDataset | undefined {
+export function getDatasetByMenuIndex(
+  datasets: EvalDataset[],
+  menuIndex: number,
+): EvalDataset | undefined {
   if (menuIndex <= 0) {
     return undefined;
   }
   return datasets[menuIndex - 1];
 }
 
-export function getRunByMenuIndex(dataset: EvalDataset | undefined, menuIndex: number): EvalRun | undefined {
+export function getRunByMenuIndex(
+  dataset: EvalDataset | undefined,
+  menuIndex: number,
+): EvalRun | undefined {
   if (!dataset || menuIndex <= 0) {
     return undefined;
   }
@@ -266,7 +270,11 @@ export function reduceCliState(state: CliState, action: CliAction): CliState {
       return { ...state, overviewScrollOffset: Math.max(0, state.overviewScrollOffset - 1) };
     }
     if (state.level === 'datasets') {
-      return { ...state, datasetMenuIndex: Math.max(0, state.datasetMenuIndex - 1), overviewScrollOffset: 0 };
+      return {
+        ...state,
+        datasetMenuIndex: Math.max(0, state.datasetMenuIndex - 1),
+        overviewScrollOffset: 0,
+      };
     }
     if (state.level === 'runs') {
       return { ...state, runMenuIndex: Math.max(0, state.runMenuIndex - 1) };
@@ -285,10 +293,17 @@ export function reduceCliState(state: CliState, action: CliAction): CliState {
       return { ...state, detailsScrollOffset: Math.min(action.max, state.detailsScrollOffset + 1) };
     }
     if (state.level === 'datasets' && state.focus === 'right') {
-      return { ...state, overviewScrollOffset: Math.min(action.max, state.overviewScrollOffset + 1) };
+      return {
+        ...state,
+        overviewScrollOffset: Math.min(action.max, state.overviewScrollOffset + 1),
+      };
     }
     if (state.level === 'datasets') {
-      return { ...state, datasetMenuIndex: Math.min(action.max, state.datasetMenuIndex + 1), overviewScrollOffset: 0 };
+      return {
+        ...state,
+        datasetMenuIndex: Math.min(action.max, state.datasetMenuIndex + 1),
+        overviewScrollOffset: 0,
+      };
     }
     if (state.level === 'runs') {
       return { ...state, runMenuIndex: Math.min(action.max, state.runMenuIndex + 1) };

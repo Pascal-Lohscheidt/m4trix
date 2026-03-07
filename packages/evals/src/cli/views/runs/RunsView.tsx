@@ -1,5 +1,5 @@
 /** @jsxImportSource react */
-import React from 'react';
+import type React from 'react';
 import { Box, Text } from 'ink';
 import type { CliState, EvalDataset, EvalRun } from '../../types';
 import { Pane, RunsSidebar, SectionHeader, Sparkline, StatusText, TextBar } from '../../components';
@@ -10,11 +10,7 @@ interface RunsViewProps {
   selectedRun: EvalRun | undefined;
 }
 
-export function RunsView({
-  state,
-  dataset,
-  selectedRun,
-}: RunsViewProps): React.ReactNode {
+export function RunsView({ state, dataset, selectedRun }: RunsViewProps): React.ReactNode {
   const runs = dataset?.runs ?? [];
   const rightFocused = state.focus === 'right';
 
@@ -31,8 +27,8 @@ export function RunsView({
               <StatusText status={selectedRun.status} />
             </Text>
             <Text color="gray">
-              Commit: {selectedRun.meta.commit}  Branch: {selectedRun.meta.branch}{' '}
-              Seed: {selectedRun.meta.seed}
+              Commit: {selectedRun.meta.commit} Branch: {selectedRun.meta.branch} Seed:{' '}
+              {selectedRun.meta.seed}
             </Text>
             <Text> </Text>
             <SectionHeader>Overall</SectionHeader>
@@ -41,18 +37,11 @@ export function RunsView({
               value={selectedRun.performance.passRate}
               format={(v) => `${v}%`}
             />
-            <TextBar
-              label="avg score"
-              value={Math.round(selectedRun.performance.avgScore * 100)}
-            />
+            <TextBar label="avg score" value={Math.round(selectedRun.performance.avgScore * 100)} />
             <Text> </Text>
             <SectionHeader>Dimensions</SectionHeader>
             {selectedRun.dimensions.map((dimension) => (
-              <TextBar
-                key={dimension.name}
-                label={dimension.name}
-                value={dimension.score}
-              />
+              <TextBar key={dimension.name} label={dimension.name} value={dimension.score} />
             ))}
             <Text> </Text>
             <SectionHeader>Latency trend</SectionHeader>

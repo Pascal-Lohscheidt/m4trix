@@ -35,9 +35,7 @@ export function formatScoreData<TData>(
   data: TData,
   options?: FormatScoreOptions,
 ): string {
-  return options?.isAggregated
-    ? def.formatAggregate(data)
-    : def.formatValue(data);
+  return options?.isAggregated ? def.formatAggregate(data) : def.formatValue(data);
 }
 
 /** Aggregate helpers for common patterns. Use with aggregateValues in Score.of(). */
@@ -51,10 +49,7 @@ export const ScoreAggregate = {
       const result = {} as Record<string, number>;
       for (const field of fields) {
         result[field] =
-          values.reduce(
-            (s, v) => s + ((v as Record<string, number>)[field] ?? 0),
-            0,
-          ) / count;
+          values.reduce((s, v) => s + ((v as Record<string, number>)[field] ?? 0), 0) / count;
       }
       return result as unknown as Record<K, number>;
     };
@@ -100,13 +95,10 @@ export const ScoreAggregate = {
           (s, v) => s + ((v as Record<string, number>)[valueField] ?? 0),
           0,
         );
-        const sumSq = values.reduce(
-          (s, v) => {
-            const value = (v as Record<string, number>)[valueField] ?? 0;
-            return s + value * value;
-          },
-          0,
-        );
+        const sumSq = values.reduce((s, v) => {
+          const value = (v as Record<string, number>)[valueField] ?? 0;
+          return s + value * value;
+        }, 0);
         const mean = sum / count;
         const variance = (sumSq - count * mean * mean) / (count - 1);
         stdDev = variance > 0 ? Math.sqrt(variance) : 0;
@@ -159,14 +151,8 @@ export const Score = {
       formatValue: config.formatValue,
       formatAggregate: config.formatAggregate,
       aggregateValues: config.aggregateValues,
-      make: (
-        data: TData,
-        options?: { definePassed?: (data: TData) => boolean; name?: string },
-      ) => {
-        const passed =
-          options?.definePassed !== undefined
-            ? options.definePassed(data)
-            : undefined;
+      make: (data: TData, options?: { definePassed?: (data: TData) => boolean; name?: string }) => {
+        const passed = options?.definePassed !== undefined ? options.definePassed(data) : undefined;
         return {
           id: config.id,
           data,

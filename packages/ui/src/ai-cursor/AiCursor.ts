@@ -1,5 +1,5 @@
 import { mountAiCursor } from './rendering';
-import { Props as AiCursorProps } from './rendering/AiCursorComponent';
+import type { Props as AiCursorProps } from './rendering/AiCursorComponent';
 
 type Selector = string;
 type CursorTarget = HTMLElement | Selector | [number, number];

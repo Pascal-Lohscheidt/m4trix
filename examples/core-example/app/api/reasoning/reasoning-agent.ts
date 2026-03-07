@@ -15,8 +15,7 @@ export const reasoningAgent = AgentFactory.run()
 
     const stream = reasoningSkill.invokeStream({ problemToSolve });
 
-    const notDone = (chunk: string | Done<string>): chunk is string =>
-      !Done.is(chunk);
+    const notDone = (chunk: string | Done<string>): chunk is string => !Done.is(chunk);
 
     await lastValueFrom(
       from(stream).pipe(

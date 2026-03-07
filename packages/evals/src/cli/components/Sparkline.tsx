@@ -1,5 +1,5 @@
 /** @jsxImportSource react */
-import React from 'react';
+import type React from 'react';
 import { Text } from 'ink';
 
 /** Block characters for sparkline: ▁▂▃▄▅▆▇█ (8 levels) */
@@ -14,11 +14,7 @@ interface SparklineProps {
   label?: string;
 }
 
-export function Sparkline({
-  data,
-  width,
-  label,
-}: SparklineProps): React.ReactNode {
+export function Sparkline({ data, width, label }: SparklineProps): React.ReactNode {
   if (data.length === 0) return null;
 
   const max = Math.max(...data);
@@ -49,9 +45,7 @@ export function Sparkline({
 
   return (
     <Text>
-      {label !== undefined && label !== '' ? (
-        <Text color="gray">{label.padEnd(14)} </Text>
-      ) : null}
+      {label !== undefined && label !== '' ? <Text color="gray">{label.padEnd(14)} </Text> : null}
       <Text color="cyan">{spark}</Text>
     </Text>
   );

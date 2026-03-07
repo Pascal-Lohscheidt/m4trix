@@ -29,29 +29,17 @@ async function createFixtureWorkspace(
 ): Promise<string> {
   const root = await mkdtemp(join(process.cwd(), 'packages/evals/.tmp-runner-'));
   const typedStringConst =
-    extension === '.ts'
-      ? "const alphaTag: string = 'alpha';"
-      : "const alphaTag = 'alpha';";
+    extension === '.ts' ? "const alphaTag: string = 'alpha';" : "const alphaTag = 'alpha';";
   const typedScoreConst =
-    extension === '.ts'
-      ? 'const scoreBase: number = 0;'
-      : 'const scoreBase = 0;';
+    extension === '.ts' ? 'const scoreBase: number = 0;' : 'const scoreBase = 0;';
   const typedFirstValueConst =
-    extension === '.ts'
-      ? 'const firstValue: number = 10;'
-      : 'const firstValue = 10;';
+    extension === '.ts' ? 'const firstValue: number = 10;' : 'const firstValue = 10;';
   const typedSecondValueConst =
-    extension === '.ts'
-      ? 'const secondValue: number = 5;'
-      : 'const secondValue = 5;';
+    extension === '.ts' ? 'const secondValue: number = 5;' : 'const secondValue = 5;';
   const typedFirstExpectedConst =
-    extension === '.ts'
-      ? 'const firstExpected: number = 10;'
-      : 'const firstExpected = 10;';
+    extension === '.ts' ? 'const firstExpected: number = 10;' : 'const firstExpected = 10;';
   const typedSecondExpectedConst =
-    extension === '.ts'
-      ? 'const secondExpected: number = 5;'
-      : 'const secondExpected = 5;';
+    extension === '.ts' ? 'const secondExpected: number = 5;' : 'const secondExpected = 5;';
 
   await writeFile(
     join(root, `alpha${suffixes.dataset}`),
@@ -136,10 +124,7 @@ const workspaces: string[] = [];
 async function withRunner(
   extension: FixtureExtension = '.mjs',
 ): Promise<{ root: string; runner: RunnerApi }> {
-  const root = await createFixtureWorkspace(
-    extension,
-    getDefaultFixtureSuffixes(extension),
-  );
+  const root = await createFixtureWorkspace(extension, getDefaultFixtureSuffixes(extension));
   const runner = createRunner({
     discovery: {
       rootDir: root,
@@ -276,16 +261,14 @@ describe('runner discovery and execution', () => {
 
     expect(selectedCases).toHaveLength(1);
 
-    const done = new Promise<Extract<RunnerEvent, { type: 'RunCompleted' }>>(
-      (resolve) => {
+    const done = new Promise<Extract<RunnerEvent, { type: 'RunCompleted' }>>((resolve) => {
       const unsubscribe = runner.subscribeRunEvents((event) => {
         if (event.type === 'RunCompleted') {
           unsubscribe();
           resolve(event);
         }
       });
-      },
-    );
+    });
 
     await runner.runDatasetWith({
       datasetId: dataset.id,
@@ -340,8 +323,8 @@ describe('runner discovery and execution', () => {
     await writeFile(
       join(root, 'one.test-case.mjs'),
       [
-        "const firstValue = 10;",
-        "const firstExpected = 10;",
+        'const firstValue = 10;',
+        'const firstExpected = 10;',
         'export const firstCase = {',
         "  getName: () => 'first',",
         "  getTags: () => ['alpha'],",
@@ -397,8 +380,7 @@ describe('runner discovery and execution', () => {
     expect(runCompleted.failedTestCases).toBe(0);
 
     const progressEvents = events.filter(
-      (e): e is Extract<RunnerEvent, { type: 'TestCaseProgress' }> =>
-        e.type === 'TestCaseProgress',
+      (e): e is Extract<RunnerEvent, { type: 'TestCaseProgress' }> => e.type === 'TestCaseProgress',
     );
     expect(progressEvents).toHaveLength(3);
     expect(progressEvents.every((e) => e.rerunTotal === 3)).toBe(true);

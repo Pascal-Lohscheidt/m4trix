@@ -1,4 +1,4 @@
-import { LLMResponse } from './LLM';
+import type { LLMResponse } from './LLM';
 
 type MessageContent = string;
 
@@ -20,7 +20,7 @@ export class SystemMessage extends BaseMessage {
 
   constructor(
     public content: MessageContent,
-    metadata: Record<string, unknown> = {}
+    metadata: Record<string, unknown> = {},
   ) {
     super(metadata);
   }
@@ -29,10 +29,7 @@ export class SystemMessage extends BaseMessage {
     return new SystemMessage(text);
   }
 
-  static fromFormat(
-    template: string,
-    variables: Record<string, unknown>
-  ): SystemMessage {
+  static fromFormat(template: string, variables: Record<string, unknown>): SystemMessage {
     const formatted = template.replace(/\{(\w+)\}/g, (match, key) => {
       return String(variables[key] ?? match);
     });
@@ -49,7 +46,7 @@ export class HumanMessage extends BaseMessage {
 
   constructor(
     public content: MessageContent,
-    metadata: Record<string, unknown> = {}
+    metadata: Record<string, unknown> = {},
   ) {
     super(metadata);
   }
@@ -68,7 +65,7 @@ export class AssistantMessage extends BaseMessage {
 
   constructor(
     public content: MessageContent,
-    metadata: Record<string, unknown> = {}
+    metadata: Record<string, unknown> = {},
   ) {
     super(metadata);
   }

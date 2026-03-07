@@ -25,10 +25,7 @@ export type ExpressResponse = {
 };
 
 /** Express route handler signature */
-export type ExpressHandler = (
-  req: ExpressRequest,
-  res: ExpressResponse,
-) => void | Promise<void>;
+export type ExpressHandler = (req: ExpressRequest, res: ExpressResponse) => void | Promise<void>;
 
 /**
  * Adapter for Express. Maps an ExposedAPI to an Express route handler
@@ -42,13 +39,14 @@ export type ExpressHandler = (
  * }).handler());
  */
 export const ExpressEndpoint = {
-  from(api: ExposedAPI, options: ExpressEndpointOptions): {
+  from(
+    api: ExposedAPI,
+    options: ExpressEndpointOptions,
+  ): {
     handler(): ExpressHandler;
   } {
     if (api.protocol !== 'sse') {
-      throw new Error(
-        `ExpressEndpoint: unsupported protocol "${api.protocol}"`,
-      );
+      throw new Error(`ExpressEndpoint: unsupported protocol "${api.protocol}"`);
     }
 
     const { requestToContextId, requestToRunId } = options;
