@@ -1,0 +1,56 @@
+{
+  "name": "@m4trix/stream",
+  "version": "0.7.0",
+  "description": "Stream processing pipeline for m4trix",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "lint": "eslint src --ext .ts,.tsx",
+    "prepare": "pnpm run build",
+    "publish-package": "npm publish --no-git-checks",
+    "release": "pnpm -C ../.. run release:bump:stream"
+  },
+  "keywords": [
+    "ai",
+    "stream",
+    "typescript"
+  ],
+  "author": "Pascal Lohscheidt",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "eslint": "^8.0.0",
+    "prettier": "^3.0.0",
+    "tsup": "^7.0.0",
+    "typescript": "^5.0.0",
+    "vitest": "^3.1.2"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Pascal-Lohscheidt/m4trix.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Pascal-Lohscheidt/m4trix/issues"
+  },
+  "homepage": "https://github.com/Pascal-Lohscheidt/m4trix#readme"
+}

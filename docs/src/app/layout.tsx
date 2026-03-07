@@ -30,7 +30,7 @@ export const metadata: Metadata = {
     default: '@m4trix/core - The DX first AI library made with TypeScript.',
   },
   description:
-    '@m4trix/core is a powerful TypeScript library for building AI-driven web applications. This package provides modular entry points like (`@m4trix/core`, `@m4trix/core/ui`, `@m4trix/core/stream`).',
+    '@m4trix/core is a powerful TypeScript library for building AI-driven web applications. Use @m4trix/core, @m4trix/stream, @m4trix/react, and @m4trix/ui for modular imports.',
 }
 
 export default function RootLayout({

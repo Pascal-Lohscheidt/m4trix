@@ -29,10 +29,10 @@ import {
 } from '@m4trix/core/matrix';
 
 // Stream utilities
-import { Pump } from '@m4trix/core/stream';
+import { Pump } from '@m4trix/stream';
 
 // React hooks
-import { useConversation } from '@m4trix/core/react';
+import { useConversation } from '@m4trix/react';
 ```
 
 The **Matrix** module is the primary entry point. It provides the full agent orchestration system including typed events, agent factories, network wiring, and HTTP adapters.

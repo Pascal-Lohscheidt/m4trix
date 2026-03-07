@@ -29,7 +29,7 @@ This command will start both:
 
 ## How It Works
 
-This example uses the `useConversation` hook from `@m4trix/core/react` to manage speech input and output. The hook handles:
+This example uses the `useConversation` hook from `@m4trix/react` to manage speech input and output. The hook handles:
 
 - Audio recording from the microphone
 - Audio streaming to the server
@@ -49,7 +49,7 @@ The WebSocket server is implemented in TypeScript and uses Socket.io for real-ti
 
 - The server uses `jiti` for on-the-fly TypeScript execution without requiring a separate build step
 - Socket.io is used for real-time, bidirectional communication between the client and server
-- The `useConversation` hook from `@m4trix/core/react` handles all audio recording and streaming logic
+- The `useConversation` hook from `@m4trix/react` handles all audio recording and streaming logic
 
 ## Requirements
 

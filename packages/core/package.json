@@ -1,0 +1,80 @@
+{
+  "name": "@m4trix/core",
+  "version": "0.7.0",
+  "description": "A powerful TypeScript library for building AI-driven web applications",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs",
+      "default": "./dist/index.js"
+    },
+    "./matrix": {
+      "types": "./dist/matrix/index.d.ts",
+      "import": "./dist/matrix/index.js",
+      "require": "./dist/matrix/index.cjs",
+      "default": "./dist/matrix/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "lint": "eslint src --ext .ts,.tsx",
+    "format": "prettier --write \"src/**/*.{ts,tsx}\"",
+    "prepare": "pnpm run build",
+    "publish-package": "npm publish --no-git-checks",
+    "release": "pnpm -C ../.. run release:bump:core"
+  },
+  "keywords": [
+    "ai",
+    "web",
+    "typescript",
+    "visualization"
+  ],
+  "author": "Pascal Lohscheidt",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "@vitest/coverage-v8": "^3.1.2",
+    "eslint": "^8.0.0",
+    "prettier": "^3.0.0",
+    "tsup": "^7.0.0",
+    "typescript": "^5.0.0",
+    "vitest": "^3.1.2",
+    "@langchain/community": "^0.3.47",
+    "@langchain/core": "^0.3.61",
+    "@langchain/langgraph": "^0.3.6",
+    "@langchain/langgraph-sdk": "^0.0.84",
+    "@langchain/openai": "^0.5.16",
+    "ai": "^5.0.28"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "effect": "^3.16.10",
+    "socket.io": "^4.7.2",
+    "socket.io-client": "^4.7.2"
+  },
+  "peerDependencies": {
+    "effect": ">=3.0.0"
+  },
+  "browser": {},
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Pascal-Lohscheidt/m4trix.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Pascal-Lohscheidt/m4trix/issues"
+  },
+  "homepage": "https://github.com/Pascal-Lohscheidt/m4trix#readme"
+}

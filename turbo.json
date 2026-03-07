@@ -12,6 +12,24 @@
     },
     "@m4trix/evals#publish-package": {
       "dependsOn": ["^build"]
+    },
+    "@m4trix/stream#build": {
+      "dependsOn": ["^build"]
+    },
+    "@m4trix/stream#publish-package": {
+      "dependsOn": ["^build"]
+    },
+    "@m4trix/react#build": {
+      "dependsOn": ["^build"]
+    },
+    "@m4trix/react#publish-package": {
+      "dependsOn": ["^build"]
+    },
+    "@m4trix/ui#build": {
+      "dependsOn": ["^build"]
+    },
+    "@m4trix/ui#publish-package": {
+      "dependsOn": ["^build"]
     }
   }
 }

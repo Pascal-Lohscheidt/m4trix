@@ -36,7 +36,7 @@ const BENTO_ITEMS = [
   {
     title: 'Batteries Included',
     desc: 'Matrix agents, Pump streaming, React hooks. One package.',
-    code: '@m4trix/core/matrix  |  /stream  |  /react',
+    code: '@m4trix/core  |  @m4trix/stream  |  @m4trix/react  |  @m4trix/ui',
     span: 'sm:col-span-2',
   },
 ]
@@ -148,8 +148,8 @@ export default function Page() {
             <div className="mt-6 flex flex-wrap justify-center gap-2 font-mono text-xs">
               {[
                 { pkg: '@m4trix/core/matrix', desc: 'agents & networks' },
-                { pkg: '@m4trix/core/stream', desc: 'pipes' },
-                { pkg: '@m4trix/core/react', desc: 'hooks' },
+                { pkg: '@m4trix/stream', desc: 'pipes' },
+                { pkg: '@m4trix/react', desc: 'hooks' },
               ].map((entry) => (
                 <span
                   key={entry.pkg}

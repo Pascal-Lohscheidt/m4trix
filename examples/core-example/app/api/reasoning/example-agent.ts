@@ -1,4 +1,4 @@
-import { AgentFactory } from '@m4trix/core';
+import { AgentFactory, S } from '@m4trix/core';
 import OpenAI from 'openai';
 import {
   MessageEvent,
@@ -20,9 +20,19 @@ export const exampleAgent = AgentFactory.run()
     const messageHistory = contextEvents.all.filter(MessageEvent.is);
 
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
     const stream = await openai.chat.completions.create({
       model: 'gpt-4o',
       stream: true,
+      tools: [
+        {
+          type: 'function',
+          function: {
+            name: 'get_current_time',
+            description: 'Get the current time',
+          },
+        },
+      ],
       messages: [
         {
           role: 'system',
@@ -58,7 +68,7 @@ export const exampleAgent = AgentFactory.run()
 
     emit(
       ReasoningForProblemReuqested.make({
-        problemToSolve: 'Why is the sky blue?',
+        problemToSolve: 'How does gravity affect light and dark matter?',
       }),
     );
 

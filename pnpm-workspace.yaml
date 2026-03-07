@@ -1,6 +1,5 @@
 packages:
   - 'docs'
   - 'examples/*'
-  - 'package'
-  - 'evals'
+  - 'packages/*'
 

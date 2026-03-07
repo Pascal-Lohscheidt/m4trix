@@ -44,7 +44,7 @@ const reader = res.body!.getReader();
 
 ## WebSocket
 
-m4trix focuses on **SSE** (request → stream response). For bidirectional WebSocket, you would need to adapt the event plane or use a separate WebSocket layer. The `useSocketConversation` hook in `@m4trix/core/react` can work with WebSocket backends when your server exposes a compatible protocol.
+m4trix focuses on **SSE** (request → stream response). For bidirectional WebSocket, you would need to adapt the event plane or use a separate WebSocket layer. The `useSocketConversation` hook in `@m4trix/react` can work with WebSocket backends when your server exposes a compatible protocol.
 
 ## Backpressure
 
@@ -64,4 +64,4 @@ for await (const chunk of stream) {
 emit({ name: 'response', payload: { text: '', isFinal: true } });
 ```
 
-For lower-level stream processing (rechunking, batching), use the `Pump` from `@m4trix/core/stream` — see [Streaming, Sinks & Adapters](../concepts/streaming-sinks-adapters.md).
+For lower-level stream processing (rechunking, batching), use the `Pump` from `@m4trix/stream` — see [Streaming, Sinks & Adapters](../concepts/streaming-sinks-adapters.md).

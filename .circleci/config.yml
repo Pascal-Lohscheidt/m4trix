@@ -35,7 +35,7 @@ jobs:
           command: pnpm install
       - run:
           name: Build packages
-          command: pnpm run package:build && pnpm run evals:build
+          command: turbo run build
       - store_artifacts:
           path: dist
           destination: dist
@@ -88,6 +88,78 @@ jobs:
           name: Publish evals package
           command: pnpm run evals:publish
 
+  publish-stream:
+    docker:
+      - image: cimg/node:20.0
+    steps:
+      - checkout
+      - run:
+          name: Install dependencies
+          command: pnpm install
+      - run:
+          name: Check if stream package should be published
+          command: pnpm exec jiti scripts/check-package-scope.ts stream || circleci step halt
+      - run:
+          name: Bump version and create tag
+          command: pnpm exec jiti scripts/bump-and-tag.ts stream
+      - run:
+          name: Build stream package
+          command: pnpm run stream:build
+      - run:
+          name: Authenticate with npm
+          command: echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
+      - run:
+          name: Publish stream package
+          command: pnpm run stream:publish
+
+  publish-react:
+    docker:
+      - image: cimg/node:20.0
+    steps:
+      - checkout
+      - run:
+          name: Install dependencies
+          command: pnpm install
+      - run:
+          name: Check if react package should be published
+          command: pnpm exec jiti scripts/check-package-scope.ts react || circleci step halt
+      - run:
+          name: Bump version and create tag
+          command: pnpm exec jiti scripts/bump-and-tag.ts react
+      - run:
+          name: Build react package
+          command: pnpm run react:build
+      - run:
+          name: Authenticate with npm
+          command: echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
+      - run:
+          name: Publish react package
+          command: pnpm run react:publish
+
+  publish-ui:
+    docker:
+      - image: cimg/node:20.0
+    steps:
+      - checkout
+      - run:
+          name: Install dependencies
+          command: pnpm install
+      - run:
+          name: Check if ui package should be published
+          command: pnpm exec jiti scripts/check-package-scope.ts ui || circleci step halt
+      - run:
+          name: Bump version and create tag
+          command: pnpm exec jiti scripts/bump-and-tag.ts ui
+      - run:
+          name: Build ui package
+          command: pnpm run ui:build
+      - run:
+          name: Authenticate with npm
+          command: echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
+      - run:
+          name: Publish ui package
+          command: pnpm run ui:publish
+
 workflows:
   version: 2
   test-and-build:
@@ -105,6 +177,30 @@ workflows:
             branches:
               only: main
       - publish-evals:
+          context:
+            - NPM
+          requires:
+            - build
+          filters:
+            branches:
+              only: main
+      - publish-stream:
+          context:
+            - NPM
+          requires:
+            - build
+          filters:
+            branches:
+              only: main
+      - publish-react:
+          context:
+            - NPM
+          requires:
+            - build
+          filters:
+            branches:
+              only: main
+      - publish-ui:
           context:
             - NPM
           requires:

@@ -16,13 +16,13 @@ import {
 } from '@m4trix/core/matrix';
 
 // Stream utilities — Composable stream processing
-import { Pump, ensureFullWords } from '@m4trix/core/stream';
+import { Pump, ensureFullWords } from '@m4trix/stream';
 
 // React hooks — Framework integration
-import { useConversation, useSocketConversation } from '@m4trix/core/react';
+import { useConversation, useSocketConversation } from '@m4trix/react';
 
 // UI components — Visual elements for AI interfaces
-import { AiCursor } from '@m4trix/core/ui';
+import { AiCursor } from '@m4trix/ui';
 ```
 
 ## Matrix (Primary)

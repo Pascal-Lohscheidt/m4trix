@@ -18,6 +18,7 @@
     "socket.io": "^4.7.2",
     "socket.io-client": "^4.7.2",
     "@m4trix/core": "workspace:*",
+    "@m4trix/react": "workspace:*",
     "ws": "^8.18.1"
   },
   "devDependencies": {

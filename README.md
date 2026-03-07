@@ -7,9 +7,9 @@
 
 # @m4trix/core - Contributor README
 
-The readme of the package is available in `package/README.md`.
+The readme of the package is available in `packages/core/README.md`.
 
-A powerful TypeScript library for building AI-driven web applications. This package provides modular entry points like `@m4trix/core`, `@m4trix/core/ui`, and `@m4trix/core/stream`.
+A powerful TypeScript library for building AI-driven web applications. Use `@m4trix/core` for agents and matrix, `@m4trix/stream` for Pump, `@m4trix/react` for hooks, and `@m4trix/ui` for AiCursor.
 
 # Roadmap
 

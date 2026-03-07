@@ -14,10 +14,22 @@
     "package:publish": "turbo run @m4trix/core#publish-package",
     "evals:build": "turbo run @m4trix/evals#build",
     "evals:publish": "turbo run @m4trix/evals#publish-package",
+    "stream:build": "turbo run @m4trix/stream#build",
+    "stream:publish": "turbo run @m4trix/stream#publish-package",
+    "react:build": "turbo run @m4trix/react#build",
+    "react:publish": "turbo run @m4trix/react#publish-package",
+    "ui:build": "turbo run @m4trix/ui#build",
+    "ui:publish": "turbo run @m4trix/ui#publish-package",
     "release:check:core": "jiti scripts/check-package-scope.ts core",
     "release:check:evals": "jiti scripts/check-package-scope.ts evals",
+    "release:check:stream": "jiti scripts/check-package-scope.ts stream",
+    "release:check:react": "jiti scripts/check-package-scope.ts react",
+    "release:check:ui": "jiti scripts/check-package-scope.ts ui",
     "release:bump:core": "jiti scripts/bump-and-tag.ts core",
-    "release:bump:evals": "jiti scripts/bump-and-tag.ts evals"
+    "release:bump:evals": "jiti scripts/bump-and-tag.ts evals",
+    "release:bump:stream": "jiti scripts/bump-and-tag.ts stream",
+    "release:bump:react": "jiti scripts/bump-and-tag.ts react",
+    "release:bump:ui": "jiti scripts/bump-and-tag.ts ui"
   },
   "devDependencies": {
     "@testing-library/dom": "^10.4.0",

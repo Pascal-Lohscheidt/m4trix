@@ -1,0 +1,67 @@
+{
+  "name": "@m4trix/react",
+  "version": "0.7.0",
+  "description": "React hooks and adapters for m4trix voice conversations",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "lint": "eslint src --ext .ts,.tsx",
+    "prepare": "pnpm run build",
+    "publish-package": "npm publish --no-git-checks",
+    "release": "pnpm -C ../.. run release:bump:react"
+  },
+  "keywords": [
+    "ai",
+    "react",
+    "voice",
+    "typescript"
+  ],
+  "author": "Pascal Lohscheidt",
+  "license": "MIT",
+  "peerDependencies": {
+    "react": ">=18.0.0",
+    "react-dom": ">=18.0.0"
+  },
+  "dependencies": {
+    "socket.io-client": "^4.7.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/react": "^19.1.2",
+    "@types/react-dom": "^19.1.2",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "eslint": "^8.0.0",
+    "prettier": "^3.0.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "tsup": "^7.0.0",
+    "typescript": "^5.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Pascal-Lohscheidt/m4trix.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Pascal-Lohscheidt/m4trix/issues"
+  },
+  "homepage": "https://github.com/Pascal-Lohscheidt/m4trix#readme"
+}
