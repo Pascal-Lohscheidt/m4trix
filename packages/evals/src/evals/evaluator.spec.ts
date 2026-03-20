@@ -1,6 +1,6 @@
-import { describe, expect, expectTypeOf, test, vitest } from 'vitest';
 import { Schema as S } from 'effect';
-import { Evaluator, type EvalMiddleware, getEvaluatorDisplayLabel } from './evaluator';
+import { describe, expect, expectTypeOf, test, vitest } from 'vitest';
+import { type EvalMiddleware, Evaluator, getEvaluatorDisplayLabel } from './evaluator';
 
 describe('Evaluator', () => {
   const inputSchema = S.Struct({ prompt: S.String });
@@ -146,10 +146,10 @@ describe('Evaluator', () => {
         repetitionId: 'rep-test',
         repetitionIndex: 1,
         repetitionCount: 1,
+        testCaseTags: ['tc-a'],
+        runConfigTags: ['rc-x'],
+        evaluatorTags: [],
       },
-      testCaseTags: ['tc-a'],
-      runConfigTags: ['rc-x'],
-      evaluatorTags: [],
       logDiff,
       log,
       createError,
@@ -160,9 +160,11 @@ describe('Evaluator', () => {
         input: { prompt: 'hello' },
         ctx,
         output: { title: 'value' },
-        testCaseTags: ['tc-a'],
-        runConfigTags: ['rc-x'],
-        evaluatorTags: [],
+        meta: expect.objectContaining({
+          testCaseTags: ['tc-a'],
+          runConfigTags: ['rc-x'],
+          evaluatorTags: [],
+        }),
       }),
     );
     expect(result).toEqual({ accuracy: 6 });

@@ -79,6 +79,8 @@ export interface RunTask {
   /** When set, limits concurrent evaluation units across all runs sharing this semaphore. */
   globalEvaluationSemaphore?: ReturnType<typeof Effect.unsafeMakeSemaphore>;
   runConfigName: string;
+  /** When set, forwarded as `experimentName` on evaluator `meta`. */
+  experimentName?: string;
   /** Per job: tags from the run config or programmatic request; forwarded to evaluator callbacks. */
   runConfigTags: string[];
   /** Per scheduled job: how many times each dataset test case is executed. */
@@ -202,10 +204,13 @@ function processOneEvaluation(
                 repetitionIndex,
                 repetitionCount,
                 runConfigName: task.runConfigName,
+                ...(task.experimentName !== undefined && task.experimentName !== ''
+                  ? { experimentName: task.experimentName }
+                  : {}),
+                testCaseTags: getTestCaseTagList(testCaseItem.testCase),
+                runConfigTags: task.runConfigTags,
+                evaluatorTags: getEvaluatorTagList(evaluator),
               },
-              testCaseTags: getTestCaseTagList(testCaseItem.testCase),
-              runConfigTags: task.runConfigTags,
-              evaluatorTags: getEvaluatorTagList(evaluator),
               logDiff,
               log,
               createError,

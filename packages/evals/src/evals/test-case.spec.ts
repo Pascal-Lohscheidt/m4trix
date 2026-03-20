@@ -20,10 +20,18 @@ describe('TestCase', () => {
     expect(tc.getInput()).toEqual({ prompt: 'hello world' });
   });
 
+  test('describe() defaults tags to [] when omitted', () => {
+    const tc = TestCase.describe({
+      name: 'no-tags',
+      inputSchema,
+      input: { prompt: 'x' },
+    });
+    expect(tc.getTags()).toEqual([]);
+  });
+
   test('describe() accepts builder functions for input', () => {
     const tc = TestCase.describe({
       name: 'dynamic-input',
-      tags: [],
       inputSchema,
       input: () => ({ prompt: 'built' }),
     });
@@ -35,7 +43,6 @@ describe('TestCase', () => {
     const outputSchema = S.Struct({ expectedLabel: S.String });
     const tc = TestCase.describe({
       name: 'with-expected-output',
-      tags: [],
       inputSchema,
       input: { prompt: 'hello' },
       outputSchema,
@@ -51,7 +58,6 @@ describe('TestCase', () => {
     const outputSchema = S.Struct({ expected: S.String });
     const tc = TestCase.describe({
       name: 'dynamic-output',
-      tags: [],
       inputSchema,
       input: { prompt: 'hello' },
       outputSchema,
@@ -70,7 +76,6 @@ describe('TestCase', () => {
     let counter = 0;
     const tc = TestCase.describe({
       name: 'lazy-test',
-      tags: [],
       inputSchema,
       input: () => {
         counter += 1;
@@ -86,7 +91,6 @@ describe('TestCase', () => {
   test('exposes input schema', () => {
     const tc = TestCase.describe({
       name: 'schema-test',
-      tags: [],
       inputSchema,
       input: { prompt: 'x' },
     });
@@ -104,6 +108,9 @@ describe('TestCase', () => {
 
     expect(tc).toBeInstanceOf(TestCase);
     expect(tc.getTags()).toEqual(['a']);
+    const tags = tc.getTags();
+    tags.push('mutated');
+    expect(tc.getTags()).toEqual(['a']);
   });
 
   test('getInput returns type inferred from inputSchema', () => {
@@ -113,7 +120,6 @@ describe('TestCase', () => {
     });
     const tc = TestCase.describe({
       name: 'typed',
-      tags: [],
       inputSchema: inputSchemaWithCount,
       input: { prompt: 'x', count: 1 },
     });
@@ -137,7 +143,6 @@ describe('TestCase', () => {
   test('getTestCaseDisplayLabel supports class and plain objects', () => {
     const tc = TestCase.describe({
       name: 'id-only',
-      tags: [],
       inputSchema,
       input: { prompt: 'x' },
     });
@@ -153,7 +158,6 @@ describe('TestCase', () => {
     const outputSchema = S.Struct({ expected: S.Number, label: S.String });
     const tc = TestCase.describe({
       name: 'typed-output',
-      tags: [],
       inputSchema,
       input: { prompt: 'x' },
       outputSchema,
@@ -168,7 +172,6 @@ describe('TestCase', () => {
   test('input builder receives typed input matching inputSchema', () => {
     const tc = TestCase.describe({
       name: 'typed-input-builder',
-      tags: [],
       inputSchema,
       input: () => {
         const typedInput: S.Schema.Type<typeof inputSchema> = {

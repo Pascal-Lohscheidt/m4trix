@@ -1,5 +1,5 @@
-import { describe, expect, test } from 'vitest';
 import { Schema as S } from 'effect';
+import { describe, expect, test } from 'vitest';
 import { Dataset } from './dataset';
 import { TestCase } from './test-case';
 

@@ -28,7 +28,12 @@ interface TestCaseDescribeConfig<
   name: string;
   /** Optional human-readable label for CLI/TUI and evaluator args (any characters). */
   displayName?: string;
-  tags: string[];
+  /**
+   * Declared tags on this test case (not `Dataset` filter options). Use `Dataset` `includedTags` /
+   * `excludedTags` to select which cases belong to a dataset; evaluators read the resolved tags as
+   * `meta.testCaseTags`.
+   */
+  tags?: ReadonlyArray<string>;
   inputSchema: TI;
   input: InputOrBuilder<S.Schema.Type<TI>>;
   outputSchema?: TO;
@@ -51,10 +56,11 @@ export class TestCase<TInput = unknown, TOutput = unknown> {
   ): TestCase<S.Schema.Type<TI>, S.Schema.Type<TO>> {
     const name = validateTestCaseName(config.name, 'TestCase.describe');
     const displayName = normalizeOptionalDisplayName(config.displayName);
+    const tags = config.tags !== undefined ? [...config.tags] : [];
     return new TestCase<S.Schema.Type<TI>, S.Schema.Type<TO>>({
       name,
       displayName,
-      tags: config.tags,
+      tags,
       inputSchema: config.inputSchema,
       input: config.input,
       outputSchema: config.outputSchema,
@@ -75,7 +81,7 @@ export class TestCase<TInput = unknown, TOutput = unknown> {
   }
 
   getTags(): string[] {
-    return this._config.tags;
+    return [...this._config.tags];
   }
 
   getInputSchema(): S.Schema.Any {
@@ -109,7 +115,7 @@ export function getTestCaseDisplayLabel(testCase: {
   return typeof testCase.getName === 'function' ? testCase.getName() : '';
 }
 
-/** Tags for evaluator `args.testCaseTags` (supports plain test-case-shaped objects without `getTags`). */
+/** Tags for evaluator `meta.testCaseTags` (supports plain test-case-shaped objects without `getTags`). */
 export function getTestCaseTagList(testCase: { getTags?: () => ReadonlyArray<string> }): string[] {
   return typeof testCase.getTags === 'function' ? [...testCase.getTags()] : [];
 }

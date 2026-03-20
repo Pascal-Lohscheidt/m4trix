@@ -45,6 +45,8 @@ export interface RunDatasetJobsWithSharedConcurrencyRequest {
   jobs: ReadonlyArray<RunDatasetJob>;
   globalConcurrency: number;
   triggerId?: string;
+  /** Applied to every job in this batch (e.g. CLI `--experiment`). */
+  experimentName?: string;
 }
 
 export interface RunnerApi {
@@ -330,6 +332,7 @@ class EffectRunner implements RunnerApi {
           runConfigName: job.runConfigName,
           runConfigTags: job.runConfigTags,
           repetitions: job.repetitions,
+          experimentName: request.experimentName,
         }),
       );
     }
@@ -368,6 +371,7 @@ class EffectRunner implements RunnerApi {
       repetitions: request.repetitions,
       runConfigName,
       runConfigTags: request.runConfigTags,
+      experimentName: request.experimentName,
     });
   }
 
@@ -380,6 +384,7 @@ class EffectRunner implements RunnerApi {
     runConfigName: string;
     runConfigTags?: ReadonlyArray<string>;
     repetitions?: number;
+    experimentName?: string;
   }): Promise<RunSnapshot> {
     if (this.datasetsById.size === 0) {
       await this.collectDatasets();
@@ -464,6 +469,7 @@ class EffectRunner implements RunnerApi {
         runConfigName: params.runConfigName,
         runConfigTags,
         repetitions,
+        experimentName: params.experimentName,
       }),
     );
 

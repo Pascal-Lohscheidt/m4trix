@@ -43,7 +43,7 @@ export interface RunConfigDefineConfig {
   name: string;
   /** Optional human-readable label for CLI/TUI (any characters). */
   displayName?: string;
-  /** Optional tags; copied to every evaluation as `runConfigTags` on the evaluator callback. */
+  /** Optional declared tags for this run config; copied to every evaluation as `meta.runConfigTags`. */
   tags?: ReadonlyArray<string>;
   runs: ReadonlyArray<RunConfigRow>;
 }
@@ -121,7 +121,7 @@ export class RunConfig {
     return this._displayName ?? this._name;
   }
 
-  /** Tags from `RunConfig.define({ tags })`; surfaced as `runConfigTags` on evaluator callbacks. */
+  /** Tags from `RunConfig.define({ tags })`; surfaced as `meta.runConfigTags` on evaluator callbacks. */
   getTags(): string[] {
     return [...this._tags];
   }

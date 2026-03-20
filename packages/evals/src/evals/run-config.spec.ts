@@ -28,6 +28,7 @@ describe('RunConfig', () => {
     expect(() =>
       RunConfig.define({
         name: 'x',
+        // @ts-expect-error — evaluatorPattern is not a string
         runs: [{ dataset: ds, evaluators: [ev], evaluatorPattern: 'x' }],
       }),
     ).toThrow();

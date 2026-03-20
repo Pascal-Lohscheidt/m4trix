@@ -80,6 +80,7 @@ export const myEvaluator = Evaluator.define({
   inputSchema,
   outputSchema: S.Unknown,
   scoreSchema: S.Struct({ scores: S.Array(S.Unknown) }),
+  // optional: tags: ['suite-a'],
 }).evaluate(async ({ input, ctx: _ctx, output, createError }) => {
   const start = Date.now();
   const value = 85;
@@ -132,13 +133,15 @@ export const myTestCase = TestCase.describe({
 });
 ```
 
+`tags` is optional; omit it when the test case has no declared labels. Evaluators read them as `meta.testCaseTags`.
+
 ### 4) RunConfig (optional)
 
 Group several dataset/evaluator runs under one named config. Each row is either
 `evaluators: [...]` (same module instances discovery loads) or `evaluatorPattern: "..."`
 (wildcard / regex rules from `RunnerApi.resolveEvaluatorsByNamePattern`). Multiple jobs share one `--concurrency` cap.
 
-Optional **`repetitions`** on a row (default `1`) runs each matching test case that many times. Every execution in that group shares the same **`repetitionId`** in the evaluator callback **`meta`**, with **`repetitionIndex`** / **`repetitionCount`**. Evaluator **`meta`** includes **`datasetName`** (`Dataset.getDisplayLabel()` → `displayName ?? name`) and **`runConfigName`**: the **`RunConfig`** id (or **`programmatic`** from **`PROGRAMMATIC_RUN_CONFIG`** for API/TUI-only **`runDatasetWith`**). **`Dataset`** and **`TestCase`** follow the same naming convention as **`RunConfig`**: **`name`** is the stable id; optional **`displayName`** is unrestricted for UI. Names may use **kebab-case**, **snake_case**, **camelCase**, etc. (letters, digits, `_`, `-` only, no spaces); resolution is **case-insensitive**.
+Optional **`repetitions`** on a row (default `1`) runs each matching test case that many times. Every execution in that group shares the same **`repetitionId`** in the evaluator callback **`meta`**, with **`repetitionIndex`** / **`repetitionCount`**. Evaluator **`meta`** includes **`datasetName`** (`Dataset.getDisplayLabel()` → `displayName ?? name`), **`runConfigName`** (the **`RunConfig`** id or **`programmatic`** from **`PROGRAMMATIC_RUN_CONFIG`** for API/TUI-only **`runDatasetWith`**), optional **`experimentName`**, and declared tag lists **`testCaseTags`**, **`runConfigTags`**, and **`evaluatorTags`** (empty arrays when unset). **`Dataset`** **`includedTags` / `excludedTags`** only filter which test cases belong to a dataset; they are not the same as **`TestCase.describe({ tags })`** or **`Evaluator.define({ tags })`**, which label the case/evaluator and show up in **`meta`**. **`Dataset`** and **`TestCase`** follow the same naming convention as **`RunConfig`**: **`name`** is the stable id; optional **`displayName`** is unrestricted for UI. Names may use **kebab-case**, **snake_case**, **camelCase**, etc. (letters, digits, `_`, `-` only, no spaces); resolution is **case-insensitive**.
 
 ```ts
 import { RunConfig } from '@m4trix/evals';
@@ -160,7 +163,7 @@ export const nightly = RunConfig.define({
 eval-agents-simple run --run-config "nightly"
 ```
 
-Repeat **`--run-config`** to queue several configs; jobs share one **`--concurrency`** cap.
+Repeat **`--run-config`** to queue several configs; jobs share one **`--concurrency`** cap. Use **`--experiment <name>`** to set **`meta.experimentName`** for every evaluator in that CLI run (any non-empty string; trimmed).
 
 ## CLI Commands
 

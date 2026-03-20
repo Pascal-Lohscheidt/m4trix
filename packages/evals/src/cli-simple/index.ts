@@ -59,6 +59,7 @@ async function main(): Promise<void> {
         runner,
         args.runConfigNames,
         concurrency,
+        args.experimentName,
       );
       if (args.ci && exitCode !== 0) {
         process.exit(1);

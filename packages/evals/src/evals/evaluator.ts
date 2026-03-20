@@ -24,6 +24,10 @@ export interface EvaluateMeta {
   /** Canonical `RunConfig` name (or `programmatic` for API/TUI-only runs). */
   runConfigName: string;
   /**
+   * Optional label for this invocation (e.g. CLI `--experiment`); omitted when not set.
+   */
+  experimentName?: string;
+  /**
    * Stable id shared by every execution of the same logical test case when `repetitionCount > 1`
    * (and present with count 1 for consistency).
    */
@@ -32,6 +36,15 @@ export interface EvaluateMeta {
   repetitionIndex: number;
   /** Total scheduled executions for this logical test case in the current run. */
   repetitionCount: number;
+  /** Declared tags on the current test case (`TestCase.describe({ tags })`); empty when none. */
+  testCaseTags: string[];
+  /**
+   * Declared tags on the current run config or programmatic request (`RunConfig.define({ tags })`,
+   * `RunDatasetRequest.runConfigTags`); empty when none.
+   */
+  runConfigTags: string[];
+  /** Declared tags on this evaluator (`Evaluator.define({ tags })`); empty when none. */
+  evaluatorTags: string[];
 }
 
 export interface EvaluateArgs<TInput, TOutput = unknown, TCtx = Record<string, never>> {
@@ -40,12 +53,6 @@ export interface EvaluateArgs<TInput, TOutput = unknown, TCtx = Record<string, n
   output?: TOutput;
   /** Metadata about the current evaluator invocation. */
   meta: EvaluateMeta;
-  /** Tags from `TestCase.describe({ tags })` for the current test case. */
-  testCaseTags: string[];
-  /** Tags from `RunConfig.define({ tags })` for this job; empty for programmatic runs unless set on the request. */
-  runConfigTags: string[];
-  /** Tags from `Evaluator.define({ tags })` for this evaluator. */
-  evaluatorTags: string[];
   /** Records a diff for this test case; stored in run artifact and shown by CLI */
   logDiff: (expected: unknown, actual: unknown, options?: CreateDiffLogEntryOptions) => void;
   /** Logs a message or object for this test case; stored in run artifact and shown by CLI */
@@ -93,7 +100,10 @@ interface EvaluatorDefineConfig<
   scoreSchema: TS;
   passThreshold?: number;
   passCriterion?: (score: unknown) => boolean;
-  /** Optional tags for this evaluator; surfaced on every `evaluate` invocation. */
+  /**
+   * Declared tags for this evaluator (not dataset filter rules); echoed on every `evaluate` call as
+   * `meta.evaluatorTags`.
+   */
   tags?: ReadonlyArray<string>;
 }
 
@@ -239,7 +249,7 @@ export function getEvaluatorDisplayLabel(evaluator: {
   return typeof evaluator.getName === 'function' ? evaluator.getName() : undefined;
 }
 
-/** Tags for evaluator `args.evaluatorTags` (plain evaluator-shaped objects without `getTags` yield `[]`). */
+/** Tags for evaluator `meta.evaluatorTags` (plain evaluator-shaped objects without `getTags` yield `[]`). */
 export function getEvaluatorTagList(evaluator: {
   getTags?: () => ReadonlyArray<string>;
 }): string[] {

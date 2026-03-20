@@ -432,6 +432,7 @@ describe('runner discovery and execution', () => {
         },
       ],
       globalConcurrency: 2,
+      experimentName: 'cli-smoke',
     });
 
     const ev = await progress;
@@ -440,10 +441,12 @@ describe('runner discovery and execution', () => {
       | {
           runConfigName?: string;
           datasetName?: string;
+          experimentName?: string;
         }
       | undefined;
     expect(meta?.datasetName).toBe('Alpha Dataset');
     expect(meta?.runConfigName).toBe('fixture-rc');
+    expect(meta?.experimentName).toBe('cli-smoke');
   });
 
   test('prefers createRunner overrides over m4trix-eval.config.ts', async () => {

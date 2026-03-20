@@ -36,7 +36,7 @@ export interface RunDatasetJob {
    */
   runConfigDisplayLabel?: string;
   /**
-   * Tags from `RunConfig.define({ tags })` for this job; forwarded as `runConfigTags` on evaluator callbacks.
+   * Tags from `RunConfig.define({ tags })` for this job; forwarded as `meta.runConfigTags` on evaluator callbacks.
    */
   runConfigTags?: ReadonlyArray<string>;
   /** Evaluates each matching test case this many times (default 1). */
@@ -77,9 +77,13 @@ export interface RunDatasetRequest {
    */
   repetitions?: number;
   /**
-   * Optional tags for this run; forwarded as `runConfigTags` on evaluator callbacks (e.g. suite labels).
+   * Optional tags for this run; forwarded as `meta.runConfigTags` on evaluator callbacks (e.g. suite labels).
    */
   runConfigTags?: ReadonlyArray<string>;
+  /**
+   * Optional label for this run; forwarded as `experimentName` on evaluator `meta`.
+   */
+  experimentName?: string;
 }
 
 export interface RunSnapshot {

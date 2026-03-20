@@ -8,6 +8,8 @@ export interface SimpleCliArgs {
   runConfigNames: string[];
   /** Max concurrent evaluations. Default: 4. Use 1 for sequential. */
   concurrency?: number;
+  /** Optional label passed to evaluator `meta.experimentName` for this CLI run. */
+  experimentName?: string;
   /**
    * When set (typically for `run`), exit with code 1 if any test case fails.
    * Ignored for `generate`.
@@ -67,6 +69,17 @@ export function parseSimpleCliArgs(argv: string[]): SimpleCliArgs {
       index += 1;
       continue;
     }
+    if (token === '--experiment' && argv[index + 1]) {
+      const raw = argv[index + 1];
+      if (typeof raw === 'string') {
+        const trimmed = raw.trim();
+        if (trimmed.length > 0) {
+          args.experimentName = trimmed;
+        }
+      }
+      index += 1;
+      continue;
+    }
     args.unknownArgs.push(token);
   }
 
@@ -76,11 +89,12 @@ export function parseSimpleCliArgs(argv: string[]): SimpleCliArgs {
 export function getSimpleCliUsage(): string {
   return [
     'Usage:',
-    '  eval-agents-simple run --run-config <name> [--run-config <name> ...] [--concurrency N] [--ci]',
+    '  eval-agents-simple run --run-config <name> [--run-config <name> ...] [--concurrency N] [--experiment <name>] [--ci]',
     '  eval-agents-simple generate --dataset <datasetId>',
     '',
     'Options:',
     '  --ci                  With run: exit with code 1 if any test case fails.',
     '  --concurrency, -c N   Max concurrent evaluations (default: 4). Use 1 for sequential.',
+    '  --experiment <name>   With run: set evaluator meta.experimentName for this invocation.',
   ].join('\n');
 }
