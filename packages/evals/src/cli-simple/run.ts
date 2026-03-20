@@ -3,6 +3,7 @@ import { render } from 'ink';
 import {
   formatScoreData,
   getDiffLines,
+  getEvaluatorDisplayLabel,
   getLogLines,
   getMetricById,
   getScoreById,
@@ -316,7 +317,7 @@ export async function runSimpleEvalRunConfigsPlain(
 
   const evaluators = await runner.collectEvaluators();
   const evaluatorNameById = new Map(
-    evaluators.map((item) => [item.id, item.evaluator.getName() ?? item.id]),
+    evaluators.map((item) => [item.id, getEvaluatorDisplayLabel(item.evaluator) ?? item.id]),
   );
 
   const aggregates = new Map<string, EvaluatorAggregate>();
@@ -550,7 +551,9 @@ export async function runSimpleEvalRunConfigsPlain(
 
   console.log(colorize('=== Eval Run Started (RunConfigs) ===', `${ansi.bold}${ansi.cyan}`));
   for (const name of runConfigNames) {
-    console.log(`RunConfig: ${colorize(name, ansi.bold)}`);
+    const collected = await runner.resolveRunConfigByName(name);
+    const label = collected?.runConfig.getDisplayLabel() ?? name;
+    console.log(`RunConfig: ${colorize(label, ansi.bold)}`);
   }
   console.log(`Jobs: ${colorize(String(jobs.length), ansi.bold)}`);
   console.log(`Shared concurrency: ${colorize(String(concurrency), ansi.bold)}`);
@@ -564,7 +567,10 @@ export async function runSimpleEvalRunConfigsPlain(
     const snap = snapshots[i];
     const job = jobs[i];
     if (snap && job) {
-      runIdToLabel.set(snap.runId, `${job.runConfigName} · ${snap.datasetName}`);
+      runIdToLabel.set(
+        snap.runId,
+        `${job.runConfigDisplayLabel ?? job.runConfigName} · ${snap.datasetName}`,
+      );
       batchPendingRunIds.add(snap.runId);
     }
   }

@@ -1,6 +1,6 @@
 import { describe, expect, expectTypeOf, test, vitest } from 'vitest';
 import { Schema as S } from 'effect';
-import { Evaluator, type EvalMiddleware } from './evaluator';
+import { Evaluator, type EvalMiddleware, getEvaluatorDisplayLabel } from './evaluator';
 
 describe('Evaluator', () => {
   const inputSchema = S.Struct({ prompt: S.String });
@@ -20,7 +20,8 @@ describe('Evaluator', () => {
   test('use() -> define() -> evaluate() creates a fully configured evaluator', () => {
     const evaluator = Evaluator.use(withLLM)
       .define({
-        name: 'Title quality',
+        name: 'title-quality',
+        displayName: 'Title quality',
         inputSchema,
         outputSchema,
         scoreSchema,
@@ -29,14 +30,15 @@ describe('Evaluator', () => {
         return { accuracy: llm === 'mock-llm-client' ? 100 : 0 };
       });
 
-    expect(evaluator.getName()).toBe('Title quality');
+    expect(evaluator.getName()).toBe('title-quality');
+    expect(evaluator.getDisplayLabel()).toBe('Title quality');
     expect(evaluator.getMiddlewares()).toHaveLength(1);
     expect(evaluator.getEvaluateFn()).toBeDefined();
   });
 
   test('chaining multiple use() calls accumulates middlewares', () => {
     const evaluator = Evaluator.use(withLLM).use(withLogger).define({
-      name: 'Multi-context',
+      name: 'multi-context',
       inputSchema,
       outputSchema,
       scoreSchema,
@@ -50,7 +52,7 @@ describe('Evaluator', () => {
   test('each method returns a new instance (immutable)', () => {
     const step1 = Evaluator.use(withLLM);
     const step2 = step1.define({
-      name: 'Step 2',
+      name: 'step-2',
       inputSchema,
       outputSchema,
       scoreSchema,
@@ -60,14 +62,14 @@ describe('Evaluator', () => {
     expect(step1).not.toBe(step2);
     expect(step2).not.toBe(step3);
     expect(step1.getName()).toBeUndefined();
-    expect(step2.getName()).toBe('Step 2');
+    expect(step2.getName()).toBe('step-2');
     expect(step2.getEvaluateFn()).toBeUndefined();
     expect(step3.getEvaluateFn()).toBeDefined();
   });
 
   test('resolveContext() merges middleware results', async () => {
     const evaluator = Evaluator.use(withLLM).use(withLogger).define({
-      name: 'Context test',
+      name: 'context-test',
       inputSchema,
       outputSchema,
       scoreSchema,
@@ -88,7 +90,7 @@ describe('Evaluator', () => {
     };
 
     const evaluator = Evaluator.use(asyncMw).define({
-      name: 'Async test',
+      name: 'async-test',
       inputSchema,
       outputSchema,
       scoreSchema,
@@ -118,7 +120,7 @@ describe('Evaluator', () => {
 
     const evaluator = Evaluator.use(withLLM)
       .define({
-        name: 'Fn test',
+        name: 'fn-test',
         inputSchema,
         outputSchema,
         scoreSchema,
@@ -162,7 +164,7 @@ describe('Evaluator', () => {
 
   test('exposes schemas through accessors', () => {
     const evaluator = Evaluator.use(withLLM).define({
-      name: 'Schema test',
+      name: 'schema-test',
       inputSchema,
       outputSchema,
       scoreSchema,
@@ -177,7 +179,7 @@ describe('Evaluator', () => {
     const evaluator = Evaluator.use(withLLM)
       .use(withLogger)
       .define({
-        name: 'Typed context',
+        name: 'typed-context',
         inputSchema,
         outputSchema,
         scoreSchema,
@@ -198,7 +200,7 @@ describe('Evaluator', () => {
     const typedOutputSchema = S.Struct({ expectedMinScore: S.Number });
     Evaluator.use(withLLM)
       .define({
-        name: 'Typed output',
+        name: 'typed-output',
         inputSchema,
         outputSchema: typedOutputSchema,
         scoreSchema,
@@ -213,7 +215,7 @@ describe('Evaluator', () => {
   test('evaluate callback return must match scoreSchema', () => {
     Evaluator.use(withLLM)
       .define({
-        name: 'Typed return',
+        name: 'typed-return',
         inputSchema,
         outputSchema,
         scoreSchema,
@@ -227,7 +229,7 @@ describe('Evaluator', () => {
 
     Evaluator.use(withLLM)
       .define({
-        name: 'Typed return',
+        name: 'typed-return',
         inputSchema,
         outputSchema,
         scoreSchema,
@@ -243,7 +245,7 @@ describe('Evaluator', () => {
 
   test('passThreshold is stored and exposed', () => {
     const evaluator = Evaluator.use(withLLM).define({
-      name: 'Threshold test',
+      name: 'threshold-test',
       inputSchema,
       outputSchema,
       scoreSchema,
@@ -262,7 +264,7 @@ describe('Evaluator', () => {
       (score as { accuracy: number }).accuracy >= 70;
 
     const evaluator = Evaluator.use(withLLM).define({
-      name: 'Criterion test',
+      name: 'criterion-test',
       inputSchema,
       outputSchema,
       scoreSchema,
@@ -271,5 +273,22 @@ describe('Evaluator', () => {
 
     expect(evaluator.getPassThreshold()).toBeUndefined();
     expect(evaluator.getPassCriterion()).toBe(customCriterion);
+  });
+
+  test('getEvaluatorDisplayLabel supports class and plain objects', () => {
+    const ev = Evaluator.use(withLLM).define({
+      name: 'plain-shape',
+      displayName: 'Nice label',
+      inputSchema,
+      outputSchema,
+      scoreSchema,
+    });
+    expect(getEvaluatorDisplayLabel(ev)).toBe('Nice label');
+    expect(
+      getEvaluatorDisplayLabel({
+        getDisplayLabel: () => undefined,
+        getName: () => 'x',
+      }),
+    ).toBe('x');
   });
 });

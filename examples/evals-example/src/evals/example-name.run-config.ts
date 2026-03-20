@@ -11,6 +11,7 @@ import { demoScoreEvaluator } from './demo.evaluator';
  */
 export const exampleNameRunConfig = RunConfig.define({
   name: 'example-name',
+  displayName: 'Example run config',
   runs: [
     { dataset: demoDataset, evaluators: [demoScoreEvaluator], repetitions: 10 },
     { dataset: demoDataset, evaluatorPattern: '*Length*' },

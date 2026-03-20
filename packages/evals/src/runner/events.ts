@@ -30,6 +30,11 @@ export interface RunDatasetJob {
   evaluatorIds: ReadonlyArray<string>;
   /** RunConfig name (same as `RunConfig.getName()`). */
   runConfigName: string;
+  /**
+   * Human-facing RunConfig label (`displayName ?? name`) when the job was expanded from `RunConfig.define`.
+   * Omitted for ad-hoc jobs; UI should fall back to {@link runConfigName}.
+   */
+  runConfigDisplayLabel?: string;
   /** Evaluates each matching test case this many times (default 1). */
   repetitions: number;
 }

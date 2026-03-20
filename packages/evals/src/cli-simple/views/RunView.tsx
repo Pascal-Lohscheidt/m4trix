@@ -6,6 +6,7 @@ import { TextBar } from '../../cli/components/TextBar';
 import {
   formatScoreData,
   getDiffLines,
+  getEvaluatorDisplayLabel,
   getLogLines,
   getMetricById,
   getScoreById,
@@ -227,7 +228,7 @@ export function RunView({
 
     const allEvaluators = await runner.collectEvaluators();
     const nameById = new Map(
-      allEvaluators.map((item) => [item.id, item.evaluator.getName() ?? item.id]),
+      allEvaluators.map((item) => [item.id, getEvaluatorDisplayLabel(item.evaluator) ?? item.id]),
     );
     setEvaluatorNameById(nameById);
 
@@ -394,15 +395,25 @@ export function RunView({
       const snap = snapshots[i];
       const job = jobs[i];
       if (snap && job) {
-        runIdToLabel.set(snap.runId, `${job.runConfigName} · ${snap.datasetName}`);
+        runIdToLabel.set(
+          snap.runId,
+          `${job.runConfigDisplayLabel ?? job.runConfigName} · ${snap.datasetName}`,
+        );
         batchPendingRunIds.add(snap.runId);
       }
     }
     const totalUnits = snapshots.reduce((sum, s) => sum + s.totalTestCases, 0);
     batchReady = true;
 
+    const runConfigLabels = await Promise.all(
+      rcList.map(async (n) => {
+        const collected = await runner.resolveRunConfigByName(n);
+        return collected?.runConfig.getDisplayLabel() ?? n;
+      }),
+    );
+
     setRunInfo({
-      names: [...rcList],
+      names: runConfigLabels,
       jobs: jobs.length,
       totalTestCases: totalUnits,
     });

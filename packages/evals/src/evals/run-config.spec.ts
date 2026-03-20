@@ -33,6 +33,23 @@ describe('RunConfig', () => {
     ).toThrow();
   });
 
+  test('define() accepts optional displayName for CLI label', () => {
+    const rc = RunConfig.define({
+      name: 'nightly',
+      displayName: 'Nightly (EU)',
+      runs: [{ dataset: ds, evaluators: [ev] }],
+    });
+    expect(rc.getName()).toBe('nightly');
+    expect(rc.getDisplayName()).toBe('Nightly (EU)');
+    expect(rc.getDisplayLabel()).toBe('Nightly (EU)');
+    const bare = RunConfig.define({
+      name: 'smoke',
+      runs: [{ dataset: ds, evaluators: [ev] }],
+    });
+    expect(bare.getDisplayName()).toBeUndefined();
+    expect(bare.getDisplayLabel()).toBe('smoke');
+  });
+
   test('define() accepts evaluator instances or pattern', () => {
     const a = RunConfig.define({
       name: 'a',

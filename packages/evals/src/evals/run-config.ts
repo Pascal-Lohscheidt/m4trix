@@ -1,39 +1,13 @@
-import { Either, ParseResult, Schema } from 'effect';
-
 import type { Dataset } from './dataset';
 import type { Evaluator } from './evaluator';
+import {
+  normalizeOptionalDisplayName,
+  type RunConfigName,
+  validateRunConfigName,
+} from './entity-name';
 
-/**
- * Schema for a validated RunConfig identifier: trimmed, non-empty, letters / digits / `_` / `-` only
- * (kebab-case, snake_case, camelCase, etc.). See {@link https://effect.website/docs/schema/advanced-usage/#branded-types Effect Schema brands}.
- */
-export const RunConfigNameSchema = Schema.String.pipe(
-  Schema.trimmed(),
-  Schema.minLength(1, {
-    message: () => 'RunConfig name must be non-empty.',
-  }),
-  Schema.pattern(/^[a-zA-Z0-9_-]+$/, {
-    message: () =>
-      'RunConfig name may only contain letters, digits, underscores, and hyphens (no spaces). Examples: "my-nightly", "my_nightly", "myNightly".',
-  }),
-  Schema.brand('RunConfigName'),
-);
-
-/** Branded string for a validated RunConfig `name` (decode with {@link RunConfigNameSchema}). */
-export type RunConfigName = Schema.Schema.Type<typeof RunConfigNameSchema>;
-
-/**
- * Trims, validates, and returns a branded RunConfig name.
- * Use at define-time, when resolving CLI/API names, and when starting `runDatasetWith`.
- */
-export function validateRunConfigName(raw: string, context: string): RunConfigName {
-  const trimmed = raw.trim();
-  const result = Schema.decodeUnknownEither(RunConfigNameSchema)(trimmed);
-  if (Either.isLeft(result)) {
-    throw new Error(`${context}: ${ParseResult.TreeFormatter.formatErrorSync(result.left)}`);
-  }
-  return result.right;
-}
+export type { RunConfigName } from './entity-name';
+export { RunConfigNameSchema, validateRunConfigName } from './entity-name';
 
 /** Heterogeneous evaluator rows; `unknown` breaks assignability from concrete `EvaluateFn` (contravariance on `input`). */
 // biome-ignore lint/suspicious/noExplicitAny: needs to accept every `Evaluator<...>` in one array
@@ -62,8 +36,13 @@ export interface RunConfigRowPattern {
 export type RunConfigRow = RunConfigRowEvaluators | RunConfigRowPattern;
 
 export interface RunConfigDefineConfig {
-  /** Plain string in user config; parsed into {@link RunConfigName} via {@link RunConfigNameSchema} inside {@link RunConfig.define}. */
+  /**
+   * Stable id (letters, digits, `_`, `-`); surfaced in discovery, CLI `--run-config`, and evaluator `meta`.
+   * For an unrestricted UI label, set {@link displayName}.
+   */
   name: string;
+  /** Optional human-readable label for CLI/TUI (any characters). */
+  displayName?: string;
   runs: ReadonlyArray<RunConfigRow>;
 }
 
@@ -102,10 +81,16 @@ function validateRow(row: RunConfigRow, index: number): void {
 
 export class RunConfig {
   private readonly _name: RunConfigName;
+  private readonly _displayName: string | undefined;
   private readonly _runs: ReadonlyArray<RunConfigRow>;
 
-  private constructor(name: RunConfigName, runs: ReadonlyArray<RunConfigRow>) {
+  private constructor(
+    name: RunConfigName,
+    displayName: string | undefined,
+    runs: ReadonlyArray<RunConfigRow>,
+  ) {
     this._name = name;
+    this._displayName = displayName;
     this._runs = runs;
   }
 
@@ -115,12 +100,23 @@ export class RunConfig {
     }
     config.runs.forEach(validateRow);
     const name = validateRunConfigName(config.name, 'RunConfig.define');
-    return new RunConfig(name, config.runs);
+    const displayName = normalizeOptionalDisplayName(config.displayName);
+    return new RunConfig(name, displayName, config.runs);
   }
 
-  /** Canonical name (validated {@link RunConfigName} at runtime; typed as `string` for ergonomics). */
+  /** Canonical id (branded {@link RunConfigName} at runtime; typed as `string` for ergonomics). */
   getName(): string {
     return this._name;
+  }
+
+  /** Optional unrestricted display label. */
+  getDisplayName(): string | undefined {
+    return this._displayName;
+  }
+
+  /** Label for CLI/TUI: {@link getDisplayName} if set, otherwise {@link getName}. */
+  getDisplayLabel(): string {
+    return this._displayName ?? this._name;
   }
 
   getRuns(): ReadonlyArray<RunConfigRow> {

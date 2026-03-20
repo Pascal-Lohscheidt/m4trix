@@ -7,7 +7,8 @@ const outputSchema = S.Struct({
 });
 
 export const shortPromptCase = TestCase.describe({
-  name: 'Summarize product description for search',
+  name: 'short-prompt',
+  displayName: 'Summarize product description for search',
   tags: ['demo', 'short'],
   inputSchema,
   input: { prompt: 'Hello from evals example' },
@@ -16,7 +17,8 @@ export const shortPromptCase = TestCase.describe({
 });
 
 export const diffExampleCase = TestCase.describe({
-  name: 'Diff example: expected vs actual response',
+  name: 'diff-example',
+  displayName: 'Diff example: expected vs actual response',
   tags: ['demo', 'diff'],
   inputSchema,
   input: { prompt: 'What is the capital of France?' },
@@ -28,7 +30,8 @@ export const diffExampleCase = TestCase.describe({
 });
 
 export const diffMismatchCase = TestCase.describe({
-  name: 'Diff example: mismatched structured output',
+  name: 'diff-mismatch',
+  displayName: 'Diff example: mismatched structured output',
   tags: ['demo', 'diff'],
   inputSchema,
   input: { prompt: 'List the primary colors.' },
@@ -40,7 +43,8 @@ export const diffMismatchCase = TestCase.describe({
 });
 
 export const longPromptCase = TestCase.describe({
-  name: 'Classify customer support ticket intent',
+  name: 'long-prompt',
+  displayName: 'Classify customer support ticket intent',
   tags: ['demo', 'long'],
   inputSchema,
   input: {
@@ -52,7 +56,8 @@ export const longPromptCase = TestCase.describe({
 });
 
 export const greetingCase = TestCase.describe({
-  name: 'Extract key entities from news article',
+  name: 'greeting',
+  displayName: 'Extract key entities from news article',
   tags: ['demo', 'greeting'],
   inputSchema,
   input: { prompt: 'Hey there!' },
@@ -61,7 +66,8 @@ export const greetingCase = TestCase.describe({
 });
 
 export const questionCase = TestCase.describe({
-  name: 'Generate FAQ response for pricing',
+  name: 'question',
+  displayName: 'Generate FAQ response for pricing',
   tags: ['demo', 'question'],
   inputSchema,
   input: { prompt: 'What is the weather like on Mars today?' },
@@ -70,7 +76,8 @@ export const questionCase = TestCase.describe({
 });
 
 export const tinyPromptCase = TestCase.describe({
-  name: 'Answer factual question about history',
+  name: 'tiny-prompt',
+  displayName: 'Answer factual question about history',
   tags: ['demo', 'tiny'],
   inputSchema,
   input: { prompt: 'ok' },
@@ -79,7 +86,8 @@ export const tinyPromptCase = TestCase.describe({
 });
 
 export const mediumPromptCase = TestCase.describe({
-  name: 'Rewrite technical text for clarity',
+  name: 'medium-prompt',
+  displayName: 'Rewrite technical text for clarity',
   tags: ['demo', 'medium'],
   inputSchema,
   input: {
@@ -90,7 +98,8 @@ export const mediumPromptCase = TestCase.describe({
 });
 
 export const storyPromptCase = TestCase.describe({
-  name: 'Generate creative marketing headline',
+  name: 'story-prompt',
+  displayName: 'Generate creative marketing headline',
   tags: ['demo', 'story'],
   inputSchema,
   input: {
@@ -102,7 +111,8 @@ export const storyPromptCase = TestCase.describe({
 });
 
 export const codingPromptCase = TestCase.describe({
-  name: 'Explain coding concept with examples',
+  name: 'coding-prompt',
+  displayName: 'Explain coding concept with examples',
   tags: ['demo', 'coding'],
   inputSchema,
   input: {

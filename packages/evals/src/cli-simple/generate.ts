@@ -3,6 +3,7 @@ import { render } from 'ink';
 import { writeFile } from 'node:fs/promises';
 import { join, parse, resolve } from 'node:path';
 
+import { getTestCaseDisplayLabel } from '../evals/test-case';
 import type { RunnerApi } from '../runner';
 import { GenerateView } from './views/GenerateView';
 
@@ -35,7 +36,7 @@ export async function generateDatasetJsonCommandPlain(
 
   const testCases = await runner.collectDatasetTestCases(dataset.id);
   const payload: GeneratedDatasetCase[] = testCases.map((item) => ({
-    name: item.testCase.getName(),
+    name: getTestCaseDisplayLabel(item.testCase),
     input: item.testCase.getInput(),
     output: readOutput(item.testCase),
   }));

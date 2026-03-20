@@ -7,6 +7,7 @@ import type { CreateDiffLogEntryOptions, EvaluatorLogEntry } from '../evals/diff
 import { createDiffLogEntry, createLogEntry } from '../evals/diff';
 import type { Dataset } from '../evals/dataset';
 import type { Evaluator } from '../evals/evaluator';
+import { getTestCaseDisplayLabel } from '../evals/test-case';
 import type { MetricItem } from '../evals/metric';
 import type { ScoreItem } from '../evals/score';
 import type { CollectedTestCase, RunSnapshot, RunnerEvent } from './events';
@@ -146,7 +147,7 @@ function processOneEvaluation(
       type: 'TestCaseStarted',
       runId: task.runId,
       testCaseId: testCaseItem.id,
-      testCaseName: testCaseItem.testCase.getName(),
+      testCaseName: getTestCaseDisplayLabel(testCaseItem.testCase),
       startedTestCases: startedEvaluations,
       totalTestCases: totalEvaluations,
       repetitionId,
@@ -250,7 +251,7 @@ function processOneEvaluation(
       type: 'TestCaseProgress',
       runId: task.runId,
       testCaseId: testCaseItem.id,
-      testCaseName: testCaseItem.testCase.getName(),
+      testCaseName: getTestCaseDisplayLabel(testCaseItem.testCase),
       completedTestCases: completedEvaluations,
       totalTestCases: totalEvaluations,
       repetitionId,

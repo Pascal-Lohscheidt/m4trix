@@ -3,6 +3,7 @@ import type React from 'react';
 import { useEffect, useState } from 'react';
 import { Box, Text } from 'ink';
 
+import { getTestCaseDisplayLabel } from '../../evals/test-case';
 import type { RunnerApi } from '../../runner';
 import { Banner } from './Banner';
 
@@ -42,7 +43,7 @@ export function GenerateView({
       const payload = testCases.map((item) => {
         const tc = item.testCase as { getOutput?: () => unknown };
         return {
-          name: item.testCase.getName(),
+          name: getTestCaseDisplayLabel(item.testCase),
           input: item.testCase.getInput(),
           output: typeof tc.getOutput === 'function' ? tc.getOutput() : undefined,
         };

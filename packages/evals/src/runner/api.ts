@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 import { Effect, Fiber, PubSub, Queue, Ref } from 'effect';
+import { getEvaluatorDisplayLabel } from '../evals/evaluator';
 import { validateRunConfigName } from '../evals/run-config';
 import { loadRunSnapshotsFromArtifacts as loadSnapshotsFromArtifacts } from './artifact-loader';
 import type { RunnerConfig, RunnerConfigOverrides } from './config';
@@ -267,7 +268,7 @@ class EffectRunner implements RunnerApi {
           );
           if (!found) {
             throw new Error(
-              `RunConfig "${rcName}" run[${i}]: evaluator "${ev.getName() ?? 'unknown'}" was not found among discovered evaluator exports`,
+              `RunConfig "${rcName}" run[${i}]: evaluator "${getEvaluatorDisplayLabel(ev) ?? 'unknown'}" was not found among discovered evaluator exports`,
             );
           }
           evaluatorIds.push(found.id);
@@ -281,6 +282,7 @@ class EffectRunner implements RunnerApi {
         datasetId: dsCollected.id,
         evaluatorIds,
         runConfigName: rcName,
+        runConfigDisplayLabel: collected.runConfig.getDisplayLabel(),
         repetitions,
       });
     }

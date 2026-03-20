@@ -1,5 +1,10 @@
 import type { Schema as S } from 'effect';
 import type { CreateDiffLogEntryOptions } from './diff';
+import {
+  type EvaluatorName,
+  normalizeOptionalDisplayName,
+  validateEvaluatorName,
+} from './entity-name';
 
 export interface EvalMiddleware<TCtx> {
   name: string;
@@ -51,7 +56,8 @@ type EvaluateFn<TInput, TOutput, TScore, TCtx> = (
 ) => TScore | Error | Promise<TScore | Error>;
 
 interface EvaluatorConfig<TInput, TOutput, TScore, TCtx> {
-  name?: string;
+  name?: EvaluatorName;
+  displayName?: string;
   inputSchema?: S.Schema.Any;
   outputSchema?: S.Schema.Any;
   scoreSchema?: S.Schema.Any;
@@ -68,7 +74,13 @@ interface EvaluatorDefineConfig<
   TO extends S.Schema.Any,
   TS extends S.Schema.Any,
 > {
+  /**
+   * Stable id (letters, digits, `_`, `-`); used for discovery, name patterns, and `meta`.
+   * For an unrestricted UI label, set {@link displayName}.
+   */
   name: string;
+  /** Optional human-readable label for CLI/TUI (any characters). */
+  displayName?: string;
   inputSchema: TI;
   outputSchema: TO;
   scoreSchema: TS;
@@ -91,6 +103,7 @@ export class Evaluator<
   private getState(): EvaluatorConfig<TInput, TOutput, TScore, TCtx> {
     return {
       name: this._config.name,
+      displayName: this._config.displayName,
       inputSchema: this._config.inputSchema,
       outputSchema: this._config.outputSchema,
       scoreSchema: this._config.scoreSchema,
@@ -119,8 +132,11 @@ export class Evaluator<
     config: EvaluatorDefineConfig<TI, TO, TS>,
   ): Evaluator<S.Schema.Type<TI>, S.Schema.Type<TO>, S.Schema.Type<TS>, TCtx> {
     const { middlewares } = this.getState();
+    const name = validateEvaluatorName(config.name, 'Evaluator.define');
+    const displayName = normalizeOptionalDisplayName(config.displayName);
     return new Evaluator<S.Schema.Type<TI>, S.Schema.Type<TO>, S.Schema.Type<TS>, TCtx>({
-      name: config.name,
+      name,
+      displayName,
       inputSchema: config.inputSchema,
       outputSchema: config.outputSchema,
       scoreSchema: config.scoreSchema,
@@ -139,8 +155,22 @@ export class Evaluator<
     });
   }
 
+  /** Canonical evaluator id when defined; otherwise undefined (middleware-only chain). */
   getName(): string | undefined {
     return this._config.name;
+  }
+
+  getDisplayName(): string | undefined {
+    return this._config.displayName;
+  }
+
+  /** Label for CLI/TUI: {@link getDisplayName} if set, otherwise {@link getName}. Undefined if not yet defined. */
+  getDisplayLabel(): string | undefined {
+    const id = this._config.name;
+    if (id === undefined) {
+      return undefined;
+    }
+    return this._config.displayName ?? id;
   }
 
   getInputSchema(): S.Schema.Any | undefined {
@@ -175,4 +205,18 @@ export class Evaluator<
     const parts = await Promise.all(this._config.middlewares.map((mw) => mw.resolve()));
     return Object.assign({}, ...parts) as TCtx;
   }
+}
+
+/** CLI-friendly label: {@link Evaluator.getDisplayLabel} when present, else {@link Evaluator.getName} (supports plain evaluator-shaped objects from discovery). */
+export function getEvaluatorDisplayLabel(evaluator: {
+  getDisplayLabel?: () => string | undefined;
+  getName?: () => string | undefined;
+}): string | undefined {
+  if (typeof evaluator.getDisplayLabel === 'function') {
+    const label = evaluator.getDisplayLabel();
+    if (label !== undefined) {
+      return label;
+    }
+  }
+  return typeof evaluator.getName === 'function' ? evaluator.getName() : undefined;
 }

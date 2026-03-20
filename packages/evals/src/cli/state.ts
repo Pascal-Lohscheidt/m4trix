@@ -1,4 +1,5 @@
 import type { CliState, EvalsData, EvalDataset, EvalRun, StartupArgs } from './types';
+import { getEvaluatorDisplayLabel } from '../evals/evaluator';
 import type {
   CollectedDataset,
   CollectedEvaluator,
@@ -92,7 +93,7 @@ function toEvalDataset(item: CollectedDataset, snapshots: ReadonlyArray<RunSnaps
 function toEvaluatorOption(item: CollectedEvaluator): EvalsData['evaluators'][number] {
   return {
     id: item.id,
-    name: item.evaluator.getName() ?? toSlug(item.id),
+    name: getEvaluatorDisplayLabel(item.evaluator) ?? toSlug(item.id),
     configPreview: `Source: ${item.filePath}`,
   };
 }

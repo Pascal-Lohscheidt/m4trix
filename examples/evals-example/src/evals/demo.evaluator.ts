@@ -43,7 +43,8 @@ export const demoScoreEvaluator = Evaluator.use({
   resolve: () => ({ seed: 7 }),
 })
   .define({
-    name: 'Demo Score Evaluator',
+    name: 'demo-score-evaluator',
+    displayName: 'Demo Score Evaluator',
     inputSchema,
     outputSchema,
     scoreSchema: S.Struct({
@@ -94,7 +95,8 @@ export const demoLengthEvaluator = Evaluator.use({
   resolve: () => ({ bias: 10 }),
 })
   .define({
-    name: 'Demo Length Evaluator',
+    name: 'demo-length-evaluator',
+    displayName: 'Demo Length Evaluator',
     inputSchema,
     outputSchema,
     scoreSchema: S.Struct({
@@ -137,7 +139,8 @@ export const demoMultiScoreEvaluator = Evaluator.use({
   resolve: () => ({ seed: 5 }),
 })
   .define({
-    name: 'Demo Multi-Score Evaluator',
+    name: 'demo-multi-score-evaluator',
+    displayName: 'Demo Multi-Score Evaluator',
     inputSchema,
     outputSchema,
     scoreSchema: S.Struct({
@@ -196,7 +199,8 @@ export const demoDiffEvaluator = Evaluator.use({
   resolve: () => ({}),
 })
   .define({
-    name: 'Demo Diff Evaluator',
+    name: 'demo-diff-evaluator',
+    displayName: 'Demo Diff Evaluator',
     inputSchema,
     outputSchema: diffOutputSchema,
     scoreSchema: S.Struct({ scores: S.Array(S.Unknown) }),

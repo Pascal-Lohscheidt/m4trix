@@ -1,9 +1,15 @@
 import type { Schema as S } from 'effect';
+import {
+  normalizeOptionalDisplayName,
+  type TestCaseName,
+  validateTestCaseName,
+} from './entity-name';
 
 type InputOrBuilder<T> = T | (() => T);
 
 interface TestCaseConfig<TInput, TOutput> {
-  name: string;
+  name: TestCaseName;
+  displayName?: string;
   tags: string[];
   inputSchema: S.Schema.Any;
   input: InputOrBuilder<TInput>;
@@ -15,7 +21,13 @@ interface TestCaseDescribeConfig<
   TI extends S.Schema.Any,
   TO extends S.Schema.Any = S.Schema<unknown>,
 > {
+  /**
+   * Stable id (letters, digits, `_`, `-`).
+   * For an unrestricted UI label, set {@link displayName}.
+   */
   name: string;
+  /** Optional human-readable label for CLI/TUI (any characters). */
+  displayName?: string;
   tags: string[];
   inputSchema: TI;
   input: InputOrBuilder<S.Schema.Type<TI>>;
@@ -37,8 +49,11 @@ export class TestCase<TInput = unknown, TOutput = unknown> {
   static describe<TI extends S.Schema.Any, TO extends S.Schema.Any = S.Schema<unknown>>(
     config: TestCaseDescribeConfig<TI, TO>,
   ): TestCase<S.Schema.Type<TI>, S.Schema.Type<TO>> {
+    const name = validateTestCaseName(config.name, 'TestCase.describe');
+    const displayName = normalizeOptionalDisplayName(config.displayName);
     return new TestCase<S.Schema.Type<TI>, S.Schema.Type<TO>>({
-      name: config.name,
+      name,
+      displayName,
       tags: config.tags,
       inputSchema: config.inputSchema,
       input: config.input,
@@ -49,6 +64,14 @@ export class TestCase<TInput = unknown, TOutput = unknown> {
 
   getName(): string {
     return this._config.name;
+  }
+
+  getDisplayName(): string | undefined {
+    return this._config.displayName;
+  }
+
+  getDisplayLabel(): string {
+    return this._config.displayName ?? this._config.name;
   }
 
   getTags(): string[] {
@@ -73,4 +96,15 @@ export class TestCase<TInput = unknown, TOutput = unknown> {
     }
     return resolve(this._config.output);
   }
+}
+
+/** CLI-friendly label: {@link TestCase.getDisplayLabel} when present, else {@link TestCase.getName} (supports plain test-case-shaped objects). */
+export function getTestCaseDisplayLabel(testCase: {
+  getDisplayLabel?: () => string;
+  getName?: () => string;
+}): string {
+  if (typeof testCase.getDisplayLabel === 'function') {
+    return testCase.getDisplayLabel();
+  }
+  return typeof testCase.getName === 'function' ? testCase.getName() : '';
 }

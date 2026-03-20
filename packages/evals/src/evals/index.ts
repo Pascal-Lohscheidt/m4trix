@@ -14,10 +14,20 @@ export {
   printJsonDiff,
 } from './diff';
 export {
+  type EvaluatorName,
+  EvaluatorNameSchema,
+  normalizeOptionalDisplayName,
+  type TestCaseName,
+  TestCaseNameSchema,
+  validateEvaluatorName,
+  validateTestCaseName,
+} from './entity-name';
+export {
   type EvalMiddleware,
   type EvaluateArgs,
   type EvaluateMeta,
   Evaluator,
+  getEvaluatorDisplayLabel,
 } from './evaluator';
 export type {
   FormatMetricOptions,
@@ -33,13 +43,13 @@ export {
 } from './metrics/standard';
 export {
   RunConfig,
-  RunConfigNameSchema,
-  validateRunConfigName,
   type RunConfigDefineConfig,
   type RunConfigName,
+  RunConfigNameSchema,
   type RunConfigRow,
   type RunConfigRowEvaluators,
   type RunConfigRowPattern,
+  validateRunConfigName,
 } from './run-config';
 export type {
   FormatScoreOptions,
@@ -56,5 +66,5 @@ export {
   type PercentScoreData,
   percentScore,
 } from './scores/standard';
-export { TestCase } from './test-case';
+export { getTestCaseDisplayLabel, TestCase } from './test-case';
 export type { PathMatcher, TagMatcher } from './types';
