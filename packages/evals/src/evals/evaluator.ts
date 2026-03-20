@@ -21,6 +21,10 @@ export interface EvaluateMeta {
   runId: string;
   /** Display label for the dataset (`Dataset.getDisplayLabel()`, i.e. `displayName ?? name`). */
   datasetName: string;
+  /** Discovery id for the current test case (same as runner events’ `testCaseId`). */
+  testCaseId: string;
+  /** Display label for the test case (`TestCase.getDisplayLabel()`, i.e. `displayName ?? name`). */
+  testCaseName: string;
   /** Canonical `RunConfig` name (or `programmatic` for API/TUI-only runs). */
   runConfigName: string;
   /**

@@ -220,6 +220,8 @@ describe('runner discovery and execution', () => {
     expect(progressEvent?.evaluatorScores[0]?.scores[1]?.data).toEqual(
       expect.objectContaining({
         datasetName: 'Alpha Dataset',
+        testCaseName: 'first',
+        testCaseId: 'test-case-first',
         runConfigName: PROGRAMMATIC_RUN_CONFIG.runConfigName,
         repetitionIndex: 1,
         repetitionCount: 1,
@@ -445,6 +447,8 @@ describe('runner discovery and execution', () => {
         }
       | undefined;
     expect(meta?.datasetName).toBe('Alpha Dataset');
+    expect(meta?.testCaseName).toBe('first');
+    expect(meta?.testCaseId).toBe('test-case-first');
     expect(meta?.runConfigName).toBe('fixture-rc');
     expect(meta?.experimentName).toBe('cli-smoke');
   });

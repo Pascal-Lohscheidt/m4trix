@@ -200,6 +200,8 @@ function processOneEvaluation(
                 triggerId: task.triggerId,
                 runId: evaluatorRunId,
                 datasetName: task.dataset.getDisplayLabel(),
+                testCaseId: testCaseItem.id,
+                testCaseName: getTestCaseDisplayLabel(testCaseItem.testCase),
                 repetitionId,
                 repetitionIndex,
                 repetitionCount,

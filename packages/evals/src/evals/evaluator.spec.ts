@@ -142,6 +142,8 @@ describe('Evaluator', () => {
         triggerId: 'trg-123',
         runId: 'run-123',
         datasetName: 'fixture-dataset',
+        testCaseId: 'tc-fixture',
+        testCaseName: 'Fixture case',
         runConfigName: 'test-rc',
         repetitionId: 'rep-test',
         repetitionIndex: 1,
