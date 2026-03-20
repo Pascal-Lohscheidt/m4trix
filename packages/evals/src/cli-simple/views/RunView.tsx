@@ -166,7 +166,11 @@ interface RunViewProps {
   runner: RunnerApi;
   runConfigNames: ReadonlyArray<string>;
   concurrency: number;
-  onComplete: (error?: Error) => void;
+  /**
+   * Error ends the run unsuccessfully; on success `exitCode` is 0 when all test cases passed
+   * across completed runs, or 1 when any had failures (`RunCompleted.failedTestCases`).
+   */
+  onComplete: (error?: Error, exitCode?: 0 | 1) => void;
 }
 
 interface RunInfoState {
@@ -449,7 +453,8 @@ export function RunView({
       artifactPath: artifacts.join('\n'),
     });
     setPhase('completed');
-    setTimeout(() => onComplete(), 200);
+    const exitCode: 0 | 1 = failedTestCases > 0 ? 1 : 0;
+    setTimeout(() => onComplete(undefined, exitCode), 200);
   }, [runner, runConfigNames, concurrency, onComplete]);
 
   useEffect(() => {

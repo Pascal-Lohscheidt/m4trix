@@ -8,6 +8,11 @@ export interface SimpleCliArgs {
   runConfigNames: string[];
   /** Max concurrent evaluations. Default: 4. Use 1 for sequential. */
   concurrency?: number;
+  /**
+   * When set (typically for `run`), exit with code 1 if any test case fails.
+   * Ignored for `generate`.
+   */
+  ci: boolean;
   help: boolean;
   unknownArgs: string[];
 }
@@ -20,6 +25,7 @@ export function getDefaultConcurrency(): number {
 export function parseSimpleCliArgs(argv: string[]): SimpleCliArgs {
   const args: SimpleCliArgs = {
     help: false,
+    ci: false,
     runConfigNames: [],
     unknownArgs: [],
   };
@@ -33,6 +39,10 @@ export function parseSimpleCliArgs(argv: string[]): SimpleCliArgs {
     const token = argv[index];
     if (token === '--help' || token === '-h') {
       args.help = true;
+      continue;
+    }
+    if (token === '--ci') {
+      args.ci = true;
       continue;
     }
     if ((token === '--dataset' || token === '--datasetName') && argv[index + 1]) {
@@ -66,10 +76,11 @@ export function parseSimpleCliArgs(argv: string[]): SimpleCliArgs {
 export function getSimpleCliUsage(): string {
   return [
     'Usage:',
-    '  eval-agents-simple run --run-config <name> [--run-config <name> ...] [--concurrency N]',
+    '  eval-agents-simple run --run-config <name> [--run-config <name> ...] [--concurrency N] [--ci]',
     '  eval-agents-simple generate --dataset <datasetName>',
     '',
     'Options:',
+    '  --ci                  With run: exit with code 1 if any test case fails.',
     '  --concurrency, -c N   Max concurrent evaluations (default: 4). Use 1 for sequential.',
   ].join('\n');
 }

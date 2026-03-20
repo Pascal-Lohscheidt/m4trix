@@ -1,13 +1,13 @@
-import * as React from 'react';
 import { render } from 'ink';
+import * as React from 'react';
 import {
+  type EvaluatorLogEntry,
   formatScoreData,
   getDiffLines,
   getEvaluatorDisplayLabel,
   getLogLines,
   getMetricById,
   getScoreById,
-  type EvaluatorLogEntry,
   type LogEntry,
 } from '../evals';
 import type { ScoreItem } from '../evals/score';
@@ -304,12 +304,12 @@ function formatEvaluatorScoreLine(
   return lines;
 }
 
-
+/** @returns `0` if every completed run had zero failed test cases; `1` otherwise. */
 export async function runSimpleEvalRunConfigsPlain(
   runner: RunnerApi,
   runConfigNames: ReadonlyArray<string>,
   concurrency: number,
-): Promise<void> {
+): Promise<0 | 1> {
   const jobs = await runner.expandRunConfigNamesToJobs(runConfigNames);
   if (jobs.length === 0) {
     throw new Error('No jobs expanded from RunConfigs.');
@@ -369,10 +369,7 @@ export async function runSimpleEvalRunConfigsPlain(
   const runIdToLabel = new Map<string, string>();
   let batchReady = false;
 
-  const completedRuns = new Map<
-    string,
-    Extract<RunnerEvent, { type: 'RunCompleted' }>
-  >();
+  const completedRuns = new Map<string, Extract<RunnerEvent, { type: 'RunCompleted' }>>();
 
   const done = new Promise<void>((resolve, reject) => {
     const unsubscribe = runner.subscribeRunEvents((event) => {
@@ -385,10 +382,8 @@ export async function runSimpleEvalRunConfigsPlain(
         return;
       }
 
-      const rowPrefix =
-        typeof event.runId === 'string' ? runIdToLabel.get(event.runId) : undefined;
-      const pfx =
-        rowPrefix !== undefined ? `${colorize(`[${rowPrefix}]`, ansi.dim)} ` : '';
+      const rowPrefix = typeof event.runId === 'string' ? runIdToLabel.get(event.runId) : undefined;
+      const pfx = rowPrefix !== undefined ? `${colorize(`[${rowPrefix}]`, ansi.dim)} ` : '';
 
       if (event.type === 'TestCaseStarted') {
         globalStartedUnits += 1;
@@ -667,26 +662,34 @@ export async function runSimpleEvalRunConfigsPlain(
       );
     }
   }
-}
 
+  let failedTestCasesTotal = 0;
+  for (const snap of snapshots) {
+    const completed = completedRuns.get(snap.runId);
+    if (completed) {
+      failedTestCasesTotal += completed.failedTestCases;
+    }
+  }
+  return failedTestCasesTotal > 0 ? 1 : 0;
+}
 
 export async function runSimpleEvalRunConfigsInk(
   runner: RunnerApi,
   runConfigNames: ReadonlyArray<string>,
   concurrency: number,
-): Promise<void> {
-  return new Promise<void>((resolve, reject) => {
+): Promise<0 | 1> {
+  return new Promise<0 | 1>((resolve, reject) => {
     const app = render(
       React.createElement(RunView, {
         runner,
         runConfigNames,
         concurrency,
-        onComplete: (err: Error | undefined) => {
+        onComplete: (err?: Error, exitCode?: 0 | 1) => {
           app.unmount();
           if (err) {
             reject(err);
           } else {
-            resolve();
+            resolve(exitCode ?? 0);
           }
         },
       }),

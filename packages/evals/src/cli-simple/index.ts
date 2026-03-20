@@ -28,11 +28,15 @@ async function main(): Promise<void> {
 
   if (args.command === 'run') {
     if (args.runConfigNames.length === 0) {
-      console.error('Missing required --run-config <name> (repeat the flag to queue multiple RunConfigs).');
+      console.error(
+        'Missing required --run-config <name> (repeat the flag to queue multiple RunConfigs).',
+      );
       printUsageAndExit(1);
     }
     if (args.datasetName !== undefined) {
-      console.error('The run command no longer accepts --dataset; use --run-config <RunConfig name>.');
+      console.error(
+        'The run command no longer accepts --dataset; use --run-config <RunConfig name>.',
+      );
       printUsageAndExit(1);
     }
   }
@@ -51,11 +55,14 @@ async function main(): Promise<void> {
   try {
     if (args.command === 'run') {
       const concurrency = args.concurrency ?? getDefaultConcurrency();
-      await (useInk ? runSimpleEvalRunConfigsInk : runSimpleEvalRunConfigsPlain)(
+      const exitCode = await (useInk ? runSimpleEvalRunConfigsInk : runSimpleEvalRunConfigsPlain)(
         runner,
         args.runConfigNames,
         concurrency,
       );
+      if (args.ci && exitCode !== 0) {
+        process.exit(1);
+      }
       return;
     }
 

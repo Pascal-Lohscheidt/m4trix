@@ -164,7 +164,7 @@ Repeat **`--run-config`** to queue several configs; jobs share one **`--concurre
 ## CLI Commands
 
 - `eval-agents`: interactive CLI (starts runs with synthetic meta `programmatic` / `Programmatic`)
-- `eval-agents-simple run --run-config "<RunConfig name>"` (repeatable; case-insensitive match)
+- `eval-agents-simple run --run-config "<RunConfig name>"` (repeatable; case-insensitive match); add **`--ci`** to exit with code **1** if any test case fails
 - `eval-agents-simple generate --dataset "<dataset name>"`
 
 ## Default Discovery and Artifacts
