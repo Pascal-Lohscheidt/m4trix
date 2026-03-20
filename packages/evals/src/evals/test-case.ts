@@ -108,3 +108,8 @@ export function getTestCaseDisplayLabel(testCase: {
   }
   return typeof testCase.getName === 'function' ? testCase.getName() : '';
 }
+
+/** Tags for evaluator `args.testCaseTags` (supports plain test-case-shaped objects without `getTags`). */
+export function getTestCaseTagList(testCase: { getTags?: () => ReadonlyArray<string> }): string[] {
+  return typeof testCase.getTags === 'function' ? [...testCase.getTags()] : [];
+}

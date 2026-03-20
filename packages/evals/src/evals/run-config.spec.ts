@@ -33,6 +33,15 @@ describe('RunConfig', () => {
     ).toThrow();
   });
 
+  test('define() stores optional tags', () => {
+    const rc = RunConfig.define({
+      name: 'tagged-rc',
+      tags: ['suite-a', 'ci'],
+      runs: [{ dataset: ds, evaluators: [ev] }],
+    });
+    expect(rc.getTags()).toEqual(['suite-a', 'ci']);
+  });
+
   test('define() accepts optional displayName for CLI label', () => {
     const rc = RunConfig.define({
       name: 'nightly',

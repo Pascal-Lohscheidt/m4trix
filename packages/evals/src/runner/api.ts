@@ -283,6 +283,7 @@ class EffectRunner implements RunnerApi {
         evaluatorIds,
         runConfigName: rcName,
         runConfigDisplayLabel: collected.runConfig.getDisplayLabel(),
+        runConfigTags: collected.runConfig.getTags(),
         repetitions,
       });
     }
@@ -326,6 +327,7 @@ class EffectRunner implements RunnerApi {
           maxConcurrency: this.config.maxConcurrency ?? 1,
           globalEvaluationSemaphore: sem,
           runConfigName: job.runConfigName,
+          runConfigTags: job.runConfigTags,
           repetitions: job.repetitions,
         }),
       );
@@ -364,6 +366,7 @@ class EffectRunner implements RunnerApi {
       maxConcurrency: request.concurrency ?? this.config.maxConcurrency ?? 1,
       repetitions: request.repetitions,
       runConfigName,
+      runConfigTags: request.runConfigTags,
     });
   }
 
@@ -374,6 +377,7 @@ class EffectRunner implements RunnerApi {
     maxConcurrency: number;
     globalEvaluationSemaphore?: ReturnType<typeof Effect.unsafeMakeSemaphore>;
     runConfigName: string;
+    runConfigTags?: ReadonlyArray<string>;
     repetitions?: number;
   }): Promise<RunSnapshot> {
     if (this.datasetsById.size === 0) {
@@ -401,6 +405,7 @@ class EffectRunner implements RunnerApi {
 
     const repetitions = normalizeRunRepetitions(params.repetitions);
     const totalEvaluations = selectedTestCases.length * repetitions;
+    const runConfigTags = [...(params.runConfigTags ?? [])];
 
     const triggerId = params.triggerId ?? `trg-${randomUUID()}`;
     const runId = `run-${randomUUID()}`;
@@ -456,6 +461,7 @@ class EffectRunner implements RunnerApi {
         maxConcurrency: params.maxConcurrency,
         globalEvaluationSemaphore: params.globalEvaluationSemaphore,
         runConfigName: params.runConfigName,
+        runConfigTags,
         repetitions,
       }),
     );

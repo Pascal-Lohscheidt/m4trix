@@ -65,6 +65,7 @@ async function createFixtureWorkspace(
       typedScoreConst,
       'export const scoreEvaluator = {',
       "  getName: () => 'Score Evaluator',",
+      '  getTags: () => [],',
       '  getInputSchema: () => undefined,',
       '  getOutputSchema: () => undefined,',
       '  getScoreSchema: () => undefined,',

@@ -2,15 +2,15 @@ import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 
 import { Effect, Queue, Ref } from 'effect';
-
+import type { Dataset } from '../evals/dataset';
 import type { CreateDiffLogEntryOptions, EvaluatorLogEntry } from '../evals/diff';
 import { createDiffLogEntry, createLogEntry } from '../evals/diff';
-import type { Dataset } from '../evals/dataset';
 import type { Evaluator } from '../evals/evaluator';
-import { getTestCaseDisplayLabel } from '../evals/test-case';
+import { getEvaluatorTagList } from '../evals/evaluator';
 import type { MetricItem } from '../evals/metric';
 import type { ScoreItem } from '../evals/score';
-import type { CollectedTestCase, RunSnapshot, RunnerEvent } from './events';
+import { getTestCaseDisplayLabel, getTestCaseTagList } from '../evals/test-case';
+import type { CollectedTestCase, RunnerEvent, RunSnapshot } from './events';
 import type { PersistenceMessage } from './persistence';
 import { toNumericScoreFromScores } from './score-utils';
 
@@ -79,6 +79,8 @@ export interface RunTask {
   /** When set, limits concurrent evaluation units across all runs sharing this semaphore. */
   globalEvaluationSemaphore?: ReturnType<typeof Effect.unsafeMakeSemaphore>;
   runConfigName: string;
+  /** Per job: tags from the run config or programmatic request; forwarded to evaluator callbacks. */
+  runConfigTags: string[];
   /** Per scheduled job: how many times each dataset test case is executed. */
   repetitions: number;
 }
@@ -201,6 +203,9 @@ function processOneEvaluation(
                 repetitionCount,
                 runConfigName: task.runConfigName,
               },
+              testCaseTags: getTestCaseTagList(testCaseItem.testCase),
+              runConfigTags: task.runConfigTags,
+              evaluatorTags: getEvaluatorTagList(evaluator),
               logDiff,
               log,
               createError,

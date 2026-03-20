@@ -40,6 +40,12 @@ export interface EvaluateArgs<TInput, TOutput = unknown, TCtx = Record<string, n
   output?: TOutput;
   /** Metadata about the current evaluator invocation. */
   meta: EvaluateMeta;
+  /** Tags from `TestCase.describe({ tags })` for the current test case. */
+  testCaseTags: string[];
+  /** Tags from `RunConfig.define({ tags })` for this job; empty for programmatic runs unless set on the request. */
+  runConfigTags: string[];
+  /** Tags from `Evaluator.define({ tags })` for this evaluator. */
+  evaluatorTags: string[];
   /** Records a diff for this test case; stored in run artifact and shown by CLI */
   logDiff: (expected: unknown, actual: unknown, options?: CreateDiffLogEntryOptions) => void;
   /** Logs a message or object for this test case; stored in run artifact and shown by CLI */
@@ -58,6 +64,7 @@ type EvaluateFn<TInput, TOutput, TScore, TCtx> = (
 interface EvaluatorConfig<TInput, TOutput, TScore, TCtx> {
   name?: EvaluatorName;
   displayName?: string;
+  tags: readonly string[];
   inputSchema?: S.Schema.Any;
   outputSchema?: S.Schema.Any;
   scoreSchema?: S.Schema.Any;
@@ -86,6 +93,8 @@ interface EvaluatorDefineConfig<
   scoreSchema: TS;
   passThreshold?: number;
   passCriterion?: (score: unknown) => boolean;
+  /** Optional tags for this evaluator; surfaced on every `evaluate` invocation. */
+  tags?: ReadonlyArray<string>;
 }
 
 export class Evaluator<
@@ -104,6 +113,7 @@ export class Evaluator<
     return {
       name: this._config.name,
       displayName: this._config.displayName,
+      tags: this._config.tags,
       inputSchema: this._config.inputSchema,
       outputSchema: this._config.outputSchema,
       scoreSchema: this._config.scoreSchema,
@@ -117,6 +127,7 @@ export class Evaluator<
   static use<TCtx>(middleware: EvalMiddleware<TCtx>): Evaluator<unknown, unknown, unknown, TCtx> {
     return new Evaluator<unknown, unknown, unknown, TCtx>({
       middlewares: [middleware as EvalMiddleware<unknown>],
+      tags: [],
     });
   }
 
@@ -134,9 +145,11 @@ export class Evaluator<
     const { middlewares } = this.getState();
     const name = validateEvaluatorName(config.name, 'Evaluator.define');
     const displayName = normalizeOptionalDisplayName(config.displayName);
+    const tags = config.tags !== undefined ? [...config.tags] : [];
     return new Evaluator<S.Schema.Type<TI>, S.Schema.Type<TO>, S.Schema.Type<TS>, TCtx>({
       name,
       displayName,
+      tags,
       inputSchema: config.inputSchema,
       outputSchema: config.outputSchema,
       scoreSchema: config.scoreSchema,
@@ -171,6 +184,11 @@ export class Evaluator<
       return undefined;
     }
     return this._config.displayName ?? id;
+  }
+
+  /** Tags from `Evaluator.define({ tags })`; empty until defined. */
+  getTags(): string[] {
+    return [...this._config.tags];
   }
 
   getInputSchema(): S.Schema.Any | undefined {
@@ -219,4 +237,11 @@ export function getEvaluatorDisplayLabel(evaluator: {
     }
   }
   return typeof evaluator.getName === 'function' ? evaluator.getName() : undefined;
+}
+
+/** Tags for evaluator `args.evaluatorTags` (plain evaluator-shaped objects without `getTags` yield `[]`). */
+export function getEvaluatorTagList(evaluator: {
+  getTags?: () => ReadonlyArray<string>;
+}): string[] {
+  return typeof evaluator.getTags === 'function' ? [...evaluator.getTags()] : [];
 }

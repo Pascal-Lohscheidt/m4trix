@@ -28,6 +28,7 @@ export {
   type EvaluateMeta,
   Evaluator,
   getEvaluatorDisplayLabel,
+  getEvaluatorTagList,
 } from './evaluator';
 export type {
   FormatMetricOptions,
@@ -66,5 +67,6 @@ export {
   type PercentScoreData,
   percentScore,
 } from './scores/standard';
-export { getTestCaseDisplayLabel, TestCase } from './test-case';
+export { TagSet, type TagSetMembers } from './tag-set';
+export { getTestCaseDisplayLabel, getTestCaseTagList, TestCase } from './test-case';
 export type { PathMatcher, TagMatcher } from './types';

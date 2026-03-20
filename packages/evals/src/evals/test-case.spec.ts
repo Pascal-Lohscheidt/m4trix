@@ -1,6 +1,6 @@
 import { describe, expect, expectTypeOf, test } from 'vitest';
 import { Schema as S } from 'effect';
-import { getTestCaseDisplayLabel, TestCase } from './test-case';
+import { getTestCaseDisplayLabel, getTestCaseTagList, TestCase } from './test-case';
 
 describe('TestCase', () => {
   const inputSchema = S.Struct({ prompt: S.String });
@@ -121,6 +121,17 @@ describe('TestCase', () => {
     expectTypeOf(input).toEqualTypeOf(inputSchemaWithCount.Type);
     expect(input.prompt).toBe('x');
     expect(input.count).toBe(1);
+  });
+
+  test('getTestCaseTagList reads tags or returns empty', () => {
+    const tc = TestCase.describe({
+      name: 'tagged',
+      tags: ['a', 'b'],
+      inputSchema,
+      input: { prompt: 'x' },
+    });
+    expect(getTestCaseTagList(tc)).toEqual(['a', 'b']);
+    expect(getTestCaseTagList({})).toEqual([]);
   });
 
   test('getTestCaseDisplayLabel supports class and plain objects', () => {

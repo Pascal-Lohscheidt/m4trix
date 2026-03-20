@@ -35,6 +35,10 @@ export interface RunDatasetJob {
    * Omitted for ad-hoc jobs; UI should fall back to {@link runConfigName}.
    */
   runConfigDisplayLabel?: string;
+  /**
+   * Tags from `RunConfig.define({ tags })` for this job; forwarded as `runConfigTags` on evaluator callbacks.
+   */
+  runConfigTags?: ReadonlyArray<string>;
   /** Evaluates each matching test case this many times (default 1). */
   repetitions: number;
 }
@@ -72,6 +76,10 @@ export interface RunDatasetRequest {
    * How many times each test case is executed (default: 1). For RunConfig-backed runs, set per row on the config.
    */
   repetitions?: number;
+  /**
+   * Optional tags for this run; forwarded as `runConfigTags` on evaluator callbacks (e.g. suite labels).
+   */
+  runConfigTags?: ReadonlyArray<string>;
 }
 
 export interface RunSnapshot {

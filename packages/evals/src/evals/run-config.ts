@@ -1,10 +1,10 @@
 import type { Dataset } from './dataset';
-import type { Evaluator } from './evaluator';
 import {
   normalizeOptionalDisplayName,
   type RunConfigName,
   validateRunConfigName,
 } from './entity-name';
+import type { Evaluator } from './evaluator';
 
 export type { RunConfigName } from './entity-name';
 export { RunConfigNameSchema, validateRunConfigName } from './entity-name';
@@ -43,6 +43,8 @@ export interface RunConfigDefineConfig {
   name: string;
   /** Optional human-readable label for CLI/TUI (any characters). */
   displayName?: string;
+  /** Optional tags; copied to every evaluation as `runConfigTags` on the evaluator callback. */
+  tags?: ReadonlyArray<string>;
   runs: ReadonlyArray<RunConfigRow>;
 }
 
@@ -57,14 +59,10 @@ function validateRow(row: RunConfigRow, index: number): void {
     (row as RunConfigRowPattern).evaluatorPattern.trim().length > 0;
 
   if (hasEvaluators && hasPattern) {
-    throw new Error(
-      `RunConfig run[${index}] must not set both evaluators and evaluatorPattern`,
-    );
+    throw new Error(`RunConfig run[${index}] must not set both evaluators and evaluatorPattern`);
   }
   if (!hasEvaluators && !hasPattern) {
-    throw new Error(
-      `RunConfig run[${index}] must set either evaluators or evaluatorPattern`,
-    );
+    throw new Error(`RunConfig run[${index}] must set either evaluators or evaluatorPattern`);
   }
   if (hasEvaluators && (row as RunConfigRowEvaluators).evaluators.length === 0) {
     throw new Error(`RunConfig run[${index}]: evaluators must be non-empty`);
@@ -82,15 +80,18 @@ function validateRow(row: RunConfigRow, index: number): void {
 export class RunConfig {
   private readonly _name: RunConfigName;
   private readonly _displayName: string | undefined;
+  private readonly _tags: readonly string[];
   private readonly _runs: ReadonlyArray<RunConfigRow>;
 
   private constructor(
     name: RunConfigName,
     displayName: string | undefined,
+    tags: readonly string[],
     runs: ReadonlyArray<RunConfigRow>,
   ) {
     this._name = name;
     this._displayName = displayName;
+    this._tags = tags;
     this._runs = runs;
   }
 
@@ -101,7 +102,8 @@ export class RunConfig {
     config.runs.forEach(validateRow);
     const name = validateRunConfigName(config.name, 'RunConfig.define');
     const displayName = normalizeOptionalDisplayName(config.displayName);
-    return new RunConfig(name, displayName, config.runs);
+    const tags = config.tags !== undefined ? [...config.tags] : [];
+    return new RunConfig(name, displayName, tags, config.runs);
   }
 
   /** Canonical id (branded {@link RunConfigName} at runtime; typed as `string` for ergonomics). */
@@ -117,6 +119,11 @@ export class RunConfig {
   /** Label for CLI/TUI: {@link getDisplayName} if set, otherwise {@link getName}. */
   getDisplayLabel(): string {
     return this._displayName ?? this._name;
+  }
+
+  /** Tags from `RunConfig.define({ tags })`; surfaced as `runConfigTags` on evaluator callbacks. */
+  getTags(): string[] {
+    return [...this._tags];
   }
 
   getRuns(): ReadonlyArray<RunConfigRow> {

@@ -147,6 +147,9 @@ describe('Evaluator', () => {
         repetitionIndex: 1,
         repetitionCount: 1,
       },
+      testCaseTags: ['tc-a'],
+      runConfigTags: ['rc-x'],
+      evaluatorTags: [],
       logDiff,
       log,
       createError,
@@ -157,6 +160,9 @@ describe('Evaluator', () => {
         input: { prompt: 'hello' },
         ctx,
         output: { title: 'value' },
+        testCaseTags: ['tc-a'],
+        runConfigTags: ['rc-x'],
+        evaluatorTags: [],
       }),
     );
     expect(result).toEqual({ accuracy: 6 });
@@ -273,6 +279,17 @@ describe('Evaluator', () => {
 
     expect(evaluator.getPassThreshold()).toBeUndefined();
     expect(evaluator.getPassCriterion()).toBe(customCriterion);
+  });
+
+  test('define() stores tags for getTags() and evaluate-time tag lists', () => {
+    const ev = Evaluator.use(withLLM).define({
+      name: 'tagged-eval',
+      tags: ['eval-suite', 'nightly'],
+      inputSchema,
+      outputSchema,
+      scoreSchema,
+    });
+    expect(ev.getTags()).toEqual(['eval-suite', 'nightly']);
   });
 
   test('getEvaluatorDisplayLabel supports class and plain objects', () => {
