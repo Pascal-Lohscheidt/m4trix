@@ -1,4 +1,5 @@
 import type { CliState, EvalsData, EvalDataset, EvalRun, StartupArgs } from './types';
+import { getDatasetDisplayLabel } from '../evals/dataset';
 import { getEvaluatorDisplayLabel } from '../evals/evaluator';
 import type {
   CollectedDataset,
@@ -84,7 +85,7 @@ function toEvalDataset(item: CollectedDataset, snapshots: ReadonlyArray<RunSnaps
 
   return {
     id: item.id,
-    name: item.dataset.getName(),
+    name: getDatasetDisplayLabel(item.dataset),
     overview: `Discovered from ${item.filePath}`,
     runs,
   };

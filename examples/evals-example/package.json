@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "eval:run": "pnpm exec eval-agents-simple run --run-config \"example-name\"",
-    "eval:generate": "eval-agents-simple generate --dataset \"Demo Dataset\"",
+    "eval:generate": "eval-agents-simple generate --dataset \"demo-dataset\"",
     "example": "tsx src/index.ts"
   },
   "dependencies": {

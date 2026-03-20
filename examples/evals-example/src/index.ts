@@ -13,7 +13,7 @@ import { createRunner, PROGRAMMATIC_RUN_CONFIG } from '@m4trix/evals';
 async function runExample(): Promise<void> {
   const runner = createRunner();
 
-  const dataset = await runner.resolveDatasetByName('Demo Dataset');
+  const dataset = await runner.resolveDatasetByName('demo-dataset');
   if (!dataset) {
     throw new Error('Demo Dataset not found');
   }

@@ -17,6 +17,8 @@ describe('Dataset', () => {
     const ds = Dataset.define({ name: 'all-tests' });
 
     expect(ds.getName()).toBe('all-tests');
+    expect(ds.getDisplayName()).toBeUndefined();
+    expect(ds.getDisplayLabel()).toBe('all-tests');
     expect(ds.getIncludedTags()).toEqual([]);
     expect(ds.getExcludedTags()).toEqual([]);
     expect(ds.getIncludedPaths()).toEqual([]);
@@ -115,6 +117,25 @@ describe('Dataset', () => {
   test('returns an immutable Dataset instance', () => {
     const ds = Dataset.define({ name: 'immutable' });
     expect(ds).toBeInstanceOf(Dataset);
+  });
+
+  test('define() accepts optional displayName for getDisplayLabel', () => {
+    const ds = Dataset.define({
+      name: 'nightly',
+      displayName: 'Nightly suite',
+      includedTags: ['smoke'],
+    });
+    expect(ds.getName()).toBe('nightly');
+    expect(ds.getDisplayName()).toBe('Nightly suite');
+    expect(ds.getDisplayLabel()).toBe('Nightly suite');
+  });
+
+  test('define() rejects invalid name characters', () => {
+    expect(() =>
+      Dataset.define({
+        name: 'Bad Name',
+      }),
+    ).toThrow(/no spaces/);
   });
 
   test('matchesTestCase accepts TestCase with any input types', () => {

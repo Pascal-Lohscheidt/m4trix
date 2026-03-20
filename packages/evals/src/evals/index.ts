@@ -1,4 +1,8 @@
-export { Dataset } from './dataset';
+export {
+  Dataset,
+  type DatasetDefineConfig,
+  getDatasetDisplayLabel,
+} from './dataset';
 export {
   type CreateDiffLogEntryOptions,
   createDiffLogEntry,
@@ -14,11 +18,14 @@ export {
   printJsonDiff,
 } from './diff';
 export {
+  type DatasetName,
+  DatasetNameSchema,
   type EvaluatorName,
   EvaluatorNameSchema,
   normalizeOptionalDisplayName,
   type TestCaseName,
   TestCaseNameSchema,
+  validateDatasetName,
   validateEvaluatorName,
   validateTestCaseName,
 } from './entity-name';

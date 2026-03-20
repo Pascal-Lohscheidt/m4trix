@@ -62,7 +62,8 @@ export default defineConfig((): ConfigType => ({
 import { Dataset } from '@m4trix/evals';
 
 export const myDataset = Dataset.define({
-  name: 'My Dataset',
+  name: 'my-dataset',
+  displayName: 'My Dataset',
   includedTags: ['demo'],
 });
 ```
@@ -137,7 +138,7 @@ Group several dataset/evaluator runs under one named config. Each row is either
 `evaluators: [...]` (same module instances discovery loads) or `evaluatorPattern: "..."`
 (wildcard / regex rules from `RunnerApi.resolveEvaluatorsByNamePattern`). Multiple jobs share one `--concurrency` cap.
 
-Optional **`repetitions`** on a row (default `1`) runs each matching test case that many times. Every execution in that group shares the same **`repetitionId`** in the evaluator callback **`meta`**, with **`repetitionIndex`** / **`repetitionCount`**. Evaluator **`meta`** includes **`runConfigName`**: the **`RunConfig`** name (or **`programmatic`** from **`PROGRAMMATIC_RUN_CONFIG`** for API/TUI-only **`runDatasetWith`**). Names may use **kebab-case**, **snake_case**, **camelCase**, etc. (letters, digits, `_`, `-` only, no spaces); resolution is **case-insensitive**.
+Optional **`repetitions`** on a row (default `1`) runs each matching test case that many times. Every execution in that group shares the same **`repetitionId`** in the evaluator callback **`meta`**, with **`repetitionIndex`** / **`repetitionCount`**. Evaluator **`meta`** includes **`datasetName`** (`Dataset.getDisplayLabel()` → `displayName ?? name`) and **`runConfigName`**: the **`RunConfig`** id (or **`programmatic`** from **`PROGRAMMATIC_RUN_CONFIG`** for API/TUI-only **`runDatasetWith`**). **`Dataset`** and **`TestCase`** follow the same naming convention as **`RunConfig`**: **`name`** is the stable id; optional **`displayName`** is unrestricted for UI. Names may use **kebab-case**, **snake_case**, **camelCase**, etc. (letters, digits, `_`, `-` only, no spaces); resolution is **case-insensitive**.
 
 ```ts
 import { RunConfig } from '@m4trix/evals';
@@ -165,7 +166,7 @@ Repeat **`--run-config`** to queue several configs; jobs share one **`--concurre
 
 - `eval-agents`: interactive CLI (starts runs with synthetic meta `programmatic` / `Programmatic`)
 - `eval-agents-simple run --run-config "<RunConfig name>"` (repeatable; case-insensitive match); add **`--ci`** to exit with code **1** if any test case fails
-- `eval-agents-simple generate --dataset "<dataset name>"`
+- `eval-agents-simple generate --dataset "<dataset id>"` (canonical **`Dataset` `name`**, case-insensitive)
 
 ## Default Discovery and Artifacts
 

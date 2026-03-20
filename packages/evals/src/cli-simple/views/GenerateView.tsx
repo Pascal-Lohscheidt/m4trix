@@ -3,6 +3,7 @@ import type React from 'react';
 import { useEffect, useState } from 'react';
 import { Box, Text } from 'ink';
 
+import { getDatasetDisplayLabel } from '../../evals/dataset';
 import { getTestCaseDisplayLabel } from '../../evals/test-case';
 import type { RunnerApi } from '../../runner';
 import { Banner } from './Banner';
@@ -58,7 +59,7 @@ export function GenerateView({
       if (!cancelled) {
         setResult({
           count: payload.length,
-          datasetName: dataset.dataset.getName(),
+          datasetName: getDatasetDisplayLabel(dataset.dataset),
           outputPath,
         });
         setTimeout(() => onComplete(), 200);

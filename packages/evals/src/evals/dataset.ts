@@ -1,16 +1,24 @@
-import type { TagMatcher, PathMatcher } from './types';
+import { type DatasetName, normalizeOptionalDisplayName, validateDatasetName } from './entity-name';
 import type { TestCase } from './test-case';
+import type { PathMatcher, TagMatcher } from './types';
 
 interface DatasetConfig {
-  name: string;
+  name: DatasetName;
+  displayName?: string;
   includedTags: ReadonlyArray<TagMatcher>;
   excludedTags: ReadonlyArray<TagMatcher>;
   includedPaths: ReadonlyArray<PathMatcher>;
   excludedPaths: ReadonlyArray<PathMatcher>;
 }
 
-interface DatasetDefineConfig {
+export interface DatasetDefineConfig {
+  /**
+   * Stable id (letters, digits, `_`, `-`); used for discovery ids and `resolveDatasetByName`.
+   * For an unrestricted UI label, set {@link displayName}.
+   */
   name: string;
+  /** Optional human-readable label for CLI/TUI (any characters). */
+  displayName?: string;
   includedTags?: TagMatcher[];
   excludedTags?: TagMatcher[];
   includedPaths?: PathMatcher[];
@@ -50,8 +58,11 @@ export class Dataset {
   }
 
   static define(config: DatasetDefineConfig): Dataset {
+    const name = validateDatasetName(config.name, 'Dataset.define');
+    const displayName = normalizeOptionalDisplayName(config.displayName);
     return new Dataset({
-      name: config.name,
+      name,
+      displayName,
       includedTags: config.includedTags ?? [],
       excludedTags: config.excludedTags ?? [],
       includedPaths: config.includedPaths ?? [],
@@ -59,8 +70,18 @@ export class Dataset {
     });
   }
 
+  /** Canonical dataset id (same rules as `RunConfig` / `TestCase` `name`). */
   getName(): string {
     return this._config.name;
+  }
+
+  getDisplayName(): string | undefined {
+    return this._config.displayName;
+  }
+
+  /** Label for CLI/TUI and evaluator `meta.datasetName`: {@link getDisplayName} if set, otherwise {@link getName}. */
+  getDisplayLabel(): string {
+    return this._config.displayName ?? this._config.name;
   }
 
   getIncludedTags(): ReadonlyArray<TagMatcher> {
@@ -104,4 +125,15 @@ export class Dataset {
 
     return tagMatch && pathMatch;
   }
+}
+
+/** CLI / runner: display label for a dataset-shaped object (supports discovery duck-types). */
+export function getDatasetDisplayLabel(dataset: {
+  getDisplayLabel?: () => string;
+  getName?: () => string;
+}): string {
+  if (typeof dataset.getDisplayLabel === 'function') {
+    return dataset.getDisplayLabel();
+  }
+  return typeof dataset.getName === 'function' ? dataset.getName() : '';
 }

@@ -197,7 +197,7 @@ function processOneEvaluation(
               meta: {
                 triggerId: task.triggerId,
                 runId: evaluatorRunId,
-                datasetId: task.datasetId,
+                datasetName: task.dataset.getDisplayLabel(),
                 repetitionId,
                 repetitionIndex,
                 repetitionCount,

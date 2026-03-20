@@ -25,9 +25,13 @@ export const EvaluatorNameSchema = makeEntityIdSchema('EvaluatorName', 'Evaluato
 /** Branded id for `TestCase.describe({ name })` (decode with {@link TestCaseNameSchema}). */
 export const TestCaseNameSchema = makeEntityIdSchema('TestCaseName', 'Test case name');
 
+/** Branded id for `Dataset.define({ name })` (decode with {@link DatasetNameSchema}). */
+export const DatasetNameSchema = makeEntityIdSchema('DatasetName', 'Dataset name');
+
 export type RunConfigName = Schema.Schema.Type<typeof RunConfigNameSchema>;
 export type EvaluatorName = Schema.Schema.Type<typeof EvaluatorNameSchema>;
 export type TestCaseName = Schema.Schema.Type<typeof TestCaseNameSchema>;
+export type DatasetName = Schema.Schema.Type<typeof DatasetNameSchema>;
 
 function validateWithSchema(schema: Schema.Schema.Any, raw: string, context: string): unknown {
   const trimmed = raw.trim();
@@ -52,6 +56,10 @@ export function validateEvaluatorName(raw: string, context: string): EvaluatorNa
 
 export function validateTestCaseName(raw: string, context: string): TestCaseName {
   return validateWithSchema(TestCaseNameSchema, raw, context) as TestCaseName;
+}
+
+export function validateDatasetName(raw: string, context: string): DatasetName {
+  return validateWithSchema(DatasetNameSchema, raw, context) as DatasetName;
 }
 
 /** Optional UI label: trim; empty after trim becomes undefined. */

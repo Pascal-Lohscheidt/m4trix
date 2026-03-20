@@ -68,7 +68,7 @@ async function main(): Promise<void> {
 
     const genDataset = args.datasetName;
     if (!genDataset) {
-      console.error('Missing required --dataset <datasetName> argument.');
+      console.error('Missing required --dataset <datasetId> argument.');
       printUsageAndExit(1);
     }
     await (useInk ? generateDatasetJsonCommandInk : generateDatasetJsonCommandPlain)(

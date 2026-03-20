@@ -47,7 +47,8 @@ async function createFixtureWorkspace(
     [
       typedStringConst,
       'export const alphaDataset = {',
-      "  getName: () => 'Alpha Dataset',",
+      "  getName: () => 'alpha-dataset',",
+      '  getDisplayLabel: () => "Alpha Dataset",',
       '  getIncludedTags: () => [],',
       '  getExcludedTags: () => [],',
       '  getIncludedPaths: () => [],',
@@ -218,12 +219,13 @@ describe('runner discovery and execution', () => {
     });
     expect(progressEvent?.evaluatorScores[0]?.scores[1]?.data).toEqual(
       expect.objectContaining({
-        datasetId: dataset.id,
+        datasetName: 'Alpha Dataset',
         runConfigName: PROGRAMMATIC_RUN_CONFIG.runConfigName,
         repetitionIndex: 1,
         repetitionCount: 1,
       }),
     );
+    expect(dataset.dataset.getName()).toBe('alpha-dataset');
     const meta = progressEvent?.evaluatorScores[0]?.scores[1]?.data as
       | {
           triggerId?: string;
@@ -254,11 +256,12 @@ describe('runner discovery and execution', () => {
 
   test('resolves dataset/evaluators by names and collects dataset test cases', async () => {
     const { runner } = await withRunner();
-    const dataset = await runner.resolveDatasetByName('Alpha Dataset');
+    const dataset = await runner.resolveDatasetByName('alpha-dataset');
     const wildcardEvaluators = await runner.resolveEvaluatorsByNamePattern('*Score*');
     const regexEvaluators = await runner.resolveEvaluatorsByNamePattern('/score/i');
 
-    expect(dataset?.dataset.getName()).toBe('Alpha Dataset');
+    expect(dataset?.dataset.getName()).toBe('alpha-dataset');
+    expect(dataset?.dataset.getDisplayLabel()).toBe('Alpha Dataset');
     expect(wildcardEvaluators).toHaveLength(1);
     expect(regexEvaluators).toHaveLength(1);
 
@@ -436,10 +439,10 @@ describe('runner discovery and execution', () => {
     const meta = ev.evaluatorScores[0]?.scores[1]?.data as
       | {
           runConfigName?: string;
-          datasetId?: string;
+          datasetName?: string;
         }
       | undefined;
-    expect(meta?.datasetId).toBe(dataset.id);
+    expect(meta?.datasetName).toBe('Alpha Dataset');
     expect(meta?.runConfigName).toBe('fixture-rc');
   });
 

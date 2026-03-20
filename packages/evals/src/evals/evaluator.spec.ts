@@ -141,7 +141,7 @@ describe('Evaluator', () => {
       meta: {
         triggerId: 'trg-123',
         runId: 'run-123',
-        datasetId: 'dataset-123',
+        datasetName: 'fixture-dataset',
         runConfigName: 'test-rc',
         repetitionId: 'rep-test',
         repetitionIndex: 1,

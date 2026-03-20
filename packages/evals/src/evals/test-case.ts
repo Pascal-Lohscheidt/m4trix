@@ -22,11 +22,11 @@ interface TestCaseDescribeConfig<
   TO extends S.Schema.Any = S.Schema<unknown>,
 > {
   /**
-   * Stable id (letters, digits, `_`, `-`).
+   * Stable id (letters, digits, `_`, `-`); used in discovery and matching.
    * For an unrestricted UI label, set {@link displayName}.
    */
   name: string;
-  /** Optional human-readable label for CLI/TUI (any characters). */
+  /** Optional human-readable label for CLI/TUI and evaluator args (any characters). */
   displayName?: string;
   tags: string[];
   inputSchema: TI;

@@ -51,6 +51,7 @@ export interface RunnerApi {
   collectDatasets(): Promise<ReadonlyArray<CollectedDataset>>;
   collectEvaluators(): Promise<ReadonlyArray<CollectedEvaluator>>;
   collectRunConfigs(): Promise<ReadonlyArray<CollectedRunConfig>>;
+  /** Resolves a dataset by canonical **`Dataset` `name`** (id), case-insensitive. */
   resolveDatasetByName(name: string): Promise<CollectedDataset | undefined>;
   resolveEvaluatorsByNamePattern(pattern: string): Promise<ReadonlyArray<CollectedEvaluator>>;
   /**
@@ -243,7 +244,7 @@ class EffectRunner implements RunnerApi {
       );
       if (!dsCollected) {
         throw new Error(
-          `RunConfig "${rcName}" run[${i}]: dataset "${row.dataset.getName()}" was not found among discovered dataset exports (import the same module instances the scanner loads).`,
+          `RunConfig "${rcName}" run[${i}]: dataset "${row.dataset.getDisplayLabel()}" was not found among discovered dataset exports (import the same module instances the scanner loads).`,
         );
       }
 
@@ -413,7 +414,7 @@ class EffectRunner implements RunnerApi {
     const snapshot: RunSnapshot = {
       runId,
       datasetId: params.datasetId,
-      datasetName: dataset.dataset.getName(),
+      datasetName: dataset.dataset.getDisplayLabel(),
       evaluatorIds: selectedEvaluators.map((item) => item.id),
       queuedAt: Date.now(),
       totalTestCases: totalEvaluations,
@@ -435,7 +436,7 @@ class EffectRunner implements RunnerApi {
       type: 'RunQueued',
       runId,
       datasetId: params.datasetId,
-      datasetName: dataset.dataset.getName(),
+      datasetName: dataset.dataset.getDisplayLabel(),
       evaluatorIds: selectedEvaluators.map((item) => item.id),
       totalTestCases: totalEvaluations,
       artifactPath,

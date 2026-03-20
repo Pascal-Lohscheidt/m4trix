@@ -3,6 +3,7 @@ import { render } from 'ink';
 import { writeFile } from 'node:fs/promises';
 import { join, parse, resolve } from 'node:path';
 
+import { getDatasetDisplayLabel } from '../evals/dataset';
 import { getTestCaseDisplayLabel } from '../evals/test-case';
 import type { RunnerApi } from '../runner';
 import { GenerateView } from './views/GenerateView';
@@ -46,7 +47,7 @@ export async function generateDatasetJsonCommandPlain(
 
   await writeFile(outputPath, `${JSON.stringify(payload, null, 2)}\n`, 'utf8');
 
-  console.log(`Generated ${payload.length} test cases for dataset "${dataset.dataset.getName()}".`);
+  console.log(`Generated ${payload.length} test cases for dataset "${getDatasetDisplayLabel(dataset.dataset)}".`);
   console.log(`Wrote ${outputPath}`);
 }
 

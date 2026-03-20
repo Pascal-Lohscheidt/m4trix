@@ -77,7 +77,7 @@ export function getSimpleCliUsage(): string {
   return [
     'Usage:',
     '  eval-agents-simple run --run-config <name> [--run-config <name> ...] [--concurrency N] [--ci]',
-    '  eval-agents-simple generate --dataset <datasetName>',
+    '  eval-agents-simple generate --dataset <datasetId>',
     '',
     'Options:',
     '  --ci                  With run: exit with code 1 if any test case fails.',
