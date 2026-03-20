@@ -16,6 +16,17 @@ export interface EvaluateMeta {
   runId: string;
   /** Identifier of the dataset currently being evaluated. */
   datasetId: string;
+  /** Canonical `RunConfig` name (or `programmatic` for API/TUI-only runs). */
+  runConfigName: string;
+  /**
+   * Stable id shared by every execution of the same logical test case when `repetitionCount > 1`
+   * (and present with count 1 for consistency).
+   */
+  repetitionId: string;
+  /** 1-based index of this execution within the repetition group. */
+  repetitionIndex: number;
+  /** Total scheduled executions for this logical test case in the current run. */
+  repetitionCount: number;
 }
 
 export interface EvaluateArgs<TInput, TOutput = unknown, TCtx = Record<string, never>> {

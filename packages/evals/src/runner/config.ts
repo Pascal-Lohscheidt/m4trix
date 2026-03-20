@@ -2,6 +2,7 @@ export interface RunnerDiscoveryConfig {
   rootDir: string;
   datasetSuffixes: ReadonlyArray<string>;
   evaluatorSuffixes: ReadonlyArray<string>;
+  runConfigSuffixes: ReadonlyArray<string>;
   testCaseSuffixes: ReadonlyArray<string>;
   excludeDirectories: ReadonlyArray<string>;
 }
@@ -21,9 +22,11 @@ export interface M4trixEvalConfigDiscovery {
   rootDir?: string;
   datasetFilePatterns?: ReadonlyArray<string>;
   evaluatorFilePatterns?: ReadonlyArray<string>;
+  runConfigFilePatterns?: ReadonlyArray<string>;
   testCaseFilePatterns?: ReadonlyArray<string>;
   datasetSuffixes?: ReadonlyArray<string>;
   evaluatorSuffixes?: ReadonlyArray<string>;
+  runConfigSuffixes?: ReadonlyArray<string>;
   testCaseSuffixes?: ReadonlyArray<string>;
   excludeDirectories?: ReadonlyArray<string>;
 }
@@ -50,6 +53,7 @@ export const defaultRunnerConfig: RunnerConfig = {
     rootDir: process.cwd(),
     datasetSuffixes: ['.dataset.ts', '.dataset.tsx', '.dataset.js', '.dataset.mjs'],
     evaluatorSuffixes: ['.evaluator.ts', '.evaluator.tsx', '.evaluator.js', '.evaluator.mjs'],
+    runConfigSuffixes: ['.run-config.ts', '.run-config.tsx', '.run-config.js', '.run-config.mjs'],
     testCaseSuffixes: ['.test-case.ts', '.test-case.tsx', '.test-case.js', '.test-case.mjs'],
     excludeDirectories: ['node_modules', 'dist', '.next', '.git', '.pnpm-store'],
   },
@@ -76,6 +80,11 @@ export function toRunnerConfigOverrides(config?: ConfigType): RunnerConfigOverri
     discovery.evaluatorSuffixes = rawDiscovery.evaluatorFilePatterns;
   } else if (rawDiscovery?.evaluatorSuffixes !== undefined) {
     discovery.evaluatorSuffixes = rawDiscovery.evaluatorSuffixes;
+  }
+  if (rawDiscovery?.runConfigFilePatterns !== undefined) {
+    discovery.runConfigSuffixes = rawDiscovery.runConfigFilePatterns;
+  } else if (rawDiscovery?.runConfigSuffixes !== undefined) {
+    discovery.runConfigSuffixes = rawDiscovery.runConfigSuffixes;
   }
   if (rawDiscovery?.testCaseFilePatterns !== undefined) {
     discovery.testCaseSuffixes = rawDiscovery.testCaseFilePatterns;

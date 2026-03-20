@@ -5,9 +5,15 @@ import { pathToFileURL } from 'node:url';
 
 import type { Dataset } from '../evals/dataset';
 import type { Evaluator } from '../evals/evaluator';
+import type { RunConfig } from '../evals/run-config';
 import type { TestCase } from '../evals/test-case';
 import type { RunnerDiscoveryConfig } from './config';
-import type { CollectedDataset, CollectedEvaluator, CollectedTestCase } from './events';
+import type {
+  CollectedDataset,
+  CollectedEvaluator,
+  CollectedRunConfig,
+  CollectedTestCase,
+} from './events';
 
 type JitiModuleLoader = {
   (id: string): unknown;
@@ -42,6 +48,14 @@ function isEvaluatorLike(value: unknown): value is Evaluator<unknown, unknown, u
     hasMethod(value, 'getName') &&
     hasMethod(value, 'resolveContext') &&
     hasMethod(value, 'getEvaluateFn')
+  );
+}
+
+function isRunConfigLike(value: unknown): value is RunConfig {
+  return (
+    hasMethod(value, 'getName') &&
+    hasMethod(value, 'getRuns') &&
+    typeof (value as RunConfig).getRuns === 'function'
   );
 }
 
@@ -153,6 +167,28 @@ export async function collectEvaluatorsFromFiles(
         id: toId('evaluator', relPath, evaluator.getName()),
         filePath: relPath,
         evaluator,
+      }));
+    }),
+  );
+
+  return found.flat();
+}
+
+export async function collectRunConfigsFromFiles(
+  config: RunnerDiscoveryConfig,
+): Promise<ReadonlyArray<CollectedRunConfig>> {
+  const files = await walkDirectory(config.rootDir, config.excludeDirectories);
+  const matched = files.filter((filePath) => hasOneSuffix(filePath, config.runConfigSuffixes));
+
+  const found = await Promise.all(
+    matched.map(async (absolutePath) => {
+      const exports = await loadModuleExports(absolutePath);
+      const runConfigs = exports.filter(isRunConfigLike);
+      const relPath = relative(config.rootDir, absolutePath);
+      return runConfigs.map((runConfig) => ({
+        id: runConfig.getName(),
+        filePath: relPath,
+        runConfig,
       }));
     }),
   );

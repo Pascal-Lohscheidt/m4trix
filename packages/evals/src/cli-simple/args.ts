@@ -2,8 +2,10 @@ export type SimpleCliCommand = 'run' | 'generate';
 
 export interface SimpleCliArgs {
   command?: SimpleCliCommand;
+  /** For `generate` only. */
   datasetName?: string;
-  evaluatorPattern?: string;
+  /** Repeatable: each `--run-config` adds a RunConfig to execute (expanded jobs run with shared concurrency). */
+  runConfigNames: string[];
   /** Max concurrent evaluations. Default: 4. Use 1 for sequential. */
   concurrency?: number;
   help: boolean;
@@ -18,6 +20,7 @@ export function getDefaultConcurrency(): number {
 export function parseSimpleCliArgs(argv: string[]): SimpleCliArgs {
   const args: SimpleCliArgs = {
     help: false,
+    runConfigNames: [],
     unknownArgs: [],
   };
   let index = 0;
@@ -37,13 +40,17 @@ export function parseSimpleCliArgs(argv: string[]): SimpleCliArgs {
       index += 1;
       continue;
     }
-    if ((token === '--evaluator' || token === '--name') && argv[index + 1]) {
-      args.evaluatorPattern = argv[index + 1];
+    if ((token === '--run-config' || token === '--runConfig') && argv[index + 1]) {
+      const next = argv[index + 1];
+      if (typeof next === 'string') {
+        args.runConfigNames.push(next);
+      }
       index += 1;
       continue;
     }
     if ((token === '--concurrency' || token === '-c') && argv[index + 1]) {
-      const n = parseInt(argv[index + 1]!, 10);
+      const nextConc = argv[index + 1];
+      const n = typeof nextConc === 'string' ? parseInt(nextConc, 10) : Number.NaN;
       if (!Number.isNaN(n) && n >= 1) {
         args.concurrency = n;
       }
@@ -59,15 +66,10 @@ export function parseSimpleCliArgs(argv: string[]): SimpleCliArgs {
 export function getSimpleCliUsage(): string {
   return [
     'Usage:',
-    '  eval-agents-simple run --dataset <datasetName> --evaluator <name-or-pattern> [--concurrency N]',
+    '  eval-agents-simple run --run-config <name> [--run-config <name> ...] [--concurrency N]',
     '  eval-agents-simple generate --dataset <datasetName>',
     '',
     'Options:',
     '  --concurrency, -c N   Max concurrent evaluations (default: 4). Use 1 for sequential.',
-    '',
-    'Pattern examples for --evaluator:',
-    '  score-evaluator       exact name (case-insensitive)',
-    '  "*score*"             wildcard pattern',
-    '  "/score/i"            regex literal',
   ].join('\n');
 }

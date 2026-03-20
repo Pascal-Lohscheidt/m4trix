@@ -16,19 +16,6 @@ describe('TestCase', () => {
     expect(tc.getName()).toBe('generates a title');
     expect(tc.getTags()).toEqual(['agent', 'title-gen']);
     expect(tc.getInput()).toEqual({ prompt: 'hello world' });
-    expect(tc.getReruns()).toBe(1);
-  });
-
-  test('describe() accepts reruns and getReruns returns it', () => {
-    const tc = TestCase.describe({
-      name: 'with reruns',
-      tags: [],
-      reruns: 3,
-      inputSchema,
-      input: { prompt: 'x' },
-    });
-
-    expect(tc.getReruns()).toBe(3);
   });
 
   test('describe() accepts builder functions for input', () => {

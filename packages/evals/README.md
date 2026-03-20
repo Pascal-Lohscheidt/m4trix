@@ -35,6 +35,7 @@ Create files under your project (for example, `src/evals/`) with these suffixes:
 
 - `*.dataset.ts`
 - `*.evaluator.ts`
+- `*.run-config.ts`
 - `*.test-case.ts`
 
 Optional: create `m4trix-eval.config.ts` at your project root to customize discovery and output paths.
@@ -47,6 +48,7 @@ export default defineConfig((): ConfigType => ({
     rootDir: 'src/evals',
     datasetFilePatterns: ['.dataset.ts'],
     evaluatorFilePatterns: ['.evaluator.ts'],
+    runConfigFilePatterns: ['.run-config.ts'],
     testCaseFilePatterns: ['.test-case.ts'],
     excludeDirectories: ['node_modules', 'dist'],
   },
@@ -129,22 +131,40 @@ export const myTestCase = TestCase.describe({
 });
 ```
 
-### 4) Run
+### 4) RunConfig (optional)
 
-```bash
-eval-agents-simple run --dataset "My Dataset" --evaluator "My Evaluator"
+Group several dataset/evaluator runs under one named config. Each row is either
+`evaluators: [...]` (same module instances discovery loads) or `evaluatorPattern: "..."`
+(wildcard / regex rules from `RunnerApi.resolveEvaluatorsByNamePattern`). Multiple jobs share one `--concurrency` cap.
+
+Optional **`repetitions`** on a row (default `1`) runs each matching test case that many times. Every execution in that group shares the same **`repetitionId`** in the evaluator callback **`meta`**, with **`repetitionIndex`** / **`repetitionCount`**. Evaluator **`meta`** includes **`runConfigName`**: the **`RunConfig`** name (or **`programmatic`** from **`PROGRAMMATIC_RUN_CONFIG`** for API/TUI-only **`runDatasetWith`**). Names may use **kebab-case**, **snake_case**, **camelCase**, etc. (letters, digits, `_`, `-` only, no spaces); resolution is **case-insensitive**.
+
+```ts
+import { RunConfig } from '@m4trix/evals';
+import { myDataset } from './my.dataset';
+import { myEvaluator } from './my.evaluator';
+
+export const nightly = RunConfig.define({
+  name: 'nightly',
+  runs: [
+    { dataset: myDataset, evaluators: [myEvaluator], repetitions: 3 },
+    { dataset: myDataset, evaluatorPattern: '*smoke*' },
+  ],
+});
 ```
 
-You can also use patterns:
+### 5) Run
 
 ```bash
-eval-agents-simple run --dataset "*My*" --evaluator "*My*"
+eval-agents-simple run --run-config "nightly"
 ```
+
+Repeat **`--run-config`** to queue several configs; jobs share one **`--concurrency`** cap.
 
 ## CLI Commands
 
-- `eval-agents`: interactive CLI
-- `eval-agents-simple run --dataset "<name or pattern>" --evaluator "<name or pattern>"`
+- `eval-agents`: interactive CLI (starts runs with synthetic meta `programmatic` / `Programmatic`)
+- `eval-agents-simple run --run-config "<RunConfig name>"` (repeatable; case-insensitive match)
 - `eval-agents-simple generate --dataset "<dataset name>"`
 
 ## Default Discovery and Artifacts
@@ -153,6 +173,7 @@ By default, the runner uses `process.cwd()` as discovery root and scans for:
 
 - Datasets: `.dataset.ts`, `.dataset.tsx`, `.dataset.js`, `.dataset.mjs`
 - Evaluators: `.evaluator.ts`, `.evaluator.tsx`, `.evaluator.js`, `.evaluator.mjs`
+- Run configs: `.run-config.ts`, `.run-config.tsx`, `.run-config.js`, `.run-config.mjs`
 - Test cases: `.test-case.ts`, `.test-case.tsx`, `.test-case.js`, `.test-case.mjs`
 
 Results are written to `.eval-results`.
@@ -166,6 +187,7 @@ When present, `m4trix-eval.config.ts` is loaded automatically from `process.cwd(
 - Discovery keys:
   - `datasetFilePatterns` (or `datasetSuffixes`)
   - `evaluatorFilePatterns` (or `evaluatorSuffixes`)
+  - `runConfigFilePatterns` (or `runConfigSuffixes`)
   - `testCaseFilePatterns` (or `testCaseSuffixes`)
   - `rootDir`, `excludeDirectories`
 

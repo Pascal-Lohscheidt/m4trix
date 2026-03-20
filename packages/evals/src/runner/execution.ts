@@ -75,24 +75,34 @@ export interface RunTask {
   testCases: ReadonlyArray<CollectedTestCase>;
   snapshot: RunSnapshot;
   maxConcurrency: number;
+  /** When set, limits concurrent evaluation units across all runs sharing this semaphore. */
+  globalEvaluationSemaphore?: ReturnType<typeof Effect.unsafeMakeSemaphore>;
+  runConfigName: string;
+  /** Per scheduled job: how many times each dataset test case is executed. */
+  repetitions: number;
 }
 
 interface EvaluationUnit {
   testCaseItem: CollectedTestCase;
-  rerunIndex: number;
-  rerunTotal: number;
+  repetitionId: string;
+  repetitionIndex: number;
+  repetitionCount: number;
 }
 
-function buildEvaluationUnits(testCases: ReadonlyArray<CollectedTestCase>): EvaluationUnit[] {
+function buildEvaluationUnits(
+  testCases: ReadonlyArray<CollectedTestCase>,
+  repetitionCount: number,
+): EvaluationUnit[] {
+  const count = Math.max(1, repetitionCount);
   const units: EvaluationUnit[] = [];
   for (const testCaseItem of testCases) {
-    const rerunTotal =
-      typeof testCaseItem.testCase.getReruns === 'function' ? testCaseItem.testCase.getReruns() : 1;
-    for (let r = 0; r < rerunTotal; r++) {
+    const repetitionId = `rep-${randomUUID()}`;
+    for (let r = 0; r < count; r++) {
       units.push({
         testCaseItem,
-        rerunIndex: r + 1,
-        rerunTotal,
+        repetitionId,
+        repetitionIndex: r + 1,
+        repetitionCount: count,
       });
     }
   }
@@ -127,7 +137,7 @@ function processOneEvaluation(
   failedRef: Ref.Ref<number>,
   testCaseResultsRef: Ref.Ref<Map<string, { completedCount: number; results: boolean[] }>>,
 ): Effect.Effect<void, never, never> {
-  const { testCaseItem, rerunIndex, rerunTotal } = unit;
+  const { testCaseItem, repetitionId, repetitionIndex, repetitionCount } = unit;
   return Effect.gen(function* () {
     const evaluatorRunId = `run-${randomUUID()}`;
     const started = Date.now();
@@ -139,8 +149,9 @@ function processOneEvaluation(
       testCaseName: testCaseItem.testCase.getName(),
       startedTestCases: startedEvaluations,
       totalTestCases: totalEvaluations,
-      rerunIndex,
-      rerunTotal,
+      repetitionId,
+      repetitionIndex,
+      repetitionCount,
     });
     const evaluatorScores: Array<{
       evaluatorId: string;
@@ -184,6 +195,10 @@ function processOneEvaluation(
                 triggerId: task.triggerId,
                 runId: evaluatorRunId,
                 datasetId: task.datasetId,
+                repetitionId,
+                repetitionIndex,
+                repetitionCount,
+                runConfigName: task.runConfigName,
               },
               logDiff,
               log,
@@ -228,7 +243,7 @@ function processOneEvaluation(
       }
     }
 
-    const rerunPassedThis = evaluatorScores.every((s) => s.passed);
+    const repetitionPassedThis = evaluatorScores.every((s) => s.passed);
     const completedEvaluations = yield* Ref.modify(completedRef, (n) => [n + 1, n + 1]);
 
     const progressEvent: RunnerEvent = {
@@ -238,9 +253,10 @@ function processOneEvaluation(
       testCaseName: testCaseItem.testCase.getName(),
       completedTestCases: completedEvaluations,
       totalTestCases: totalEvaluations,
-      rerunIndex,
-      rerunTotal,
-      passed: rerunPassedThis,
+      repetitionId,
+      repetitionIndex,
+      repetitionCount,
+      passed: repetitionPassedThis,
       durationMs: Date.now() - started,
       evaluatorScores,
       output,
@@ -264,9 +280,9 @@ function processOneEvaluation(
       (map): [boolean | null, Map<string, { completedCount: number; results: boolean[] }>] => {
         const key = testCaseItem.id;
         const existing = map.get(key) ?? { completedCount: 0, results: [] };
-        const newResults = [...existing.results, rerunPassedThis];
+        const newResults = [...existing.results, repetitionPassedThis];
         const newCompletedCount = existing.completedCount + 1;
-        const isLast = newCompletedCount === rerunTotal;
+        const isLast = newCompletedCount === repetitionCount;
         const newMap = new Map(map);
         newMap.set(key, {
           completedCount: newCompletedCount,
@@ -315,11 +331,7 @@ export const executeRunTask = (
       startedAt,
     });
 
-    const totalEvaluations = task.testCases.reduce(
-      (sum, tc) =>
-        sum + (typeof tc.testCase.getReruns === 'function' ? tc.testCase.getReruns() : 1),
-      0,
-    );
+    const totalEvaluations = task.testCases.length * Math.max(1, task.repetitions);
     const maxConcurrency = Math.max(1, task.maxConcurrency ?? 1);
 
     const completedRef = yield* Ref.make(0);
@@ -330,7 +342,7 @@ export const executeRunTask = (
       new Map<string, { completedCount: number; results: boolean[] }>(),
     );
 
-    const evaluationUnits = buildEvaluationUnits(task.testCases);
+    const evaluationUnits = buildEvaluationUnits(task.testCases, task.repetitions);
 
     const processEvaluation = (unit: EvaluationUnit) =>
       processOneEvaluation(
@@ -347,11 +359,20 @@ export const executeRunTask = (
         testCaseResultsRef,
       );
 
-    yield* Effect.forEach(
-      evaluationUnits,
-      processEvaluation,
-      maxConcurrency > 1 ? { concurrency: maxConcurrency } : undefined,
-    );
+    const globalSem = task.globalEvaluationSemaphore;
+    if (globalSem !== undefined) {
+      yield* Effect.forEach(
+        evaluationUnits,
+        (unit) => globalSem.withPermits(1)(processEvaluation(unit)),
+        { concurrency: 'unbounded', discard: true },
+      );
+    } else {
+      yield* Effect.forEach(
+        evaluationUnits,
+        processEvaluation,
+        maxConcurrency > 1 ? { concurrency: maxConcurrency } : undefined,
+      );
+    }
 
     const [completedEvaluations, passedUniqueTestCases, failedUniqueTestCases] = yield* Effect.all([
       Ref.get(completedRef),

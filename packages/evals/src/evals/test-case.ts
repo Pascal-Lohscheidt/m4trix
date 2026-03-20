@@ -5,7 +5,6 @@ type InputOrBuilder<T> = T | (() => T);
 interface TestCaseConfig<TInput, TOutput> {
   name: string;
   tags: string[];
-  reruns: number;
   inputSchema: S.Schema.Any;
   input: InputOrBuilder<TInput>;
   outputSchema?: S.Schema.Any;
@@ -18,7 +17,6 @@ interface TestCaseDescribeConfig<
 > {
   name: string;
   tags: string[];
-  reruns?: number;
   inputSchema: TI;
   input: InputOrBuilder<S.Schema.Type<TI>>;
   outputSchema?: TO;
@@ -39,23 +37,14 @@ export class TestCase<TInput = unknown, TOutput = unknown> {
   static describe<TI extends S.Schema.Any, TO extends S.Schema.Any = S.Schema<unknown>>(
     config: TestCaseDescribeConfig<TI, TO>,
   ): TestCase<S.Schema.Type<TI>, S.Schema.Type<TO>> {
-    const reruns = config.reruns ?? 1;
-    if (reruns < 1 || !Number.isInteger(reruns)) {
-      throw new Error(`TestCase reruns must be a positive integer, got ${reruns}`);
-    }
     return new TestCase<S.Schema.Type<TI>, S.Schema.Type<TO>>({
       name: config.name,
       tags: config.tags,
-      reruns,
       inputSchema: config.inputSchema,
       input: config.input,
       outputSchema: config.outputSchema,
       output: config.output,
     });
-  }
-
-  getReruns(): number {
-    return this._config.reruns;
   }
 
   getName(): string {

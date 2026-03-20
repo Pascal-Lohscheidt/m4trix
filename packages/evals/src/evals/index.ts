@@ -1,50 +1,60 @@
-export { TestCase } from './test-case';
-export {
-  Evaluator,
-  type EvalMiddleware,
-  type EvaluateArgs,
-  type EvaluateMeta,
-} from './evaluator';
 export { Dataset } from './dataset';
-export { Metric, getMetricById } from './metric';
-export { Score, getScoreById, formatScoreData } from './score';
 export {
-  tokenCountMetric,
-  latencyMetric,
-  type TokenCountData,
-  type LatencyData,
-} from './metrics/standard';
-export {
-  percentScore,
-  deltaScore,
-  binaryScore,
-  type PercentScoreData,
-  type DeltaScoreData,
-  type BinaryScoreData,
-} from './scores/standard';
-export type {
-  MetricDef,
-  MetricItem,
-  FormatMetricOptions,
-} from './metric';
-export type {
-  ScoreDef,
-  ScoreItem,
-  ScoreDisplayStrategy,
-  FormatScoreOptions,
-} from './score';
-export {
-  printJsonDiff,
+  type CreateDiffLogEntryOptions,
   createDiffLogEntry,
   createLogEntry,
+  type DiffLogEntry,
+  type EvaluatorLogEntry,
   getDiffLines,
   getDiffString,
   getLogLines,
-  type PrintJsonDiffOptions,
-  type CreateDiffLogEntryOptions,
-  type DiffLogEntry,
-  type LogEntry,
-  type EvaluatorLogEntry,
   type JsonDiffOptions,
+  type LogEntry,
+  type PrintJsonDiffOptions,
+  printJsonDiff,
 } from './diff';
-export type { TagMatcher, PathMatcher } from './types';
+export {
+  type EvalMiddleware,
+  type EvaluateArgs,
+  type EvaluateMeta,
+  Evaluator,
+} from './evaluator';
+export type {
+  FormatMetricOptions,
+  MetricDef,
+  MetricItem,
+} from './metric';
+export { getMetricById, Metric } from './metric';
+export {
+  type LatencyData,
+  latencyMetric,
+  type TokenCountData,
+  tokenCountMetric,
+} from './metrics/standard';
+export {
+  RunConfig,
+  RunConfigNameSchema,
+  validateRunConfigName,
+  type RunConfigDefineConfig,
+  type RunConfigName,
+  type RunConfigRow,
+  type RunConfigRowEvaluators,
+  type RunConfigRowPattern,
+} from './run-config';
+export type {
+  FormatScoreOptions,
+  ScoreDef,
+  ScoreDisplayStrategy,
+  ScoreItem,
+} from './score';
+export { formatScoreData, getScoreById, Score } from './score';
+export {
+  type BinaryScoreData,
+  binaryScore,
+  type DeltaScoreData,
+  deltaScore,
+  type PercentScoreData,
+  percentScore,
+} from './scores/standard';
+export { TestCase } from './test-case';
+export type { PathMatcher, TagMatcher } from './types';

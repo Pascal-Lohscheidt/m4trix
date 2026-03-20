@@ -1,7 +1,8 @@
 /** @jsxImportSource react */
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
-import { Box, Text } from 'ink';
 
+import { Box, Text } from 'ink';
+import { type ReactNode, useCallback, useEffect, useState } from 'react';
+import { TextBar } from '../../cli/components/TextBar';
 import {
   formatScoreData,
   getDiffLines,
@@ -11,14 +12,13 @@ import {
 } from '../../evals';
 import type { EvaluatorLogEntry } from '../../evals/diff';
 import type { ScoreItem } from '../../evals/score';
-import type { RunnerApi, RunnerEvent } from '../../runner';
+import type { RunDatasetJob, RunnerApi, RunnerEvent } from '../../runner';
 import {
   aggregateMetricItems,
   aggregateScoreItems,
   toNumericScore,
   toNumericScoreFromScores,
 } from '../../runner/score-utils';
-import { TextBar } from '../../cli/components/TextBar';
 import { Banner } from './Banner';
 import { Spinner } from './Spinner';
 
@@ -31,14 +31,14 @@ interface EvaluatorScoreRow {
   logs?: ReadonlyArray<EvaluatorLogEntry>;
 }
 
-/** One displayed block per unique test case, updated in place as reruns complete */
+/** One displayed block per unique test case, updated in place as repetitions complete */
 interface TestCaseDisplay {
   name: string;
   testCaseId: string;
   completedTestCases: number;
   totalTestCases: number;
-  rerunIndex: number;
-  rerunTotal: number;
+  repetitionIndex: number;
+  repetitionCount: number;
   durationMs: number;
   passed: boolean;
   errorMessage?: string;
@@ -52,10 +52,12 @@ interface TestCaseDisplay {
 }
 
 interface RunningEvaluationDisplay {
+  runId?: string;
   testCaseId: string;
   name: string;
-  rerunIndex: number;
-  rerunTotal: number;
+  repetitionId: string;
+  repetitionIndex: number;
+  repetitionCount: number;
   startedTestCases: number;
   totalTestCases: number;
 }
@@ -161,26 +163,25 @@ function formatScorePart(
 
 interface RunViewProps {
   runner: RunnerApi;
-  datasetName: string;
-  evaluatorPattern: string;
+  runConfigNames: ReadonlyArray<string>;
   concurrency: number;
   onComplete: (error?: Error) => void;
 }
 
+interface RunInfoState {
+  names: string[];
+  jobs: number;
+  totalTestCases: number;
+}
+
 export function RunView({
   runner,
-  datasetName,
-  evaluatorPattern,
+  runConfigNames,
   concurrency,
   onComplete,
 }: RunViewProps): ReactNode {
   const [phase, setPhase] = useState<'loading' | 'running' | 'completed'>('loading');
-  const [runInfo, setRunInfo] = useState<{
-    runId: string;
-    datasetName: string;
-    evaluatorNames: string[];
-    totalTestCases: number;
-  } | null>(null);
+  const [runInfo, setRunInfo] = useState<RunInfoState | null>(null);
   const [testCases, setTestCases] = useState<TestCaseDisplay[]>([]);
   const [startedEvaluations, setStartedEvaluations] = useState(0);
   const [completedEvaluations, setCompletedEvaluations] = useState(0);
@@ -199,39 +200,34 @@ export function RunView({
   const [evaluatorNameById, setEvaluatorNameById] = useState<Map<string, string>>(new Map());
 
   const runEval = useCallback(async () => {
-    const dataset = await runner.resolveDatasetByName(datasetName);
-    if (!dataset) {
-      const known = await runner.collectDatasets();
-      const available = known.map((item) => item.dataset.getName()).sort();
-      onComplete(
-        new Error(
-          available.length > 0
-            ? `Dataset "${datasetName}" not found. Available: ${available.join(', ')}`
-            : `Dataset "${datasetName}" not found.`,
-        ),
-      );
+    const rcList = runConfigNames.filter((n) => n.trim().length > 0);
+    if (rcList.length === 0) {
+      onComplete(new Error('At least one RunConfig name is required.'));
       return;
     }
 
-    const evaluators = await runner.resolveEvaluatorsByNamePattern(evaluatorPattern);
-    if (evaluators.length === 0) {
-      const known = await runner.collectEvaluators();
-      const available = known
-        .map((item) => item.evaluator.getName())
-        .filter((name): name is string => typeof name === 'string')
-        .sort();
-      onComplete(
-        new Error(
-          available.length > 0
-            ? `No evaluator matched "${evaluatorPattern}". Available: ${available.join(', ')}`
-            : `No evaluator matched "${evaluatorPattern}".`,
-        ),
-      );
+    setStartedEvaluations(0);
+    setCompletedEvaluations(0);
+    setTestCases([]);
+    setRunningEvaluations([]);
+    setSummary(null);
+
+    let jobs: ReadonlyArray<RunDatasetJob>;
+    try {
+      jobs = await runner.expandRunConfigNamesToJobs(rcList);
+    } catch (err) {
+      onComplete(err instanceof Error ? err : new Error(String(err)));
       return;
     }
 
+    if (jobs.length === 0) {
+      onComplete(new Error('No jobs expanded from RunConfigs.'));
+      return;
+    }
+
+    const allEvaluators = await runner.collectEvaluators();
     const nameById = new Map(
-      evaluators.map((item) => [item.id, item.evaluator.getName() ?? item.id]),
+      allEvaluators.map((item) => [item.id, item.evaluator.getName() ?? item.id]),
     );
     setEvaluatorNameById(nameById);
 
@@ -241,28 +237,49 @@ export function RunView({
     let overallScoreSumSq = 0;
     let overallScoreCount = 0;
 
-    const done = new Promise<RunnerEvent>((resolve) => {
+    const batchPendingRunIds = new Set<string>();
+    const runIdToLabel = new Map<string, string>();
+    let batchReady = false;
+    const completedRuns = new Map<string, Extract<RunnerEvent, { type: 'RunCompleted' }>>();
+
+    const done = new Promise<void>((resolve, reject) => {
       const unsubscribe = runner.subscribeRunEvents((event) => {
+        if (
+          batchReady &&
+          'runId' in event &&
+          typeof event.runId === 'string' &&
+          !batchPendingRunIds.has(event.runId)
+        ) {
+          return;
+        }
+
         if (event.type === 'TestCaseStarted') {
-          setStartedEvaluations(event.startedTestCases);
+          setStartedEvaluations((c) => c + 1);
           setRunningEvaluations((prev) => {
             const withoutDuplicate = prev.filter(
               (item) =>
-                !(item.testCaseId === event.testCaseId && item.rerunIndex === event.rerunIndex),
+                !(
+                  item.testCaseId === event.testCaseId &&
+                  item.repetitionIndex === event.repetitionIndex &&
+                  item.runId === event.runId
+                ),
             );
             return [
               ...withoutDuplicate,
               {
+                runId: event.runId,
                 testCaseId: event.testCaseId,
                 name: event.testCaseName,
-                rerunIndex: event.rerunIndex,
-                rerunTotal: event.rerunTotal,
+                repetitionId: event.repetitionId,
+                repetitionIndex: event.repetitionIndex,
+                repetitionCount: event.repetitionCount,
                 startedTestCases: event.startedTestCases,
                 totalTestCases: event.totalTestCases,
               },
             ];
           });
         }
+
         if (event.type === 'TestCaseProgress') {
           for (const item of event.evaluatorScores) {
             const numeric = toNumericScoreFromScores(item.scores);
@@ -293,9 +310,14 @@ export function RunView({
             }
           }
 
+          const label = runIdToLabel.get(event.runId);
+          const compositeId = `${event.runId}:${event.testCaseId}`;
+          const displayName =
+            label !== undefined ? `${label} › ${event.testCaseName}` : event.testCaseName;
+
           setTestCases((prev) => {
             const byId = new Map(prev.map((tc) => [tc.testCaseId, tc]));
-            const existing = byId.get(event.testCaseId);
+            const existing = byId.get(compositeId);
             const newEvent = {
               evaluatorScores: event.evaluatorScores.map((item) => ({
                 evaluatorId: item.evaluatorId,
@@ -310,16 +332,14 @@ export function RunView({
             };
             const events = existing ? [...existing.events, newEvent] : [newEvent];
             const isAggregated = events.length > 1;
-
             const aggregatedEvaluatorScores = aggregateEvaluatorScores(events, nameById);
-
             const merged: TestCaseDisplay = {
-              name: event.testCaseName,
-              testCaseId: event.testCaseId,
+              name: displayName,
+              testCaseId: compositeId,
               completedTestCases: event.completedTestCases,
               totalTestCases: event.totalTestCases,
-              rerunIndex: event.rerunIndex,
-              rerunTotal: event.rerunTotal,
+              repetitionIndex: event.repetitionIndex,
+              repetitionCount: event.repetitionCount,
               durationMs: events.reduce((s, e) => s + e.durationMs, 0),
               passed: events.every((e) => e.passed),
               errorMessage: event.errorMessage,
@@ -327,60 +347,99 @@ export function RunView({
               aggregatedEvaluatorScores,
               isAggregated,
             };
-            byId.set(event.testCaseId, merged);
-            setCompletedEvaluations(event.completedTestCases);
-            setRunningEvaluations((running) =>
-              running.filter(
-                (item) =>
-                  !(item.testCaseId === event.testCaseId && item.rerunIndex === event.rerunIndex),
-              ),
-            );
+            byId.set(compositeId, merged);
             return Array.from(byId.values());
           });
+          setCompletedEvaluations((c) => c + 1);
+          setRunningEvaluations((running) =>
+            running.filter(
+              (item) =>
+                !(
+                  item.testCaseId === event.testCaseId &&
+                  item.repetitionIndex === event.repetitionIndex &&
+                  item.runId === event.runId
+                ),
+            ),
+          );
         }
-        if (event.type === 'RunCompleted' || event.type === 'RunFailed') {
+
+        if (event.type === 'RunFailed') {
+          if (batchReady && !batchPendingRunIds.has(event.runId)) {
+            return;
+          }
           unsubscribe();
-          resolve(event);
+          reject(new Error(`Run failed: ${event.errorMessage}`));
+          return;
+        }
+
+        if (event.type === 'RunCompleted') {
+          if (!batchPendingRunIds.has(event.runId)) {
+            return;
+          }
+          completedRuns.set(event.runId, event);
+          batchPendingRunIds.delete(event.runId);
+          if (batchPendingRunIds.size === 0) {
+            unsubscribe();
+            resolve();
+          }
         }
       });
     });
 
-    const snapshot = await runner.runDatasetWith({
-      datasetId: dataset.id,
-      evaluatorIds: evaluators.map((item) => item.id),
-      concurrency,
+    const snapshots = await runner.runDatasetJobsWithSharedConcurrency({
+      jobs,
+      globalConcurrency: concurrency,
     });
+    for (let i = 0; i < snapshots.length; i += 1) {
+      const snap = snapshots[i];
+      const job = jobs[i];
+      if (snap && job) {
+        runIdToLabel.set(snap.runId, `${job.runConfigName} · ${snap.datasetName}`);
+        batchPendingRunIds.add(snap.runId);
+      }
+    }
+    const totalUnits = snapshots.reduce((sum, s) => sum + s.totalTestCases, 0);
+    batchReady = true;
 
     setRunInfo({
-      runId: snapshot.runId,
-      datasetName: snapshot.datasetName,
-      evaluatorNames: evaluators.map((e) => e.evaluator.getName() ?? e.id),
-      totalTestCases: snapshot.totalTestCases,
+      names: [...rcList],
+      jobs: jobs.length,
+      totalTestCases: totalUnits,
     });
     setPhase('running');
 
-    const finalEvent = await done;
-
-    if (finalEvent.type === 'RunFailed') {
-      onComplete(new Error(`Run failed: ${finalEvent.errorMessage}`));
+    try {
+      await done;
+    } catch (err) {
+      onComplete(err instanceof Error ? err : new Error(String(err)));
       return;
     }
 
-    const completed = finalEvent as Extract<typeof finalEvent, { type: 'RunCompleted' }>;
+    let passedTestCases = 0;
+    let failedTestCases = 0;
+    let totalTestCases = 0;
+    const artifacts: string[] = [];
+    for (const ev of completedRuns.values()) {
+      passedTestCases += ev.passedTestCases;
+      failedTestCases += ev.failedTestCases;
+      totalTestCases += ev.totalTestCases;
+      artifacts.push(ev.artifactPath);
+    }
+
     setSummary({
-      passedTestCases: completed.passedTestCases,
-      failedTestCases: completed.failedTestCases,
-      totalTestCases: completed.totalTestCases,
+      passedTestCases,
+      failedTestCases,
+      totalTestCases,
       overallScoreTotal,
       overallScoreSumSq,
       overallScoreCount,
       aggregates: new Map(aggregates),
       scoreItemsByEvaluatorScore: new Map(scoreItemsByEvaluatorScore),
-      artifactPath: completed.artifactPath,
+      artifactPath: artifacts.join('\n'),
     });
     setPhase('completed');
     setTimeout(() => onComplete(), 200);
-  }, [runner, datasetName, evaluatorPattern, concurrency, onComplete]);
+  }, [runner, runConfigNames, concurrency, onComplete]);
 
   useEffect(() => {
     void runEval();
@@ -394,27 +453,19 @@ export function RunView({
 
       {runInfo && (
         <Box flexDirection="column" marginBottom={1}>
+          <Text color="cyan" bold>
+            RunConfigs{' '}
+          </Text>
+          <Text color="gray">{runInfo.names.join(', ')}</Text>
           <Text>
             <Text color="cyan" bold>
-              Run{' '}
+              Jobs{' '}
             </Text>
-            <Text color="gray">{runInfo.runId}</Text>
+            {runInfo.jobs}
           </Text>
           <Text>
             <Text color="cyan" bold>
-              Dataset{' '}
-            </Text>
-            {runInfo.datasetName}
-          </Text>
-          <Text>
-            <Text color="cyan" bold>
-              Evaluators{' '}
-            </Text>
-            {runInfo.evaluatorNames.join(', ')}
-          </Text>
-          <Text>
-            <Text color="cyan" bold>
-              Test cases{' '}
+              Evaluation units{' '}
             </Text>
             {runInfo.totalTestCases}
           </Text>
@@ -429,10 +480,13 @@ export function RunView({
           {runningEvaluations.length > 0 && (
             <Box flexDirection="column" marginTop={1}>
               {runningEvaluations.map((item) => (
-                <Text key={`${item.testCaseId}:${item.rerunIndex}`} color="yellow">
+                <Text
+                  key={`${item.runId ?? ''}:${item.testCaseId}:${item.repetitionId}:${item.repetitionIndex}`}
+                  color="yellow"
+                >
                   [running {item.startedTestCases}/{item.totalTestCases}] {item.name}{' '}
                   <Text color="gray">
-                    ({item.rerunIndex}/{item.rerunTotal})
+                    ({item.repetitionIndex}/{item.repetitionCount})
                   </Text>
                 </Text>
               ))}
@@ -451,7 +505,7 @@ export function RunView({
                 </Text>{' '}
                 {tc.name}{' '}
                 <Text color="cyan">
-                  ({tc.rerunIndex}/{tc.rerunTotal})
+                  ({tc.repetitionIndex}/{tc.repetitionCount})
                 </Text>
                 <Text color="gray"> ({tc.durationMs}ms)</Text>
                 {tc.errorMessage ? (
@@ -490,12 +544,12 @@ export function RunView({
                     ) : null}
                   </Text>
                   {item.scores.length > 0 ? (
-                    item.scores.map((s, idx) => {
+                    item.scores.map((s) => {
                       const def = s.def ?? getScoreById(s.id);
                       const scoreLabel = s.name ?? def?.name ?? def?.id ?? s.id;
                       return (
                         <Text
-                          key={`${item.evaluatorId}-${s.id}-${idx}`}
+                          key={`${item.evaluatorId}-${s.id}-${scoreLabel}`}
                           color={scoreColor(toNumericScore(s.data) ?? 0)}
                         >
                           {'      '}
@@ -511,12 +565,17 @@ export function RunView({
                   )}
                   {!item.passed && item.logs && item.logs.length > 0 && (
                     <Box marginLeft={2} flexDirection="column">
-                      {item.logs.map((log, logIdx) =>
+                      {item.logs.map((log) =>
                         log.type === 'diff' ? (
-                          <Box key={logIdx} flexDirection="column">
-                            {getDiffLines(log).map(({ type, line }, lineIdx) => (
+                          <Box
+                            key={`diff:${getDiffLines(log)
+                              .map((x) => x.line)
+                              .join('|')}`}
+                            flexDirection="column"
+                          >
+                            {getDiffLines(log).map(({ type, line }) => (
                               <Text
-                                key={lineIdx}
+                                key={`${type}:${line}`}
                                 color={
                                   type === 'remove' ? 'red' : type === 'add' ? 'green' : 'gray'
                                 }
@@ -526,9 +585,9 @@ export function RunView({
                             ))}
                           </Box>
                         ) : log.type === 'log' ? (
-                          <Box key={logIdx} flexDirection="column">
-                            {getLogLines(log).map((line, lineIdx) => (
-                              <Text key={lineIdx} color="gray">
+                          <Box key={`log:${getLogLines(log).join('\n')}`} flexDirection="column">
+                            {getLogLines(log).map((line) => (
+                              <Text key={line} color="gray">
                                 {line}
                               </Text>
                             ))}
@@ -669,8 +728,13 @@ export function RunView({
               );
             })}
           </Box>
-          <Box marginTop={1}>
-            <Text color="gray">artifact: {summary.artifactPath}</Text>
+          <Box marginTop={1} flexDirection="column">
+            <Text color="gray">artifact(s):</Text>
+            {summary.artifactPath.split('\n').map((line) => (
+              <Text key={line} color="gray">
+                {line}
+              </Text>
+            ))}
           </Box>
         </Box>
       )}

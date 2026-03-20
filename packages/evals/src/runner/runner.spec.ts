@@ -5,7 +5,7 @@ import { afterEach, describe, expect, test, vi } from 'vitest';
 
 import { loadRunnerData } from '../cli/state';
 import { createRunner } from './api';
-import type { RunnerApi, RunnerEvent } from './index';
+import { PROGRAMMATIC_RUN_CONFIG, type RunnerApi, type RunnerEvent } from './index';
 
 type FixtureExtension = '.mjs' | '.ts';
 
@@ -27,7 +27,8 @@ async function createFixtureWorkspace(
   extension: FixtureExtension,
   suffixes: FixtureSuffixes = getDefaultFixtureSuffixes(extension),
 ): Promise<string> {
-  const root = await mkdtemp(join(process.cwd(), 'packages/evals/.tmp-runner-'));
+  /** Under package root (Vitest cwd); avoid system temp — sandboxed runs cannot read /tmp. */
+  const root = await mkdtemp(join(process.cwd(), '.tmp-runner-'));
   const typedStringConst =
     extension === '.ts' ? "const alphaTag: string = 'alpha';" : "const alphaTag = 'alpha';";
   const typedScoreConst =
@@ -193,6 +194,7 @@ describe('runner discovery and execution', () => {
     const queued = await runner.runDatasetWith({
       datasetId: dataset.id,
       evaluatorIds: [evaluator.id],
+      ...PROGRAMMATIC_RUN_CONFIG,
     });
 
     const done = await completed;
@@ -216,16 +218,27 @@ describe('runner discovery and execution', () => {
     expect(progressEvent?.evaluatorScores[0]?.scores[1]?.data).toEqual(
       expect.objectContaining({
         datasetId: dataset.id,
+        runConfigName: PROGRAMMATIC_RUN_CONFIG.runConfigName,
+        repetitionIndex: 1,
+        repetitionCount: 1,
       }),
     );
     const meta = progressEvent?.evaluatorScores[0]?.scores[1]?.data as
       | {
           triggerId?: string;
           runId?: string;
+          runConfigName?: string;
+          repetitionId?: string;
+          repetitionIndex?: number;
+          repetitionCount?: number;
         }
       | undefined;
     expect(meta?.triggerId).toMatch(/^trg-[0-9a-f-]{36}$/);
     expect(meta?.runId).toMatch(/^run-[0-9a-f-]{36}$/);
+    expect(meta?.repetitionId).toMatch(/^rep-[0-9a-f-]{36}$/);
+    expect(meta?.repetitionIndex).toBe(1);
+    expect(meta?.repetitionCount).toBe(1);
+    expect(meta?.runConfigName).toBe(PROGRAMMATIC_RUN_CONFIG.runConfigName);
   });
 
   test('maps runner discovery into CLI data shape', async () => {
@@ -273,6 +286,7 @@ describe('runner discovery and execution', () => {
     await runner.runDatasetWith({
       datasetId: dataset.id,
       evaluatorIds: [evaluator.id],
+      ...PROGRAMMATIC_RUN_CONFIG,
     });
     const completed = await done;
 
@@ -318,7 +332,7 @@ describe('runner discovery and execution', () => {
     expect(testCases).toHaveLength(2);
   });
 
-  test('runs test cases with reruns concurrently and aggregates pass/fail correctly', async () => {
+  test('runs test cases with repetitions concurrently and aggregates pass/fail correctly', async () => {
     const root = await createFixtureWorkspace('.mjs');
     await writeFile(
       join(root, 'one.test-case.mjs'),
@@ -328,7 +342,6 @@ describe('runner discovery and execution', () => {
         'export const firstCase = {',
         "  getName: () => 'first',",
         "  getTags: () => ['alpha'],",
-        '  getReruns: () => 3,',
         '  getInputSchema: () => undefined,',
         '  getInput: () => ({ value: firstValue }),',
         '  getOutput: () => ({ expectedValue: firstExpected })',
@@ -369,6 +382,8 @@ describe('runner discovery and execution', () => {
       datasetId: dataset.id,
       evaluatorIds: [evaluator.id],
       concurrency: 4,
+      repetitions: 3,
+      ...PROGRAMMATIC_RUN_CONFIG,
     });
 
     const done = await completed;
@@ -383,8 +398,48 @@ describe('runner discovery and execution', () => {
       (e): e is Extract<RunnerEvent, { type: 'TestCaseProgress' }> => e.type === 'TestCaseProgress',
     );
     expect(progressEvents).toHaveLength(3);
-    expect(progressEvents.every((e) => e.rerunTotal === 3)).toBe(true);
-    expect(progressEvents.map((e) => e.rerunIndex).sort()).toEqual([1, 2, 3]);
+    expect(progressEvents.every((e) => e.repetitionCount === 3)).toBe(true);
+    expect(progressEvents.map((e) => e.repetitionIndex).sort()).toEqual([1, 2, 3]);
+    const repIds = new Set(progressEvents.map((e) => e.repetitionId));
+    expect(repIds.size).toBe(1);
+  });
+
+  test('runDatasetJobsWithSharedConcurrency attaches runConfig meta to evaluator args.meta', async () => {
+    const { runner } = await withRunner();
+    const [dataset] = await runner.collectDatasets();
+    const [evaluator] = await runner.collectEvaluators();
+
+    const progress = new Promise<RunnerEvent>((resolve) => {
+      const unsubscribe = runner.subscribeRunEvents((event) => {
+        if (event.type === 'TestCaseProgress') {
+          unsubscribe();
+          resolve(event);
+        }
+      });
+    });
+
+    await runner.runDatasetJobsWithSharedConcurrency({
+      jobs: [
+        {
+          datasetId: dataset.id,
+          evaluatorIds: [evaluator.id],
+          runConfigName: 'fixture-rc',
+          repetitions: 1,
+        },
+      ],
+      globalConcurrency: 2,
+    });
+
+    const ev = await progress;
+    expect(ev.type).toBe('TestCaseProgress');
+    const meta = ev.evaluatorScores[0]?.scores[1]?.data as
+      | {
+          runConfigName?: string;
+          datasetId?: string;
+        }
+      | undefined;
+    expect(meta?.datasetId).toBe(dataset.id);
+    expect(meta?.runConfigName).toBe('fixture-rc');
   });
 
   test('prefers createRunner overrides over m4trix-eval.config.ts', async () => {

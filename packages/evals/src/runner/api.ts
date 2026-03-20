@@ -1,26 +1,30 @@
 import { randomUUID } from 'node:crypto';
 
 import { Effect, Fiber, PubSub, Queue, Ref } from 'effect';
-
+import { validateRunConfigName } from '../evals/run-config';
+import { loadRunSnapshotsFromArtifacts as loadSnapshotsFromArtifacts } from './artifact-loader';
 import type { RunnerConfig, RunnerConfigOverrides } from './config';
 import { withRunnerConfig } from './config';
 import { loadRunnerConfigFile } from './config-loader';
 import {
   collectDatasetsFromFiles,
   collectEvaluatorsFromFiles,
+  collectRunConfigsFromFiles,
   collectTestCasesFromFiles,
 } from './discovery';
-import { createArtifactPath, executeRunTask, type RunTask } from './execution';
 import type {
   CollectedDataset,
   CollectedEvaluator,
+  CollectedRunConfig,
   CollectedTestCase,
+  RunDatasetJob,
   RunDatasetRequest,
-  RunSnapshot,
   RunnerEvent,
+  RunSnapshot,
   SearchTestCasesQuery,
 } from './events';
-import { loadRunSnapshotsFromArtifacts as loadSnapshotsFromArtifacts } from './artifact-loader';
+import { createArtifactPath, executeRunTask, type RunTask } from './execution';
+import { createNameMatcher } from './name-pattern';
 import { createPersistenceWorker } from './persistence';
 import { searchCollectedTestCases } from './search';
 
@@ -28,42 +32,37 @@ interface SubscribeOptions {
   runId?: string;
 }
 
-function parseRegexLiteral(pattern: string): { source: string; flags: string } | undefined {
-  if (!pattern.startsWith('/')) {
-    return undefined;
+function normalizeRunRepetitions(value: number | undefined): number {
+  const n = value ?? 1;
+  if (!Number.isInteger(n) || n < 1) {
+    throw new Error(`repetitions must be a positive integer, got ${String(value)}`);
   }
-  const lastSlash = pattern.lastIndexOf('/');
-  if (lastSlash <= 0) {
-    return undefined;
-  }
-  return {
-    source: pattern.slice(1, lastSlash),
-    flags: pattern.slice(lastSlash + 1),
-  };
+  return n;
 }
 
-function createNameMatcher(pattern: string): (value: string) => boolean {
-  const normalizedPattern = pattern.trim();
-  const regexLiteral = parseRegexLiteral(normalizedPattern);
-  if (regexLiteral) {
-    const regex = new RegExp(regexLiteral.source, regexLiteral.flags);
-    return (value: string) => regex.test(value);
-  }
-
-  if (normalizedPattern.includes('*')) {
-    const escaped = normalizedPattern.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*');
-    const regex = new RegExp(`^${escaped}$`, 'i');
-    return (value: string) => regex.test(value);
-  }
-
-  return (value: string) => value.toLowerCase() === normalizedPattern.toLowerCase();
+export interface RunDatasetJobsWithSharedConcurrencyRequest {
+  jobs: ReadonlyArray<RunDatasetJob>;
+  globalConcurrency: number;
+  triggerId?: string;
 }
 
 export interface RunnerApi {
   collectDatasets(): Promise<ReadonlyArray<CollectedDataset>>;
   collectEvaluators(): Promise<ReadonlyArray<CollectedEvaluator>>;
+  collectRunConfigs(): Promise<ReadonlyArray<CollectedRunConfig>>;
   resolveDatasetByName(name: string): Promise<CollectedDataset | undefined>;
   resolveEvaluatorsByNamePattern(pattern: string): Promise<ReadonlyArray<CollectedEvaluator>>;
+  /**
+   * Resolves a RunConfig by display name (case-insensitive).
+   * @throws If more than one discovered RunConfig uses the same name (list file paths in the error).
+   */
+  resolveRunConfigByName(name: string): Promise<CollectedRunConfig | undefined>;
+  expandRunConfigToJobs(collected: CollectedRunConfig): Promise<ReadonlyArray<RunDatasetJob>>;
+  /** Resolves each name in order and concatenates expanded jobs (the same name may appear more than once). */
+  expandRunConfigNamesToJobs(names: ReadonlyArray<string>): Promise<ReadonlyArray<RunDatasetJob>>;
+  runDatasetJobsWithSharedConcurrency(
+    request: RunDatasetJobsWithSharedConcurrencyRequest,
+  ): Promise<ReadonlyArray<RunSnapshot>>;
   searchTestCases(query?: SearchTestCasesQuery): Promise<ReadonlyArray<CollectedTestCase>>;
   collectDatasetTestCases(datasetId: string): Promise<ReadonlyArray<CollectedTestCase>>;
   runDatasetWith(request: RunDatasetRequest): Promise<RunSnapshot>;
@@ -132,6 +131,8 @@ class EffectRunner implements RunnerApi {
 
   private readonly evaluatorsById = new Map<string, CollectedEvaluator>();
 
+  private readonly runConfigsById = new Map<string, CollectedRunConfig>();
+
   private readonly schedulerFiber = Effect.runFork(this.createSchedulerEffect());
 
   private readonly persistenceFiber = Effect.runFork(
@@ -182,6 +183,154 @@ class EffectRunner implements RunnerApi {
     );
   }
 
+  async collectRunConfigs(): Promise<ReadonlyArray<CollectedRunConfig>> {
+    const runConfigs = await collectRunConfigsFromFiles(this.config.discovery);
+    this.runConfigsById.clear();
+    const byNameLower = new Map<string, CollectedRunConfig>();
+    for (const item of runConfigs) {
+      const id = item.runConfig.getName();
+      const lower = id.toLowerCase();
+      const prev = byNameLower.get(lower);
+      if (prev !== undefined && prev.filePath !== item.filePath) {
+        throw new Error(
+          `Duplicate RunConfig name "${id}" (matches "${prev.runConfig.getName()}" case-insensitively): ${prev.filePath} and ${item.filePath}`,
+        );
+      }
+      byNameLower.set(lower, item);
+      this.runConfigsById.set(id, item);
+    }
+    return runConfigs;
+  }
+
+  async resolveRunConfigByName(name: string): Promise<CollectedRunConfig | undefined> {
+    if (this.runConfigsById.size === 0) {
+      await this.collectRunConfigs();
+    }
+    const key = validateRunConfigName(name, `RunConfig "${name.trim()}"`);
+    const keyLower = key.toLowerCase();
+    const matches = Array.from(this.runConfigsById.values()).filter(
+      (item) => item.runConfig.getName().toLowerCase() === keyLower,
+    );
+    if (matches.length === 0) {
+      return undefined;
+    }
+    if (matches.length > 1) {
+      throw new Error(
+        `Multiple RunConfigs named "${name}": ${matches.map((m) => m.filePath).join(', ')}`,
+      );
+    }
+    return matches[0];
+  }
+
+  async expandRunConfigToJobs(
+    collected: CollectedRunConfig,
+  ): Promise<ReadonlyArray<RunDatasetJob>> {
+    if (this.datasetsById.size === 0) {
+      await this.collectDatasets();
+    }
+    if (this.evaluatorsById.size === 0) {
+      await this.collectEvaluators();
+    }
+
+    const rcName = collected.runConfig.getName();
+    const jobs: RunDatasetJob[] = [];
+    const runs = collected.runConfig.getRuns();
+
+    for (const [i, row] of runs.entries()) {
+      const dsCollected = Array.from(this.datasetsById.values()).find(
+        (d) => d.dataset === row.dataset,
+      );
+      if (!dsCollected) {
+        throw new Error(
+          `RunConfig "${rcName}" run[${i}]: dataset "${row.dataset.getName()}" was not found among discovered dataset exports (import the same module instances the scanner loads).`,
+        );
+      }
+
+      let evaluatorIds: string[];
+      if ('evaluatorPattern' in row && typeof row.evaluatorPattern === 'string') {
+        const matcher = createNameMatcher(row.evaluatorPattern);
+        const matched = Array.from(this.evaluatorsById.values()).filter((item) =>
+          matcher(item.evaluator.getName() ?? ''),
+        );
+        if (matched.length === 0) {
+          throw new Error(
+            `RunConfig "${rcName}" run[${i}]: no evaluator matched pattern "${row.evaluatorPattern}"`,
+          );
+        }
+        evaluatorIds = matched.map((item) => item.id);
+      } else {
+        const evaluators = row.evaluators;
+        evaluatorIds = [];
+        for (const ev of evaluators) {
+          const found = Array.from(this.evaluatorsById.values()).find(
+            (item) => item.evaluator === ev,
+          );
+          if (!found) {
+            throw new Error(
+              `RunConfig "${rcName}" run[${i}]: evaluator "${ev.getName() ?? 'unknown'}" was not found among discovered evaluator exports`,
+            );
+          }
+          evaluatorIds.push(found.id);
+        }
+      }
+
+      const repetitions =
+        'repetitions' in row && row.repetitions !== undefined ? row.repetitions : 1;
+
+      jobs.push({
+        datasetId: dsCollected.id,
+        evaluatorIds,
+        runConfigName: rcName,
+        repetitions,
+      });
+    }
+
+    return jobs;
+  }
+
+  async expandRunConfigNamesToJobs(
+    names: ReadonlyArray<string>,
+  ): Promise<ReadonlyArray<RunDatasetJob>> {
+    const jobs: RunDatasetJob[] = [];
+    for (const name of names) {
+      const collected = await this.resolveRunConfigByName(name);
+      if (!collected) {
+        const known = await this.collectRunConfigs();
+        const available = known.map((r) => r.runConfig.getName()).sort();
+        throw new Error(
+          available.length > 0
+            ? `RunConfig "${name}" not found. Available RunConfigs: ${available.join(', ')}`
+            : `RunConfig "${name}" not found and no RunConfigs were discovered.`,
+        );
+      }
+      jobs.push(...(await this.expandRunConfigToJobs(collected)));
+    }
+    return jobs;
+  }
+
+  async runDatasetJobsWithSharedConcurrency(
+    request: RunDatasetJobsWithSharedConcurrencyRequest,
+  ): Promise<ReadonlyArray<RunSnapshot>> {
+    const globalConcurrency = Math.max(1, request.globalConcurrency);
+    const sem = Effect.unsafeMakeSemaphore(globalConcurrency);
+    const triggerId = request.triggerId ?? `trg-${randomUUID()}`;
+    const snapshots: RunSnapshot[] = [];
+    for (const job of request.jobs) {
+      snapshots.push(
+        await this.startDatasetRun({
+          datasetId: job.datasetId,
+          evaluatorIds: job.evaluatorIds,
+          triggerId,
+          maxConcurrency: this.config.maxConcurrency ?? 1,
+          globalEvaluationSemaphore: sem,
+          runConfigName: job.runConfigName,
+          repetitions: job.repetitions,
+        }),
+      );
+    }
+    return snapshots;
+  }
+
   async searchTestCases(query?: SearchTestCasesQuery): Promise<ReadonlyArray<CollectedTestCase>> {
     const testCases = await collectTestCasesFromFiles(this.config.discovery);
     return searchCollectedTestCases(testCases, query);
@@ -202,6 +351,29 @@ class EffectRunner implements RunnerApi {
   }
 
   async runDatasetWith(request: RunDatasetRequest): Promise<RunSnapshot> {
+    const runConfigName = validateRunConfigName(
+      request.runConfigName,
+      'runDatasetWith.runConfigName',
+    );
+    return this.startDatasetRun({
+      datasetId: request.datasetId,
+      evaluatorIds: request.evaluatorIds,
+      triggerId: request.triggerId,
+      maxConcurrency: request.concurrency ?? this.config.maxConcurrency ?? 1,
+      repetitions: request.repetitions,
+      runConfigName,
+    });
+  }
+
+  private async startDatasetRun(params: {
+    datasetId: string;
+    evaluatorIds: ReadonlyArray<string>;
+    triggerId?: string;
+    maxConcurrency: number;
+    globalEvaluationSemaphore?: ReturnType<typeof Effect.unsafeMakeSemaphore>;
+    runConfigName: string;
+    repetitions?: number;
+  }): Promise<RunSnapshot> {
     if (this.datasetsById.size === 0) {
       await this.collectDatasets();
     }
@@ -209,12 +381,12 @@ class EffectRunner implements RunnerApi {
       await this.collectEvaluators();
     }
 
-    const dataset = this.datasetsById.get(request.datasetId);
+    const dataset = this.datasetsById.get(params.datasetId);
     if (!dataset) {
-      throw new Error(`Unknown dataset: ${request.datasetId}`);
+      throw new Error(`Unknown dataset: ${params.datasetId}`);
     }
 
-    const selectedEvaluators = request.evaluatorIds
+    const selectedEvaluators = params.evaluatorIds
       .map((id) => this.evaluatorsById.get(id))
       .filter((value): value is CollectedEvaluator => Boolean(value))
       .map((value) => ({ id: value.id, evaluator: value.evaluator }));
@@ -223,24 +395,17 @@ class EffectRunner implements RunnerApi {
       throw new Error('No evaluators selected for run');
     }
 
-    const selectedTestCases = await this.collectDatasetTestCases(request.datasetId);
+    const selectedTestCases = await this.collectDatasetTestCases(params.datasetId);
 
-    const totalEvaluations = selectedTestCases.reduce(
-      (sum, tc) =>
-        sum + (typeof tc.testCase.getReruns === 'function' ? tc.testCase.getReruns() : 1),
-      0,
-    );
+    const repetitions = normalizeRunRepetitions(params.repetitions);
+    const totalEvaluations = selectedTestCases.length * repetitions;
 
-    const triggerId = request.triggerId ?? `trg-${randomUUID()}`;
+    const triggerId = params.triggerId ?? `trg-${randomUUID()}`;
     const runId = `run-${randomUUID()}`;
-    const artifactPath = createArtifactPath(
-      this.config.artifactDirectory,
-      request.datasetId,
-      runId,
-    );
+    const artifactPath = createArtifactPath(this.config.artifactDirectory, params.datasetId, runId);
     const snapshot: RunSnapshot = {
       runId,
-      datasetId: request.datasetId,
+      datasetId: params.datasetId,
       datasetName: dataset.dataset.getName(),
       evaluatorIds: selectedEvaluators.map((item) => item.id),
       queuedAt: Date.now(),
@@ -262,7 +427,7 @@ class EffectRunner implements RunnerApi {
     const queuedEvent: RunnerEvent = {
       type: 'RunQueued',
       runId,
-      datasetId: request.datasetId,
+      datasetId: params.datasetId,
       datasetName: dataset.dataset.getName(),
       evaluatorIds: selectedEvaluators.map((item) => item.id),
       totalTestCases: totalEvaluations,
@@ -277,18 +442,19 @@ class EffectRunner implements RunnerApi {
       }),
     );
 
-    const maxConcurrency = request.concurrency ?? this.config.maxConcurrency ?? 1;
-
     await Effect.runPromise(
       Queue.offer(this.runQueue, {
         runId,
         triggerId,
-        datasetId: request.datasetId,
+        datasetId: params.datasetId,
         dataset: dataset.dataset,
         evaluators: selectedEvaluators,
         testCases: selectedTestCases,
         snapshot,
-        maxConcurrency,
+        maxConcurrency: params.maxConcurrency,
+        globalEvaluationSemaphore: params.globalEvaluationSemaphore,
+        runConfigName: params.runConfigName,
+        repetitions,
       }),
     );
 

@@ -4,7 +4,7 @@ import { createRunner } from '../runner';
 import { getDefaultConcurrency, getSimpleCliUsage, parseSimpleCliArgs } from './args';
 import { printBanner } from './banner';
 import { generateDatasetJsonCommandInk, generateDatasetJsonCommandPlain } from './generate';
-import { runSimpleEvalCommandInk, runSimpleEvalCommandPlain } from './run';
+import { runSimpleEvalRunConfigsInk, runSimpleEvalRunConfigsPlain } from './run';
 
 function printUsageAndExit(exitCode: number): never {
   const printer = exitCode === 0 ? console.log : console.error;
@@ -25,13 +25,20 @@ async function main(): Promise<void> {
   if (!args.command) {
     printUsageAndExit(1);
   }
-  if (!args.datasetName) {
-    console.error('Missing required --dataset <datasetName> argument.');
-    printUsageAndExit(1);
+
+  if (args.command === 'run') {
+    if (args.runConfigNames.length === 0) {
+      console.error('Missing required --run-config <name> (repeat the flag to queue multiple RunConfigs).');
+      printUsageAndExit(1);
+    }
+    if (args.datasetName !== undefined) {
+      console.error('The run command no longer accepts --dataset; use --run-config <RunConfig name>.');
+      printUsageAndExit(1);
+    }
   }
 
-  if (args.command === 'run' && !args.evaluatorPattern) {
-    console.error('Missing required --evaluator <name-or-pattern> argument.');
+  if (args.command === 'generate' && args.runConfigNames.length > 0) {
+    console.error('generate does not accept --run-config.');
     printUsageAndExit(1);
   }
 
@@ -44,18 +51,22 @@ async function main(): Promise<void> {
   try {
     if (args.command === 'run') {
       const concurrency = args.concurrency ?? getDefaultConcurrency();
-      await (useInk ? runSimpleEvalCommandInk : runSimpleEvalCommandPlain)(
+      await (useInk ? runSimpleEvalRunConfigsInk : runSimpleEvalRunConfigsPlain)(
         runner,
-        args.datasetName,
-        args.evaluatorPattern!,
+        args.runConfigNames,
         concurrency,
       );
       return;
     }
 
+    const genDataset = args.datasetName;
+    if (!genDataset) {
+      console.error('Missing required --dataset <datasetName> argument.');
+      printUsageAndExit(1);
+    }
     await (useInk ? generateDatasetJsonCommandInk : generateDatasetJsonCommandPlain)(
       runner,
-      args.datasetName,
+      genDataset,
     );
   } finally {
     await runner.shutdown();

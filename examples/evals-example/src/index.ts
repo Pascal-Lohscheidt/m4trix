@@ -1,14 +1,14 @@
 /**
- * Evals example: runs a single evaluation on the Demo Dataset.
+ * Evals example: runs one job via the runner API (not a discovered RunConfig file).
  *
  * Run from the evals-example directory:
  *   pnpm exec tsx src/index.ts
  *
- * Or use the CLI directly:
- *   eval-agents-simple run --dataset "Demo Dataset" --evaluator "*Demo*"
- *   eval-agents   (full TUI - run multiple evals first to see bar charts and trend)
+ * Or use the CLI:
+ *   eval-agents-simple run --run-config "example-name"
+ *   eval-agents   (full TUI)
  */
-import { createRunner } from '@m4trix/evals';
+import { createRunner, PROGRAMMATIC_RUN_CONFIG } from '@m4trix/evals';
 
 async function runExample(): Promise<void> {
   const runner = createRunner();
@@ -30,6 +30,7 @@ async function runExample(): Promise<void> {
   const snapshot = await runner.runDatasetWith({
     datasetId: dataset.id,
     evaluatorIds: evaluators.map((e) => e.id),
+    ...PROGRAMMATIC_RUN_CONFIG,
   });
 
   const done = new Promise<void>((resolve) => {

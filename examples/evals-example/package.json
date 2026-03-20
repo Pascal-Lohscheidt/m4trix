@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "eval:run": "pnpm exec eval-agents-simple run --dataset \"Demo Dataset\" --evaluator \"*Demo*\"",
+    "eval:run": "pnpm exec eval-agents-simple run --run-config \"example-name\"",
     "eval:generate": "eval-agents-simple generate --dataset \"Demo Dataset\"",
     "example": "tsx src/index.ts"
   },

@@ -9,8 +9,9 @@ export interface ParsedTestCaseProgress {
   testCaseName: string;
   completedTestCases: number;
   totalTestCases: number;
-  rerunIndex?: number;
-  rerunTotal?: number;
+  repetitionId?: string;
+  repetitionIndex?: number;
+  repetitionCount?: number;
   passed: boolean;
   durationMs: number;
   evaluatorScores: ReadonlyArray<{
@@ -213,6 +214,9 @@ export async function parseArtifactFile(artifactPath: string): Promise<ParsedTes
             testCaseName: string;
             completedTestCases: number;
             totalTestCases: number;
+            repetitionId?: string;
+            repetitionIndex?: number;
+            repetitionCount?: number;
             rerunIndex?: number;
             rerunTotal?: number;
             passed: boolean;
@@ -233,13 +237,16 @@ export async function parseArtifactFile(artifactPath: string): Promise<ParsedTes
               >;
             }>;
           };
+          const repetitionIndex = ev.repetitionIndex ?? ev.rerunIndex;
+          const repetitionCount = ev.repetitionCount ?? ev.rerunTotal;
           results.push({
             testCaseId: ev.testCaseId,
             testCaseName: ev.testCaseName,
             completedTestCases: ev.completedTestCases,
             totalTestCases: ev.totalTestCases,
-            rerunIndex: ev.rerunIndex,
-            rerunTotal: ev.rerunTotal,
+            repetitionId: ev.repetitionId,
+            repetitionIndex,
+            repetitionCount,
             passed: ev.passed,
             durationMs: ev.durationMs,
             evaluatorScores: ev.evaluatorScores ?? [],

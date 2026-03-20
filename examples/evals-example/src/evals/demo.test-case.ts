@@ -82,7 +82,6 @@ export const mediumPromptCase = TestCase.describe({
   name: 'Rewrite technical text for clarity',
   tags: ['demo', 'medium'],
   inputSchema,
-  reruns: 10,
   input: {
     prompt: 'Write a short summary about testing and observability in one sentence.',
   },

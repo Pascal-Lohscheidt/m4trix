@@ -15,7 +15,7 @@ import {
   reduceCliState,
 } from './state';
 import type { CliState, EvalsData, StartupArgs } from './types';
-import type { RunnerApi } from '../runner';
+import { PROGRAMMATIC_RUN_CONFIG, type RunnerApi } from '../runner';
 import {
   DatasetsView,
   NewEvaluationView,
@@ -197,6 +197,7 @@ export function EvalsCliApp({ data, args, runner }: EvalsCliAppProps): React.Rea
         .runDatasetWith({
           datasetId: selectedDataset.id,
           evaluatorIds: clampedState.selectedEvaluatorIds,
+          ...PROGRAMMATIC_RUN_CONFIG,
         })
         .then((snapshot) => {
           setRuntimeMessage(

@@ -51,7 +51,7 @@ type TokenCountSum = {
   outputCached: number;
 };
 
-/** Sum token counts across reruns */
+/** Sum token counts across repetitions of the same test case */
 export function aggregateTokenCountSum(
   values: ReadonlyArray<{
     input?: number;
@@ -77,7 +77,7 @@ export function aggregateTokenCountSum(
   );
 }
 
-/** Average latency across reruns */
+/** Average latency across repetitions of the same test case */
 export function aggregateLatencyAverage(values: ReadonlyArray<{ ms: number }>): { ms: number } {
   if (values.length === 0) {
     return { ms: 0 };

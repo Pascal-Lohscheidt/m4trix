@@ -12,6 +12,7 @@ coverage/
 
 # Testing
 .vitest/
+.tmp-runner-*/
 
 # Environment
 .env

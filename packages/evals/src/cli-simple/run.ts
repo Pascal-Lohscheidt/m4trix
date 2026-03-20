@@ -303,51 +303,33 @@ function formatEvaluatorScoreLine(
   return lines;
 }
 
-export async function runSimpleEvalCommandPlain(
+
+export async function runSimpleEvalRunConfigsPlain(
   runner: RunnerApi,
-  datasetName: string,
-  evaluatorPattern: string,
+  runConfigNames: ReadonlyArray<string>,
   concurrency: number,
 ): Promise<void> {
-  const dataset = await runner.resolveDatasetByName(datasetName);
-  if (!dataset) {
-    const known = await runner.collectDatasets();
-    const available = known.map((item) => item.dataset.getName()).sort();
-    throw new Error(
-      available.length > 0
-        ? `Dataset "${datasetName}" not found. Available datasets: ${available.join(', ')}`
-        : `Dataset "${datasetName}" not found and no datasets were discovered.`,
-    );
+  const jobs = await runner.expandRunConfigNamesToJobs(runConfigNames);
+  if (jobs.length === 0) {
+    throw new Error('No jobs expanded from RunConfigs.');
   }
 
-  const evaluators = await runner.resolveEvaluatorsByNamePattern(evaluatorPattern);
-  if (evaluators.length === 0) {
-    const known = await runner.collectEvaluators();
-    const available = known
-      .map((item) => item.evaluator.getName())
-      .filter((name): name is string => typeof name === 'string')
-      .sort();
-    throw new Error(
-      available.length > 0
-        ? `No evaluator matched "${evaluatorPattern}". Available evaluators: ${available.join(', ')}`
-        : `No evaluator matched "${evaluatorPattern}" and no evaluators were discovered.`,
-    );
-  }
-
+  const evaluators = await runner.collectEvaluators();
   const evaluatorNameById = new Map(
     evaluators.map((item) => [item.id, item.evaluator.getName() ?? item.id]),
   );
+
   const aggregates = new Map<string, EvaluatorAggregate>();
   const scoreItemsByEvaluatorScore = new Map<string, ScoreItem[]>();
   const testCaseByTestId = new Map<string, TestCaseEventAcc>();
   let overallScoreTotal = 0;
   let overallScoreSumSq = 0;
   let overallScoreCount = 0;
-  let startedCount = 0;
-  let completedCount = 0;
+  let globalStartedUnits = 0;
+  let globalCompletedUnits = 0;
   let totalCount = 0;
   let runFinished = false;
-  const inFlightReruns = new Set<string>();
+  const inFlightRepetitions = new Set<string>();
   const spinnerFrames = ['⠋', '⠙', '⠸', '⠴', '⠦', '⠇'];
   let spinnerIndex = 0;
 
@@ -371,9 +353,9 @@ export async function runSimpleEvalCommandPlain(
     spinnerIndex += 1;
     process.stdout.write(
       `\r${colorize(frame, ansi.cyan)} Running evaluations ${colorize(
-        `${completedCount}/${totalCount}`,
+        `${globalCompletedUnits}/${totalCount}`,
         ansi.bold,
-      )} completed ${colorize(`${startedCount}/${totalCount}`, ansi.bold)} started ${colorize(`(${inFlightReruns.size} running)`, ansi.dim)}`,
+      )} completed ${colorize(`${globalStartedUnits}/${totalCount}`, ansi.bold)} started ${colorize(`(${inFlightRepetitions.size} running)`, ansi.dim)}`,
     );
   }
 
@@ -381,20 +363,48 @@ export async function runSimpleEvalCommandPlain(
   let lastPrintedLineCount = 0;
 
   let spinnerTimer: NodeJS.Timeout | undefined;
-  const done = new Promise<RunnerEvent>((resolve) => {
+
+  const batchPendingRunIds = new Set<string>();
+  const runIdToLabel = new Map<string, string>();
+  let batchReady = false;
+
+  const completedRuns = new Map<
+    string,
+    Extract<RunnerEvent, { type: 'RunCompleted' }>
+  >();
+
+  const done = new Promise<void>((resolve, reject) => {
     const unsubscribe = runner.subscribeRunEvents((event) => {
+      if (
+        batchReady &&
+        'runId' in event &&
+        typeof event.runId === 'string' &&
+        !batchPendingRunIds.has(event.runId)
+      ) {
+        return;
+      }
+
+      const rowPrefix =
+        typeof event.runId === 'string' ? runIdToLabel.get(event.runId) : undefined;
+      const pfx =
+        rowPrefix !== undefined ? `${colorize(`[${rowPrefix}]`, ansi.dim)} ` : '';
+
       if (event.type === 'TestCaseStarted') {
-        startedCount = event.startedTestCases;
-        inFlightReruns.add(`${event.testCaseId}:${event.rerunIndex}`);
+        globalStartedUnits += 1;
+        inFlightRepetitions.add(
+          `${event.runId}:${event.testCaseId}:${event.repetitionId}:${event.repetitionIndex}`,
+        );
         clearLine();
         process.stdout.write(
-          `${colorize(`[started ${event.startedTestCases}/${event.totalTestCases}]`, ansi.cyan)} ${event.testCaseName} ${colorize(`(${event.rerunIndex}/${event.rerunTotal})`, ansi.cyan)} ${colorize('(running)', ansi.dim)}\n`,
+          `${pfx}${colorize(`[started ${event.startedTestCases}/${event.totalTestCases}]`, ansi.cyan)} ${event.testCaseName} ${colorize(`(${event.repetitionIndex}/${event.repetitionCount})`, ansi.cyan)} ${colorize('(running)', ansi.dim)}\n`,
         );
         drawSpinner();
       }
       if (event.type === 'TestCaseProgress') {
-        completedCount = event.completedTestCases;
-        inFlightReruns.delete(`${event.testCaseId}:${event.rerunIndex}`);
+        globalCompletedUnits += 1;
+        inFlightRepetitions.delete(
+          `${event.runId}:${event.testCaseId}:${event.repetitionId}:${event.repetitionIndex}`,
+        );
         const numericScores = event.evaluatorScores
           .map((item) => toNumericScoreFromScores(item.scores))
           .filter((item): item is number => item !== undefined);
@@ -403,8 +413,8 @@ export async function runSimpleEvalCommandPlain(
             ? numericScores.reduce((sum, value) => sum + value, 0) / numericScores.length
             : undefined;
 
-        const testCaseId = event.testCaseId;
-        const existing = testCaseByTestId.get(testCaseId) ?? {
+        const compositeId = `${event.runId}:${event.testCaseId}`;
+        const existing = testCaseByTestId.get(compositeId) ?? {
           name: event.testCaseName,
           events: [],
         };
@@ -414,7 +424,7 @@ export async function runSimpleEvalCommandPlain(
           durationMs: event.durationMs,
           evaluatorScores: event.evaluatorScores,
         });
-        testCaseByTestId.set(testCaseId, existing);
+        testCaseByTestId.set(compositeId, existing);
 
         for (const item of event.evaluatorScores) {
           const numeric = toNumericScoreFromScores(item.scores);
@@ -445,11 +455,10 @@ export async function runSimpleEvalCommandPlain(
           }
         }
 
-        const isSameTestCase = lastPrintedTestCaseId === testCaseId;
-        const isLastRerun = event.rerunIndex >= event.rerunTotal;
+        const isSameTestCase = lastPrintedTestCaseId === compositeId;
+        const isLastRepetition = event.repetitionIndex >= event.repetitionCount;
         const isNonTty = !process.stdout.isTTY;
-        // When not TTY and we have reruns, only print the final aggregated block
-        const skipPrintNonTty = isNonTty && event.rerunTotal > 1 && !isLastRerun;
+        const skipPrintNonTty = isNonTty && event.repetitionCount > 1 && !isLastRepetition;
 
         if (isSameTestCase && lastPrintedLineCount > 0 && !skipPrintNonTty) {
           cursorUp(lastPrintedLineCount);
@@ -467,7 +476,7 @@ export async function runSimpleEvalCommandPlain(
           ? ` ${colorize('ERROR', `${ansi.bold}${ansi.red}`)}`
           : '';
         lines.push(
-          `${colorize(`[${event.completedTestCases}/${event.totalTestCases}]`, ansi.cyan)} ${event.testCaseName} ${colorize(`(${event.rerunIndex}/${event.rerunTotal})`, ansi.cyan)} ${colorize(`(${durationMs}ms)`, ansi.dim)}${statusSuffix}`,
+          `${pfx}${colorize(`[${event.completedTestCases}/${event.totalTestCases}]`, ansi.cyan)} ${event.testCaseName} ${colorize(`(${event.repetitionIndex}/${event.repetitionCount})`, ansi.cyan)} ${colorize(`(${durationMs}ms)`, ansi.dim)}${statusSuffix}`,
         );
         if (event.errorMessage) {
           lines.push(colorize(event.errorMessage, ansi.red));
@@ -504,63 +513,96 @@ export async function runSimpleEvalCommandPlain(
         }
 
         if (!skipPrintNonTty) {
-          for (let i = 0; i < lines.length; i++) {
+          for (let i = 0; i < lines.length; i += 1) {
             process.stdout.write(`\r\x1b[2K${lines[i]}\n`);
           }
-          lastPrintedTestCaseId = testCaseId;
+          lastPrintedTestCaseId = compositeId;
           lastPrintedLineCount = lines.length;
         }
 
         drawSpinner();
       }
-      if (event.type === 'RunCompleted' || event.type === 'RunFailed') {
+      if (event.type === 'RunFailed') {
+        if (batchReady && !batchPendingRunIds.has(event.runId)) {
+          return;
+        }
         runFinished = true;
         clearLine();
         unsubscribe();
-        resolve(event);
+        reject(new Error(`Run failed: ${event.errorMessage}`));
+        return;
+      }
+      if (event.type === 'RunCompleted') {
+        if (!batchPendingRunIds.has(event.runId)) {
+          return;
+        }
+        completedRuns.set(event.runId, event);
+        batchPendingRunIds.delete(event.runId);
+        if (batchPendingRunIds.size === 0) {
+          runFinished = true;
+          clearLine();
+          unsubscribe();
+          resolve();
+        }
       }
     });
   });
 
-  const snapshot = await runner.runDatasetWith({
-    datasetId: dataset.id,
-    evaluatorIds: evaluators.map((item) => item.id),
-    concurrency,
-  });
-  totalCount = snapshot.totalTestCases;
-
-  console.log(colorize('=== Eval Run Started ===', `${ansi.bold}${ansi.cyan}`));
-  console.log(`Run: ${colorize(snapshot.runId, ansi.cyan)}`);
-  console.log(`Dataset: ${colorize(snapshot.datasetName, ansi.bold)}`);
-  console.log(
-    `Evaluators: ${evaluators.map((item) => item.evaluator.getName() ?? item.id).join(', ')}`,
-  );
-  console.log(`Total test cases: ${colorize(String(snapshot.totalTestCases), ansi.bold)}`);
+  console.log(colorize('=== Eval Run Started (RunConfigs) ===', `${ansi.bold}${ansi.cyan}`));
+  for (const name of runConfigNames) {
+    console.log(`RunConfig: ${colorize(name, ansi.bold)}`);
+  }
+  console.log(`Jobs: ${colorize(String(jobs.length), ansi.bold)}`);
+  console.log(`Shared concurrency: ${colorize(String(concurrency), ansi.bold)}`);
   console.log('');
+
+  const snapshots = await runner.runDatasetJobsWithSharedConcurrency({
+    jobs,
+    globalConcurrency: concurrency,
+  });
+  for (let i = 0; i < snapshots.length; i += 1) {
+    const snap = snapshots[i];
+    const job = jobs[i];
+    if (snap && job) {
+      runIdToLabel.set(snap.runId, `${job.runConfigName} · ${snap.datasetName}`);
+      batchPendingRunIds.add(snap.runId);
+    }
+  }
+  totalCount = snapshots.reduce((sum, s) => sum + s.totalTestCases, 0);
+  console.log(`Total evaluation units: ${colorize(String(totalCount), ansi.bold)}`);
+  console.log('');
+  batchReady = true;
+
   drawSpinner();
   spinnerTimer = setInterval(drawSpinner, 100);
 
-  const finalEvent = await done;
+  await done;
   if (spinnerTimer) {
     clearInterval(spinnerTimer);
   }
 
-  if (finalEvent.type === 'RunFailed') {
-    throw new Error(`Run failed: ${finalEvent.errorMessage}`);
+  console.log('');
+  console.log(colorize('=== Run Summary (all jobs) ===', `${ansi.bold}${ansi.cyan}`));
+  for (const snap of snapshots) {
+    const completed = completedRuns.get(snap.runId);
+    if (!completed) {
+      continue;
+    }
+    const label = runIdToLabel.get(snap.runId) ?? snap.runId;
+    console.log('');
+    console.log(colorize(`— ${label}`, ansi.magenta));
+    console.log(
+      `- passed: ${colorize(`${completed.passedTestCases}/${completed.totalTestCases}`, ansi.green)}`,
+    );
+    console.log(
+      `- failed: ${colorize(
+        `${completed.failedTestCases}/${completed.totalTestCases}`,
+        completed.failedTestCases > 0 ? ansi.red : ansi.dim,
+      )}`,
+    );
+    console.log(`- artifact: ${colorize(completed.artifactPath, ansi.dim)}`);
   }
 
-  const completed = finalEvent as Extract<typeof finalEvent, { type: 'RunCompleted' }>;
-  console.log('');
-  console.log(colorize('=== Run Summary ===', `${ansi.bold}${ansi.cyan}`));
-  console.log(
-    `- passed: ${colorize(`${completed.passedTestCases}/${completed.totalTestCases}`, ansi.green)}`,
-  );
-  console.log(
-    `- failed: ${colorize(
-      `${completed.failedTestCases}/${completed.totalTestCases}`,
-      completed.failedTestCases > 0 ? ansi.red : ansi.dim,
-    )}`,
-  );
   if (overallScoreCount > 0) {
     const overallAverage = overallScoreTotal / overallScoreCount;
     const overallSd = sampleStdDev(overallScoreTotal, overallScoreSumSq, overallScoreCount);
@@ -568,8 +610,9 @@ export async function runSimpleEvalCommandPlain(
       overallSd !== undefined
         ? `${overallAverage.toFixed(2)} ± ${overallSd.toFixed(2)}`
         : overallAverage.toFixed(2);
+    console.log('');
     console.log(
-      `- overall avg score: ${colorize(
+      `- overall avg score (all jobs): ${colorize(
         avgStr,
         scoreToColor(overallAverage),
       )} ${colorize(createBar(overallAverage), ansi.dim)}`,
@@ -618,21 +661,19 @@ export async function runSimpleEvalCommandPlain(
       );
     }
   }
-  console.log(`- artifact: ${colorize(completed.artifactPath, ansi.dim)}`);
 }
 
-export async function runSimpleEvalCommandInk(
+
+export async function runSimpleEvalRunConfigsInk(
   runner: RunnerApi,
-  datasetName: string,
-  evaluatorPattern: string,
+  runConfigNames: ReadonlyArray<string>,
   concurrency: number,
 ): Promise<void> {
   return new Promise<void>((resolve, reject) => {
     const app = render(
       React.createElement(RunView, {
         runner,
-        datasetName,
-        evaluatorPattern,
+        runConfigNames,
         concurrency,
         onComplete: (err: Error | undefined) => {
           app.unmount();

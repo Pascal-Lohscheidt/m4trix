@@ -13,7 +13,7 @@ examples/evals-example/
 1. **Dataset** — Groups test cases by tags and/or file paths
 2. **Test Case** — Defines input/output pairs (e.g. prompt + expected score threshold)
 3. **Evaluator** — Applies scoring logic to each test case
-4. **CLI Run** — Execute with `eval-agents-simple run --dataset "..." --evaluator "..."`
+4. **RunConfig + CLI** — Group dataset/evaluator jobs and execute with `eval-agents-simple run --run-config "..."`
 
 ## Setup
 
@@ -26,24 +26,24 @@ Create files with suffixes:
 - `*.dataset.ts` — Dataset definitions
 - `*.evaluator.ts` — Evaluator definitions
 - `*.test-case.ts` — Test case definitions
+- `*.run-config.ts` — Named multi-job configs
 
 ## Run Evals
 
 ```bash
-eval-agents-simple run --dataset "Demo Dataset" --evaluator "Demo Score Evaluator"
+eval-agents-simple run --run-config "example-name"
 ```
 
-With patterns:
+Repeat `--run-config` to queue multiple configs; they share one `--concurrency` cap.
 
-```bash
-eval-agents-simple run --dataset "*Demo*" --evaluator "*Score*"
-```
+RunConfig **names** allow kebab-case, snake_case, camelCase, etc.: only letters, digits, `_`, and `-` (no spaces). The CLI matches names **case-insensitively**.
 
 ## Key Files in evals-example
 
 - `src/evals/demo.dataset.ts` — Dataset with `includedTags: ['demo']`
 - `src/evals/demo.evaluator.ts` — Evaluators (score, length, multi-score, diff)
 - `src/evals/demo.test-case.ts` — Test cases with prompts and expected outputs
+- `src/evals/example-name.run-config.ts` — Example `RunConfig`
 - `m4trix-eval.config.ts` — Discovery and artifact paths
 
 ## Config
