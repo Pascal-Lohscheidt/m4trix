@@ -141,6 +141,7 @@ describe('Evaluator', () => {
       meta: {
         triggerId: 'trg-123',
         triggerTimestamp: 17_000_000_000_000,
+        triggeredAt: new Date(17_000_000_000_000).toISOString(),
         runId: 'run-123',
         datasetName: 'fixture-dataset',
         testCaseId: 'tc-fixture',

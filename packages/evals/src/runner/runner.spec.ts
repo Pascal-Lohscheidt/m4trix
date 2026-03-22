@@ -222,6 +222,7 @@ describe('runner discovery and execution', () => {
     expect(progressEvent?.evaluatorScores[0]?.scores[1]?.data).toEqual(
       expect.objectContaining({
         triggerTimestamp,
+        triggeredAt: new Date(triggerTimestamp).toISOString(),
         datasetName: 'Alpha Dataset',
         testCaseName: 'first',
         testCaseId: 'test-case-first',
@@ -454,6 +455,7 @@ describe('runner discovery and execution', () => {
     expect(meta?.testCaseName).toBe('first');
     expect(meta?.testCaseId).toBe('test-case-first');
     expect(meta?.triggerTimestamp).toBe(1_700_000_000_000);
+    expect(meta?.triggeredAt).toBe(new Date(1_700_000_000_000).toISOString());
     expect(meta?.runConfigName).toBe('fixture-rc');
     expect(meta?.experimentName).toBe('cli-smoke');
   });

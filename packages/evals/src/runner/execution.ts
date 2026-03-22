@@ -201,6 +201,7 @@ function processOneEvaluation(
               meta: {
                 triggerId: task.triggerId,
                 triggerTimestamp: task.triggerTimestamp,
+                triggeredAt: new Date(task.triggerTimestamp).toISOString(),
                 runId: evaluatorRunId,
                 datasetName: task.dataset.getDisplayLabel(),
                 testCaseId: testCaseItem.id,

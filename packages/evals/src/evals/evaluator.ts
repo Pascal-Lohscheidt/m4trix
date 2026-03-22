@@ -19,6 +19,8 @@ export interface EvaluateMeta {
    * `runDatasetWith` / `runDatasetJobsWithSharedConcurrency` was invoked). Shared across all jobs in a batch.
    */
   triggerTimestamp: number;
+  /** Same instant as {@link triggerTimestamp}, as an ISO 8601 string (`toISOString()`). */
+  triggeredAt: string;
   /**
    * Identifier of the current test-case execution shared across all evaluators
    * for this specific test-case run.
