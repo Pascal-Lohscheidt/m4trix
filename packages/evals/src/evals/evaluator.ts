@@ -15,6 +15,11 @@ export interface EvaluateMeta {
   /** Identifier of the trigger that started the run (for example, a CLI invocation). */
   triggerId: string;
   /**
+   * Milliseconds since Unix epoch when the run was triggered (e.g. `Date.now()` at CLI start, or when
+   * `runDatasetWith` / `runDatasetJobsWithSharedConcurrency` was invoked). Shared across all jobs in a batch.
+   */
+  triggerTimestamp: number;
+  /**
    * Identifier of the current test-case execution shared across all evaluators
    * for this specific test-case run.
    */

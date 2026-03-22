@@ -31,6 +31,7 @@ async function runExample(): Promise<void> {
     datasetId: dataset.id,
     evaluatorIds: evaluators.map((e) => e.id),
     ...PROGRAMMATIC_RUN_CONFIG,
+    triggerTimestamp: Date.now(),
   });
 
   const done = new Promise<void>((resolve) => {

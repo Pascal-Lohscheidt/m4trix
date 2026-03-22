@@ -55,11 +55,13 @@ async function main(): Promise<void> {
   try {
     if (args.command === 'run') {
       const concurrency = args.concurrency ?? getDefaultConcurrency();
+      const triggerTimestamp = Date.now();
       const exitCode = await (useInk ? runSimpleEvalRunConfigsInk : runSimpleEvalRunConfigsPlain)(
         runner,
         args.runConfigNames,
         concurrency,
         args.experimentName,
+        triggerTimestamp,
       );
       if (args.ci && exitCode !== 0) {
         process.exit(1);

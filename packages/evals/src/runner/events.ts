@@ -67,6 +67,10 @@ export interface RunDatasetRequest {
    * When omitted, the runner generates one in the format `trg-[uuid]`.
    */
   triggerId?: string;
+  /**
+   * When the run was triggered (`Date.now()` ms); defaults to now. Forwarded as `meta.triggerTimestamp`.
+   */
+  triggerTimestamp?: number;
   datasetId: string;
   evaluatorIds: ReadonlyArray<string>;
   /** RunConfig name surfaced on evaluator `meta` (from the job or `PROGRAMMATIC_RUN_CONFIG`). */

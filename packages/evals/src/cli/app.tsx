@@ -198,6 +198,7 @@ export function EvalsCliApp({ data, args, runner }: EvalsCliAppProps): React.Rea
           datasetId: selectedDataset.id,
           evaluatorIds: clampedState.selectedEvaluatorIds,
           ...PROGRAMMATIC_RUN_CONFIG,
+          triggerTimestamp: Date.now(),
         })
         .then((snapshot) => {
           setRuntimeMessage(

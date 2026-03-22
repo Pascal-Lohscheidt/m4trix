@@ -45,6 +45,10 @@ export interface RunDatasetJobsWithSharedConcurrencyRequest {
   jobs: ReadonlyArray<RunDatasetJob>;
   globalConcurrency: number;
   triggerId?: string;
+  /**
+   * When the batch was triggered (`Date.now()` ms); defaults to now. CLI sets this once at command start.
+   */
+  triggerTimestamp?: number;
   /** Applied to every job in this batch (e.g. CLI `--experiment`). */
   experimentName?: string;
 }
@@ -320,6 +324,7 @@ class EffectRunner implements RunnerApi {
     const globalConcurrency = Math.max(1, request.globalConcurrency);
     const sem = Effect.unsafeMakeSemaphore(globalConcurrency);
     const triggerId = request.triggerId ?? `trg-${randomUUID()}`;
+    const triggerTimestamp = request.triggerTimestamp ?? Date.now();
     const snapshots: RunSnapshot[] = [];
     for (const job of request.jobs) {
       snapshots.push(
@@ -327,6 +332,7 @@ class EffectRunner implements RunnerApi {
           datasetId: job.datasetId,
           evaluatorIds: job.evaluatorIds,
           triggerId,
+          triggerTimestamp,
           maxConcurrency: this.config.maxConcurrency ?? 1,
           globalEvaluationSemaphore: sem,
           runConfigName: job.runConfigName,
@@ -367,6 +373,7 @@ class EffectRunner implements RunnerApi {
       datasetId: request.datasetId,
       evaluatorIds: request.evaluatorIds,
       triggerId: request.triggerId,
+      triggerTimestamp: request.triggerTimestamp ?? Date.now(),
       maxConcurrency: request.concurrency ?? this.config.maxConcurrency ?? 1,
       repetitions: request.repetitions,
       runConfigName,
@@ -379,6 +386,7 @@ class EffectRunner implements RunnerApi {
     datasetId: string;
     evaluatorIds: ReadonlyArray<string>;
     triggerId?: string;
+    triggerTimestamp?: number;
     maxConcurrency: number;
     globalEvaluationSemaphore?: ReturnType<typeof Effect.unsafeMakeSemaphore>;
     runConfigName: string;
@@ -414,6 +422,7 @@ class EffectRunner implements RunnerApi {
     const runConfigTags = [...(params.runConfigTags ?? [])];
 
     const triggerId = params.triggerId ?? `trg-${randomUUID()}`;
+    const triggerTimestamp = params.triggerTimestamp ?? Date.now();
     const runId = `run-${randomUUID()}`;
     const artifactPath = createArtifactPath(this.config.artifactDirectory, params.datasetId, runId);
     const snapshot: RunSnapshot = {
@@ -459,6 +468,7 @@ class EffectRunner implements RunnerApi {
       Queue.offer(this.runQueue, {
         runId,
         triggerId,
+        triggerTimestamp,
         datasetId: params.datasetId,
         dataset: dataset.dataset,
         evaluators: selectedEvaluators,

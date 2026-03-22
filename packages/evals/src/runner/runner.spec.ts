@@ -193,10 +193,12 @@ describe('runner discovery and execution', () => {
       });
     });
 
+    const triggerTimestamp = Date.now();
     const queued = await runner.runDatasetWith({
       datasetId: dataset.id,
       evaluatorIds: [evaluator.id],
       ...PROGRAMMATIC_RUN_CONFIG,
+      triggerTimestamp,
     });
 
     const done = await completed;
@@ -219,6 +221,7 @@ describe('runner discovery and execution', () => {
     });
     expect(progressEvent?.evaluatorScores[0]?.scores[1]?.data).toEqual(
       expect.objectContaining({
+        triggerTimestamp,
         datasetName: 'Alpha Dataset',
         testCaseName: 'first',
         testCaseId: 'test-case-first',
@@ -435,6 +438,7 @@ describe('runner discovery and execution', () => {
       ],
       globalConcurrency: 2,
       experimentName: 'cli-smoke',
+      triggerTimestamp: 1_700_000_000_000,
     });
 
     const ev = await progress;
@@ -449,6 +453,7 @@ describe('runner discovery and execution', () => {
     expect(meta?.datasetName).toBe('Alpha Dataset');
     expect(meta?.testCaseName).toBe('first');
     expect(meta?.testCaseId).toBe('test-case-first');
+    expect(meta?.triggerTimestamp).toBe(1_700_000_000_000);
     expect(meta?.runConfigName).toBe('fixture-rc');
     expect(meta?.experimentName).toBe('cli-smoke');
   });

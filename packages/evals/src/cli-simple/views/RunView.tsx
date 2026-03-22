@@ -168,6 +168,8 @@ interface RunViewProps {
   concurrency: number;
   /** Forwarded to evaluator `meta.experimentName` for this run. */
   experimentName?: string;
+  /** `Date.now()` when the CLI run command started; forwarded as `meta.triggerTimestamp`. */
+  triggerTimestamp?: number;
   /**
    * Error ends the run unsuccessfully; on success `exitCode` is 0 when all test cases passed
    * across completed runs, or 1 when any had failures (`RunCompleted.failedTestCases`).
@@ -186,6 +188,7 @@ export function RunView({
   runConfigNames,
   concurrency,
   experimentName,
+  triggerTimestamp,
   onComplete,
 }: RunViewProps): ReactNode {
   const [phase, setPhase] = useState<'loading' | 'running' | 'completed'>('loading');
@@ -398,6 +401,7 @@ export function RunView({
       jobs,
       globalConcurrency: concurrency,
       experimentName,
+      triggerTimestamp,
     });
     for (let i = 0; i < snapshots.length; i += 1) {
       const snap = snapshots[i];
@@ -459,7 +463,7 @@ export function RunView({
     setPhase('completed');
     const exitCode: 0 | 1 = failedTestCases > 0 ? 1 : 0;
     setTimeout(() => onComplete(undefined, exitCode), 200);
-  }, [runner, runConfigNames, concurrency, experimentName, onComplete]);
+  }, [runner, runConfigNames, concurrency, experimentName, triggerTimestamp, onComplete]);
 
   useEffect(() => {
     void runEval();

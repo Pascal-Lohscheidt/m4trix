@@ -140,6 +140,7 @@ describe('Evaluator', () => {
       output: { title: 'value' },
       meta: {
         triggerId: 'trg-123',
+        triggerTimestamp: 17_000_000_000_000,
         runId: 'run-123',
         datasetName: 'fixture-dataset',
         testCaseId: 'tc-fixture',

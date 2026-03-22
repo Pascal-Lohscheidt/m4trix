@@ -310,6 +310,7 @@ export async function runSimpleEvalRunConfigsPlain(
   runConfigNames: ReadonlyArray<string>,
   concurrency: number,
   experimentName?: string,
+  triggerTimestamp?: number,
 ): Promise<0 | 1> {
   const jobs = await runner.expandRunConfigNamesToJobs(runConfigNames);
   if (jobs.length === 0) {
@@ -559,6 +560,7 @@ export async function runSimpleEvalRunConfigsPlain(
     jobs,
     globalConcurrency: concurrency,
     experimentName,
+    triggerTimestamp,
   });
   for (let i = 0; i < snapshots.length; i += 1) {
     const snap = snapshots[i];
@@ -680,6 +682,7 @@ export async function runSimpleEvalRunConfigsInk(
   runConfigNames: ReadonlyArray<string>,
   concurrency: number,
   experimentName?: string,
+  triggerTimestamp?: number,
 ): Promise<0 | 1> {
   return new Promise<0 | 1>((resolve, reject) => {
     const app = render(
@@ -688,6 +691,7 @@ export async function runSimpleEvalRunConfigsInk(
         runConfigNames,
         concurrency,
         experimentName,
+        triggerTimestamp,
         onComplete: (err?: Error, exitCode?: 0 | 1) => {
           app.unmount();
           if (err) {

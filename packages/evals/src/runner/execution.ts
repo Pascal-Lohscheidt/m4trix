@@ -67,6 +67,8 @@ function readOutput(testCase: CollectedTestCase['testCase']): unknown {
 export interface RunTask {
   runId: string;
   triggerId: string;
+  /** Same value as `meta.triggerTimestamp` for this run. */
+  triggerTimestamp: number;
   datasetId: string;
   dataset: Dataset;
   evaluators: ReadonlyArray<{
@@ -198,6 +200,7 @@ function processOneEvaluation(
               output,
               meta: {
                 triggerId: task.triggerId,
+                triggerTimestamp: task.triggerTimestamp,
                 runId: evaluatorRunId,
                 datasetName: task.dataset.getDisplayLabel(),
                 testCaseId: testCaseItem.id,
