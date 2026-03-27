@@ -63,6 +63,25 @@ function isTestCaseLike(value: unknown): value is TestCase<unknown> {
   return hasMethod(value, 'getName') && hasMethod(value, 'getTags') && hasMethod(value, 'getInput');
 }
 
+/** Top-level exports may be test cases or arrays of test cases (e.g. `export const testCases = [...]`). */
+function collectTestCasesFromExportValues(exports: unknown[]): TestCase<unknown>[] {
+  const out: TestCase<unknown>[] = [];
+  for (const value of exports) {
+    if (isTestCaseLike(value)) {
+      out.push(value);
+      continue;
+    }
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        if (isTestCaseLike(item)) {
+          out.push(item);
+        }
+      }
+    }
+  }
+  return out;
+}
+
 async function walkDirectory(
   rootDir: string,
   excludeDirectories: ReadonlyArray<string>,
@@ -205,7 +224,7 @@ export async function collectTestCasesFromFiles(
   const found = await Promise.all(
     matched.map(async (absolutePath) => {
       const exports = await loadModuleExports(absolutePath);
-      const testCases = exports.filter(isTestCaseLike);
+      const testCases = collectTestCasesFromExportValues(exports);
       const relPath = relative(config.rootDir, absolutePath);
       return testCases.map((testCase) => ({
         id: toId('test-case', relPath, testCase.getName()),

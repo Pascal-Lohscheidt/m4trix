@@ -122,3 +122,28 @@ export const codingPromptCase = TestCase.describe({
   outputSchema,
   output: { expectedMinScore: 65 },
 });
+
+/**
+ * You can also export several cases as one array; discovery collects each `TestCase` inside the
+ * array as well as any named exports in this file.
+ */
+export const groupedDemoCases = [
+  TestCase.describe({
+    name: 'grouped-translation',
+    displayName: 'Grouped export: translate greeting',
+    tags: ['demo', 'grouped'],
+    inputSchema,
+    input: { prompt: 'Translate “hello” to Spanish in one word.' },
+    outputSchema,
+    output: { expectedMinScore: 42 },
+  }),
+  TestCase.describe({
+    name: 'grouped-bullets',
+    displayName: 'Grouped export: bullet list',
+    tags: ['demo', 'grouped'],
+    inputSchema,
+    input: { prompt: 'Give three bullet points on why small eval suites stay maintainable.' },
+    outputSchema,
+    output: { expectedMinScore: 48 },
+  }),
+];

@@ -177,6 +177,56 @@ describe('runner discovery and execution', () => {
     expect(alphaOnly[0].testCase.getName()).toBe('first');
   });
 
+  test('collects test cases from exported arrays alongside named exports', async () => {
+    const root = await mkdtemp(join(process.cwd(), '.tmp-runner-'));
+    workspaces.push(root);
+
+    await writeFile(
+      join(root, 'mixed.test-case.mjs'),
+      [
+        'export const solo = {',
+        "  getName: () => 'solo',",
+        "  getTags: () => [],",
+        '  getInputSchema: () => undefined,',
+        '  getInput: () => ({ value: 0 })',
+        '};',
+        'export const grouped = [',
+        '  {',
+        "    getName: () => 'from-array-a',",
+        "    getTags: () => [],",
+        '    getInputSchema: () => undefined,',
+        '    getInput: () => ({ value: 1 })',
+        '  },',
+        '  {',
+        "    getName: () => 'from-array-b',",
+        "    getTags: () => [],",
+        '    getInputSchema: () => undefined,',
+        '    getInput: () => ({ value: 2 })',
+        '  },',
+        '];',
+        '',
+      ].join('\n'),
+      'utf8',
+    );
+
+    const runner = createRunner({
+      discovery: {
+        rootDir: root,
+        datasetSuffixes: ['.dataset.mjs'],
+        evaluatorSuffixes: ['.evaluator.mjs'],
+        testCaseSuffixes: ['.test-case.mjs'],
+        excludeDirectories: [],
+      },
+      artifactDirectory: join(root, 'results'),
+    });
+    runners.push(runner);
+
+    const names = (await runner.searchTestCases())
+      .map((c) => c.testCase.getName())
+      .sort();
+    expect(names).toEqual(['from-array-a', 'from-array-b', 'solo']);
+  });
+
   test('runs dataset in background and emits lifecycle events', async () => {
     const { runner } = await withRunner();
     const [dataset] = await runner.collectDatasets();
