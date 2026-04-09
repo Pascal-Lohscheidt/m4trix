@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 
 import { Effect, Fiber, PubSub, Queue, Ref } from 'effect';
 import { getEvaluatorDisplayLabel } from '../evals/evaluator';
-import { validateRunConfigName } from '../evals/run-config';
+import { type RunConfigSampling, validateRunConfigName } from '../evals/run-config';
 import { loadRunSnapshotsFromArtifacts as loadSnapshotsFromArtifacts } from './artifact-loader';
 import type { RunnerConfig, RunnerConfigOverrides } from './config';
 import { withRunnerConfig } from './config';
@@ -27,6 +27,7 @@ import type {
 import { createArtifactPath, executeRunTask, type RunTask } from './execution';
 import { createNameMatcher } from './name-pattern';
 import { createPersistenceWorker } from './persistence';
+import { sampleCollectedTestCases } from './sample-test-cases';
 import { searchCollectedTestCases } from './search';
 
 interface SubscribeOptions {
@@ -292,6 +293,7 @@ class EffectRunner implements RunnerApi {
         runConfigDisplayLabel: collected.runConfig.getDisplayLabel(),
         runConfigTags: collected.runConfig.getTags(),
         repetitions,
+        sampling: 'sampling' in row ? row.sampling : undefined,
       });
     }
 
@@ -339,6 +341,7 @@ class EffectRunner implements RunnerApi {
           runConfigTags: job.runConfigTags,
           repetitions: job.repetitions,
           experimentName: request.experimentName,
+          sampling: job.sampling,
         }),
       );
     }
@@ -379,6 +382,7 @@ class EffectRunner implements RunnerApi {
       runConfigName,
       runConfigTags: request.runConfigTags,
       experimentName: request.experimentName,
+      sampling: request.sampling,
     });
   }
 
@@ -393,6 +397,7 @@ class EffectRunner implements RunnerApi {
     runConfigTags?: ReadonlyArray<string>;
     repetitions?: number;
     experimentName?: string;
+    sampling?: RunConfigSampling;
   }): Promise<RunSnapshot> {
     if (this.datasetsById.size === 0) {
       await this.collectDatasets();
@@ -415,7 +420,10 @@ class EffectRunner implements RunnerApi {
       throw new Error('No evaluators selected for run');
     }
 
-    const selectedTestCases = await this.collectDatasetTestCases(params.datasetId);
+    const selectedTestCases = sampleCollectedTestCases(
+      await this.collectDatasetTestCases(params.datasetId),
+      params.sampling,
+    );
 
     const repetitions = normalizeRunRepetitions(params.repetitions);
     const totalEvaluations = selectedTestCases.length * repetitions;

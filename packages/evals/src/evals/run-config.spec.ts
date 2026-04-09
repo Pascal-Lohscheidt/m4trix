@@ -148,4 +148,37 @@ describe('RunConfig', () => {
       }),
     ).toThrow(/repetitions must be a positive integer/);
   });
+
+  test('define() accepts optional sampling per row', () => {
+    const rc = RunConfig.define({
+      name: 'sample-rc',
+      runs: [
+        { dataset: ds, evaluators: [ev], sampling: { count: 3, seed: 'nightly' } },
+        { dataset: ds, evaluatorPattern: 'e*', sampling: { percent: 25 } },
+      ],
+    });
+    expect(rc.getRuns()[0]).toMatchObject({ sampling: { count: 3, seed: 'nightly' } });
+    expect(rc.getRuns()[1]).toMatchObject({ sampling: { percent: 25 } });
+  });
+
+  test('define() rejects invalid sampling', () => {
+    expect(() =>
+      RunConfig.define({
+        name: 'bad-samp',
+        runs: [{ dataset: ds, evaluators: [ev], sampling: { count: 1, percent: 1 } }],
+      }),
+    ).toThrow(/only one of count or percent/);
+    expect(() =>
+      RunConfig.define({
+        name: 'bad-samp-2',
+        runs: [{ dataset: ds, evaluators: [ev], sampling: { count: -1 } }],
+      }),
+    ).toThrow(/sampling.count/);
+    expect(() =>
+      RunConfig.define({
+        name: 'bad-samp-3',
+        runs: [{ dataset: ds, evaluators: [ev], sampling: { percent: 101 } }],
+      }),
+    ).toThrow(/sampling.percent/);
+  });
 });

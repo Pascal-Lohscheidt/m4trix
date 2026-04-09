@@ -2,9 +2,10 @@ import { RunConfig } from '@m4trix/evals';
 
 import { demoDataset } from './demo.dataset';
 import { demoScoreEvaluator } from './demo.evaluator';
+import { sampledPoolDataset } from './sampled.dataset';
 
 /**
- * Representative RunConfig: one run uses concrete evaluator exports, another uses a name pattern.
+ * Representative RunConfig: concrete evaluators, a name pattern, and dataset sampling.
  *
  * CLI (from this package directory):
  *   eval-agents-simple run --run-config "example-name"
@@ -15,5 +16,10 @@ export const exampleNameRunConfig = RunConfig.define({
   runs: [
     { dataset: demoDataset, evaluators: [demoScoreEvaluator], repetitions: 10 },
     { dataset: demoDataset, evaluatorPattern: '*Length*' },
+    {
+      dataset: sampledPoolDataset,
+      evaluators: [demoScoreEvaluator],
+      sampling: { count: 3, seed: 'evals-example-sampling' },
+    },
   ],
 });

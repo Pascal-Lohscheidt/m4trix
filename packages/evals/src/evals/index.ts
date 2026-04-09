@@ -57,6 +57,7 @@ export {
   type RunConfigRow,
   type RunConfigRowEvaluators,
   type RunConfigRowPattern,
+  type RunConfigSampling,
   validateRunConfigName,
 } from './run-config';
 export type {

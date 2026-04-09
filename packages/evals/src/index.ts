@@ -60,6 +60,7 @@ export {
   type RunConfigRow,
   type RunConfigRowEvaluators,
   type RunConfigRowPattern,
+  type RunConfigSampling,
   Score,
   type ScoreDef,
   type ScoreDisplayStrategy,

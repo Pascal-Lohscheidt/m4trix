@@ -2,7 +2,7 @@ import type { Dataset } from '../evals/dataset';
 import type { EvaluatorLogEntry } from '../evals/diff';
 import type { Evaluator } from '../evals/evaluator';
 import type { MetricItem } from '../evals/metric';
-import type { RunConfig } from '../evals/run-config';
+import type { RunConfig, RunConfigSampling } from '../evals/run-config';
 import type { ScoreItem } from '../evals/score';
 import type { TestCase } from '../evals/test-case';
 
@@ -41,6 +41,8 @@ export interface RunDatasetJob {
   runConfigTags?: ReadonlyArray<string>;
   /** Evaluates each matching test case this many times (default 1). */
   repetitions: number;
+  /** When set, runner includes only a random subset of dataset test cases (see `RunConfigSampling`). */
+  sampling?: RunConfigSampling;
 }
 
 export interface CollectedTestCase {
@@ -88,6 +90,8 @@ export interface RunDatasetRequest {
    * Optional label for this run; forwarded as `experimentName` on evaluator `meta`.
    */
   experimentName?: string;
+  /** Optional subsample of dataset test cases (same semantics as `RunConfig` row `sampling`). */
+  sampling?: RunConfigSampling;
 }
 
 export interface RunSnapshot {
