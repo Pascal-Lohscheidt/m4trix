@@ -61,4 +61,26 @@ describe('sampleCollectedTestCases', () => {
       a.length === b.length && a.every((item, i) => item.id === b[i]?.id);
     expect(same).toBe(false);
   });
+
+  test('sample is a shuffled subset, not the first k cases in input order', () => {
+    const cases = Array.from({ length: 20 }, (_, i) => makeCase(`c${i}`));
+    const k = 5;
+    const prefixIds = cases.slice(0, k).map((c) => c.id);
+    const out = sampleCollectedTestCases(cases, { count: k, seed: 'shuffle-proof-seed' });
+    const picked = out.map((c) => c.id);
+
+    // Regression guard: naive `cases.slice(0, k)` would always be c0..c4 in that order.
+    expect(picked).not.toEqual(prefixIds);
+  });
+
+  test('golden: fixed seed yields a deterministic order that is not input order', () => {
+    const cases = Array.from({ length: 12 }, (_, i) => makeCase(`c${i}`));
+    const picked = sampleCollectedTestCases(cases, {
+      count: 4,
+      seed: 'golden-sampling-seed',
+    }).map((c) => c.id);
+
+    // After Fisher–Yates + slice(0,4): indices 1,7,8,9 — not 0,1,2,3 and not sorted.
+    expect(picked).toEqual(['c7', 'c1', 'c9', 'c8']);
+  });
 });
