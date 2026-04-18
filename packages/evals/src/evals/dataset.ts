@@ -1,11 +1,16 @@
 import { type DatasetName, normalizeOptionalDisplayName, validateDatasetName } from './entity-name';
+import { evaluateTagFilter } from './evaluate-tag-filter';
+import type { TagOrFilterExpression } from './tag-filter';
 import type { TestCase } from './test-case';
 import type { PathMatcher, TagMatcher } from './types';
+
+/** `Dataset.define({ includedTags })`: legacy flat matchers or a structured {@link TagOrFilterExpression} tree. */
+export type DatasetIncludedTags = ReadonlyArray<TagMatcher> | TagOrFilterExpression;
 
 interface DatasetConfig {
   name: DatasetName;
   displayName?: string;
-  includedTags: ReadonlyArray<TagMatcher>;
+  includedTags: DatasetIncludedTags;
   excludedTags: ReadonlyArray<TagMatcher>;
   includedPaths: ReadonlyArray<PathMatcher>;
   excludedPaths: ReadonlyArray<PathMatcher>;
@@ -19,7 +24,7 @@ export interface DatasetDefineConfig {
   name: string;
   /** Optional human-readable label for CLI/TUI (any characters). */
   displayName?: string;
-  includedTags?: TagMatcher[];
+  includedTags?: DatasetIncludedTags;
   excludedTags?: TagMatcher[];
   includedPaths?: PathMatcher[];
   excludedPaths?: PathMatcher[];
@@ -29,6 +34,17 @@ function matchesAny(value: string, matchers: ReadonlyArray<string | RegExp>): bo
   return matchers.some((matcher) =>
     typeof matcher === 'string' ? value === matcher : matcher.test(value),
   );
+}
+
+function isStructuredIncludedTags(included: DatasetIncludedTags): included is TagOrFilterExpression {
+  return !Array.isArray(included);
+}
+
+function matchesIncludedTags(tags: ReadonlyArray<string>, included: DatasetIncludedTags): boolean {
+  if (isStructuredIncludedTags(included)) {
+    return evaluateTagFilter(tags, included);
+  }
+  return included.length === 0 || tags.some((tag) => matchesAny(tag, included));
 }
 
 function matchesAnyPath(filePath: string, matchers: ReadonlyArray<string | RegExp>): boolean {
@@ -84,7 +100,7 @@ export class Dataset {
     return this._config.displayName ?? this._config.name;
   }
 
-  getIncludedTags(): ReadonlyArray<TagMatcher> {
+  getIncludedTags(): DatasetIncludedTags {
     return this._config.includedTags;
   }
 
@@ -115,9 +131,7 @@ export class Dataset {
       }
     }
 
-    const tagMatch =
-      this._config.includedTags.length === 0 ||
-      tags.some((tag) => matchesAny(tag, this._config.includedTags));
+    const tagMatch = matchesIncludedTags(tags, this._config.includedTags);
 
     const pathMatch =
       this._config.includedPaths.length === 0 ||

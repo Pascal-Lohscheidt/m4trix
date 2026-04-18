@@ -1,6 +1,7 @@
 import { Schema as S } from 'effect';
 import { describe, expect, test } from 'vitest';
 import { Dataset } from './dataset';
+import { TagAndFilter, TagOrFilter, isTagOrFilter } from './tag-filter';
 import { TestCase } from './test-case';
 
 function makeTestCase(tags: string[]) {
@@ -50,6 +51,22 @@ describe('Dataset', () => {
 
     expect(ds.matchesTestCase(makeTestCase(['agent-v2']), 'a.ts')).toBe(true);
     expect(ds.matchesTestCase(makeTestCase(['agent']), 'a.ts')).toBe(false);
+  });
+
+  test('includedTags as TagOrFilter uses structured AND/OR logic', () => {
+    const ds = Dataset.define({
+      name: 'structured-tags',
+      includedTags: TagOrFilter.of([
+        TagAndFilter.of(['agent', 'fast']),
+        TagAndFilter.of(['agent', 'slow']),
+      ]),
+    });
+
+    expect(ds.matchesTestCase(makeTestCase(['agent', 'fast']), 'a.ts')).toBe(true);
+    expect(ds.matchesTestCase(makeTestCase(['agent', 'slow']), 'a.ts')).toBe(true);
+    expect(ds.matchesTestCase(makeTestCase(['agent']), 'a.ts')).toBe(false);
+    expect(ds.matchesTestCase(makeTestCase(['fast']), 'a.ts')).toBe(false);
+    expect(isTagOrFilter(ds.getIncludedTags())).toBe(true);
   });
 
   test('excludedTags removes matching test cases', () => {

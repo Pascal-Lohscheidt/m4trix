@@ -1,6 +1,7 @@
 export {
   Dataset,
   type DatasetDefineConfig,
+  type DatasetIncludedTags,
   getDatasetDisplayLabel,
 } from './dataset';
 export {
@@ -29,6 +30,7 @@ export {
   validateEvaluatorName,
   validateTestCaseName,
 } from './entity-name';
+export { evaluateTagFilter } from './evaluate-tag-filter';
 export {
   type EvalMiddleware,
   type EvaluateArgs,
@@ -75,6 +77,18 @@ export {
   type PercentScoreData,
   percentScore,
 } from './scores/standard';
+export {
+  isTagAndFilter,
+  isTagOrFilter,
+  TagAndFilter,
+  type TagAndFilterExpression,
+  TagAndFilterExpressionSchema,
+  type TagAndFilterOperand,
+  TagOrFilter,
+  type TagOrFilterExpression,
+  TagOrFilterExpressionSchema,
+  type TagOrFilterOperand,
+} from './tag-filter';
 export { TagSet, type TagSetMembers } from './tag-set';
 export { getTestCaseDisplayLabel, getTestCaseTagList, TestCase } from './test-case';
 export type { PathMatcher, TagMatcher } from './types';

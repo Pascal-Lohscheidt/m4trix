@@ -29,9 +29,9 @@ interface TestCaseDescribeConfig<
   /** Optional human-readable label for CLI/TUI and evaluator args (any characters). */
   displayName?: string;
   /**
-   * Declared tags on this test case (not `Dataset` filter options). Use `Dataset` `includedTags` /
-   * `excludedTags` to select which cases belong to a dataset; evaluators read the resolved tags as
-   * `meta.testCaseTags`.
+   * Declared tags on this test case (not `Dataset` filter options). Use `Dataset` `includedTags`
+   * (flat matcher list or a `TagOrFilterExpression` from `tag-filter`) and `excludedTags` to select
+   * which cases belong to a dataset; evaluators read the resolved tags as `meta.testCaseTags`.
    */
   tags?: ReadonlyArray<string>;
   inputSchema: TI;
