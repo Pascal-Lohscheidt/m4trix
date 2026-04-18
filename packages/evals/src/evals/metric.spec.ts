@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
-import type { MetricItem } from './metric';
-import { aggregateMetricItems } from '../runner/score-utils';
-import { Metric } from './metric';
+import type { MetricItem } from './metric.js';
+import { aggregateMetricItems } from '../runner/score-utils.js';
+import { Metric } from './metric.js';
 
 describe('Metric', () => {
   test('Metric.of create def with format and optional aggregate', () => {

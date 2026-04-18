@@ -1,13 +1,13 @@
-import type { Dataset } from './dataset';
+import type { Dataset } from './dataset.js';
 import {
   normalizeOptionalDisplayName,
   type RunConfigName,
   validateRunConfigName,
-} from './entity-name';
-import type { Evaluator } from './evaluator';
+} from './entity-name.js';
+import type { Evaluator } from './evaluator.js';
 
-export type { RunConfigName } from './entity-name';
-export { RunConfigNameSchema, validateRunConfigName } from './entity-name';
+export type { RunConfigName } from './entity-name.js';
+export { RunConfigNameSchema, validateRunConfigName } from './entity-name.js';
 
 /** Heterogeneous evaluator rows; `unknown` breaks assignability from concrete `EvaluateFn` (contravariance on `input`). */
 // biome-ignore lint/suspicious/noExplicitAny: needs to accept every `Evaluator<...>` in one array

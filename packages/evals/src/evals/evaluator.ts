@@ -1,10 +1,10 @@
 import type { Schema as S } from 'effect';
-import type { CreateDiffLogEntryOptions } from './diff';
+import type { CreateDiffLogEntryOptions } from './diff.js';
 import {
   type EvaluatorName,
   normalizeOptionalDisplayName,
   validateEvaluatorName,
-} from './entity-name';
+} from './entity-name.js';
 
 export interface EvalMiddleware<TCtx> {
   name: string;

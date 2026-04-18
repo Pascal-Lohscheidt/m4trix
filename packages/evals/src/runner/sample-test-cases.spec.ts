@@ -1,9 +1,9 @@
 import { Schema as S } from 'effect';
 import { describe, expect, test } from 'vitest';
 
-import { TestCase } from '../evals/test-case';
-import type { CollectedTestCase } from './events';
-import { isRunConfigSamplingActive, sampleCollectedTestCases } from './sample-test-cases';
+import { TestCase } from '../evals/test-case.js';
+import type { CollectedTestCase } from './events.js';
+import { isRunConfigSamplingActive, sampleCollectedTestCases } from './sample-test-cases.js';
 
 function makeCase(id: string): CollectedTestCase {
   const inputSchema = S.Struct({ x: S.Number });

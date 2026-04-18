@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
-import type { ScoreItem } from './score';
-import { aggregateScoreItems } from '../runner/score-utils';
-import { Score, formatScoreData } from './score';
+import type { ScoreItem } from './score.js';
+import { aggregateScoreItems } from '../runner/score-utils.js';
+import { Score, formatScoreData } from './score.js';
 
 describe('Score', () => {
   test('Score.of creates def with formatValue, formatAggregate, aggregateValues', () => {

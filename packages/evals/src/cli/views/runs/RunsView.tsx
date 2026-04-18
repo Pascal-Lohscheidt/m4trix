@@ -1,8 +1,8 @@
 /** @jsxImportSource react */
 import type React from 'react';
 import { Box, Text } from 'ink';
-import type { CliState, EvalDataset, EvalRun } from '../../types';
-import { Pane, RunsSidebar, SectionHeader, Sparkline, StatusText, TextBar } from '../../components';
+import type { CliState, EvalDataset, EvalRun } from '../../types.js';
+import { Pane, RunsSidebar, SectionHeader, Sparkline, StatusText, TextBar } from '../../components/index.js';
 
 interface RunsViewProps {
   state: CliState;

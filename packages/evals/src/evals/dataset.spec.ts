@@ -1,8 +1,8 @@
 import { Schema as S } from 'effect';
 import { describe, expect, test } from 'vitest';
-import { Dataset } from './dataset';
-import { TagAndFilter, TagOrFilter, isTagOrFilter } from './tag-filter';
-import { TestCase } from './test-case';
+import { Dataset } from './dataset.js';
+import { TagAndFilter, TagOrFilter, isTagOrFilter } from './tag-filter.js';
+import { TestCase } from './test-case.js';
 
 function makeTestCase(tags: string[]) {
   return TestCase.describe({

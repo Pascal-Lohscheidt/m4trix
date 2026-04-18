@@ -3,8 +3,8 @@ import { resolve } from 'node:path';
 
 import * as jitiModule from 'jiti';
 
-import type { RunnerConfigOverrides } from './config';
-import { type ConfigType, type M4trixEvalConfigFactory, toRunnerConfigOverrides } from './config';
+import type { RunnerConfigOverrides } from './config.js';
+import { type ConfigType, type M4trixEvalConfigFactory, toRunnerConfigOverrides } from './config.js';
 
 const CONFIG_FILE_NAME = 'm4trix-eval.config.ts';
 

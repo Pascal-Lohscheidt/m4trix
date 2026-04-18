@@ -3,10 +3,10 @@ import type React from 'react';
 import { useEffect, useState } from 'react';
 import { Box, Text } from 'ink';
 
-import { getDatasetDisplayLabel } from '../../evals/dataset';
-import { getTestCaseDisplayLabel } from '../../evals/test-case';
-import type { RunnerApi } from '../../runner';
-import { Banner } from './Banner';
+import { getDatasetDisplayLabel } from '../../evals/dataset.js';
+import { getTestCaseDisplayLabel } from '../../evals/test-case.js';
+import type { RunnerApi } from '../../runner/index.js';
+import { Banner } from './Banner.js';
 
 interface GenerateViewProps {
   runner: RunnerApi;

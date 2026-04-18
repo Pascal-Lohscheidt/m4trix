@@ -1,8 +1,8 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 
-import type { RunnerConfig } from './config';
-import type { RunSnapshot } from './events';
+import type { RunnerConfig } from './config.js';
+import type { RunSnapshot } from './events.js';
 
 export interface ParsedTestCaseProgress {
   testCaseId: string;

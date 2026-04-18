@@ -1,6 +1,6 @@
-import type { MetricItem } from '../evals/metric';
-import type { ScoreDef, ScoreItem } from '../evals/score';
-import { getMetricById, getScoreById } from '../evals';
+import type { MetricItem } from '../evals/metric.js';
+import type { ScoreDef, ScoreItem } from '../evals/score.js';
+import { getMetricById, getScoreById } from '../evals/index.js';
 
 function getScoreDef(item: ScoreItem): ScoreDef<unknown> | undefined {
   return item.def ?? getScoreById(item.id);

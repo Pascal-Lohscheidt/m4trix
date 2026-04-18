@@ -1,18 +1,18 @@
 import { randomUUID } from 'node:crypto';
 
 import { Effect, Fiber, PubSub, Queue, Ref } from 'effect';
-import { getEvaluatorDisplayLabel } from '../evals/evaluator';
-import { type RunConfigSampling, validateRunConfigName } from '../evals/run-config';
-import { loadRunSnapshotsFromArtifacts as loadSnapshotsFromArtifacts } from './artifact-loader';
-import type { RunnerConfig, RunnerConfigOverrides } from './config';
-import { withRunnerConfig } from './config';
-import { loadRunnerConfigFile } from './config-loader';
+import { getEvaluatorDisplayLabel } from '../evals/evaluator.js';
+import { type RunConfigSampling, validateRunConfigName } from '../evals/run-config.js';
+import { loadRunSnapshotsFromArtifacts as loadSnapshotsFromArtifacts } from './artifact-loader.js';
+import type { RunnerConfig, RunnerConfigOverrides } from './config.js';
+import { withRunnerConfig } from './config.js';
+import { loadRunnerConfigFile } from './config-loader.js';
 import {
   collectDatasetsFromFiles,
   collectEvaluatorsFromFiles,
   collectRunConfigsFromFiles,
   collectTestCasesFromFiles,
-} from './discovery';
+} from './discovery.js';
 import type {
   CollectedDataset,
   CollectedEvaluator,
@@ -23,12 +23,12 @@ import type {
   RunnerEvent,
   RunSnapshot,
   SearchTestCasesQuery,
-} from './events';
-import { createArtifactPath, executeRunTask, type RunTask } from './execution';
-import { createNameMatcher } from './name-pattern';
-import { createPersistenceWorker } from './persistence';
-import { sampleCollectedTestCases } from './sample-test-cases';
-import { searchCollectedTestCases } from './search';
+} from './events.js';
+import { createArtifactPath, executeRunTask, type RunTask } from './execution.js';
+import { createNameMatcher } from './name-pattern.js';
+import { createPersistenceWorker } from './persistence.js';
+import { sampleCollectedTestCases } from './sample-test-cases.js';
+import { searchCollectedTestCases } from './search.js';
 
 interface SubscribeOptions {
   runId?: string;

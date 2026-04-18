@@ -2,11 +2,11 @@ export {
   createRunner,
   type RunDatasetJobsWithSharedConcurrencyRequest,
   type RunnerApi,
-} from './api';
+} from './api.js';
 export {
   type ParsedTestCaseProgress,
   parseArtifactFile,
-} from './artifact-loader';
+} from './artifact-loader.js';
 export {
   type ConfigType,
   defaultRunnerConfig,
@@ -17,7 +17,7 @@ export {
   type RunnerConfigOverrides,
   type RunnerDiscoveryConfig,
   withRunnerConfig,
-} from './config';
+} from './config.js';
 export type {
   CollectedDataset,
   CollectedEvaluator,
@@ -28,5 +28,5 @@ export type {
   RunnerEvent,
   RunSnapshot,
   SearchTestCasesQuery,
-} from './events';
-export { PROGRAMMATIC_RUN_CONFIG } from './events';
+} from './events.js';
+export { PROGRAMMATIC_RUN_CONFIG } from './events.js';

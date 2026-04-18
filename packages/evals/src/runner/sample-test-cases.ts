@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
-import type { RunConfigSampling } from '../evals/run-config';
-import type { CollectedTestCase } from './events';
+import type { RunConfigSampling } from '../evals/run-config.js';
+import type { CollectedTestCase } from './events.js';
 
 /** True when `sampling` requests a subset (`count` or `percent`). */
 export function isRunConfigSamplingActive(sampling: RunConfigSampling | undefined): boolean {

@@ -1,11 +1,11 @@
 /** @jsxImportSource react */
 import type React from 'react';
 import { Text } from 'ink';
-import type { CliState, EvalDataset, EvalRun } from '../types';
-import { ListItem } from './ListItem';
-import { Pane } from './Pane';
-import { SectionHeader } from './SectionHeader';
-import { StatusText } from './StatusText';
+import type { CliState, EvalDataset, EvalRun } from '../types.js';
+import { ListItem } from './ListItem.js';
+import { Pane } from './Pane.js';
+import { SectionHeader } from './SectionHeader.js';
+import { StatusText } from './StatusText.js';
 
 const LEFT_PANE_WIDTH = 44;
 

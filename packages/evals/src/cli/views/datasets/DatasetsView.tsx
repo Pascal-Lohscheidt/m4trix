@@ -1,13 +1,14 @@
 /** @jsxImportSource react */
+
+import { resolve } from 'node:path';
+import { LineGraph } from '@pppp606/ink-chart';
+import { Box, Text } from 'ink';
 import type React from 'react';
 import { useEffect, useMemo, useState } from 'react';
-import { resolve } from 'node:path';
-import { Box, Text } from 'ink';
-import { LineGraph } from '@pppp606/ink-chart';
-import { parseArtifactFile, type ParsedTestCaseProgress } from '../../../runner';
-import { toNumericScoreFromScores } from '../../../runner/score-utils';
-import type { CliState, EvalDataset, EvalRun } from '../../types';
-import { ListItem, Pane, SectionHeader, TextBar } from '../../components';
+import { type ParsedTestCaseProgress, parseArtifactFile } from '../../../runner/index.js';
+import { toNumericScoreFromScores } from '../../../runner/score-utils.js';
+import { ListItem, Pane, SectionHeader, TextBar } from '../../components/index.js';
+import type { CliState, EvalDataset, EvalRun } from '../../types.js';
 
 const LEFT_PANE_WIDTH = 44;
 const MAX_RUNS_FOR_CHART = 12;

@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 import { withFullScreen } from 'fullscreen-ink';
 
-import { EvalsCliApp } from './cli/app';
-import { loadMockData, loadRunnerData, parseStartupArgs } from './cli/state';
-import { createRunner } from './runner';
+import { EvalsCliApp } from './cli/app.js';
+import { loadMockData, loadRunnerData, parseStartupArgs } from './cli/state.js';
+import { createRunner } from './runner/index.js';
 
 async function main(): Promise<void> {
   const args = parseStartupArgs(process.argv.slice(2));

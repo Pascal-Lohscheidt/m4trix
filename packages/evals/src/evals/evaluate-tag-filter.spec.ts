@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
-import { evaluateTagFilter } from './evaluate-tag-filter';
-import { TagAndFilter, TagOrFilter } from './tag-filter';
+import { evaluateTagFilter } from './evaluate-tag-filter.js';
+import { TagAndFilter, TagOrFilter } from './tag-filter.js';
 
 describe('evaluateTagFilter', () => {
   test('OR of leaves: any matching tag on the case satisfies one operand', () => {

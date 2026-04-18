@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 
-import { createRunner } from '../runner';
-import { getDefaultConcurrency, getSimpleCliUsage, parseSimpleCliArgs } from './args';
-import { printBanner } from './banner';
-import { generateDatasetJsonCommandInk, generateDatasetJsonCommandPlain } from './generate';
-import { runSimpleEvalRunConfigsInk, runSimpleEvalRunConfigsPlain } from './run';
+import { createRunner } from '../runner/index.js';
+import { getDefaultConcurrency, getSimpleCliUsage, parseSimpleCliArgs } from './args.js';
+import { printBanner } from './banner.js';
+import { generateDatasetJsonCommandInk, generateDatasetJsonCommandPlain } from './generate.js';
+import { runSimpleEvalRunConfigsInk, runSimpleEvalRunConfigsPlain } from './run.js';
 
 function printUsageAndExit(exitCode: number): never {
   const printer = exitCode === 0 ? console.log : console.error;

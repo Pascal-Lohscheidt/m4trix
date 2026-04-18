@@ -1,6 +1,6 @@
 import type { Brand } from 'effect';
 import { Either, Schema } from 'effect';
-import type { TagMatcher } from './types';
+import type { TagMatcher } from './types.js';
 
 const TagMatcherSchema = Schema.Union(Schema.String, Schema.instanceOf(RegExp));
 

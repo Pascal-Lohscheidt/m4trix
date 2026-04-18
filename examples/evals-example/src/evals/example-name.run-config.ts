@@ -1,9 +1,9 @@
 import { RunConfig } from '@m4trix/evals';
 
-import { demoDataset } from './demo.dataset';
-import { demoScoreEvaluator } from './demo.evaluator';
-import { sampledPoolDataset } from './sampled.dataset';
-import { tagFilterDemoDataset } from './tag-filter.dataset';
+import { demoDataset } from './demo.dataset.js';
+import { demoScoreEvaluator } from './demo.evaluator.js';
+import { sampledPoolDataset } from './sampled.dataset.js';
+import { tagFilterDemoDataset } from './tag-filter.dataset.js';
 
 /**
  * Representative RunConfig: concrete evaluators, a name pattern, and dataset sampling.

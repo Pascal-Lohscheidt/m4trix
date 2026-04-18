@@ -4,8 +4,8 @@ import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { Box, Text, useApp, useInput } from 'ink';
 import { useScreenSize } from 'fullscreen-ink';
 
-import { getBreadcrumbText, getFooterText } from './components';
-import { isBackKey, isPrintableCharacter, isQuitInput, isSearchInput } from './keys';
+import { getBreadcrumbText, getFooterText } from './components/index.js';
+import { isBackKey, isPrintableCharacter, isQuitInput, isSearchInput } from './keys.js';
 import {
   createInitialState,
   applyRunnerEvent,
@@ -13,16 +13,16 @@ import {
   getFilteredDatasets,
   getRunByMenuIndex,
   reduceCliState,
-} from './state';
-import type { CliState, EvalsData, StartupArgs } from './types';
-import { PROGRAMMATIC_RUN_CONFIG, type RunnerApi } from '../runner';
+} from './state.js';
+import type { CliState, EvalsData, StartupArgs } from './types.js';
+import { PROGRAMMATIC_RUN_CONFIG, type RunnerApi } from '../runner/index.js';
 import {
   DatasetsView,
   NewEvaluationView,
   OVERVIEW_PAGE_SIZE,
   RunDetailsView,
   RunsView,
-} from './views';
+} from './views/index.js';
 
 interface EvalsCliAppProps {
   data: EvalsData;

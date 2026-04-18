@@ -1,6 +1,6 @@
 import { describe, expect, expectTypeOf, test } from 'vitest';
 import { Schema as S } from 'effect';
-import { getTestCaseDisplayLabel, getTestCaseTagList, TestCase } from './test-case';
+import { getTestCaseDisplayLabel, getTestCaseTagList, TestCase } from './test-case.js';
 
 describe('TestCase', () => {
   const inputSchema = S.Struct({ prompt: S.String });

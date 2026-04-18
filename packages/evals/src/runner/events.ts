@@ -1,10 +1,10 @@
-import type { Dataset } from '../evals/dataset';
-import type { EvaluatorLogEntry } from '../evals/diff';
-import type { Evaluator } from '../evals/evaluator';
-import type { MetricItem } from '../evals/metric';
-import type { RunConfig, RunConfigSampling } from '../evals/run-config';
-import type { ScoreItem } from '../evals/score';
-import type { TestCase } from '../evals/test-case';
+import type { Dataset } from '../evals/dataset.js';
+import type { EvaluatorLogEntry } from '../evals/diff.js';
+import type { Evaluator } from '../evals/evaluator.js';
+import type { MetricItem } from '../evals/metric.js';
+import type { RunConfig, RunConfigSampling } from '../evals/run-config.js';
+import type { ScoreItem } from '../evals/score.js';
+import type { TestCase } from '../evals/test-case.js';
 
 export interface CollectedDataset {
   id: string;

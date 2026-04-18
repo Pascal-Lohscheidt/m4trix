@@ -1,9 +1,9 @@
 import { Schema as S } from 'effect';
 import { describe, expect, test } from 'vitest';
 
-import { Dataset } from './dataset';
-import { Evaluator } from './evaluator';
-import { RunConfig, validateRunConfigName } from './run-config';
+import { Dataset } from './dataset.js';
+import { Evaluator } from './evaluator.js';
+import { RunConfig, validateRunConfigName } from './run-config.js';
 
 describe('RunConfig', () => {
   const ds = Dataset.define({ name: 'd1' });

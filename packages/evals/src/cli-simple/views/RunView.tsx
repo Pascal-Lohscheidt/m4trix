@@ -2,7 +2,7 @@
 
 import { Box, Text } from 'ink';
 import { type ReactNode, useCallback, useEffect, useState } from 'react';
-import { TextBar } from '../../cli/components/TextBar';
+import { TextBar } from '../../cli/components/TextBar.js';
 import {
   formatScoreData,
   getDiffLines,
@@ -10,18 +10,18 @@ import {
   getLogLines,
   getMetricById,
   getScoreById,
-} from '../../evals';
-import type { EvaluatorLogEntry } from '../../evals/diff';
-import type { ScoreItem } from '../../evals/score';
-import type { RunDatasetJob, RunnerApi, RunnerEvent } from '../../runner';
+} from '../../evals/index.js';
+import type { EvaluatorLogEntry } from '../../evals/diff.js';
+import type { ScoreItem } from '../../evals/score.js';
+import type { RunDatasetJob, RunnerApi, RunnerEvent } from '../../runner/index.js';
 import {
   aggregateMetricItems,
   aggregateScoreItems,
   toNumericScore,
   toNumericScoreFromScores,
-} from '../../runner/score-utils';
-import { Banner } from './Banner';
-import { Spinner } from './Spinner';
+} from '../../runner/score-utils.js';
+import { Banner } from './Banner.js';
+import { Spinner } from './Spinner.js';
 
 interface EvaluatorScoreRow {
   evaluatorId: string;

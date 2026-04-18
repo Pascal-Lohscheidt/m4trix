@@ -1,7 +1,7 @@
 /** @jsxImportSource react */
 import type React from 'react';
 import { Text } from 'ink';
-import type { CliState } from '../types';
+import type { CliState } from '../types.js';
 
 const SEP = '  ';
 const ARROW = '›';

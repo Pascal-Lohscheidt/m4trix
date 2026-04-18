@@ -1,7 +1,7 @@
 /** @jsxImportSource react */
 import type React from 'react';
 import { Text } from 'ink';
-import type { EvalStatus } from '../types';
+import type { EvalStatus } from '../types.js';
 
 interface StatusTextProps {
   status: EvalStatus;

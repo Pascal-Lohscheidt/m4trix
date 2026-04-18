@@ -1,5 +1,5 @@
 import { describe, expect, expectTypeOf, test } from 'vitest';
-import { TagSet, type TagSetMembers } from './tag-set';
+import { TagSet, type TagSetMembers } from './tag-set.js';
 
 describe('TagSet', () => {
   test('define() maps each tag to itself at runtime', () => {

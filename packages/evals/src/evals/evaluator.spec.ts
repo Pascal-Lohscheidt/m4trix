@@ -1,6 +1,6 @@
 import { Schema as S } from 'effect';
 import { describe, expect, expectTypeOf, test, vitest } from 'vitest';
-import { type EvalMiddleware, Evaluator, getEvaluatorDisplayLabel } from './evaluator';
+import { type EvalMiddleware, Evaluator, getEvaluatorDisplayLabel } from './evaluator.js';
 
 describe('Evaluator', () => {
   const inputSchema = S.Struct({ prompt: S.String });

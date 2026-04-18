@@ -9,11 +9,11 @@ import {
   getMetricById,
   getScoreById,
   type ScoreDef,
-} from '../../../evals';
-import { toNumericScore } from '../../../runner/score-utils';
-import { parseArtifactFile, type ParsedTestCaseProgress } from '../../../runner';
-import type { CliState, EvalDataset, EvalRun, EvaluatorOption } from '../../types';
-import { Pane, RunsSidebar, SectionHeader, Sparkline, TextBar } from '../../components';
+} from '../../../evals/index.js';
+import { toNumericScore } from '../../../runner/score-utils.js';
+import { parseArtifactFile, type ParsedTestCaseProgress } from '../../../runner/index.js';
+import type { CliState, EvalDataset, EvalRun, EvaluatorOption } from '../../types.js';
+import { Pane, RunsSidebar, SectionHeader, Sparkline, TextBar } from '../../components/index.js';
 
 const DETAILS_PAGE_SIZE = 20;
 

@@ -1,5 +1,5 @@
-import { aggregateLatencyAverage, aggregateTokenCountSum } from '../aggregators';
-import { Metric } from '../metric';
+import { aggregateLatencyAverage, aggregateTokenCountSum } from '../aggregators.js';
+import { Metric } from '../metric.js';
 
 export interface TokenCountData {
   input?: number;

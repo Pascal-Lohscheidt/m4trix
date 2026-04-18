@@ -1,13 +1,13 @@
-import type { CliState, EvalsData, EvalDataset, EvalRun, StartupArgs } from './types';
-import { getDatasetDisplayLabel } from '../evals/dataset';
-import { getEvaluatorDisplayLabel } from '../evals/evaluator';
+import type { CliState, EvalsData, EvalDataset, EvalRun, StartupArgs } from './types.js';
+import { getDatasetDisplayLabel } from '../evals/dataset.js';
+import { getEvaluatorDisplayLabel } from '../evals/evaluator.js';
 import type {
   CollectedDataset,
   CollectedEvaluator,
   RunSnapshot,
   RunnerApi,
   RunnerEvent,
-} from '../runner';
+} from '../runner/index.js';
 
 import mockData from './data.mock.json';
 

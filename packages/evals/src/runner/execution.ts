@@ -2,17 +2,17 @@ import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 
 import { Effect, Queue, Ref } from 'effect';
-import type { Dataset } from '../evals/dataset';
-import type { CreateDiffLogEntryOptions, EvaluatorLogEntry } from '../evals/diff';
-import { createDiffLogEntry, createLogEntry } from '../evals/diff';
-import type { Evaluator } from '../evals/evaluator';
-import { getEvaluatorTagList } from '../evals/evaluator';
-import type { MetricItem } from '../evals/metric';
-import type { ScoreItem } from '../evals/score';
-import { getTestCaseDisplayLabel, getTestCaseTagList } from '../evals/test-case';
-import type { CollectedTestCase, RunnerEvent, RunSnapshot } from './events';
-import type { PersistenceMessage } from './persistence';
-import { toNumericScoreFromScores } from './score-utils';
+import type { Dataset } from '../evals/dataset.js';
+import type { CreateDiffLogEntryOptions, EvaluatorLogEntry } from '../evals/diff.js';
+import { createDiffLogEntry, createLogEntry } from '../evals/diff.js';
+import type { Evaluator } from '../evals/evaluator.js';
+import { getEvaluatorTagList } from '../evals/evaluator.js';
+import type { MetricItem } from '../evals/metric.js';
+import type { ScoreItem } from '../evals/score.js';
+import { getTestCaseDisplayLabel, getTestCaseTagList } from '../evals/test-case.js';
+import type { CollectedTestCase, RunnerEvent, RunSnapshot } from './events.js';
+import type { PersistenceMessage } from './persistence.js';
+import { toNumericScoreFromScores } from './score-utils.js';
 
 const evaluatorErrorLogEntryKey = '__m4trixEvaluatorLogEntry';
 

@@ -3,8 +3,8 @@ import type {
   TagAndFilterOperand,
   TagOrFilterExpression,
   TagOrFilterOperand,
-} from './tag-filter';
-import type { TagMatcher } from './types';
+} from './tag-filter.js';
+import type { TagMatcher } from './types.js';
 
 function tagsMatchMatcher(tags: readonly string[], matcher: TagMatcher): boolean {
   return tags.some((tag) => (typeof matcher === 'string' ? tag === matcher : matcher.test(tag)));

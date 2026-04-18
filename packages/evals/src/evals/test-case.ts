@@ -3,7 +3,7 @@ import {
   normalizeOptionalDisplayName,
   type TestCaseName,
   validateTestCaseName,
-} from './entity-name';
+} from './entity-name.js';
 
 type InputOrBuilder<T> = T | (() => T);
 

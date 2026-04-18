@@ -1,4 +1,4 @@
-import { Score } from '../score';
+import { Score } from '../score.js';
 
 export interface PercentScoreData {
   value: number;

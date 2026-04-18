@@ -1,8 +1,8 @@
-import { type DatasetName, normalizeOptionalDisplayName, validateDatasetName } from './entity-name';
-import { evaluateTagFilter } from './evaluate-tag-filter';
-import type { TagOrFilterExpression } from './tag-filter';
-import type { TestCase } from './test-case';
-import type { PathMatcher, TagMatcher } from './types';
+import { type DatasetName, normalizeOptionalDisplayName, validateDatasetName } from './entity-name.js';
+import { evaluateTagFilter } from './evaluate-tag-filter.js';
+import type { TagOrFilterExpression } from './tag-filter.js';
+import type { TestCase } from './test-case.js';
+import type { PathMatcher, TagMatcher } from './types.js';
 
 /** `Dataset.define({ includedTags })`: legacy flat matchers or a structured {@link TagOrFilterExpression} tree. */
 export type DatasetIncludedTags = ReadonlyArray<TagMatcher> | TagOrFilterExpression;

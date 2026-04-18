@@ -3,7 +3,7 @@ export {
   type DatasetDefineConfig,
   type DatasetIncludedTags,
   getDatasetDisplayLabel,
-} from './dataset';
+} from './dataset.js';
 export {
   type CreateDiffLogEntryOptions,
   createDiffLogEntry,
@@ -17,7 +17,7 @@ export {
   type LogEntry,
   type PrintJsonDiffOptions,
   printJsonDiff,
-} from './diff';
+} from './diff.js';
 export {
   type DatasetName,
   DatasetNameSchema,
@@ -29,8 +29,8 @@ export {
   validateDatasetName,
   validateEvaluatorName,
   validateTestCaseName,
-} from './entity-name';
-export { evaluateTagFilter } from './evaluate-tag-filter';
+} from './entity-name.js';
+export { evaluateTagFilter } from './evaluate-tag-filter.js';
 export {
   type EvalMiddleware,
   type EvaluateArgs,
@@ -38,19 +38,19 @@ export {
   Evaluator,
   getEvaluatorDisplayLabel,
   getEvaluatorTagList,
-} from './evaluator';
+} from './evaluator.js';
 export type {
   FormatMetricOptions,
   MetricDef,
   MetricItem,
-} from './metric';
-export { getMetricById, Metric } from './metric';
+} from './metric.js';
+export { getMetricById, Metric } from './metric.js';
 export {
   type LatencyData,
   latencyMetric,
   type TokenCountData,
   tokenCountMetric,
-} from './metrics/standard';
+} from './metrics/standard.js';
 export {
   RunConfig,
   type RunConfigDefineConfig,
@@ -61,14 +61,14 @@ export {
   type RunConfigRowPattern,
   type RunConfigSampling,
   validateRunConfigName,
-} from './run-config';
+} from './run-config.js';
 export type {
   FormatScoreOptions,
   ScoreDef,
   ScoreDisplayStrategy,
   ScoreItem,
-} from './score';
-export { formatScoreData, getScoreById, Score } from './score';
+} from './score.js';
+export { formatScoreData, getScoreById, Score } from './score.js';
 export {
   type BinaryScoreData,
   binaryScore,
@@ -76,7 +76,7 @@ export {
   deltaScore,
   type PercentScoreData,
   percentScore,
-} from './scores/standard';
+} from './scores/standard.js';
 export {
   isTagAndFilter,
   isTagOrFilter,
@@ -88,7 +88,7 @@ export {
   type TagOrFilterExpression,
   TagOrFilterExpressionSchema,
   type TagOrFilterOperand,
-} from './tag-filter';
-export { TagSet, type TagSetMembers } from './tag-set';
-export { getTestCaseDisplayLabel, getTestCaseTagList, TestCase } from './test-case';
-export type { PathMatcher, TagMatcher } from './types';
+} from './tag-filter.js';
+export { TagSet, type TagSetMembers } from './tag-set.js';
+export { getTestCaseDisplayLabel, getTestCaseTagList, TestCase } from './test-case.js';
+export type { PathMatcher, TagMatcher } from './types.js';

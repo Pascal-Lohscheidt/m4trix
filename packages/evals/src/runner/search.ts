@@ -1,4 +1,4 @@
-import type { CollectedTestCase, SearchTestCasesQuery } from './events';
+import type { CollectedTestCase, SearchTestCasesQuery } from './events.js';
 
 function matchesAny(value: string, matchers: ReadonlyArray<string | RegExp> | undefined): boolean {
   if (!matchers || matchers.length === 0) {

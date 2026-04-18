@@ -3,9 +3,9 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, test, vi } from 'vitest';
 
-import { loadRunnerData } from '../cli/state';
-import { createRunner } from './api';
-import { PROGRAMMATIC_RUN_CONFIG, type RunnerApi, type RunnerEvent } from './index';
+import { loadRunnerData } from '../cli/state.js';
+import { createRunner } from './api.js';
+import { PROGRAMMATIC_RUN_CONFIG, type RunnerApi, type RunnerEvent } from './index.js';
 
 type FixtureExtension = '.mjs' | '.ts';
 

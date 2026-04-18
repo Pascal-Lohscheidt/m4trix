@@ -3,17 +3,17 @@ import { readdir } from 'node:fs/promises';
 import { relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-import type { Dataset } from '../evals/dataset';
-import type { Evaluator } from '../evals/evaluator';
-import type { RunConfig } from '../evals/run-config';
-import type { TestCase } from '../evals/test-case';
-import type { RunnerDiscoveryConfig } from './config';
+import type { Dataset } from '../evals/dataset.js';
+import type { Evaluator } from '../evals/evaluator.js';
+import type { RunConfig } from '../evals/run-config.js';
+import type { TestCase } from '../evals/test-case.js';
+import type { RunnerDiscoveryConfig } from './config.js';
 import type {
   CollectedDataset,
   CollectedEvaluator,
   CollectedRunConfig,
   CollectedTestCase,
-} from './events';
+} from './events.js';
 
 type JitiModuleLoader = {
   (id: string): unknown;

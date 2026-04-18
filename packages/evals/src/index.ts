@@ -1,5 +1,5 @@
 export { Schema as S } from 'effect';
-export { loadMockData, loadRunnerData, parseStartupArgs } from './cli/state';
+export { loadMockData, loadRunnerData, parseStartupArgs } from './cli/state.js';
 export type {
   CliState,
   EvalDataset,
@@ -8,7 +8,7 @@ export type {
   EvaluatorOption,
   StartupArgs,
   ViewLevel,
-} from './cli/types';
+} from './cli/types.js';
 
 export {
   type BinaryScoreData,
@@ -89,7 +89,7 @@ export {
   validateEvaluatorName,
   validateRunConfigName,
   validateTestCaseName,
-} from './evals';
+} from './evals/index.js';
 export {
   type CollectedDataset,
   type CollectedEvaluator,
@@ -113,4 +113,4 @@ export {
   type RunSnapshot,
   type SearchTestCasesQuery,
   withRunnerConfig,
-} from './runner';
+} from './runner/index.js';

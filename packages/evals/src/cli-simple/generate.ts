@@ -3,10 +3,10 @@ import { render } from 'ink';
 import { writeFile } from 'node:fs/promises';
 import { join, parse, resolve } from 'node:path';
 
-import { getDatasetDisplayLabel } from '../evals/dataset';
-import { getTestCaseDisplayLabel } from '../evals/test-case';
-import type { RunnerApi } from '../runner';
-import { GenerateView } from './views/GenerateView';
+import { getDatasetDisplayLabel } from '../evals/dataset.js';
+import { getTestCaseDisplayLabel } from '../evals/test-case.js';
+import type { RunnerApi } from '../runner/index.js';
+import { GenerateView } from './views/GenerateView.js';
 
 interface GeneratedDatasetCase {
   name: string;

@@ -1,5 +1,5 @@
 /** @jsxImportSource react */
-import type { CliState } from '../types';
+import type { CliState } from '../types.js';
 
 export function getFooterText(state: CliState): string {
   if (state.level === 'datasets') {

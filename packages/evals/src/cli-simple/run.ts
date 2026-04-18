@@ -9,16 +9,16 @@ import {
   getMetricById,
   getScoreById,
   type LogEntry,
-} from '../evals';
-import type { ScoreItem } from '../evals/score';
-import type { RunnerApi, RunnerEvent } from '../runner';
+} from '../evals/index.js';
+import type { ScoreItem } from '../evals/score.js';
+import type { RunnerApi, RunnerEvent } from '../runner/index.js';
 import {
   aggregateMetricItems,
   aggregateScoreItems,
   toNumericScore,
   toNumericScoreFromScores,
-} from '../runner/score-utils';
-import { RunView } from './views/RunView';
+} from '../runner/score-utils.js';
+import { RunView } from './views/RunView.js';
 
 interface EvaluatorAggregate {
   total: number;
