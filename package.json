@@ -45,5 +45,10 @@
   },
   "publishConfig": {
     "access": "public"
+  },
+  "pnpm": {
+    "overrides": {
+      "esbuild": ">=0.23.0"
+    }
   }
 }
