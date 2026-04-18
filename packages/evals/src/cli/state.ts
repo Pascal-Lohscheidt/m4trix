@@ -1,15 +1,14 @@
-import type { CliState, EvalsData, EvalDataset, EvalRun, StartupArgs } from './types.js';
 import { getDatasetDisplayLabel } from '../evals/dataset.js';
 import { getEvaluatorDisplayLabel } from '../evals/evaluator.js';
 import type {
   CollectedDataset,
   CollectedEvaluator,
-  RunSnapshot,
   RunnerApi,
   RunnerEvent,
+  RunSnapshot,
 } from '../runner/index.js';
-
-import mockData from './data.mock.json';
+import mockData from './data.mock.json' with { type: 'json' };
+import type { CliState, EvalDataset, EvalRun, EvalsData, StartupArgs } from './types.js';
 
 export function loadMockData(): EvalsData {
   return mockData as EvalsData;

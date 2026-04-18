@@ -1,6 +1,6 @@
-import type { ExposedAPI } from '../types';
-import { ExposeAuthError } from '../expose';
-import { formatSSE } from '../protocols/sse';
+import type { ExposedAPI } from '../types.js';
+import { ExposeAuthError } from '../expose.js';
+import { formatSSE } from '../protocols/sse.js';
 
 /** Next.js App Router GET/POST handler signature */
 export type NextGetHandler = (request: Request) => Promise<Response>;

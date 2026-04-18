@@ -1,4 +1,4 @@
-import { VoiceSocketAdapter, type VoiceSocketConfig } from './VoiceSocketAdapter';
+import { VoiceSocketAdapter, type VoiceSocketConfig } from './VoiceSocketAdapter.js';
 import { type Socket, io } from 'socket.io-client';
 
 // Define an interface that extends the VoiceSocketAdapter with Socket.IO specific properties

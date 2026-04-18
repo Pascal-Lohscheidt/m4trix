@@ -1,7 +1,7 @@
 import { describe, expect, expectTypeOf, test, vitest } from 'vitest';
 import { Schema as S } from 'effect';
-import { AgentNetworkEvent } from './agent-network-event';
-import { EventAggregator } from './event-aggregator';
+import { AgentNetworkEvent } from './agent-network-event.js';
+import { EventAggregator } from './event-aggregator.js';
 
 describe('EventAggregator', () => {
   test('creates an aggregator instance with the configured listensTo set', () => {

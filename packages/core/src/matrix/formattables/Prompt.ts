@@ -1,4 +1,4 @@
-import type { BaseMessage } from '../Message';
+import type { BaseMessage } from '../Message.js';
 
 // ========================
 // PROMPT TYPES

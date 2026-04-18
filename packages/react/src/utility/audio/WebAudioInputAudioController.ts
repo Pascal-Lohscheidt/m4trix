@@ -1,5 +1,5 @@
-import { type AudioProcessingConfig, InputAudioController } from './InputAudioController';
-import type { AudioContextState } from './InputAudioController';
+import { type AudioProcessingConfig, InputAudioController } from './InputAudioController.js';
+import type { AudioContextState } from './InputAudioController.js';
 
 /**
  * Represents the current state of the voice agent in the conversation flow.

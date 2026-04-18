@@ -1,4 +1,4 @@
-import { Logger } from '../../utility/Logger';
+import { Logger } from '../../utility/Logger.js';
 
 /**
  * Represents the current state of the voice agent in the conversation flow.

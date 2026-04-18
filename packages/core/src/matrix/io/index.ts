@@ -1,5 +1,5 @@
-export * from './types';
-export { ExposeAuthError } from './expose';
-export * from './protocols/sse';
-export * from './adapters/next-endpoint';
-export * from './adapters/express-endpoint';
+export * from './types.js';
+export { ExposeAuthError } from './expose.js';
+export * from './protocols/sse.js';
+export * from './adapters/next-endpoint.js';
+export * from './adapters/express-endpoint.js';

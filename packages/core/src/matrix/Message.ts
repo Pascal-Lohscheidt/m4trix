@@ -1,4 +1,4 @@
-import type { LLMResponse } from './LLM';
+import type { LLMResponse } from './LLM.js';
 
 type MessageContent = string;
 

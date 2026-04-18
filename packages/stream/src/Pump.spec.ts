@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { Pump } from './Pump';
+import { Pump } from './Pump.js';
 
 describe('Pump', () => {
   describe('from', () => {

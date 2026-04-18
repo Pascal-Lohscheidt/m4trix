@@ -1,5 +1,5 @@
-import { asyncNoop } from '../../../helper/types/noop';
-import type { AgentNetworkStore } from './agent-network-store';
+import { asyncNoop } from '../../../helper/types/noop.js';
+import type { AgentNetworkStore } from './agent-network-store.js';
 
 /**
  * In-memory implementation of AgentNetworkStore. Events are stored in a

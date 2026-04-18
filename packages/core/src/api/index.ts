@@ -1,3 +1,3 @@
-export * from './types/message';
-export * from './types/sockets/socket-api';
-export * from './socket-handler/SocketIoFactory';
+export * from './types/message.js';
+export * from './types/sockets/socket-api.js';
+export * from './socket-handler/SocketIoFactory.js';

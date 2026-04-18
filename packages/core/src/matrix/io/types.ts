@@ -1,7 +1,7 @@
-import type { Envelope, EventPlane } from '../agent-network/event-plane';
+import type { Envelope, EventPlane } from '../agent-network/event-plane.js';
 import type { Layer, Schema as S } from 'effect';
-import type { AgentNetworkEventDef } from '../agent-network/agent-network-event';
-import type { ChannelName } from '../identifiers/channel-name';
+import type { AgentNetworkEventDef } from '../agent-network/agent-network-event.js';
+import type { ChannelName } from '../identifiers/channel-name.js';
 
 export type { EventPlane };
 

@@ -1,11 +1,11 @@
 import { Effect, Queue, Schema as S } from 'effect';
 import { describe, expect, test, vitest } from 'vitest';
-import { AgentFactory } from '../agent-factory';
-import { AgentNetwork } from './agent-network';
-import type { EventMeta } from './agent-network-event';
-import { AgentNetworkEvent } from './agent-network-event';
-import { ChannelName } from './channel';
-import { EventAggregator } from './event-aggregator';
+import { AgentFactory } from '../agent-factory.js';
+import { AgentNetwork } from './agent-network.js';
+import type { EventMeta } from './agent-network-event.js';
+import { AgentNetworkEvent } from './agent-network-event.js';
+import { ChannelName } from './channel.js';
+import { EventAggregator } from './event-aggregator.js';
 
 describe('AgentNetwork', () => {
   describe('setup - channels', () => {

@@ -1,18 +1,18 @@
 'use client';
 // Voice conversation hook for handling audio recording and playback via socket connection
 import { useState, useRef, useEffect, useCallback } from 'react';
-import type { VoiceSocketAdapter } from '../../adapter/socket/VoiceSocketAdapter';
-import { VoiceSocketIOAdapter } from '../../adapter/socket/VoiceSocketIOAdapter';
-import { Logger } from '../../utility/Logger';
-import { WebAudioInputAudioController } from '../../utility/audio/WebAudioInputAudioController';
-import type { OutputAudioController } from '../../utility/audio/OutputAudioController';
-import { WebAudioOutputAudioController } from '../../utility/audio/WebAudioOutputAudioController';
+import type { VoiceSocketAdapter } from '../../adapter/socket/VoiceSocketAdapter.js';
+import { VoiceSocketIOAdapter } from '../../adapter/socket/VoiceSocketIOAdapter.js';
+import { Logger } from '../../utility/Logger.js';
+import { WebAudioInputAudioController } from '../../utility/audio/WebAudioInputAudioController.js';
+import type { OutputAudioController } from '../../utility/audio/OutputAudioController.js';
+import { WebAudioOutputAudioController } from '../../utility/audio/WebAudioOutputAudioController.js';
 import type {
   BaseUseConversationOptions,
   DownstreamMode,
   UpstreamMode,
   VoiceAgentState,
-} from './shared-types';
+} from './shared-types.js';
 
 export type SocketConversationOptions<T extends Record<string, unknown> = Record<string, unknown>> =
   BaseUseConversationOptions & {

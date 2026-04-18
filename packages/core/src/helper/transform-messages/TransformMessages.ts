@@ -1,7 +1,7 @@
 import { type BaseMessage, AIMessage, ToolMessage } from '@langchain/core/messages';
 import { Effect, pipe } from 'effect';
-import { type MessageFilter, type MessageFilterType, typeOnFilter } from './message-filter';
-import { FormatType, typeOnFormatter } from './formatter';
+import { type MessageFilter, type MessageFilterType, typeOnFilter } from './message-filter.js';
+import { FormatType, typeOnFormatter } from './formatter.js';
 
 /**
  * # Transform Messages

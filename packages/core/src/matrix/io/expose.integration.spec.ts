@@ -1,10 +1,10 @@
 import { describe, expect, test } from 'vitest';
 import { Effect } from 'effect';
 import { Schema as S } from 'effect';
-import { AgentNetwork } from '../agent-network/agent-network';
-import { AgentNetworkEvent } from '../agent-network/agent-network-event';
-import { AgentFactory } from '../agent-factory';
-import { ExposeAuthError } from './expose';
+import { AgentNetwork } from '../agent-network/agent-network.js';
+import { AgentNetworkEvent } from '../agent-network/agent-network-event.js';
+import { AgentFactory } from '../agent-factory.js';
+import { ExposeAuthError } from './expose.js';
 
 async function takeFirst(stream: AsyncIterable<unknown>): Promise<unknown> {
   for await (const e of stream) return e;

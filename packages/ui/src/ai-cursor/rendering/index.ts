@@ -1,5 +1,5 @@
 import './AiCursorComponent';
-import type { AiCursorComponent, Props as AiCursorProps } from './AiCursorComponent';
+import type { AiCursorComponent, Props as AiCursorProps } from './AiCursorComponent.js';
 /**
  * The AI Cursor is a Lit Element.
  * Why Lit.dev?

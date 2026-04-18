@@ -1,8 +1,8 @@
 import type { Schema as S } from 'effect';
-import type { AgentNetworkEventDef } from './agent-network-event';
-import type { ChannelName } from '../identifiers/channel-name';
+import type { AgentNetworkEventDef } from './agent-network-event.js';
+import type { ChannelName } from '../identifiers/channel-name.js';
 
-export { ChannelName } from '../identifiers/channel-name';
+export { ChannelName } from '../identifiers/channel-name.js';
 
 /* ─── Sink ─── */
 

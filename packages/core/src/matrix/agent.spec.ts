@@ -1,7 +1,7 @@
 import { describe, expect, test, vitest } from 'vitest';
 import { Schema as S } from 'effect';
-import { AgentFactory } from './agent-factory';
-import { AgentNetworkEvent } from './agent-network/agent-network-event';
+import { AgentFactory } from './agent-factory.js';
+import { AgentNetworkEvent } from './agent-network/agent-network-event.js';
 
 describe('Agent', () => {
   test('should invoke logic with params', async () => {

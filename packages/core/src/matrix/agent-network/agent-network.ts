@@ -1,14 +1,14 @@
 import type { Schema as S } from 'effect';
 import { Effect, type Scope } from 'effect';
-import type { AgentFactory } from '../agent-factory';
-import { expose } from '../io/expose';
-import type { ExposedAPI, ExposeOptions } from '../io/types';
-import type { AgentNetworkEventDef } from './agent-network-event';
-import { ChannelName, ConfiguredChannel, Sink } from './channel';
-import type { Envelope, EventPlane } from './event-plane';
-import { createEventPlane, run } from './event-plane';
-import type { AgentNetworkStore } from './stores/agent-network-store';
-import { createInMemoryNetworkStore } from './stores/inmemory-network-store';
+import type { AgentFactory } from '../agent-factory.js';
+import { expose } from '../io/expose.js';
+import type { ExposedAPI, ExposeOptions } from '../io/types.js';
+import type { AgentNetworkEventDef } from './agent-network-event.js';
+import { ChannelName, ConfiguredChannel, Sink } from './channel.js';
+import type { Envelope, EventPlane } from './event-plane.js';
+import { createEventPlane, run } from './event-plane.js';
+import type { AgentNetworkStore } from './stores/agent-network-store.js';
+import { createInMemoryNetworkStore } from './stores/inmemory-network-store.js';
 
 /* ─── Helper Types ─── */
 

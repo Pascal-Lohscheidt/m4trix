@@ -4,13 +4,13 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   BaseVoiceEndpointAdapter,
   type VoiceEndpointAdapter,
-} from '../../adapter/VoiceEndpointAdapter';
-import { AudioElementOutputAudioController } from '../../utility/audio/AudioElementOutputAudioController';
-import type { InputAudioController } from '../../utility/audio/InputAudioController';
-import type { OutputAudioController } from '../../utility/audio/OutputAudioController';
-import { WebAudioInputAudioController } from '../../utility/audio/WebAudioInputAudioController';
-import { Logger } from '../../utility/Logger';
-import type { BaseUseConversationOptions, DownstreamMode, VoiceAgentState } from './shared-types';
+} from '../../adapter/VoiceEndpointAdapter.js';
+import { AudioElementOutputAudioController } from '../../utility/audio/AudioElementOutputAudioController.js';
+import type { InputAudioController } from '../../utility/audio/InputAudioController.js';
+import type { OutputAudioController } from '../../utility/audio/OutputAudioController.js';
+import { WebAudioInputAudioController } from '../../utility/audio/WebAudioInputAudioController.js';
+import { Logger } from '../../utility/Logger.js';
+import type { BaseUseConversationOptions, DownstreamMode, VoiceAgentState } from './shared-types.js';
 
 // Types
 export type EndpointConversationOptions<

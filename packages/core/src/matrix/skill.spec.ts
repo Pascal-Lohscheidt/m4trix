@@ -1,6 +1,6 @@
 import { describe, expect, expectTypeOf, test } from 'vitest';
 import { Effect, Schema as S } from 'effect';
-import { LayerName, Skill, DepedencyLayer, Done, type SkillInstance } from './skill';
+import { LayerName, Skill, DepedencyLayer, Done, type SkillInstance } from './skill.js';
 
 describe('LayerName', () => {
   test('accepts valid camelCase strings', () => {

@@ -1,4 +1,4 @@
-import type { StreamTransformer } from '../../Pump';
+import type { StreamTransformer } from '../../Pump.js';
 
 export interface HttpStreamOptions<T> {
   /** HTTP ResponseInit (status, headers, etc.) */

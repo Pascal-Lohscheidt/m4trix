@@ -5,7 +5,7 @@ import type {
   ContextEvents,
   EventMeta,
   RunEvents,
-} from './agent-network-event';
+} from './agent-network-event.js';
 
 type EventDef = AgentNetworkEventDef<string, S.Schema.Any>;
 

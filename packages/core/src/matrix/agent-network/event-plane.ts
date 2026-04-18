@@ -1,9 +1,9 @@
 import { Cause, Effect, type Fiber, PubSub, Queue, type Scope } from 'effect';
-import type { AgentNetwork, AnyAgent } from './agent-network';
-import type { ContextEvents, EventMeta, RunEvents } from './agent-network-event';
-import type { ChannelName, ConfiguredChannel } from './channel';
-import type { AgentNetworkStore } from './stores/agent-network-store';
-import { createInMemoryNetworkStore } from './stores/inmemory-network-store';
+import type { AgentNetwork, AnyAgent } from './agent-network.js';
+import type { ContextEvents, EventMeta, RunEvents } from './agent-network-event.js';
+import type { ChannelName, ConfiguredChannel } from './channel.js';
+import type { AgentNetworkStore } from './stores/agent-network-store.js';
+import { createInMemoryNetworkStore } from './stores/inmemory-network-store.js';
 
 /* ─── Envelope ─── */
 

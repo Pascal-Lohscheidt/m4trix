@@ -1,5 +1,5 @@
-import type { AgentNetworkSetupContext } from '../../agent-network/agent-network';
-import type { ConfiguredChannel } from '../../agent-network/channel';
+import type { AgentNetworkSetupContext } from '../../agent-network/agent-network.js';
+import type { ConfiguredChannel } from '../../agent-network/channel.js';
 
 type Params = {
   interfaceChannel: ConfiguredChannel;

@@ -1,5 +1,5 @@
 import { Effect, Console } from 'effect';
-import type { ChatPrompt } from './formattables/Prompt';
+import type { ChatPrompt } from './formattables/Prompt.js';
 
 // ========================
 // PROVIDER TYPES

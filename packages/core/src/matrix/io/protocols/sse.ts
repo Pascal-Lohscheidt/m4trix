@@ -1,4 +1,4 @@
-import type { Envelope } from '../../agent-network/event-plane';
+import type { Envelope } from '../../agent-network/event-plane.js';
 
 /** Format a single SSE message (event + data) */
 export function formatSSE(envelope: Envelope): string {

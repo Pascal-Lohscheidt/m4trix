@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { HumanMessage, AIMessage, ToolMessage } from '@langchain/core/messages';
-import { TransformMessages } from './TransformMessages';
-import { FormatType } from './formatter';
-import { MessageFilterType } from './message-filter';
+import { TransformMessages } from './TransformMessages.js';
+import { FormatType } from './formatter.js';
+import { MessageFilterType } from './message-filter.js';
 
 describe('TransformMessages', () => {
   const messages = [

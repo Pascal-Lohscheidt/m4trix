@@ -3,7 +3,7 @@ import {
   type PlayAudioParams,
   type PlayAudioStreamParams,
   type InitializeChunkStreamParams,
-} from './OutputAudioController';
+} from './OutputAudioController.js';
 
 /**
  * Web API implementation of the OutputAudioController.

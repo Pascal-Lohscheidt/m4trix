@@ -1,4 +1,4 @@
-import { Logger } from '../../utility/Logger';
+import { Logger } from '../../utility/Logger.js';
 
 export interface VoiceSocketConfig {
   scope?: string;

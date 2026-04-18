@@ -1,5 +1,5 @@
 import type { Socket } from 'socket.io';
-import type { Hooks, SetupSocketHandlersParams } from './socket-factory-types';
+import type { Hooks, SetupSocketHandlersParams } from './socket-factory-types.js';
 
 export class SocketIoFactory {
   private socket: Socket;

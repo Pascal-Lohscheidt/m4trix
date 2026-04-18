@@ -1,6 +1,6 @@
 import { Effect, Schema as S } from 'effect';
 import { describe, expect, test } from 'vitest';
-import { AgentNetworkEvent } from './agent-network-event';
+import { AgentNetworkEvent } from './agent-network-event.js';
 
 describe('AgentNetworkEvent', () => {
   test('should create an event definition', () => {

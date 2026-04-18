@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { AiCursor } from './AiCursor';
+import { AiCursor } from './AiCursor.js';
 
 /**
  * At the moment, the test setup is not very good.

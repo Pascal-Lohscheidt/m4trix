@@ -1,1 +1,1 @@
-export * from './ai-cursor/AiCursor';
+export * from './ai-cursor/AiCursor.js';

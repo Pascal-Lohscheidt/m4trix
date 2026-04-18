@@ -1,10 +1,10 @@
 import { describe, expect, test } from 'vitest';
 import { Effect } from 'effect';
 import { Schema as S } from 'effect';
-import { AgentNetwork } from '../../agent-network/agent-network';
-import { AgentNetworkEvent } from '../../agent-network/agent-network-event';
-import { AgentFactory } from '../../agent-factory';
-import { NextEndpoint } from './next-endpoint';
+import { AgentNetwork } from '../../agent-network/agent-network.js';
+import { AgentNetworkEvent } from '../../agent-network/agent-network-event.js';
+import { AgentFactory } from '../../agent-factory.js';
+import { NextEndpoint } from './next-endpoint.js';
 
 /** Consume a ReadableStream<Uint8Array> collecting at most `maxEvents` SSE data payloads */
 async function readSSEEvents(

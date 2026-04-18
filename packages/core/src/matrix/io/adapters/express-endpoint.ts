@@ -1,6 +1,6 @@
-import type { ExposedAPI } from '../types';
-import { ExposeAuthError } from '../expose';
-import { formatSSE } from '../protocols/sse';
+import type { ExposedAPI } from '../types.js';
+import { ExposeAuthError } from '../expose.js';
+import { formatSSE } from '../protocols/sse.js';
 
 /** Minimal Express-like request (compatible with express.Request) */
 export type ExpressRequest = {

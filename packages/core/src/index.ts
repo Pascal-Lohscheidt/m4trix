@@ -1,3 +1,3 @@
-// export * from './helper'; // uses @langchain/core
-export * from './api';
-export * from './matrix';
+// export * from './helper/index.js'; // uses @langchain/core
+export * from './api/index.js';
+export * from './matrix/index.js';

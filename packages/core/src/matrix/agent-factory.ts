@@ -1,12 +1,12 @@
 import type { Schema as S } from 'effect';
-import { Agent } from './agent';
+import { Agent } from './agent.js';
 import type {
   AgentNetworkEventDef,
   ContextEvents,
   EventMeta,
   RunEvents,
-} from './agent-network/agent-network-event';
-import type { BaseSchemaDefintion } from './types';
+} from './agent-network/agent-network-event.js';
+import type { BaseSchemaDefintion } from './types.js';
 
 type EventDef = AgentNetworkEventDef<string, S.Schema.Any>;
 

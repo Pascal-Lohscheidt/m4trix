@@ -1,10 +1,10 @@
 import { Effect, Queue, Schema as S } from 'effect';
 import { describe, expect, test, vitest } from 'vitest';
-import { AgentFactory } from '../agent-factory';
-import { AgentNetwork } from './agent-network';
-import type { EventMeta } from './agent-network-event';
-import { AgentNetworkEvent } from './agent-network-event';
-import { ChannelName } from './channel';
+import { AgentFactory } from '../agent-factory.js';
+import { AgentNetwork } from './agent-network.js';
+import type { EventMeta } from './agent-network-event.js';
+import { AgentNetworkEvent } from './agent-network-event.js';
+import { ChannelName } from './channel.js';
 
 // Define meta with contextId to fix linter error
 const meta: EventMeta = { runId: 'test-run', contextId: 'test-context' };

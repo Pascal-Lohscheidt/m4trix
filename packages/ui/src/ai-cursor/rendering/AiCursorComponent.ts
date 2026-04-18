@@ -2,7 +2,7 @@ import { LitElement, type PropertyValues, type TemplateResult, html } from 'lit'
 import { customElement, property, state } from 'lit/decorators.js';
 import { createRef, ref } from 'lit/directives/ref.js';
 import { createTimeline, type Timeline } from 'animejs';
-import { AiCursorComponentStyle } from './AiCursorComponent.style';
+import { AiCursorComponentStyle } from './AiCursorComponent.style.js';
 
 export type Props = {
   /**

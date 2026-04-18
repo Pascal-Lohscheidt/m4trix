@@ -1,7 +1,7 @@
 import { describe, expect, expectTypeOf, test } from 'vitest';
 import { Schema as S } from 'effect';
-import { AgentFactory } from './agent-factory';
-import { AgentNetworkEvent } from './agent-network/agent-network-event';
+import { AgentFactory } from './agent-factory.js';
+import { AgentNetworkEvent } from './agent-network/agent-network-event.js';
 
 describe('AgentFactory', () => {
   test('should create an agent that works with basic setup', () => {

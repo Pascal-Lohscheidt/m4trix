@@ -12,7 +12,7 @@ import {
   OutputAudioController,
   type PlayAudioParams,
   type InitializeChunkStreamParams,
-} from './OutputAudioController';
+} from './OutputAudioController.js';
 
 // ─── PCM constants ─────────────────────────────────────────────────────
 const STREAM_SAMPLE_RATE = 24_000; // match ElevenLabs request

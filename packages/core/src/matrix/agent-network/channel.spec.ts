@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { Schema as S } from 'effect';
-import { Channel, ChannelName, ConfiguredChannel, Sink } from './channel';
-import { AgentNetworkEvent } from './agent-network-event';
+import { Channel, ChannelName, ConfiguredChannel, Sink } from './channel.js';
+import { AgentNetworkEvent } from './agent-network-event.js';
 
 describe('Channel', () => {
   describe('ChannelName (branded, kebab-case)', () => {

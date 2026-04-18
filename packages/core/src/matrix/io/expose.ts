@@ -1,16 +1,16 @@
 import { Effect, Queue } from 'effect';
-import type { AgentNetwork } from '../agent-network/agent-network';
-import type { ConfiguredChannel } from '../agent-network/channel';
-import { createEventPlane, run } from '../agent-network/event-plane';
-import type { Envelope } from '../agent-network/event-plane';
-import { ChannelName, isHttpStreamSink } from '../agent-network/channel';
+import type { AgentNetwork } from '../agent-network/agent-network.js';
+import type { ConfiguredChannel } from '../agent-network/channel.js';
+import { createEventPlane, run } from '../agent-network/event-plane.js';
+import type { Envelope } from '../agent-network/event-plane.js';
+import { ChannelName, isHttpStreamSink } from '../agent-network/channel.js';
 import type {
   ExposeOptions,
   ExposeRequest,
   ExposedAPI,
   ExposedStream,
   StreamFactory,
-} from './types';
+} from './types.js';
 
 /** Extract JSON payload from ExposeRequest. POST with JSON body, or Express req.body, else {}. */
 async function extractPayload(req: ExposeRequest): Promise<unknown> {

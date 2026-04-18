@@ -1,4 +1,4 @@
-import { VoiceSocketAdapter, type VoiceSocketConfig } from './VoiceSocketAdapter';
+import { VoiceSocketAdapter, type VoiceSocketConfig } from './VoiceSocketAdapter.js';
 
 export class VoiceWebsocketAdapter extends VoiceSocketAdapter {
   protected socket: WebSocket | null = null;

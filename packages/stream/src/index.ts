@@ -1,3 +1,3 @@
-export * from './Pump';
-export * from './utility/pipe-transformers/response';
-export * from './utility/rechunker/ensure-full-words';
+export * from './Pump.js';
+export * from './utility/pipe-transformers/response.js';
+export * from './utility/rechunker/ensure-full-words.js';

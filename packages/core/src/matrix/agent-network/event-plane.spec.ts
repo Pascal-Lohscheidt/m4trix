@@ -1,11 +1,11 @@
 import { Effect, Fiber, Queue, Schema as S } from 'effect';
 import { describe, expect, test, vitest } from 'vitest';
-import { AgentFactory } from '../agent-factory';
-import { AgentNetwork } from './agent-network';
-import { AgentNetworkEvent, type EventMeta } from './agent-network-event';
-import { ChannelName } from './channel';
-import { createEventPlane, type Envelope, run, runSubscriber } from './event-plane';
-import { createInMemoryNetworkStore } from './stores/inmemory-network-store';
+import { AgentFactory } from '../agent-factory.js';
+import { AgentNetwork } from './agent-network.js';
+import { AgentNetworkEvent, type EventMeta } from './agent-network-event.js';
+import { ChannelName } from './channel.js';
+import { createEventPlane, type Envelope, run, runSubscriber } from './event-plane.js';
+import { createInMemoryNetworkStore } from './stores/inmemory-network-store.js';
 
 const meta = { runId: 'test-run', contextId: 'test-context' };
 
