@@ -1,11 +1,17 @@
 import { type DatasetName, normalizeOptionalDisplayName, validateDatasetName } from './entity-name.js';
 import { evaluateTagFilter } from './evaluate-tag-filter.js';
-import type { TagOrFilterExpression } from './tag-filter.js';
+import type { TagAndFilterExpression, TagOrFilterExpression } from './tag-filter.js';
 import type { TestCase } from './test-case.js';
 import type { PathMatcher, TagMatcher } from './types.js';
 
-/** `Dataset.define({ includedTags })`: legacy flat matchers or a structured {@link TagOrFilterExpression} tree. */
-export type DatasetIncludedTags = ReadonlyArray<TagMatcher> | TagOrFilterExpression;
+/**
+ * `Dataset.define({ includedTags })`: flat matchers (legacy), or a structured
+ * {@link TagOrFilterExpression} / {@link TagAndFilterExpression} tree (same semantics as {@link evaluateTagFilter}).
+ */
+export type DatasetIncludedTags =
+  | ReadonlyArray<TagMatcher>
+  | TagOrFilterExpression
+  | TagAndFilterExpression;
 
 interface DatasetConfig {
   name: DatasetName;
@@ -36,7 +42,9 @@ function matchesAny(value: string, matchers: ReadonlyArray<string | RegExp>): bo
   );
 }
 
-function isStructuredIncludedTags(included: DatasetIncludedTags): included is TagOrFilterExpression {
+function isStructuredIncludedTags(
+  included: DatasetIncludedTags,
+): included is TagOrFilterExpression | TagAndFilterExpression {
   return !Array.isArray(included);
 }
 

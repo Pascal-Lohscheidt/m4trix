@@ -1,7 +1,7 @@
 import { Schema as S } from 'effect';
 import { describe, expect, test } from 'vitest';
 import { Dataset } from './dataset.js';
-import { TagAndFilter, TagOrFilter, isTagOrFilter } from './tag-filter.js';
+import { isTagAndFilter, isTagOrFilter, TagAndFilter, TagOrFilter } from './tag-filter.js';
 import { TestCase } from './test-case.js';
 
 function makeTestCase(tags: string[]) {
@@ -67,6 +67,18 @@ describe('Dataset', () => {
     expect(ds.matchesTestCase(makeTestCase(['agent']), 'a.ts')).toBe(false);
     expect(ds.matchesTestCase(makeTestCase(['fast']), 'a.ts')).toBe(false);
     expect(isTagOrFilter(ds.getIncludedTags())).toBe(true);
+  });
+
+  test('includedTags as top-level TagAndFilter requires every operand', () => {
+    const ds = Dataset.define({
+      name: 'structured-and-root',
+      includedTags: TagAndFilter.of(['agent', 'fast']),
+    });
+
+    expect(ds.matchesTestCase(makeTestCase(['agent', 'fast']), 'a.ts')).toBe(true);
+    expect(ds.matchesTestCase(makeTestCase(['agent']), 'a.ts')).toBe(false);
+    expect(ds.matchesTestCase(makeTestCase(['fast']), 'a.ts')).toBe(false);
+    expect(isTagAndFilter(ds.getIncludedTags())).toBe(true);
   });
 
   test('excludedTags removes matching test cases', () => {
