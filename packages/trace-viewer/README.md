@@ -1,6 +1,6 @@
 # @m4trix/trace-viewer
 
-Filesystem-backed **trace viewer** for [`@m4trix/tracing`](https://github.com/Pascal-Lohscheidt/m4trix): a small HTTP server with a **tRPC** API (`/trpc`) and a bundled **React** UI.
+Filesystem-backed **trace viewer** for [`@m4trix/tracing`](https://github.com/Pascal-Lohscheidt/m4trix): a small HTTP server with a **tRPC** API (`/trpc`) and a **Vite + React + Tailwind** UI.
 
 ## CLI
 
@@ -39,6 +39,12 @@ startTraceViewerServer({ traceViewerApi, port: 4319 });
 - `traces.getPayload` — `TraceViewerApi.getPayload` (lazy load in the UI)
 
 ## Develop
+
+The package build is intentionally split but still portable:
+
+- `tsup` builds the publishable Node library and CLI into `dist/`.
+- `vite build` builds the browser app from `src/app/index.html` into `dist/client/`.
+- `pnpm run build` is just `tsup && vite build`, using package-local binaries resolved by the package manager.
 
 ```bash
 pnpm --filter @m4trix/trace-viewer build
