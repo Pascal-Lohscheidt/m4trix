@@ -16,7 +16,14 @@ Build and start the trace viewer (uses the same path):
 
 ```bash
 pnpm --filter @m4trix/trace-viewer build
+pnpm install
 pnpm exec m4trix-trace-viewer --adapter fs --path ./tmp/tracing-example --port 4319
+```
+
+If `pnpm exec` does not resolve the binary, use:
+
+```bash
+pnpm --filter @m4trix/trace-viewer exec m4trix-trace-viewer --adapter fs --path ./tmp/tracing-example --port 4319
 ```
 
 Open **http://127.0.0.1:4319**.

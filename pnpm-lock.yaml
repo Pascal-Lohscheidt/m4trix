@@ -14,6 +14,9 @@ importers:
       '@biomejs/biome':
         specifier: ^2.4.6
         version: 2.4.6
+      '@m4trix/trace-viewer':
+        specifier: workspace:*
+        version: link:packages/trace-viewer
       '@testing-library/dom':
         specifier: ^10.4.0
         version: 10.4.0

@@ -1,0 +1,46 @@
+# @m4trix/trace-viewer
+
+Filesystem-backed **trace viewer** for [`@m4trix/tracing`](https://github.com/Pascal-Lohscheidt/m4trix): a small HTTP server with a **tRPC** API (`/trpc`) and a bundled **React** UI.
+
+## CLI
+
+From the **repo root** (after `pnpm install`, which links this package’s bin):
+
+```bash
+pnpm exec m4trix-trace-viewer --adapter fs --path ./tmp/tracing-example --port 4319
+```
+
+If `pnpm exec` still can’t find the command, run it via the workspace filter:
+
+```bash
+pnpm --filter @m4trix/trace-viewer exec m4trix-trace-viewer --adapter fs --path ./tmp/tracing-example --port 4319
+```
+
+- **`--adapter fs`** — read traces via `FsStructureStoreAdapter` / `FsPayloadStoreAdapter` at `--path`.
+- **`--adapter aws-stack`** — prints a clear “not implemented” message and exits.
+- **`--port`** — HTTP listen port (default `4319`).
+- **`--path`** — trace root for `fs` (default `tmp/tracing-example`).
+
+Then open **http://127.0.0.1:4319** in a browser.
+
+## Programmatic usage
+
+```ts
+import { createFsTraceViewerApi, startTraceViewerServer } from '@m4trix/trace-viewer';
+
+const traceViewerApi = createFsTraceViewerApi('./tmp/tracing-example');
+startTraceViewerServer({ traceViewerApi, port: 4319 });
+```
+
+## tRPC procedures
+
+- `traces.list` — `TraceViewerApi.listTraces`
+- `traces.getTree` — `TraceViewerApi.getTraceTree`
+- `traces.getPayload` — `TraceViewerApi.getPayload` (lazy load in the UI)
+
+## Develop
+
+```bash
+pnpm --filter @m4trix/trace-viewer build
+pnpm --filter @m4trix/trace-viewer test
+```

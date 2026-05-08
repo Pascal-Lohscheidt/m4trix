@@ -43,6 +43,7 @@
     "release:bump:ui": "jiti scripts/bump-and-tag.ts ui"
   },
   "devDependencies": {
+    "@m4trix/trace-viewer": "workspace:*",
     "@testing-library/dom": "^10.4.0",
     "@vitest/coverage-v8": "^3.1.2",
     "@biomejs/biome": "^2.4.6",

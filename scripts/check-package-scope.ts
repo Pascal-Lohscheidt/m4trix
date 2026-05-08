@@ -4,7 +4,7 @@
  * Exit 0 = continue (publish), exit 1 = skip.
  *
  * Usage: jiti scripts/check-package-scope.ts <scope>
- * Scope: core | evals
+ * Scope: core | evals | stream | react | tracing | trace-viewer | ui
  */
 
 import { execSync } from 'node:child_process';
