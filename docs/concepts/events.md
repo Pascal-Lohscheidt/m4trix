@@ -1,4 +1,6 @@
-# Events (Type System + Schema)
+---
+title: "Events (Type System + Schema)"
+---
 
 Events are typed messages that flow through the system. Each event has a **name**, a **payload schema** (validated at runtime via [Effect Schema](https://effect.website/)), and automatically-attached **metadata** (run ID, timestamps, correlation IDs).
 

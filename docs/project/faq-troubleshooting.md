@@ -1,4 +1,6 @@
-# FAQ / Troubleshooting
+---
+title: "FAQ / Troubleshooting"
+---
 
 ## Installation
 

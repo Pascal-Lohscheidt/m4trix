@@ -1,4 +1,6 @@
-# Streaming, Sinks & Adapters
+---
+title: "Streaming, Sinks & Adapters"
+---
 
 ## Streaming
 

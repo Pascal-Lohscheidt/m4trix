@@ -1,4 +1,6 @@
-# Streaming: SSE/WebSocket, Backpressure, Chunking
+---
+title: "Streaming: SSE/WebSocket, Backpressure, Chunking"
+---
 
 ## SSE (Server-Sent Events)
 

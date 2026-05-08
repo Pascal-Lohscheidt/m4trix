@@ -1,4 +1,6 @@
-# Channel API
+---
+title: "Channel API"
+---
 
 Channels are named conduits for events. They route events between agents and connect to external systems via sinks.
 

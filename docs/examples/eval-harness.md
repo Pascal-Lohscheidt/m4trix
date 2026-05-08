@@ -1,4 +1,6 @@
-# Eval Harness
+---
+title: "Eval Harness"
+---
 
 Use `@m4trix/evals` to define datasets, test cases, and evaluators for repeatable AI evaluation runs.
 

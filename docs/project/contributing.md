@@ -1,4 +1,6 @@
-# Contributing
+---
+title: "Contributing"
+---
 
 We welcome contributions! Please follow these guidelines.
 

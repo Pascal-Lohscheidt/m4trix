@@ -1,4 +1,6 @@
-# Minimal Starter
+---
+title: "Minimal Starter"
+---
 
 The simplest m4trix setup: one agent, one request event, one response event, exposed as an SSE endpoint.
 

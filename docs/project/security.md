@@ -1,4 +1,6 @@
-# Security Considerations
+---
+title: "Security Considerations"
+---
 
 ## API Keys and Secrets
 

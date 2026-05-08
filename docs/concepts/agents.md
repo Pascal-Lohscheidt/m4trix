@@ -1,4 +1,6 @@
-# Agents (Logic + Lifecycle)
+---
+title: "Agents (Logic + Lifecycle)"
+---
 
 Agents are units of work. You build them with the `AgentFactory` builder, declaring which events they listen to, which events they emit, and the async logic that runs when triggered.
 

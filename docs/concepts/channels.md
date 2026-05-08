@@ -1,4 +1,6 @@
-# Channels (Routing)
+---
+title: "Channels (Routing)"
+---
 
 Channels are named conduits for events. They route events between agents and connect to external systems via **sinks**.
 

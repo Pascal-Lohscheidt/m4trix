@@ -1,4 +1,6 @@
-# Install
+---
+title: "Install"
+---
 
 Install `@m4trix/core` using your preferred package manager:
 

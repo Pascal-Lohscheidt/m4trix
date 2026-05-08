@@ -1,4 +1,6 @@
-# Next.js
+---
+title: "Next.js"
+---
 
 Use the `NextEndpoint` adapter to expose your agent network as a Next.js App Router API route.
 

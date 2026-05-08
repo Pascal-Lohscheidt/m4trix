@@ -1,4 +1,6 @@
-# AgentFactory
+---
+title: "AgentFactory"
+---
 
 The `AgentFactory` is a fluent builder for creating type-safe agents. It provides full TypeScript inference from trigger events through to emitted events.
 

@@ -1,4 +1,6 @@
-# Common Recipes
+---
+title: "Common Recipes"
+---
 
 Copyable snippets for frequent patterns.
 

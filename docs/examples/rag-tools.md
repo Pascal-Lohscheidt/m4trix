@@ -1,4 +1,6 @@
-# RAG + Tools
+---
+title: "RAG + Tools"
+---
 
 Build agents that use retrieval-augmented generation (RAG) or tool-calling patterns.
 

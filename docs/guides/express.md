@@ -1,4 +1,6 @@
-# Express
+---
+title: "Express"
+---
 
 Use the `ExpressEndpoint` adapter to expose your agent network as an Express route.
 

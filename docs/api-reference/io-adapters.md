@@ -1,4 +1,6 @@
-# IO + Adapters (NextEndpoint, Express, etc.)
+---
+title: "IO + Adapters (NextEndpoint, Express, etc.)"
+---
 
 The IO layer turns an `AgentNetwork` into an HTTP API. Built-in adapters: **NextEndpoint** (Next.js) and **ExpressEndpoint** (Express).
 

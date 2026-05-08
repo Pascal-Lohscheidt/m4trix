@@ -1,4 +1,6 @@
-# Package Structure
+---
+title: "Package Structure"
+---
 
 @m4trix/core is organized into multiple entry points. Import only what you need for tree-shaking and smaller bundles.
 

@@ -1,4 +1,6 @@
-# Run + Expected Output
+---
+title: "Run + Expected Output"
+---
 
 ## Running the Hello World Example
 

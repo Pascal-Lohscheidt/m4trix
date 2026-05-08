@@ -1,8 +1,7 @@
 ---
+title: "Hello World"
 icon: keyboard
 ---
-
-# Hello World
 
 Copy and paste this minimal example into a Next.js API route (e.g. `app/api/chat/route.ts`):
 

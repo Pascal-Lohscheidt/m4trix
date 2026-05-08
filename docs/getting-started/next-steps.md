@@ -1,4 +1,6 @@
-# Next Steps
+---
+title: "Next Steps"
+---
 
 After completing the 10-minute quick start, explore these paths:
 

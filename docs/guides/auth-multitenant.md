@@ -1,4 +1,6 @@
-# AuthN/Z + Multi-Tenant Selection
+---
+title: "AuthN/Z + Multi-Tenant Selection"
+---
 
 ## Authentication
 

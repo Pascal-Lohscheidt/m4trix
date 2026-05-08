@@ -1,8 +1,7 @@
 ---
+title: "What is m4trix?"
 icon: binary
 ---
-
-# What is m4trix?
 
 **m4trix** is a TypeScript library for building event-driven, type-safe AI agent networks — from a single agent to full multi-agent workflows, with built-in SSE streaming and framework adapters.
 

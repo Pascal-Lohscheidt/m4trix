@@ -1,4 +1,6 @@
-# Multi-Agent Workflow
+---
+title: "Multi-Agent Workflow"
+---
 
 Chain multiple agents so events flow through a pipeline: request → planner → executor → client.
 

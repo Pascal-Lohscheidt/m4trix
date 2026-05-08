@@ -1,4 +1,6 @@
-# AgentNetwork
+---
+title: "AgentNetwork"
+---
 
 The `AgentNetwork` orchestrates agents, channels, and the event plane. Use `AgentNetwork.setup()` to wire everything together.
 

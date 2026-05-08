@@ -1,4 +1,6 @@
-# Patterns: Request/Response, Fan-Out, Join, Retries
+---
+title: "Patterns: Request/Response, Fan-Out, Join, Retries"
+---
 
 ## Request/Response (Single Agent)
 

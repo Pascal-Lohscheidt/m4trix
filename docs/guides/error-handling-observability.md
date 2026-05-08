@@ -1,4 +1,6 @@
-# Error Handling + Observability Hooks
+---
+title: "Error Handling + Observability Hooks"
+---
 
 ## Error Handling in Agents
 

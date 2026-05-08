@@ -1,4 +1,6 @@
-# Types / Advanced Generics
+---
+title: "Types / Advanced Generics"
+---
 
 m4trix provides full TypeScript inference from event schemas through agent logic to HTTP responses.
 

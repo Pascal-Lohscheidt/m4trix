@@ -1,4 +1,6 @@
-# AgentNetworkEvent
+---
+title: "AgentNetworkEvent"
+---
 
 `AgentNetworkEvent` defines typed events with schema validation via [Effect Schema](https://effect.website/).
 

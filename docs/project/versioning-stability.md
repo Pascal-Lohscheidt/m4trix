@@ -1,4 +1,6 @@
-# Versioning + Stability
+---
+title: "Versioning + Stability"
+---
 
 ## Current Status: Alpha
 

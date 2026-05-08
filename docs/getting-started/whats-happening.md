@@ -1,4 +1,6 @@
-# What's Happening (Mental Model)
+---
+title: "What's Happening (Mental Model)"
+---
 
 Here's the mental model for how a request flows through m4trix:
 

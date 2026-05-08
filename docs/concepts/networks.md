@@ -1,4 +1,6 @@
-# Networks (Wiring)
+---
+title: "Networks (Wiring)"
+---
 
 The `AgentNetwork` wires everything together. You declare channels, register agents with their subscriptions and publish targets, and the network manages the event plane at runtime.
 

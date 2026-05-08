@@ -1,4 +1,6 @@
-# Changelog + Migration Guides
+---
+title: "Changelog + Migration Guides"
+---
 
 ## Where to Find Updates
 
