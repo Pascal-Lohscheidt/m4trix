@@ -176,7 +176,21 @@
         ]
       },
       {
-        "tab": "Evals"
+        "tab": "Evals",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": ["evals/overview", "evals/quick-start"]
+          },
+          {
+            "group": "Guides",
+            "pages": ["evals/concepts", "evals/cli-and-config"]
+          },
+          {
+            "group": "API Reference",
+            "pages": ["evals/api-reference"]
+          }
+        ]
       },
       {
         "tab": "Tracing"
