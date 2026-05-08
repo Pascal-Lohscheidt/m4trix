@@ -136,6 +136,30 @@ jobs:
           name: Publish react package
           command: pnpm run react:publish
 
+  publish-tracing:
+    docker:
+      - image: cimg/node:20.0
+    steps:
+      - checkout
+      - run:
+          name: Install dependencies
+          command: pnpm install
+      - run:
+          name: Check if tracing package should be published
+          command: pnpm exec jiti scripts/check-package-scope.ts tracing || circleci step halt
+      - run:
+          name: Bump version and create tag
+          command: pnpm exec jiti scripts/bump-and-tag.ts tracing
+      - run:
+          name: Build tracing package
+          command: pnpm run tracing:build
+      - run:
+          name: Authenticate with npm
+          command: echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
+      - run:
+          name: Publish tracing package
+          command: pnpm run tracing:publish
+
   publish-ui:
     docker:
       - image: cimg/node:20.0
@@ -193,6 +217,14 @@ workflows:
             branches:
               only: main
       - publish-react:
+          context:
+            - NPM
+          requires:
+            - build
+          filters:
+            branches:
+              only: main
+      - publish-tracing:
           context:
             - NPM
           requires:

@@ -7,8 +7,9 @@ import { Dataset, TagAndFilter, TagOrFilter } from '@m4trix/evals';
 export const tagFilterDemoDataset = Dataset.define({
   name: 'tag-filter-demo',
   displayName: 'Tag filter: short OR long demo prompts',
-  includedTags: TagOrFilter.of([
-    TagAndFilter.of(['demo', 'short']),
-    TagAndFilter.of(['demo', 'long']),
+  includedTags: TagAndFilter.of([
+    TagOrFilter.of(['demo', 'short']),
+    TagOrFilter.of(['demo', 'long']),
   ]),
+  excludedTags: ['long'],
 });

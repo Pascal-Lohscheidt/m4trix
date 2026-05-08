@@ -19,6 +19,8 @@ const SCOPE_TO_PATH: Record<string, string> = {
   evals: 'packages/evals/',
   stream: 'packages/stream/',
   react: 'packages/react/',
+  tracing: 'packages/tracing/',
+  'trace-viewer': 'packages/trace-viewer/',
   ui: 'packages/ui/',
 };
 
@@ -27,6 +29,8 @@ const SCOPE_TO_TAG_PREFIX: Record<string, string> = {
   evals: '@m4trix/evals@',
   stream: '@m4trix/stream@',
   react: '@m4trix/react@',
+  tracing: '@m4trix/tracing@',
+  'trace-viewer': '@m4trix/trace-viewer@',
   ui: '@m4trix/ui@',
 };
 
@@ -35,6 +39,8 @@ const SCOPE_TO_PACKAGE_JSON: Record<string, string> = {
   evals: 'packages/evals/package.json',
   stream: 'packages/stream/package.json',
   react: 'packages/react/package.json',
+  tracing: 'packages/tracing/package.json',
+  'trace-viewer': 'packages/trace-viewer/package.json',
   ui: 'packages/ui/package.json',
 };
 
@@ -95,7 +101,7 @@ function main(): void {
   const scope = process.argv[2];
   if (!scope || !(scope in SCOPE_TO_PATH)) {
     console.error(`Usage: jiti scripts/bump-and-tag.ts <scope>`);
-    console.error(`Scope must be: core | evals | stream | react | ui`);
+    console.error(`Scope must be: core | evals | stream | react | tracing | trace-viewer | ui`);
     process.exit(2);
   }
 

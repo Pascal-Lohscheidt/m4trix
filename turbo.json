@@ -25,6 +25,18 @@
     "@m4trix/react#publish-package": {
       "dependsOn": ["^build"]
     },
+    "@m4trix/tracing#build": {
+      "dependsOn": ["^build"]
+    },
+    "@m4trix/tracing#publish-package": {
+      "dependsOn": ["^build"]
+    },
+    "@m4trix/trace-viewer#build": {
+      "dependsOn": ["^build"]
+    },
+    "@m4trix/trace-viewer#publish-package": {
+      "dependsOn": ["^build"]
+    },
     "@m4trix/ui#build": {
       "dependsOn": ["^build"]
     },

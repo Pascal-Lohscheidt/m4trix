@@ -1,0 +1,57 @@
+{
+  "name": "@m4trix/tracing",
+  "version": "0.7.0",
+  "description": "Lightweight tracing for LangGraph and LangChain-style applications",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "lint": "biome lint .",
+    "format": "biome format --write .",
+    "prepare": "pnpm run build",
+    "publish-package": "npm publish --no-git-checks",
+    "release": "pnpm -C ../.. run release:bump:tracing",
+    "test": "vitest run"
+  },
+  "keywords": [
+    "ai",
+    "tracing",
+    "langchain",
+    "langgraph",
+    "typescript"
+  ],
+  "author": "Pascal Lohscheidt",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsup": "^7.0.0",
+    "typescript": "^5.0.0",
+    "vitest": "^3.1.2"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Pascal-Lohscheidt/m4trix.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Pascal-Lohscheidt/m4trix/issues"
+  },
+  "homepage": "https://github.com/Pascal-Lohscheidt/m4trix#readme"
+}

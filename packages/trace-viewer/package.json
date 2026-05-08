@@ -1,0 +1,60 @@
+{
+  "name": "@m4trix/trace-viewer",
+  "version": "0.7.0",
+  "description": "Filesystem-backed trace viewer CLI with tRPC API and React UI",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "m4trix-trace-viewer": "./dist/cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "license": "MIT",
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "lint": "biome lint .",
+    "format": "biome format --write .",
+    "prepare": "pnpm run build",
+    "publish-package": "npm publish --no-git-checks",
+    "release": "pnpm -C ../.. run release:bump:trace-viewer",
+    "test": "vitest run --config vitest.config.ts"
+  },
+  "dependencies": {
+    "@m4trix/tracing": "workspace:*",
+    "@trpc/client": "^11.0.0",
+    "@trpc/server": "^11.0.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/react": "^19.1.2",
+    "@types/react-dom": "^19.1.2",
+    "tsup": "^7.0.0",
+    "typescript": "^5.0.0",
+    "vitest": "^3.1.2"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Pascal-Lohscheidt/m4trix.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Pascal-Lohscheidt/m4trix/issues"
+  },
+  "homepage": "https://github.com/Pascal-Lohscheidt/m4trix#readme"
+}
