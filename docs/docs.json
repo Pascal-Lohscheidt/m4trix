@@ -1,5 +1,4 @@
 {
-  "$schema": "https://mintlify.com/docs.json",
   "theme": "mint",
   "name": "M4trix",
   "description": "A TypeScript toolkit for building AI-driven web applications.",
@@ -11,8 +10,73 @@
   "navigation": {
     "groups": [
       {
-        "group": "Get Started",
-        "pages": ["introduction"]
+        "group": "Home",
+        "pages": ["README"]
+      },
+      {
+        "group": "Getting Started",
+        "pages": [
+          "getting-started/install",
+          "getting-started/hello-world",
+          "getting-started/run-expected-output",
+          "getting-started/whats-happening",
+          "getting-started/next-steps"
+        ]
+      },
+      {
+        "group": "Concepts",
+        "pages": [
+          "concepts/events",
+          "concepts/channels",
+          "concepts/agents",
+          "concepts/networks",
+          "concepts/streaming-sinks-adapters",
+          "concepts/package-structure"
+        ]
+      },
+      {
+        "group": "Guides",
+        "pages": [
+          "guides/patterns",
+          "guides/streaming",
+          "guides/auth-multitenant",
+          "guides/error-handling-observability",
+          "guides/testing",
+          "guides/deployment",
+          "guides/next.js",
+          "guides/express"
+        ]
+      },
+      {
+        "group": "API Reference",
+        "pages": [
+          "api-reference/agent-factory",
+          "api-reference/agent-network",
+          "api-reference/agent-network-event",
+          "api-reference/channel-api",
+          "api-reference/io-adapters",
+          "api-reference/types-advanced"
+        ]
+      },
+      {
+        "group": "Examples",
+        "pages": [
+          "examples/minimal-starter",
+          "examples/multi-agent-workflow",
+          "examples/rag-tools",
+          "examples/eval-harness",
+          "examples/common-recipes"
+        ]
+      },
+      {
+        "group": "Project",
+        "pages": [
+          "project/versioning-stability",
+          "project/changelog-migrations",
+          "project/faq-troubleshooting",
+          "project/security",
+          "project/contributing"
+        ]
       }
     ]
   },
