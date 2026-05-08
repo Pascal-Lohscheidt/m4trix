@@ -1,5 +1,5 @@
 ---
-icon: keyboard-brightness
+icon: keyboard
 ---
 
 # Hello World

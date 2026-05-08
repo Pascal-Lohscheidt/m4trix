@@ -1,11 +1,36 @@
 {
-  "theme": "mint",
+  "theme": "maple",
   "name": "M4trix",
   "description": "A TypeScript toolkit for building AI-driven web applications.",
   "colors": {
-    "primary": "#00C853",
-    "light": "#00E676",
-    "dark": "#00A344"
+    "primary": "#00ff41",
+    "light": "#72ff9c",
+    "dark": "#00c938"
+  },
+  "appearance": {
+    "default": "dark"
+  },
+  "background": {
+    "decoration": "grid",
+    "color": {
+      "light": "#fafafa",
+      "dark": "#09090b"
+    }
+  },
+  "fonts": {
+    "family": "Inter",
+    "heading": {
+      "family": "Lexend"
+    }
+  },
+  "icons": {
+    "library": "lucide"
+  },
+  "styling": {
+    "codeblocks": "dark"
+  },
+  "thumbnails": {
+    "appearance": "dark"
   },
   "navigation": {
     "groups": [

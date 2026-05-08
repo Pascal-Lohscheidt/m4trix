@@ -1,5 +1,5 @@
 ---
-icon: chess-pawn-piece
+icon: binary
 ---
 
 # What is m4trix?
