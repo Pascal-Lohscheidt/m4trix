@@ -1,1 +1,35 @@
-{}
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "mint",
+  "name": "M4trix",
+  "description": "A TypeScript toolkit for building AI-driven web applications.",
+  "colors": {
+    "primary": "#00C853",
+    "light": "#00E676",
+    "dark": "#00A344"
+  },
+  "navigation": {
+    "groups": [
+      {
+        "group": "Get Started",
+        "pages": ["introduction"]
+      }
+    ]
+  },
+  "navbar": {
+    "links": [
+      {
+        "type": "github",
+        "href": "https://github.com/Pascal-Lohscheidt/m4trix"
+      }
+    ]
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/Pascal-Lohscheidt/m4trix"
+    }
+  },
+  "seo": {
+    "indexing": "all"
+  }
+}
