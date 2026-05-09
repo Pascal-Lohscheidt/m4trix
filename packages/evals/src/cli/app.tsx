@@ -46,7 +46,7 @@ function clampCursor(
   };
 }
 
-export function EvalsCliApp({ data, args, runner }: EvalsCliAppProps): React.ReactNode {
+export function EvalsCliApp({ data, args, runner }: EvalsCliAppProps): React.ReactElement {
   const { exit } = useApp();
   const { width: stdoutWidth, height: stdoutHeight } = useScreenSize();
   const [liveData, setLiveData] = useState<EvalsData>(data);
@@ -260,8 +260,8 @@ export function EvalsCliApp({ data, args, runner }: EvalsCliAppProps): React.Rea
           width={stdoutWidth}
         >
           <Text color="yellow">Startup warnings:</Text>
-          {clampedState.startupWarnings.map((warning, index) => (
-            <Text key={`${warning}-${index}`}>{warning}</Text>
+          {clampedState.startupWarnings.map((warning) => (
+            <Text key={warning}>{warning}</Text>
           ))}
         </Box>
       )}

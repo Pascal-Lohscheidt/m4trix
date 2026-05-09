@@ -7,7 +7,7 @@ import type {
   RunnerEvent,
   RunSnapshot,
 } from '../runner/index.js';
-import mockData from './data.mock.json' with { type: 'json' };
+import mockData from './data.mock.js';
 import type { CliState, EvalDataset, EvalRun, EvalsData, StartupArgs } from './types.js';
 
 export function loadMockData(): EvalsData {
