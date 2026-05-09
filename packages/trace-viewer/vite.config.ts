@@ -8,6 +8,7 @@ export default defineConfig({
   build: {
     outDir: '../../dist/client',
     emptyOutDir: true,
+    target: 'esnext',
   },
   server: {
     host: '127.0.0.1',
