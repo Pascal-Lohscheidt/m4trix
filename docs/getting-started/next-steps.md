@@ -64,4 +64,7 @@ After completing the 10-minute quick start, explore these paths:
   <Card title="Evals" icon="clipboard-check" href="/evals/overview">
     Build repeatable evaluation suites with `@m4trix/evals`.
   </Card>
+  <Card title="Tracing" icon="activity" href="/tracing/overview">
+    Record and inspect LangGraph or LangChain-style traces.
+  </Card>
 </Columns>

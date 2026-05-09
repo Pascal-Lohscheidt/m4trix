@@ -193,7 +193,21 @@
         ]
       },
       {
-        "tab": "Tracing"
+        "tab": "Tracing",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": ["tracing/overview", "tracing/quick-start"]
+          },
+          {
+            "group": "Guides",
+            "pages": ["tracing/concepts", "tracing/cli-and-viewer"]
+          },
+          {
+            "group": "API Reference",
+            "pages": ["tracing/api-reference"]
+          }
+        ]
       }
     ]
   },
