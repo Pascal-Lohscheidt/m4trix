@@ -13,6 +13,7 @@ tmp/
 
 # Testing
 .vitest/
+test-results/
 .tmp-runner-*/
 
 # Environment
