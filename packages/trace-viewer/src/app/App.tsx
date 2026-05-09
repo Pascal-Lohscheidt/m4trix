@@ -1,10 +1,14 @@
 import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import { client } from './api/client';
+import { FilterGroupBar } from './components/FilterGroupBar';
 import { RunDetail } from './components/RunDetail';
 import { RunTree } from './components/RunTree';
 import { type LayoutFocus, Toolbar } from './components/Toolbar';
 import { TraceHeader } from './components/TraceHeader';
 import { TraceSidebar } from './components/TraceSidebar';
+import type { FilterGroup } from './lib/filter-groups';
+import { loadFilterGroups, saveFilterGroups } from './lib/filter-groups';
+import { applyRunTreeDisplayFilter } from './lib/run-tree-display-filter';
 import { cx, findRun, getTraceEnv, matchesTraceFilters, uniqueSorted } from './lib/viewer';
 import type { RunNode, TraceFilters, TraceRow, TraceTree } from './types';
 
@@ -27,6 +31,11 @@ export function App(): ReactNode {
   const [payloadLoading, setPayloadLoading] = useState<string | null>(null);
   const [autoLoad, setAutoLoad] = useState(false);
   const [layoutFocus, setLayoutFocus] = useState<LayoutFocus>('run-tree');
+  const [filterGroups, setFilterGroups] = useState<FilterGroup[]>(() => loadFilterGroups());
+
+  useEffect(() => {
+    saveFilterGroups(filterGroups);
+  }, [filterGroups]);
 
   useEffect(() => {
     let cancelled = false;
@@ -99,6 +108,11 @@ export function App(): ReactNode {
     return findRun(tree.root, runId);
   }, [tree, runId]);
 
+  const runTreeDisplay = useMemo(() => {
+    if (!tree) return null;
+    return applyRunTreeDisplayFilter(tree.root, filterGroups);
+  }, [tree, filterGroups]);
+
   const loadPayload = useCallback(async (ref: string) => {
     setPayloadLoading(ref);
     try {
@@ -159,9 +173,23 @@ export function App(): ReactNode {
             <TraceHeader trace={tree.trace} />
           </div>
           <section className="col-start-2 row-start-3 h-[calc(100vh-8rem)] min-w-0 overflow-auto border-r border-zinc-800 bg-zinc-900 p-4">
+            <FilterGroupBar groups={filterGroups} onGroupsChange={setFilterGroups} />
             <div className="mb-3 font-semibold text-zinc-200">Run tree</div>
             {treeErr && <div className="text-red-400">{treeErr}</div>}
-            <RunTree node={tree.root} selectedId={runId} onSelect={setRunId} />
+            {runTreeDisplay?.root ? (
+              <RunTree
+                node={runTreeDisplay.root}
+                selectedId={runId}
+                onSelect={setRunId}
+                filterGroups={filterGroups}
+                depthByRunId={runTreeDisplay.depthByRunId}
+                hideBypassRunIds={runTreeDisplay.hideBypassRunIds}
+              />
+            ) : (
+              <div className="text-sm text-zinc-500">
+                No runs visible with the current hide filters.
+              </div>
+            )}
           </section>
           <RunDetail
             run={selectedRun}

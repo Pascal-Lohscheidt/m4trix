@@ -1,4 +1,4 @@
-import { SidebarSimple } from '@phosphor-icons/react';
+import { SidebarSimpleIcon } from '@phosphor-icons/react';
 import { cx } from '../lib/viewer';
 
 export type LayoutFocus = 'run-tree' | 'detail';
@@ -34,7 +34,7 @@ export function Toolbar({
               layoutFocus === 'run-tree' && 'bg-zinc-800 text-amber-300',
             )}
           >
-            <SidebarSimple aria-hidden="true" className="h-5 w-5 rotate-180" weight="bold" />
+            <SidebarSimpleIcon aria-hidden="true" className="h-5 w-5 rotate-180" weight="bold" />
           </button>
           <button
             type="button"
@@ -46,7 +46,7 @@ export function Toolbar({
               layoutFocus === 'detail' && 'bg-zinc-800 text-amber-300',
             )}
           >
-            <SidebarSimple aria-hidden="true" className="h-5 w-5" weight="bold" />
+            <SidebarSimpleIcon aria-hidden="true" className="h-5 w-5" weight="bold" />
           </button>
         </div>
         <label className="flex cursor-pointer items-center gap-2 rounded-full border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm text-zinc-300 transition-colors hover:border-zinc-700">
