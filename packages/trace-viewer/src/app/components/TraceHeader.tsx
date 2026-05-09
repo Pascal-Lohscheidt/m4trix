@@ -9,7 +9,7 @@ export function TraceHeader({ trace }: TraceHeaderProps): React.ReactNode {
   const env = getTraceEnv(trace);
 
   return (
-    <header className="border-b border-zinc-800 bg-zinc-950 px-5 py-4">
+    <header className="h-20 border-b border-zinc-800 bg-zinc-950 px-5 py-4">
       <div className="flex items-center gap-3">
         <div className="min-w-0 flex-1 truncate text-lg font-semibold text-zinc-50">
           {trace.name}

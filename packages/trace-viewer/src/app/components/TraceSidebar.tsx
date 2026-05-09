@@ -40,7 +40,7 @@ export function TraceSidebar(props: TraceSidebarProps): React.ReactNode {
   };
 
   return (
-    <aside className="w-[320px] shrink-0 overflow-y-auto border-r border-zinc-800 bg-zinc-950 p-3">
+    <aside className="col-start-1 row-span-2 row-start-2 h-[calc(100vh-3rem)] min-w-0 overflow-auto border-r border-zinc-800 bg-zinc-950 p-3">
       <div className="mb-3 flex items-center justify-between gap-3">
         <div>
           <div className="font-semibold text-zinc-50">Traces</div>

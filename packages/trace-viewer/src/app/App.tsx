@@ -2,10 +2,10 @@ import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react
 import { client } from './api/client';
 import { RunDetail } from './components/RunDetail';
 import { RunTree } from './components/RunTree';
-import { Toolbar } from './components/Toolbar';
+import { type LayoutFocus, Toolbar } from './components/Toolbar';
 import { TraceHeader } from './components/TraceHeader';
 import { TraceSidebar } from './components/TraceSidebar';
-import { findRun, getTraceEnv, matchesTraceFilters, uniqueSorted } from './lib/viewer';
+import { cx, findRun, getTraceEnv, matchesTraceFilters, uniqueSorted } from './lib/viewer';
 import type { RunNode, TraceFilters, TraceRow, TraceTree } from './types';
 
 const defaultFilters: TraceFilters = {
@@ -26,6 +26,7 @@ export function App(): ReactNode {
   const [payloadCache, setPayloadCache] = useState<Record<string, unknown>>({});
   const [payloadLoading, setPayloadLoading] = useState<string | null>(null);
   const [autoLoad, setAutoLoad] = useState(false);
+  const [layoutFocus, setLayoutFocus] = useState<LayoutFocus>('run-tree');
 
   useEffect(() => {
     let cancelled = false;
@@ -119,7 +120,22 @@ export function App(): ReactNode {
   }, [autoLoad, loadPayload, payloadCache, payloadLoading, selectedRun]);
 
   return (
-    <div className="flex min-h-screen bg-zinc-950 text-zinc-200">
+    <div
+      className={cx(
+        'grid h-screen grid-rows-[3rem_5rem_minmax(0,1fr)] overflow-hidden bg-zinc-950 text-zinc-200',
+        layoutFocus === 'run-tree'
+          ? 'grid-cols-[320px_minmax(0,1.35fr)_minmax(280px,0.65fr)]'
+          : 'grid-cols-[320px_minmax(280px,0.65fr)_minmax(0,1.35fr)]',
+      )}
+    >
+      <div className="col-span-3 col-start-1 row-start-1">
+        <Toolbar
+          autoLoad={autoLoad}
+          layoutFocus={layoutFocus}
+          onAutoLoadChange={setAutoLoad}
+          onLayoutFocusChange={setLayoutFocus}
+        />
+      </div>
       <TraceSidebar
         traces={filteredTraces}
         allTraceCount={traces.length}
@@ -132,32 +148,29 @@ export function App(): ReactNode {
         onFiltersChange={setFilters}
         onSelectTrace={setTraceId}
       />
-      <main className="flex min-w-0 flex-1 flex-col bg-zinc-900">
-        <Toolbar autoLoad={autoLoad} onAutoLoadChange={setAutoLoad} />
-        {!tree && (
-          <div className="p-6 text-zinc-400">
-            {treeErr ?? 'Select a trace to inspect runs and payloads.'}
-          </div>
-        )}
-        {tree && (
-          <>
+      {!tree && (
+        <div className="col-span-2 col-start-2 row-span-2 row-start-2 h-[calc(100vh-3rem)] overflow-auto bg-zinc-900 p-6 text-zinc-400">
+          {treeErr ?? 'Select a trace to inspect runs and payloads.'}
+        </div>
+      )}
+      {tree && (
+        <>
+          <div className="col-span-2 col-start-2 row-start-2 min-w-0">
             <TraceHeader trace={tree.trace} />
-            <div className="flex min-h-0 flex-1">
-              <section className="min-w-0 flex-1 overflow-y-auto border-r border-zinc-800 p-4">
-                <div className="mb-3 font-semibold text-zinc-200">Run tree</div>
-                {treeErr && <div className="text-red-400">{treeErr}</div>}
-                <RunTree node={tree.root} selectedId={runId} onSelect={setRunId} />
-              </section>
-              <RunDetail
-                run={selectedRun}
-                payloadCache={payloadCache}
-                payloadLoading={payloadLoading}
-                onLoadPayload={loadPayload}
-              />
-            </div>
-          </>
-        )}
-      </main>
+          </div>
+          <section className="col-start-2 row-start-3 h-[calc(100vh-8rem)] min-w-0 overflow-auto border-r border-zinc-800 bg-zinc-900 p-4">
+            <div className="mb-3 font-semibold text-zinc-200">Run tree</div>
+            {treeErr && <div className="text-red-400">{treeErr}</div>}
+            <RunTree node={tree.root} selectedId={runId} onSelect={setRunId} />
+          </section>
+          <RunDetail
+            run={selectedRun}
+            payloadCache={payloadCache}
+            payloadLoading={payloadLoading}
+            onLoadPayload={loadPayload}
+          />
+        </>
+      )}
     </div>
   );
 }

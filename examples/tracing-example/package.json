@@ -7,8 +7,10 @@
     "example": "tsx src/index.ts"
   },
   "dependencies": {
+    "@langchain/core": "0.3.61",
     "@langchain/langgraph": "^0.3.6",
-    "@m4trix/tracing": "workspace:*"
+    "@m4trix/tracing": "workspace:*",
+    "zod": "3.25.67"
   },
   "devDependencies": {
     "@types/node": "^20",

@@ -1,6 +1,13 @@
 # Tracing example
 
-Runs a small LangGraph workflow with **multiple nodes** (`planner` → `researcher` → `tool_lookup` → `summarizer` → `reviewer`) and writes traces to the repo-level directory **`tmp/tracing-example`** using filesystem adapters.
+Runs a LangGraph workflow that exercises a more varied trace tree:
+
+- a parent graph with conditional routing
+- a reusable `research_graph` subgraph with parallel research branches
+- a reusable `writing_graph` subgraph for drafting and review
+- structured mock tools for documentation search, repository search, and quality scoring
+
+The example writes traces to the repo-level directory **`tmp/tracing-example`** using filesystem adapters. In the trace viewer, expand the root `tracing-example-agent` run to inspect the subgraphs and the `tool` runs with their input/output payloads.
 
 ## Run the example
 

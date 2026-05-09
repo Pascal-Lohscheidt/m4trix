@@ -13,7 +13,7 @@ export function RunDetail(props: RunDetailProps): React.ReactNode {
   const { run, payloadCache, payloadLoading, onLoadPayload } = props;
 
   return (
-    <section className="w-[420px] shrink-0 overflow-y-auto p-4">
+    <section className="col-start-3 row-start-3 h-[calc(100vh-8rem)] min-w-0 overflow-auto bg-zinc-900 p-4">
       <div className="mb-3 font-semibold text-zinc-200">Run detail</div>
       {!run && <div className="text-zinc-500">Select a run.</div>}
       {run && (
