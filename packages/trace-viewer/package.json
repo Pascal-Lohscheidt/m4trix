@@ -28,12 +28,14 @@
     "lint": "biome lint .",
     "format": "biome format --write .",
     "prepare": "npm run build",
-    "publish-package": "npm publish --no-git-checks",
+    "publish-package": "pnpm publish --no-git-checks",
     "release": "pnpm -C ../.. run release:bump:trace-viewer",
     "test": "vitest run --config vitest.config.ts"
   },
+  "peerDependencies": {
+    "@m4trix/tracing": "^0.8.0"
+  },
   "dependencies": {
-    "@m4trix/tracing": "workspace:*",
     "@trpc/client": "^11.0.0",
     "@trpc/server": "^11.0.0",
     "react": "^19.1.0",
@@ -41,6 +43,7 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@m4trix/tracing": "workspace:^",
     "@tailwindcss/vite": "^4.3.0",
     "@types/node": "^20.19.40",
     "@types/react": "^19.1.2",

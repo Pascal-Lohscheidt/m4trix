@@ -1,6 +1,6 @@
 {
   "name": "@m4trix/tracing",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "description": "Lightweight tracing for LangGraph and LangChain-style applications",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",

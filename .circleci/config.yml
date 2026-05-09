@@ -165,6 +165,30 @@ jobs:
           name: Publish tracing package
           command: pnpm run tracing:publish
 
+  publish-trace-viewer:
+    docker:
+      - image: cimg/node:20.0
+    steps:
+      - checkout
+      - run:
+          name: Install dependencies
+          command: pnpm install
+      - run:
+          name: Check if trace-viewer package should be published
+          command: pnpm exec jiti scripts/check-package-scope.ts trace-viewer || circleci step halt
+      - run:
+          name: Bump version and create tag
+          command: pnpm exec jiti scripts/bump-and-tag.ts trace-viewer
+      - run:
+          name: Build trace-viewer package
+          command: pnpm run trace-viewer:build
+      - run:
+          name: Authenticate with npm
+          command: echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
+      - run:
+          name: Publish trace-viewer package
+          command: pnpm run trace-viewer:publish
+
   publish-ui:
     docker:
       - image: cimg/node:20.0
@@ -234,6 +258,14 @@ workflows:
             - NPM
           requires:
             - build
+          filters:
+            branches:
+              only: main
+      - publish-trace-viewer:
+          context:
+            - NPM
+          requires:
+            - publish-tracing
           filters:
             branches:
               only: main
