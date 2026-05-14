@@ -1,7 +1,7 @@
 import { tool } from '@langchain/core/tools';
 import type { RunnableConfig } from '@langchain/core/runnables';
 import { Annotation, END, START, StateGraph } from '@langchain/langgraph';
-import { FsPayloadStoreAdapter, FsStructureStoreAdapter, TraceStore, Tracer } from '@m4trix/tracing';
+import { FsPayloadStoreAdapter, FsStructureStoreAdapter, TraceStore, Tracer, toLangGraph } from '@m4trix/tracing';
 import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
 
@@ -291,6 +291,7 @@ const traceStore = TraceStore.of({
   payloadStoreAdapter: new FsPayloadStoreAdapter({ path: traceOutputPath }),
 });
 const tracer = Tracer.from(traceStore);
+const lgTracer = tracer.adapt(toLangGraph);
 
 await graph.invoke(
   {
@@ -303,7 +304,7 @@ await graph.invoke(
     ],
   },
   {
-    callbacks: [tracer],
+    callbacks: [lgTracer],
     recursionLimit: 25,
     runName: 'tracing-example-agent',
     metadata: {
@@ -313,6 +314,6 @@ await graph.invoke(
     },
   },
 );
-await tracer.flush();
+await lgTracer.flush();
 
 console.log(`Trace written to ${traceOutputPath}`);

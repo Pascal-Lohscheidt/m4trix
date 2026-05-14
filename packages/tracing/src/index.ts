@@ -1,3 +1,5 @@
+export type { LangGraphTracer } from './adapters/langgraph.js';
+export { toLangGraph } from './adapters/langgraph.js';
 export * from './fs-payload-store-adapter.js';
 export {
   FsPayloadStoreAdapter,

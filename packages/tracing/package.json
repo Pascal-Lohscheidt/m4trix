@@ -11,6 +11,12 @@
       "import": "./dist/index.js",
       "require": "./dist/index.cjs",
       "default": "./dist/index.js"
+    },
+    "./adapters/langgraph": {
+      "types": "./dist/adapters/langgraph.d.ts",
+      "import": "./dist/adapters/langgraph.js",
+      "require": "./dist/adapters/langgraph.cjs",
+      "default": "./dist/adapters/langgraph.js"
     }
   },
   "files": [

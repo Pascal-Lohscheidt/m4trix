@@ -17,6 +17,7 @@ import {
   FsStructureStoreAdapter,
   TraceStore,
   Tracer,
+  toLangGraph,
 } from '@m4trix/tracing';
 
 export function createTracer(path = './tmp/traces'): Tracer {
@@ -35,13 +36,15 @@ Pass the tracer through LangGraph or LangChain callback options:
 
 ```ts
 import { createTracer } from './tracing';
+import { toLangGraph } from '@m4trix/tracing';
 
 const tracer = createTracer('./tmp/traces');
+const lgTracer = tracer.adapt(toLangGraph);
 
 await graph.invoke(
   { messages: [{ role: 'user', content: 'Summarize this ticket.' }] },
   {
-    callbacks: [tracer],
+    callbacks: [lgTracer],
     metadata: {
       projectId: 'support-agent',
       env: 'dev',
@@ -49,7 +52,7 @@ await graph.invoke(
   },
 );
 
-await tracer.flush();
+await lgTracer.flush();
 ```
 
 `flush()` waits for in-flight callback writes, batches pending runs, and writes the final trace snapshots. Call it before your script exits or before you expect the trace viewer to show the latest run.

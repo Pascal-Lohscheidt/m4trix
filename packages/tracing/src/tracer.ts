@@ -18,6 +18,9 @@ type RunStartOptions = {
   extra?: Record<string, unknown>;
 };
 
+/** Maps a `Tracer` instance to a framework-specific callback surface (e.g. LangGraph). */
+export type TracerAdapter<TAdapted> = (tracer: Tracer) => TAdapted;
+
 export class Tracer {
   name = 'm4trix_tracer';
   awaitHandlers = true;
@@ -31,6 +34,10 @@ export class Tracer {
 
   static from(traceStore: TraceStore): Tracer {
     return new Tracer(traceStore);
+  }
+
+  adapt<TAdapted>(adapter: TracerAdapter<TAdapted>): TAdapted {
+    return adapter(this);
   }
 
   async handleChainStart(

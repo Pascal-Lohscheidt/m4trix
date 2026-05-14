@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest';
+import { toLangGraph } from './adapters/langgraph.js';
 import {
   type PayloadStoreAdapter,
   type StructureStoreAdapter,
   type Trace,
   type TraceRun,
+  Tracer,
   TraceStore,
   TraceViewerApi,
-  Tracer,
 } from './index.js';
 
 describe('Tracer', () => {
@@ -18,6 +19,42 @@ describe('Tracer', () => {
     expect(tracer).toMatchObject({
       awaitHandlers: true,
       name: 'm4trix_tracer',
+    });
+  });
+
+  it('adapt(toLangGraph) returns LangGraph callback surface with same behavior', async () => {
+    const structureStoreAdapter = new RecordingStructureStoreAdapter();
+    const payloadStoreAdapter = new RecordingPayloadStoreAdapter();
+    const tracer = Tracer.from(TraceStore.of({ payloadStoreAdapter, structureStoreAdapter }));
+    const lgTracer = tracer.adapt(toLangGraph);
+
+    expect(lgTracer).toMatchObject({
+      awaitHandlers: true,
+      name: 'm4trix_tracer',
+    });
+    expect(typeof lgTracer.flush).toBe('function');
+    expect(typeof lgTracer.handleChainStart).toBe('function');
+    expect(typeof lgTracer.handleChainEnd).toBe('function');
+
+    await lgTracer.handleChainStart(
+      { name: 'RootChain' },
+      { question: 'hello' },
+      'root-run',
+      undefined,
+      [],
+      { projectId: 'demo', env: 'test' },
+      'chain',
+      'Root Chain',
+    );
+    await lgTracer.handleChainEnd({ answer: 'hi' }, 'root-run');
+    await lgTracer.flush();
+
+    expect(structureStoreAdapter.traces).toHaveLength(1);
+    expect(structureStoreAdapter.traces[0]).toMatchObject({
+      traceId: 'root-run',
+      rootRunId: 'root-run',
+      projectId: 'demo',
+      status: 'success',
     });
   });
 
@@ -98,7 +135,9 @@ describe('Tracer', () => {
         }),
       ]),
     );
-    await expect(payloadStoreAdapter.getJson('traces/root-run/payloads/chat-run/output.json')).resolves.toMatchObject({
+    await expect(
+      payloadStoreAdapter.getJson('traces/root-run/payloads/chat-run/output.json'),
+    ).resolves.toMatchObject({
       generations: [[{ text: 'hi there' }]],
     });
   });
@@ -141,10 +180,14 @@ describe('Tracer', () => {
         runCount: 2,
       }),
     ]);
-    await expect(payloadStoreAdapter.getJson('traces/root-run/payloads/root-run/input.json')).resolves.toEqual({
+    await expect(
+      payloadStoreAdapter.getJson('traces/root-run/payloads/root-run/input.json'),
+    ).resolves.toEqual({
       question: 'hello',
     });
-    await expect(payloadStoreAdapter.getJson('traces/root-run/payloads/tool-run/output.json')).resolves.toEqual({
+    await expect(
+      payloadStoreAdapter.getJson('traces/root-run/payloads/tool-run/output.json'),
+    ).resolves.toEqual({
       result: 'found',
     });
 
@@ -184,7 +227,12 @@ describe('Tracer', () => {
       }),
     ]);
     expect(structureStoreAdapter.batches).toEqual([
-      [expect.objectContaining({ runId: 'root-run', inputRef: 'traces/root-run/payloads/root-run/input.json' })],
+      [
+        expect.objectContaining({
+          runId: 'root-run',
+          inputRef: 'traces/root-run/payloads/root-run/input.json',
+        }),
+      ],
     ]);
   });
 });

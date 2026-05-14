@@ -27,6 +27,7 @@ import {
   FsStructureStoreAdapter,
   TraceStore,
   Tracer,
+  toLangGraph,
 } from '@m4trix/tracing';
 
 const traceStore = TraceStore.of({
@@ -35,16 +36,17 @@ const traceStore = TraceStore.of({
 });
 
 const tracer = Tracer.from(traceStore);
+const lgTracer = tracer.adapt(toLangGraph);
 
 await graph.invoke(input, {
-  callbacks: [tracer],
+  callbacks: [lgTracer],
   metadata: {
     projectId: 'support-agent',
     env: 'dev',
   },
 });
 
-await tracer.flush();
+await lgTracer.flush();
 ```
 
 ## Package Exports
@@ -52,6 +54,7 @@ await tracer.flush();
 Import tracing primitives from `@m4trix/tracing`:
 
 - `Tracer`
+- `TracerAdapter`, `toLangGraph`, `LangGraphTracer` (LangGraph callback surface)
 - `TraceStore`
 - `TraceViewerApi`
 - `FsStructureStoreAdapter`, `FsPayloadStoreAdapter`

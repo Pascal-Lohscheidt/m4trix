@@ -56,8 +56,12 @@ The viewer uses those references to lazy-load payloads only when a run is select
 Callback metadata is copied onto trace records when values are strings, numbers, or booleans. `projectId` is treated specially: it becomes the trace-level `projectId` and is excluded from the generic metadata object.
 
 ```ts
+import { toLangGraph } from '@m4trix/tracing';
+
+const lgTracer = tracer.adapt(toLangGraph);
+
 await graph.invoke(input, {
-  callbacks: [tracer],
+  callbacks: [lgTracer],
   metadata: {
     projectId: 'checkout-agent',
     env: 'staging',

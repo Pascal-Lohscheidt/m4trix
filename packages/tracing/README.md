@@ -105,6 +105,27 @@ const traceViewerApi = TraceViewerApi.from(traceStore);
 handlers, and retriever handlers). It does not currently import LangChain at runtime, so it can be
 used as a compatible callback-shaped object without forcing a LangChain dependency.
 
+### LangGraph adapter
+
+For an explicit LangGraph callback type, use `tracer.adapt(toLangGraph)`:
+
+```ts
+import { Tracer, toLangGraph } from "@m4trix/tracing";
+// or: import { toLangGraph } from "@m4trix/tracing/adapters/langgraph";
+
+const tracer = Tracer.from(traceStore);
+const lgTracer = tracer.adapt(toLangGraph);
+
+await graph.invoke(input, {
+  callbacks: [lgTracer],
+  metadata: { projectId: "my-app", env: "dev" },
+});
+
+await lgTracer.flush();
+```
+
+You can also pass `tracer` directly to `callbacks`; `adapt` only narrows the type and documents intent.
+
 ```ts
 await graph.invoke(input, {
   callbacks: [tracer],
@@ -114,7 +135,7 @@ await graph.invoke(input, {
 await tracer.flush();
 ```
 
-Always `await tracer.flush()` on short-lived processes before exit.
+Always `await tracer.flush()` (or `await lgTracer.flush()` when using `adapt(toLangGraph)`) on short-lived processes before exit.
 
 ## Reading Traces
 

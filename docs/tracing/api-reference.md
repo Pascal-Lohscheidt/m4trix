@@ -9,13 +9,18 @@ This page summarizes the main public APIs exported from `@m4trix/tracing` and `@
 Use `Tracer.from(...)` to create a callback handler backed by a `TraceStore`.
 
 ```ts
-const tracer = Tracer.from(traceStore);
+import { Tracer, toLangGraph } from '@m4trix/tracing';
 
-await graph.invoke(input, { callbacks: [tracer] });
-await tracer.flush();
+const tracer = Tracer.from(traceStore);
+const lgTracer = tracer.adapt(toLangGraph);
+
+await graph.invoke(input, { callbacks: [lgTracer] });
+await lgTracer.flush();
 ```
 
-Callback handlers:
+Use `tracer.adapt(toLangGraph)` when you want an explicit LangGraph-oriented callback type (`LangGraphTracer`). You can also import `toLangGraph` from `@m4trix/tracing/adapters/langgraph`.
+
+Callback handlers on the adapted tracer:
 
 - `handleChainStart`, `handleChainEnd`, `handleChainError`
 - `handleLLMStart`, `handleLLMEnd`, `handleLLMError`
