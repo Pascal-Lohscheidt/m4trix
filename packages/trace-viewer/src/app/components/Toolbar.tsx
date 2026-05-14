@@ -1,20 +1,19 @@
 import { SidebarSimpleIcon } from '@phosphor-icons/react';
 import { cx } from '../lib/viewer';
+import { SettingsModalTrigger } from './SettingsModal';
 
 export type LayoutFocus = 'run-tree' | 'detail';
 
 type ToolbarProps = {
-  autoLoad: boolean;
   layoutFocus: LayoutFocus;
-  onAutoLoadChange: (enabled: boolean) => void;
   onLayoutFocusChange: (focus: LayoutFocus) => void;
+  onOpenSettings: () => void;
 };
 
 export function Toolbar({
-  autoLoad,
   layoutFocus,
-  onAutoLoadChange,
   onLayoutFocusChange,
+  onOpenSettings,
 }: ToolbarProps): React.ReactNode {
   return (
     <div className="flex h-12 shrink-0 items-center justify-between border-b border-zinc-800 bg-zinc-950/95 px-5">
@@ -49,15 +48,7 @@ export function Toolbar({
             <SidebarSimpleIcon aria-hidden="true" className="h-5 w-5" weight="bold" />
           </button>
         </div>
-        <label className="flex cursor-pointer items-center gap-2 rounded-full border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm text-zinc-300 transition-colors hover:border-zinc-700">
-          <input
-            type="checkbox"
-            checked={autoLoad}
-            onChange={(event) => onAutoLoadChange(event.target.checked)}
-            className="h-4 w-4 accent-amber-400"
-          />
-          <span>Auto load</span>
-        </label>
+        <SettingsModalTrigger onClick={onOpenSettings} />
       </div>
     </div>
   );

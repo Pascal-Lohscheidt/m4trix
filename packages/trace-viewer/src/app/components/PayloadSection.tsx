@@ -1,13 +1,17 @@
+import type { ReactNode } from 'react';
+
 type PayloadSectionProps = {
   label: string;
   refId?: string;
   payloadCache: Record<string, unknown>;
   loadingRef: string | null;
   onLoad: (ref: string) => void;
+  /** When set, used instead of default JSON.stringify for loaded payloads. */
+  renderLoaded?: (data: unknown) => ReactNode;
 };
 
-export function PayloadSection(props: PayloadSectionProps): React.ReactNode {
-  const { label, refId, payloadCache, loadingRef, onLoad } = props;
+export function PayloadSection(props: PayloadSectionProps): ReactNode {
+  const { label, refId, payloadCache, loadingRef, onLoad, renderLoaded } = props;
   if (!refId) {
     return (
       <div className="mt-4 text-zinc-500">
@@ -17,6 +21,7 @@ export function PayloadSection(props: PayloadSectionProps): React.ReactNode {
   }
 
   const loaded = payloadCache[refId] !== undefined;
+  const data = loaded ? payloadCache[refId] : undefined;
 
   return (
     <div className="mt-4">
@@ -34,11 +39,14 @@ export function PayloadSection(props: PayloadSectionProps): React.ReactNode {
           </button>
         )}
       </div>
-      {loaded && (
-        <pre className="m-0 max-h-80 overflow-auto rounded-lg border border-zinc-800 bg-zinc-950 p-2.5 text-xs">
-          {JSON.stringify(payloadCache[refId], null, 2)}
-        </pre>
-      )}
+      {loaded &&
+        (renderLoaded ? (
+          renderLoaded(data)
+        ) : (
+          <pre className="m-0 max-h-80 overflow-auto rounded-lg border border-zinc-800 bg-zinc-950 p-2.5 text-xs">
+            {JSON.stringify(data, null, 2)}
+          </pre>
+        ))}
     </div>
   );
 }
