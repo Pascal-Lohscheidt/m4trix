@@ -1,14 +1,14 @@
 import { BrainIcon, LinkSimpleIcon, WrenchIcon } from '@phosphor-icons/react';
 import { type ReactNode, useState } from 'react';
-import { buildMatchContext, nodeDisplayEffect, type FilterGroup } from '../lib/filter-groups';
+import { buildMatchContext, nodeDisplayEffect } from '../lib/filter-groups';
 import { cx, statusTextClass } from '../lib/viewer';
+import { useFilterGroups } from '../state/filter-groups-context';
 import type { RunNode } from '../types';
 
 type RunTreeProps = {
   node: RunNode;
   selectedId: string | null;
   onSelect: (id: string) => void;
-  filterGroups: FilterGroup[];
   /** Original trace depth per run id (after display filter reshapes the tree). */
   depthByRunId?: ReadonlyMap<string, number>;
   /** Nodes that matched hide but are kept as branch points (multiple visible children). */
@@ -55,8 +55,8 @@ function runTypeBadge(type: string): ReactNode {
 }
 
 export function RunTree(props: RunTreeProps): ReactNode {
-  const { node, selectedId, onSelect, filterGroups, depthByRunId, hideBypassRunIds, depth = 0 } =
-    props;
+  const { node, selectedId, onSelect, depthByRunId, hideBypassRunIds, depth = 0 } = props;
+  const { filterGroups } = useFilterGroups();
   const filterDepth = depthByRunId?.get(node.runId) ?? depth;
   const ctx = buildMatchContext(node, filterDepth);
   const { hidden, forceCollapse } = nodeDisplayEffect(filterGroups, ctx);
@@ -126,7 +126,6 @@ export function RunTree(props: RunTreeProps): ReactNode {
               node={child}
               selectedId={selectedId}
               onSelect={onSelect}
-              filterGroups={filterGroups}
               depthByRunId={depthByRunId}
               hideBypassRunIds={hideBypassRunIds}
               depth={depth + 1}

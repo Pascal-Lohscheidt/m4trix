@@ -1,15 +1,12 @@
-import type { ProfileAggregates, TraceProfileId } from '../lib/trace-profiles/types';
+import type { ProfileAggregates } from '../lib/trace-profiles/types';
 import { cx, getTraceEnv, statusTextClass } from '../lib/viewer';
+import { useViewerSettings } from '../state/viewer-settings-context';
 import type { TraceRow } from '../types';
 
 type TraceHeaderProps = {
   trace: TraceRow;
-  profileTabs: { id: TraceProfileId; label: string }[];
-  activeProfileId: TraceProfileId;
-  onProfileChange: (id: TraceProfileId) => void;
   aggregates: ProfileAggregates;
   missingTracePayloadCount: number;
-  autoLoad: boolean;
   tracePayloadBatchLoading: boolean;
   onLoadTracePayloads: () => void;
   /** When false (e.g. Raw profile), trace-wide payload CTA / aggregate strip is hidden. */
@@ -18,16 +15,14 @@ type TraceHeaderProps = {
 
 export function TraceHeader({
   trace,
-  profileTabs,
-  activeProfileId,
-  onProfileChange,
   aggregates,
   missingTracePayloadCount,
-  autoLoad,
   tracePayloadBatchLoading,
   onLoadTracePayloads,
   showTracePayloadControls,
 }: TraceHeaderProps): React.ReactNode {
+  const { profileTabs, settings, setActiveProfileId, autoLoad } = useViewerSettings();
+  const activeProfileId = settings.activeTraceProfileId;
   const env = getTraceEnv(trace);
   const showAggregateRow =
     showTracePayloadControls &&
@@ -63,7 +58,7 @@ export function TraceHeader({
                 <button
                   key={tab.id}
                   type="button"
-                  onClick={() => onProfileChange(tab.id)}
+                  onClick={() => setActiveProfileId(tab.id)}
                   className={cx(
                     'rounded-md px-2.5 py-1 text-xs font-medium transition-colors',
                     selected

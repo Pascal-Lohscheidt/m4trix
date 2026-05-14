@@ -1,18 +1,18 @@
 import type { ReactNode } from 'react';
-import type { TraceProfile } from '../lib/trace-profiles';
 import { statusTextClass } from '../lib/viewer';
+import { useViewerSettings } from '../state/viewer-settings-context';
 import type { RunNode } from '../types';
 
 type RunDetailProps = {
   run: RunNode | null;
-  profile: TraceProfile;
   payloadCache: Record<string, unknown>;
   payloadLoading: string | null;
   onLoadPayload: (ref: string) => void;
 };
 
 export function RunDetail(props: RunDetailProps): ReactNode {
-  const { run, profile, payloadCache, payloadLoading, onLoadPayload } = props;
+  const { run, payloadCache, payloadLoading, onLoadPayload } = props;
+  const { activeProfile: profile } = useViewerSettings();
 
   return (
     <section className="col-start-3 row-start-3 h-full min-h-0 min-w-0 overflow-auto bg-zinc-900 p-4">

@@ -11,11 +11,7 @@ import { type ReactNode, useCallback, useId, useMemo, useState } from 'react';
 import type { DepthOperator, FilterCondition, FilterGroup } from '../lib/filter-groups';
 import { createFilterGroupId, validateConditionsForSave } from '../lib/filter-groups';
 import { cx } from '../lib/viewer';
-
-type FilterGroupBarProps = {
-  groups: FilterGroup[];
-  onGroupsChange: (groups: FilterGroup[]) => void;
-};
+import { useFilterGroups } from '../state/filter-groups-context';
 
 type DraftRow = {
   id: string;
@@ -234,7 +230,8 @@ function FilterGroupForm({
   );
 }
 
-export function FilterGroupBar({ groups, onGroupsChange }: FilterGroupBarProps): ReactNode {
+export function FilterGroupBar(): ReactNode {
+  const { filterGroups: groups, setFilterGroups: onGroupsChange } = useFilterGroups();
   const addFormId = useId();
 
   const persist = useCallback(
