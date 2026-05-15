@@ -1,9 +1,18 @@
 import { tool } from '@langchain/core/tools';
 import type { RunnableConfig } from '@langchain/core/runnables';
 import { Annotation, END, START, StateGraph } from '@langchain/langgraph';
-import { FsPayloadStoreAdapter, FsStructureStoreAdapter, TraceStore, Tracer, toLangGraph } from '@m4trix/tracing';
+import {
+  FsPayloadStoreAdapter,
+  FsStructureStoreAdapter,
+  TraceStore,
+  Tracer,
+  toLangGraph,
+  type LangGraphTracer,
+} from '@m4trix/tracing';
 import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
+import { runMockLlmTurn } from './mock-llm.js';
+import { withMockUsage } from './mock-usage.js';
 
 type Message = { role: 'user' | 'assistant'; content: string };
 
@@ -53,16 +62,22 @@ const AgentState = Annotation.Root({
 });
 type AgentStateValue = typeof AgentState.State;
 
+let lgTracer: LangGraphTracer;
+
 const documentationSearchTool = tool(
-  async ({ query, maxResults }) => ({
-    query,
-    source: 'mock-docs-index',
-    results: Array.from({ length: maxResults }, (_, index) => ({
-      title: ['Trace viewer quickstart', 'LangGraph callbacks', 'Payload storage'][index] ?? 'Tracing note',
-      relevance: Number((0.95 - index * 0.13).toFixed(2)),
-      snippet: `Mock documentation hit ${index + 1} for "${query}".`,
-    })),
-  }),
+  async ({ query, maxResults }) =>
+    withMockUsage(
+      {
+        query,
+        source: 'mock-docs-index',
+        results: Array.from({ length: maxResults }, (_, index) => ({
+          title: ['Trace viewer quickstart', 'LangGraph callbacks', 'Payload storage'][index] ?? 'Tracing note',
+          relevance: Number((0.95 - index * 0.13).toFixed(2)),
+          snippet: `Mock documentation hit ${index + 1} for "${query}".`,
+        })),
+      },
+      { promptTokens: 48, completionTokens: 0, model: 'text-embedding-3-small', costUsd: 0.000_002 },
+    ),
   {
     name: 'documentation_search',
     description: 'Searches the local documentation corpus for tracing guidance.',
@@ -74,16 +89,20 @@ const documentationSearchTool = tool(
 );
 
 const repositorySearchTool = tool(
-  async ({ symbol, paths }) => ({
-    symbol,
-    paths,
-    matches: paths.map((path, index) => ({
-      path,
-      symbol,
-      line: 24 + index * 17,
-      summary: `Mock match for ${symbol} showing how ${path} participates in tracing.`,
-    })),
-  }),
+  async ({ symbol, paths }) =>
+    withMockUsage(
+      {
+        symbol,
+        paths,
+        matches: paths.map((path, index) => ({
+          path,
+          symbol,
+          line: 24 + index * 17,
+          summary: `Mock match for ${symbol} showing how ${path} participates in tracing.`,
+        })),
+      },
+      { promptTokens: 96, completionTokens: 0, model: 'text-embedding-3-small', costUsd: 0.000_004 },
+    ),
   {
     name: 'repository_search',
     description: 'Looks up mock repository symbols and file paths.',
@@ -96,11 +115,16 @@ const repositorySearchTool = tool(
 
 const qualityScoringTool = tool(
   async ({ draft, dimensions }) =>
-    Object.fromEntries(
-      dimensions.map((dimension, index) => [
-        dimension,
-        Math.min(10, Math.max(1, Math.round(draft.length / 60) + 6 - index)),
-      ]),
+    withMockUsage(
+      {
+        scores: Object.fromEntries(
+          dimensions.map((dimension, index) => [
+            dimension,
+            Math.min(10, Math.max(1, Math.round(draft.length / 60) + 6 - index)),
+          ]),
+        ),
+      },
+      { promptTokens: 380, completionTokens: 42, model: 'gpt-4o-mini', costUsd: 0.000_12 },
     ),
   {
     name: 'quality_scoring',
@@ -131,16 +155,24 @@ async function intake(state: AgentStateValue) {
   };
 }
 
-async function planWork(state: AgentStateValue) {
+async function planWork(state: AgentStateValue, config?: RunnableConfig) {
   const plan = [
     `Clarify the request: ${state.request}`,
     'Collect tracing docs and repo references.',
     'Draft an explanation with concrete viewer steps.',
     'Score and revise for clarity.',
   ];
+  const planText = plan.join(' | ');
+  await runMockLlmTurn(lgTracer, config, {
+    name: 'planner_llm',
+    userPrompt: `Create a work plan for: ${state.request}`,
+    assistantText: planText,
+    promptTokens: 312,
+    completionTokens: 88,
+  });
   return {
     plan,
-    messages: [{ role: 'assistant' as const, content: `[Planner] ${plan.join(' | ')}` }],
+    messages: [{ role: 'assistant' as const, content: `[Planner] ${planText}` }],
   };
 }
 
@@ -192,18 +224,26 @@ async function synthesizeResearch(state: AgentStateValue) {
   };
 }
 
-async function createOutline(state: AgentStateValue) {
+async function createOutline(state: AgentStateValue, config?: RunnableConfig) {
   const outline =
     state.route === 'fast_path'
       ? ['Answer directly', 'Mention how to inspect the generated trace']
       : ['State the tracing goal', 'Summarize docs evidence', 'Map repo behavior', 'Give next steps'];
+  const outlineText = outline.join(' -> ');
+  await runMockLlmTurn(lgTracer, config, {
+    name: 'outliner_llm',
+    userPrompt: `Outline an answer for: ${state.request}`,
+    assistantText: outlineText,
+    promptTokens: 540,
+    completionTokens: 76,
+  });
   return {
     outline,
-    messages: [{ role: 'assistant' as const, content: `[Outline] ${outline.join(' -> ')}` }],
+    messages: [{ role: 'assistant' as const, content: `[Outline] ${outlineText}` }],
   };
 }
 
-async function draftAnswer(state: AgentStateValue) {
+async function draftAnswer(state: AgentStateValue, config?: RunnableConfig) {
   const evidence =
     state.docFindings.length > 0 || state.repositoryFindings.length > 0
       ? [...state.docFindings, ...state.repositoryFindings].join('\n')
@@ -214,6 +254,14 @@ async function draftAnswer(state: AgentStateValue) {
     `Evidence:\n${evidence}`,
     'Answer: Use the trace viewer to inspect the root graph, nested research/writing graphs, and tool payloads.',
   ].join('\n\n');
+  await runMockLlmTurn(lgTracer, config, {
+    name: 'drafter_llm',
+    userPrompt: `Write a detailed answer using this evidence:\n${evidence}`,
+    assistantText: draft,
+    promptTokens: 1_842,
+    completionTokens: 463,
+    model: 'gpt-4o',
+  });
   return {
     draft,
     messages: [{ role: 'assistant' as const, content: `[Draft] ${draft.slice(0, 240)}...` }],
@@ -228,16 +276,24 @@ async function scoreDraft(state: AgentStateValue, config?: RunnableConfig) {
     },
     config,
   );
+  const scores = 'scores' in scorecard && scorecard.scores ? scorecard.scores : scorecard;
   return {
-    scorecard,
-    messages: [{ role: 'assistant' as const, content: `[Scorer] ${JSON.stringify(scorecard)}` }],
+    scorecard: scores as Record<string, number>,
+    messages: [{ role: 'assistant' as const, content: `[Scorer] ${JSON.stringify(scores)}` }],
   };
 }
 
-async function finalReview(state: AgentStateValue) {
+async function finalReview(state: AgentStateValue, config?: RunnableConfig) {
   const review = `Final review: ${Object.entries(state.scorecard)
     .map(([dimension, score]) => `${dimension}=${score}`)
     .join(', ')}.`;
+  await runMockLlmTurn(lgTracer, config, {
+    name: 'reviewer_llm',
+    userPrompt: `Review this draft scorecard: ${JSON.stringify(state.scorecard)}`,
+    assistantText: review,
+    promptTokens: 210,
+    completionTokens: 54,
+  });
   return {
     review,
     messages: [{ role: 'assistant' as const, content: `[Review] ${review}` }],
@@ -291,7 +347,7 @@ const traceStore = TraceStore.of({
   payloadStoreAdapter: new FsPayloadStoreAdapter({ path: traceOutputPath }),
 });
 const tracer = Tracer.from(traceStore);
-const lgTracer = tracer.adapt(toLangGraph);
+lgTracer = tracer.adapt(toLangGraph);
 
 await graph.invoke(
   {

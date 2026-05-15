@@ -4,6 +4,7 @@ import {
   getTraceProfile,
   isFullTracePayloadsLoaded,
 } from '../lib/trace-profiles';
+import { buildSubtreeRollupsByRunId } from '../lib/trace-profiles/langgraph/aggregates';
 import { applyRunTreeDisplayFilter } from '../lib/run-tree-display-filter';
 import { findRun } from '../lib/viewer';
 import { useFilterGroups } from '../state/filter-groups-context';
@@ -83,6 +84,11 @@ export function TraceMainPanel({
     return selectedProfile.buildAggregates(aggregateContext);
   }, [aggregateContext, selectedProfile]);
 
+  const langgraphSubtreeRollups = useMemo(() => {
+    if (selectedProfile.id !== 'langgraph') return null;
+    return buildSubtreeRollupsByRunId(tree.root, payloadCache);
+  }, [selectedProfile.id, tree.root, payloadCache]);
+
   useEffect(() => {
     if (!autoLoad || !tree) return;
     const profile = getTraceProfile(settings.activeTraceProfileId);
@@ -121,6 +127,8 @@ export function TraceMainPanel({
             onSelect={setRunId}
             depthByRunId={runTreeDisplay.depthByRunId}
             hideBypassRunIds={runTreeDisplay.hideBypassRunIds}
+            subtreeRollupsByRunId={langgraphSubtreeRollups ?? undefined}
+            subtreeRollupsComplete={fullTracePayloadsLoaded}
           />
         ) : (
           <div className="text-sm text-zinc-500">No runs visible with the current hide filters.</div>

@@ -7,7 +7,9 @@ Runs a LangGraph workflow that exercises a more varied trace tree:
 - a reusable `writing_graph` subgraph for drafting and review
 - structured mock tools for documentation search, repository search, and quality scoring
 
-The example writes traces to the repo-level directory **`tmp/tracing-example`** using filesystem adapters. In the trace viewer, expand the root `tracing-example-agent` run to inspect the subgraphs and the `tool` runs with their input/output payloads.
+The example writes traces to the repo-level directory **`tmp/tracing-example`** using filesystem adapters. It also records **mock token usage** on tool outputs and fake `chat_model` spans so you can try the trace viewer **LangGraph** profile (subtree token badges and header aggregates).
+
+In the viewer: enable **LangGraph** in settings, select that profile, turn on **Auto load payloads** (or use **Load trace payloads**), then expand the run tree.
 
 ## Run the example
 
