@@ -8,6 +8,7 @@ import {
 import { type ReactNode, useState } from 'react';
 import { buildMatchContext, nodeDisplayEffect } from '../lib/filter-groups';
 import {
+  formatSubtreeCostSuffix,
   formatSubtreeRollupTitle,
   formatSubtreeTokenCount,
   subtreeRollupTotalTokens,
@@ -40,7 +41,8 @@ function SubtreeRollupBadge({
   complete: boolean;
 }): ReactNode {
   const tokenCount = formatSubtreeTokenCount(rollup);
-  const showCostOnly = !tokenCount && rollup.costUsd > 0;
+  const costSuffix = formatSubtreeCostSuffix(rollup);
+  const showCostOnly = !tokenCount && costSuffix != null;
   if (!tokenCount && !showCostOnly) return null;
 
   const badgeClass = cx(
@@ -61,11 +63,12 @@ function SubtreeRollupBadge({
           <CoinsIcon aria-hidden="true" weight="bold" className={iconClass} />
           <span className="sr-only">{subtreeRollupTotalTokens(rollup)} tokens</span>
           <span>{tokenCount}</span>
+          {costSuffix ? <span className="text-violet-300/80">{costSuffix}</span> : null}
         </>
       ) : (
         <>
           <CurrencyCircleDollarIcon aria-hidden="true" weight="bold" className={iconClass} />
-          <span>${rollup.costUsd.toFixed(4)}</span>
+          <span>{costSuffix}</span>
         </>
       )}
       {!complete ? <span aria-hidden="true">*</span> : null}

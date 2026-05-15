@@ -13,11 +13,15 @@ describe('rollupTraceForLanggraph', () => {
     const cache = {
       o1: { usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 } },
     };
-    const { rollup, spansWithUsage, costUsdReported } = rollupTraceForLanggraph(root, cache);
+    const { rollup, spansWithUsage, costUsdReported, costUsdEstimated } = rollupTraceForLanggraph(
+      root,
+      cache,
+    );
     expect(spansWithUsage).toBe(1);
     expect(rollup.promptTokens).toBe(10);
     expect(rollup.completionTokens).toBe(5);
     expect(rollup.totalTokens).toBe(15);
     expect(costUsdReported).toBe(0);
+    expect(costUsdEstimated).toBe(0);
   });
 });

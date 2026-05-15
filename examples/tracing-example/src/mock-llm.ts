@@ -38,7 +38,7 @@ export async function runMockLlmTurn(
     parentRunId,
     undefined,
     ['mock-llm', model],
-    { model, provider: 'mock' },
+    { model, ls_model_name: model, provider: 'mock' },
     options.name,
   );
 

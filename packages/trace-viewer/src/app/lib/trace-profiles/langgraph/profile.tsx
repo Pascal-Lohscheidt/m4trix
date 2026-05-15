@@ -19,7 +19,10 @@ export const langgraphProfile: TraceProfile = {
         cards: [],
       };
     }
-    const { rollup, costUsdReported, spansWithUsage } = rollupTraceForLanggraph(ctx.root, ctx.payloadCache);
+    const { rollup, costUsdReported, costUsdEstimated, spansWithUsage } = rollupTraceForLanggraph(
+      ctx.root,
+      ctx.payloadCache,
+    );
     const cards: { id: string; label: string; value: string }[] = [];
     if (rollup.totalTokens > 0 || rollup.promptTokens > 0 || rollup.completionTokens > 0) {
       cards.push({
@@ -40,9 +43,16 @@ export const langgraphProfile: TraceProfile = {
     }
     if (costUsdReported > 0) {
       cards.push({
-        id: 'cost-usd',
+        id: 'cost-usd-reported',
         label: 'Reported cost (USD)',
         value: costUsdReported.toFixed(6),
+      });
+    }
+    if (costUsdEstimated > 0) {
+      cards.push({
+        id: 'cost-usd-estimated',
+        label: 'Estimated cost (USD)',
+        value: `~${costUsdEstimated.toFixed(6)}`,
       });
     }
     if (cards.length === 0 && spansWithUsage === 0) {

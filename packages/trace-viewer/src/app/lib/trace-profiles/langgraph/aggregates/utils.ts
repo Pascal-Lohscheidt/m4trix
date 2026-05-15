@@ -15,7 +15,19 @@ export function readFiniteNumber(value: unknown): number | null {
 }
 
 export function emptySubtreeRollup(): RunSubtreeRollup {
-  return { promptTokens: 0, completionTokens: 0, totalTokens: 0, costUsd: 0, hasUsage: false };
+  return {
+    promptTokens: 0,
+    completionTokens: 0,
+    totalTokens: 0,
+    costUsd: 0,
+    costUsdReported: 0,
+    costUsdEstimated: 0,
+    hasUsage: false,
+  };
+}
+
+export function syncRollupCostTotal(rollup: RunSubtreeRollup): void {
+  rollup.costUsd = rollup.costUsdReported + rollup.costUsdEstimated;
 }
 
 export function finalizeTokenRollup(rollup: TokenRollup): void {

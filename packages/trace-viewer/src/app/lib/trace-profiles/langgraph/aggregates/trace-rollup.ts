@@ -7,7 +7,12 @@ import { emptySubtreeRollup } from './utils';
 export function rollupTraceForLanggraph(
   root: RunNode,
   payloadCache: Record<string, unknown>,
-): { rollup: TokenRollup; costUsdReported: number; spansWithUsage: number } {
+): {
+  rollup: TokenRollup;
+  costUsdReported: number;
+  costUsdEstimated: number;
+  spansWithUsage: number;
+} {
   const byRunId = buildSubtreeRollupsByRunId(root, payloadCache);
   const rootRollup = byRunId.get(root.runId) ?? emptySubtreeRollup();
   let spansWithUsage = 0;
@@ -24,7 +29,8 @@ export function rollupTraceForLanggraph(
       completionTokens: rootRollup.completionTokens,
       totalTokens: rootRollup.totalTokens,
     },
-    costUsdReported: rootRollup.costUsd,
+    costUsdReported: rootRollup.costUsdReported,
+    costUsdEstimated: rootRollup.costUsdEstimated,
     spansWithUsage,
   };
 }

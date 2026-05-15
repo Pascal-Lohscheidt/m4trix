@@ -1,9 +1,10 @@
 import type { RunNode } from '../../../../types';
+import { applyEstimatedCostForRun } from './estimate-cost';
 import { extractMetadataUsage } from './extract-metadata';
 import { extractUsageFromUnknown } from './extract-usage';
 import { addUsageToRollup } from './rollup';
 import type { RunSubtreeRollup } from './types';
-import { emptySubtreeRollup, finalizeTokenRollup } from './utils';
+import { emptySubtreeRollup, finalizeTokenRollup, syncRollupCostTotal } from './utils';
 
 function applyExtractedUsage(rollup: RunSubtreeRollup, extracted: ReturnType<typeof extractUsageFromUnknown>): void {
   if (
@@ -19,7 +20,7 @@ function applyExtractedUsage(rollup: RunSubtreeRollup, extracted: ReturnType<typ
     });
   }
   if (extracted.costUsd != null) {
-    rollup.costUsd += extracted.costUsd;
+    rollup.costUsdReported += extracted.costUsd;
     rollup.hasUsage = true;
   }
 }
@@ -44,7 +45,7 @@ export function directUsageForRun(
     }
   }
   if (node.costUsd != null && node.costUsd > 0) {
-    rollup.costUsd += node.costUsd;
+    rollup.costUsdReported += node.costUsd;
     rollup.hasUsage = true;
   }
 
@@ -61,7 +62,7 @@ export function directUsageForRun(
     }
   }
   if (fromMeta.costUsd != null) {
-    rollup.costUsd += fromMeta.costUsd;
+    rollup.costUsdReported += fromMeta.costUsd;
     rollup.hasUsage = true;
   }
 
@@ -71,5 +72,7 @@ export function directUsageForRun(
   }
 
   finalizeTokenRollup(rollup);
+  applyEstimatedCostForRun(rollup, node, payloadCache);
+  syncRollupCostTotal(rollup);
   return rollup;
 }

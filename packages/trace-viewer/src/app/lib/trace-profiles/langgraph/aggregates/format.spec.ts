@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { formatSubtreeRollupTitle, formatSubtreeTokenCount, subtreeRollupTotalTokens } from './format';
+import {
+  formatSubtreeCostSuffix,
+  formatSubtreeRollupTitle,
+  formatSubtreeTokenCount,
+  subtreeRollupTotalTokens,
+} from './format';
 import type { RunSubtreeRollup } from './types';
 
 function rollup(partial: Partial<RunSubtreeRollup>): RunSubtreeRollup {
@@ -8,6 +13,8 @@ function rollup(partial: Partial<RunSubtreeRollup>): RunSubtreeRollup {
     completionTokens: 0,
     totalTokens: 0,
     costUsd: 0,
+    costUsdReported: 0,
+    costUsdEstimated: 0,
     hasUsage: false,
     ...partial,
   };
@@ -43,6 +50,7 @@ describe('formatSubtreeRollupTitle', () => {
         completionTokens: 25,
         totalTokens: 125,
         costUsd: 0.001234,
+        costUsdReported: 0.001234,
         hasUsage: true,
       }),
     );
@@ -51,5 +59,29 @@ describe('formatSubtreeRollupTitle', () => {
     expect(title).toContain('Prompt: 100');
     expect(title).toContain('Completion: 25');
     expect(title).toContain('Reported cost');
+  });
+
+  it('labels estimated cost separately', () => {
+    const title = formatSubtreeRollupTitle(
+      rollup({
+        totalTokens: 1000,
+        costUsd: 0.0002,
+        costUsdEstimated: 0.0002,
+        estimatedModel: 'gpt-4o-mini',
+        hasUsage: true,
+      }),
+    );
+    expect(title).toContain('Estimated cost');
+    expect(title).toContain('gpt-4o-mini');
+  });
+});
+
+describe('formatSubtreeCostSuffix', () => {
+  it('prefixes tilde when cost is estimated only', () => {
+    expect(
+      formatSubtreeCostSuffix(
+        rollup({ costUsd: 0.00015, costUsdEstimated: 0.00015, hasUsage: true }),
+      ),
+    ).toBe('~$0.0001');
   });
 });

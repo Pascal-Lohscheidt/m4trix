@@ -5,7 +5,12 @@ export type TokenRollup = {
 };
 
 export type RunSubtreeRollup = TokenRollup & {
+  /** Reported + estimated (display total). */
   costUsd: number;
+  costUsdReported: number;
+  costUsdEstimated: number;
+  /** Set when cost was derived from `MODEL_PRICING_USD_PER_1M`. */
+  estimatedModel?: string;
   hasUsage: boolean;
 };
 

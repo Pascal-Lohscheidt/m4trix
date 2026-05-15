@@ -2,7 +2,7 @@ import type { RunNode } from '../../../../types';
 import { directUsageForRun } from './direct-usage';
 import { addUsageToRollup } from './rollup';
 import type { RunSubtreeRollup } from './types';
-import { finalizeTokenRollup } from './utils';
+import { finalizeTokenRollup, syncRollupCostTotal } from './utils';
 
 /**
  * Per-run subtree totals: this run's direct usage plus all descendants.
@@ -20,11 +20,13 @@ export function buildSubtreeRollupsByRunId(
     for (const child of node.children) {
       const childSubtree = visit(child);
       addUsageToRollup(subtree, childSubtree);
-      subtree.costUsd += childSubtree.costUsd;
+      subtree.costUsdReported += childSubtree.costUsdReported;
+      subtree.costUsdEstimated += childSubtree.costUsdEstimated;
       subtree.hasUsage = subtree.hasUsage || childSubtree.hasUsage;
     }
 
     finalizeTokenRollup(subtree);
+    syncRollupCostTotal(subtree);
     byRunId.set(node.runId, { ...subtree });
     return subtree;
   };
