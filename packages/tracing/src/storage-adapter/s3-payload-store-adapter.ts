@@ -5,7 +5,7 @@ import {
   S3Client,
   type S3ClientConfig,
 } from '@aws-sdk/client-s3';
-import type { PayloadStoreAdapter } from './types.js';
+import type { PayloadStoreAdapter } from '../types.js';
 
 export type S3PayloadStoreAdapterOptions = {
   bucket: string;

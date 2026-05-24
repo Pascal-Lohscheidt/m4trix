@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { DynamoStructureStoreAdapter } from './dynamo-structure-store-adapter.js';
-import type { Trace, TraceRun } from './types.js';
+import type { Trace, TraceRun } from '../types.js';
 
 describe('DynamoStructureStoreAdapter', () => {
   it('upserts and reads traces with runs', async () => {

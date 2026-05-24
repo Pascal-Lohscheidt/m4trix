@@ -2,7 +2,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { FsStructureStoreAdapter, type Trace, type TraceRun } from './index.js';
+import { FsStructureStoreAdapter, type Trace, type TraceRun } from '../index.js';
 
 describe('FsStructureStoreAdapter', () => {
   let root: string;

@@ -23,7 +23,7 @@ import {
   QueryCommand,
   type QueryCommandInput,
 } from '@aws-sdk/lib-dynamodb';
-import { mergeTraceAnnotation } from './annotation-merge.js';
+import { mergeTraceAnnotation } from '../annotation-merge.js';
 import type {
   ListTracesQuery,
   ListTracesResult,
@@ -33,7 +33,7 @@ import type {
   Trace,
   TraceRecord,
   TraceRun,
-} from './types.js';
+} from '../types.js';
 
 export type DynamoStructureStoreAdapterOptions = {
   tableName: string;

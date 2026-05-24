@@ -1,6 +1,6 @@
 import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
-import { mergeTraceAnnotation } from './annotation-merge.js';
+import { mergeTraceAnnotation } from '../annotation-merge.js';
 import type {
   ListTracesQuery,
   ListTracesResult,
@@ -10,7 +10,7 @@ import type {
   Trace,
   TraceRecord,
   TraceRun,
-} from './types.js';
+} from '../types.js';
 
 export type FsStructureStoreAdapterOptions = {
   path: string;

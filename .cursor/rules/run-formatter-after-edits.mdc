@@ -1,0 +1,44 @@
+---
+description: Run Biome on changed files once at end of task
+alwaysApply: true
+---
+
+# Format at End of Task
+
+Run the formatter **once, when the task is complete** — not after every individual edit.
+
+## Scope
+
+Format **only files you changed** in this task. Do not run a repo-wide format.
+
+### Changed files only
+
+```bash
+pnpm exec biome format --write path/to/changed-file.ts path/to/other.tsx
+```
+
+### Package scope (when all changes live in one package)
+
+If every changed file is under the same `packages/<name>/`, format that package:
+
+```bash
+pnpm --filter @m4trix/tracing format
+pnpm --filter @m4trix/trace-viewer format
+pnpm --filter @m4trix/core format
+```
+
+Use package format when multiple files in one package changed; use explicit paths when changes are scattered or at the repo root.
+
+## When to run
+
+- Once, before marking the task done
+- After implementation/tests, as a final cleanup step
+- Skip if you did not modify any formattable source files
+
+## Do not
+
+- Run `pnpm format` at the repo root (formats the entire monorepo)
+- Re-format on every intermediate edit
+- Format unrelated packages or untouched files
+
+This project uses **Biome** (`biome.json`). Do not use Prettier for formatting.

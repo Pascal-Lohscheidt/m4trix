@@ -1,6 +1,6 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, isAbsolute, normalize, relative, resolve, sep } from 'node:path';
-import type { PayloadStoreAdapter } from './types.js';
+import type { PayloadStoreAdapter } from '../types.js';
 
 export type FsPayloadStoreAdapterOptions = {
   path: string;

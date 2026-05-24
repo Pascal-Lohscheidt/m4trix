@@ -2,7 +2,7 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { FsPayloadStoreAdapter } from './index.js';
+import { FsPayloadStoreAdapter } from '../index.js';
 
 describe('FsPayloadStoreAdapter', () => {
   let root: string;
