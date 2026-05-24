@@ -162,6 +162,23 @@ jobs:
           name: Authenticate with npm
           command: echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
       - run:
+          name: Verify npm auth before publish (tracing)
+          command: |
+            set -euo pipefail
+            echo "=== npm whoami ==="
+            npm whoami
+            echo "=== @m4trix packages for this account (informational) ==="
+            npm access ls-packages "$(npm whoami)" 2>/dev/null | grep '@m4trix/' || echo "(none listed)"
+            echo "=== npm publish dry-run (packages/tracing) ==="
+            cd packages/tracing
+            if ! npm publish --dry-run --no-git-checks --access public; then
+              echo ""
+              echo "ERROR: npm publish dry-run failed."
+              echo "A 404 here usually means NPM_TOKEN lacks publish access to @m4trix/tracing."
+              echo "Use an Automation or granular token with Read and Write on @m4trix/tracing."
+              exit 1
+            fi
+      - run:
           name: Publish tracing package
           command: pnpm run tracing:publish
 
