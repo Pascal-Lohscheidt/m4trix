@@ -1,8 +1,11 @@
 import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
+import { mergeTraceAnnotation } from './annotation-merge.js';
 import type {
   ListTracesQuery,
   ListTracesResult,
+  PatchRunAnnotationInput,
+  PatchTraceAnnotationInput,
   StructureStoreAdapter,
   Trace,
   TraceRecord,
@@ -93,6 +96,37 @@ export class FsStructureStoreAdapter implements StructureStoreAdapter {
       traces: pagedTraces,
       ...(nextIndex < traces.length ? { nextCursor: String(nextIndex) } : {}),
     };
+  }
+
+  async patchTraceAnnotation(input: PatchTraceAnnotationInput): Promise<Trace | null> {
+    const record = await this.getTrace(input.traceId);
+    if (!record) return null;
+
+    const annotation = mergeTraceAnnotation(
+      record.trace.annotation,
+      input.annotation,
+      input.merge ?? true,
+    );
+    const trace: Trace = { ...record.trace, annotation };
+    if (annotation === undefined) delete trace.annotation;
+
+    await this.upsertTrace(trace);
+    return trace;
+  }
+
+  async patchRunAnnotation(input: PatchRunAnnotationInput): Promise<TraceRun | null> {
+    const record = await this.getTrace(input.traceId);
+    if (!record) return null;
+
+    const run = record.runs.find((candidate) => candidate.runId === input.runId);
+    if (!run) return null;
+
+    const annotation = mergeTraceAnnotation(run.annotation, input.annotation, input.merge ?? true);
+    const updatedRun: TraceRun = { ...run, annotation };
+    if (annotation === undefined) delete updatedRun.annotation;
+
+    await this.upsertRun(updatedRun);
+    return updatedRun;
   }
 
   private async readTraceDirs(): Promise<string[]> {

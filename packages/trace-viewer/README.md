@@ -17,7 +17,7 @@ pnpm --filter @m4trix/trace-viewer exec m4trix-trace-viewer --adapter fs --path 
 ```
 
 - **`--adapter fs`** — read traces via `FsStructureStoreAdapter` / `FsPayloadStoreAdapter` at `--path`.
-- **`--adapter aws-stack`** — prints a clear “not implemented” message and exits.
+- **`--adapter aws-stack`** — DynamoDB structure + S3 payloads via `TRACE_DYNAMO_TABLE`, `TRACE_S3_BUCKET`, and `AWS_REGION`.
 - **`--port`** — HTTP listen port (default `4319`).
 - **`--path`** — trace root for `fs` (default `tmp/tracing-example`).
 

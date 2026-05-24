@@ -88,6 +88,29 @@ describe('TraceViewerApi', () => {
     await expect(rootlessApi.getTraceTree('trace-1')).resolves.toBeNull();
   });
 
+  it('patches trace and run annotations', async () => {
+    const structureStoreAdapter = new MemoryStructureStoreAdapter();
+    const api = TraceViewerApi.from(
+      TraceStore.of({
+        payloadStoreAdapter: new MemoryPayloadStoreAdapter(),
+        structureStoreAdapter,
+      }),
+    );
+    await structureStoreAdapter.upsertTrace(makeTrace());
+    await structureStoreAdapter.upsertRun(makeRun({ runId: 'root' }));
+
+    await expect(
+      api.patchTraceAnnotation({ traceId: 'trace-1', annotation: { label: 'bug' } }),
+    ).resolves.toEqual(expect.objectContaining({ annotation: { label: 'bug' } }));
+    await expect(
+      api.patchRunAnnotation({
+        traceId: 'trace-1',
+        runId: 'root',
+        annotation: { note: 'check latency' },
+      }),
+    ).resolves.toEqual(expect.objectContaining({ annotation: { note: 'check latency' } }));
+  });
+
   it('resolves payload refs', async () => {
     const payloadStoreAdapter = new MemoryPayloadStoreAdapter();
     const api = TraceViewerApi.from(
@@ -120,6 +143,14 @@ class StaticStructureStoreAdapter implements StructureStoreAdapter {
   async listTraces(): Promise<{ traces: Trace[] }> {
     return { traces: [this.trace] };
   }
+
+  async patchTraceAnnotation(): Promise<Trace | null> {
+    return null;
+  }
+
+  async patchRunAnnotation(): Promise<TraceRun | null> {
+    return null;
+  }
 }
 
 class MemoryStructureStoreAdapter implements StructureStoreAdapter {
@@ -145,6 +176,37 @@ class MemoryStructureStoreAdapter implements StructureStoreAdapter {
 
   async listTraces(): Promise<{ traces: Trace[]; nextCursor?: string }> {
     return { traces: [...this.traces.values()] };
+  }
+
+  async patchTraceAnnotation(input: {
+    traceId: string;
+    annotation: Record<string, unknown>;
+    merge?: boolean;
+  }): Promise<Trace | null> {
+    const trace = this.traces.get(input.traceId);
+    if (!trace) return null;
+    const { mergeTraceAnnotation } = await import('./annotation-merge.js');
+    const annotation = mergeTraceAnnotation(trace.annotation, input.annotation, input.merge ?? true);
+    const updated = { ...trace, annotation };
+    if (annotation === undefined) delete updated.annotation;
+    this.traces.set(input.traceId, updated);
+    return updated;
+  }
+
+  async patchRunAnnotation(input: {
+    traceId: string;
+    runId: string;
+    annotation: Record<string, unknown>;
+    merge?: boolean;
+  }): Promise<TraceRun | null> {
+    const run = this.runs.get(input.runId);
+    if (!run || run.traceId !== input.traceId) return null;
+    const { mergeTraceAnnotation } = await import('./annotation-merge.js');
+    const annotation = mergeTraceAnnotation(run.annotation, input.annotation, input.merge ?? true);
+    const updated = { ...run, annotation };
+    if (annotation === undefined) delete updated.annotation;
+    this.runs.set(input.runId, updated);
+    return updated;
   }
 }
 

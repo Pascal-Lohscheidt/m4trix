@@ -17,6 +17,12 @@ const listInput = z
   })
   .optional();
 
+const annotationInput = z.object({
+  traceId: z.string().min(1),
+  annotation: z.record(z.unknown()),
+  merge: z.boolean().optional(),
+});
+
 export const appRouter = t.router({
   traces: t.router({
     list: t.procedure.input(listInput).query(async ({ ctx, input }) => {
@@ -31,6 +37,14 @@ export const appRouter = t.router({
       .input(z.object({ ref: z.string().min(1) }))
       .query(async ({ ctx, input }) => {
         return ctx.traceViewerApi.getPayload<unknown>(input.ref);
+      }),
+    patchAnnotation: t.procedure.input(annotationInput).mutation(async ({ ctx, input }) => {
+      return ctx.traceViewerApi.patchTraceAnnotation(input);
+    }),
+    patchRunAnnotation: t.procedure
+      .input(annotationInput.extend({ runId: z.string().min(1) }))
+      .mutation(async ({ ctx, input }) => {
+        return ctx.traceViewerApi.patchRunAnnotation(input);
       }),
   }),
 });

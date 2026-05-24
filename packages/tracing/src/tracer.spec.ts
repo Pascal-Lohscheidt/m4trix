@@ -271,6 +271,14 @@ class RecordingStructureStoreAdapter implements StructureStoreAdapter {
   async listTraces(): Promise<{ traces: Trace[]; nextCursor?: string }> {
     return { traces: [...this.traceRecords.values()] };
   }
+
+  async patchTraceAnnotation(): Promise<Trace | null> {
+    return null;
+  }
+
+  async patchRunAnnotation(): Promise<TraceRun | null> {
+    return null;
+  }
 }
 
 class RecordingPayloadStoreAdapter implements PayloadStoreAdapter {

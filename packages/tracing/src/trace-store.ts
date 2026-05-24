@@ -1,4 +1,12 @@
-import type { ListTracesQuery, PayloadStoreAdapter, StructureStoreAdapter, Trace, TraceRun } from './types.js';
+import type {
+  ListTracesQuery,
+  PatchRunAnnotationInput,
+  PatchTraceAnnotationInput,
+  PayloadStoreAdapter,
+  StructureStoreAdapter,
+  Trace,
+  TraceRun,
+} from './types.js';
 
 export type TraceStoreOptions = {
   structureStoreAdapter: StructureStoreAdapter;
@@ -45,6 +53,14 @@ export class TraceStore {
 
   listTraces(query?: ListTracesQuery): Promise<{ traces: Trace[]; nextCursor?: string }> {
     return this.structureStoreAdapter.listTraces(query);
+  }
+
+  patchTraceAnnotation(input: PatchTraceAnnotationInput): Promise<Trace | null> {
+    return this.structureStoreAdapter.patchTraceAnnotation(input);
+  }
+
+  patchRunAnnotation(input: PatchRunAnnotationInput): Promise<TraceRun | null> {
+    return this.structureStoreAdapter.patchRunAnnotation(input);
   }
 
   putJsonPayload(path: string, value: unknown): Promise<string> {

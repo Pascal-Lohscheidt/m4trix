@@ -1,3 +1,4 @@
+export { type AwsStackTraceViewerOptions, createAwsStackTraceViewerApi } from './aws-setup';
 export {
   type AdapterKind,
   CliParseError,

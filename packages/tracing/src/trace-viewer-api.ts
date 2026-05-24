@@ -1,5 +1,14 @@
 import type { TraceStore } from './trace-store.js';
-import type { ListTracesQuery, ListTracesResult, Trace, TraceRecord, TraceRun, TraceRunNode } from './types.js';
+import type {
+  ListTracesQuery,
+  ListTracesResult,
+  PatchRunAnnotationInput,
+  PatchTraceAnnotationInput,
+  Trace,
+  TraceRecord,
+  TraceRun,
+  TraceRunNode,
+} from './types.js';
 
 export class TraceViewerApi {
   private constructor(private readonly traceStore: TraceStore) {}
@@ -44,6 +53,14 @@ export class TraceViewerApi {
 
   getPayload<T = unknown>(ref: string): Promise<T> {
     return this.traceStore.getPayload<T>(ref);
+  }
+
+  patchTraceAnnotation(input: PatchTraceAnnotationInput): Promise<Trace | null> {
+    return this.traceStore.patchTraceAnnotation(input);
+  }
+
+  patchRunAnnotation(input: PatchRunAnnotationInput): Promise<TraceRun | null> {
+    return this.traceStore.patchRunAnnotation(input);
   }
 }
 

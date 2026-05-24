@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { CliParseError, cliHelpText, type ParsedCli, parseCliArgs } from './cli-args';
+import { createAwsStackTraceViewerApi } from './aws-setup';
 import { createFsTraceViewerApi } from './fs-setup';
 import { startTraceViewerServer } from './server/start-server';
 
@@ -22,10 +23,19 @@ function main(): void {
   }
 
   if (cfg.adapter === 'aws-stack') {
-    console.error(
-      `${program}: --adapter aws-stack is not implemented yet. Use --adapter fs with a trace directory.`,
-    );
-    process.exit(1);
+    try {
+      const traceViewerApi = createAwsStackTraceViewerApi();
+      startTraceViewerServer({ traceViewerApi, port: cfg.port });
+      return;
+    } catch (error) {
+      console.error(
+        `${program}: failed to start aws-stack adapter — ${error instanceof Error ? error.message : String(error)}`,
+      );
+      console.error(
+        `${program}: set TRACE_DYNAMO_TABLE, TRACE_S3_BUCKET, and AWS_REGION (optional: TRACE_S3_PREFIX, AWS_ENDPOINT_URL).`,
+      );
+      process.exit(1);
+    }
   }
 
   const tracePath = cfg.path;

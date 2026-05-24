@@ -73,6 +73,14 @@ class MemoryStructureStoreAdapter implements StructureStoreAdapter {
   async listTraces(): Promise<{ traces: Trace[] }> {
     return { traces: [...this.traces.values()] };
   }
+
+  async patchTraceAnnotation(): Promise<Trace | null> {
+    return null;
+  }
+
+  async patchRunAnnotation(): Promise<TraceRun | null> {
+    return null;
+  }
 }
 
 class MemoryPayloadStoreAdapter implements PayloadStoreAdapter {

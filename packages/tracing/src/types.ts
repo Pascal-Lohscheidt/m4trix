@@ -20,6 +20,8 @@ export type TraceTokens = {
 
 export type TraceMetadata = Record<string, string | number | boolean>;
 
+export type TraceAnnotation = Record<string, unknown>;
+
 export type TraceRun = {
   schemaVersion: 1;
   traceId: string;
@@ -38,6 +40,7 @@ export type TraceRun = {
   outputRef?: string;
   eventsRef?: string;
   metadata?: TraceMetadata;
+  annotation?: TraceAnnotation;
   extra?: Record<string, unknown>;
 };
 
@@ -55,6 +58,20 @@ export type Trace = {
   costUsd?: number;
   runCount: number;
   metadata?: TraceMetadata;
+  annotation?: TraceAnnotation;
+};
+
+export type PatchTraceAnnotationInput = {
+  traceId: string;
+  annotation: TraceAnnotation;
+  merge?: boolean;
+};
+
+export type PatchRunAnnotationInput = {
+  traceId: string;
+  runId: string;
+  annotation: TraceAnnotation;
+  merge?: boolean;
 };
 
 export type ListTracesQuery = {
@@ -72,6 +89,8 @@ export type StructureStoreAdapter = {
   upsertRunBatch?(runs: TraceRun[]): Promise<void>;
   getTrace(traceId: string): Promise<TraceRecord | null>;
   listTraces(query?: ListTracesQuery): Promise<ListTracesResult>;
+  patchTraceAnnotation(input: PatchTraceAnnotationInput): Promise<Trace | null>;
+  patchRunAnnotation(input: PatchRunAnnotationInput): Promise<TraceRun | null>;
 };
 
 export type PayloadStoreAdapter = {

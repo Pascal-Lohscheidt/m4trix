@@ -20,7 +20,7 @@ StructureStoreAdapter    PayloadStoreAdapter
 (small queryable rows)   (large JSON blobs, returns refs)
             ^
             |
-        TraceViewerApi  (read-only)
+        TraceViewerApi  (read + annotation writes)
 ```
 
 - The structure store keeps trace summaries and per-run spans.
@@ -58,6 +58,7 @@ export type TraceRun = {
   outputRef?: string;
   eventsRef?: string;
   metadata?: Record<string, string | number | boolean>;
+  annotation?: Record<string, unknown>;
   extra?: Record<string, unknown>;
 };
 
@@ -75,6 +76,7 @@ export type Trace = {
   costUsd?: number;
   runCount: number;
   metadata?: Record<string, string | number | boolean>;
+  annotation?: Record<string, unknown>;
 };
 ```
 
@@ -144,7 +146,29 @@ await traceViewerApi.listTraces({ projectId: "my-app", limit: 25 });
 await traceViewerApi.getTrace(traceId);      // { trace, runs } | null
 await traceViewerApi.getTraceTree(traceId);  // { trace, root: TraceRunNode } | null
 await traceViewerApi.getPayload(ref);        // resolves any JSON payload ref
+
+// Post-hoc review annotations (deep-merge by default)
+await traceViewerApi.patchTraceAnnotation({
+  traceId,
+  annotation: { review: { status: "needs-followup", author: "pascal" } },
+});
+await traceViewerApi.patchRunAnnotation({
+  traceId,
+  runId,
+  annotation: { note: "tool returned empty payload" },
+  merge: false, // replace entire run annotation
+});
 ```
+
+## Annotations
+
+`annotation` is a first-class JSON object on `Trace` and `TraceRun`, separate from scalar
+`metadata` captured during execution. Use it for human review notes, labels, or workflow state
+after a trace completes.
+
+- `patchTraceAnnotation({ traceId, annotation, merge? })` — deep-merge by default
+- `patchRunAnnotation({ traceId, runId, annotation, merge? })` — deep-merge by default
+- `merge: false` replaces the whole annotation; `{}` with `merge: false` clears it
 
 ## Filesystem Adapters
 
@@ -171,6 +195,51 @@ returns traces newest-first. It is suitable for local development and small data
 `TraceViewerApi.getPayload(ref)`. Stream refs can be written and read directly through
 `putStream`/`getStream`.
 
+## AWS Adapters
+
+For hosted storage, compose DynamoDB (structure) + S3 (payloads):
+
+```ts
+import {
+  DynamoStructureStoreAdapter,
+  S3PayloadStoreAdapter,
+  TraceStore,
+  resolveDynamoStructureStoreOptionsFromEnv,
+  resolveS3PayloadStoreOptionsFromEnv,
+} from "@m4trix/tracing";
+
+const traceStore = TraceStore.of({
+  structureStoreAdapter: new DynamoStructureStoreAdapter(
+    resolveDynamoStructureStoreOptionsFromEnv(),
+  ),
+  payloadStoreAdapter: new S3PayloadStoreAdapter(
+    resolveS3PayloadStoreOptionsFromEnv(),
+  ),
+});
+```
+
+Environment variables:
+
+| Variable | Purpose |
+|----------|---------|
+| `TRACE_DYNAMO_TABLE` | DynamoDB table name |
+| `TRACE_S3_BUCKET` | S3 bucket for payloads |
+| `TRACE_S3_PREFIX` | Optional key prefix (default: none) |
+| `AWS_REGION` | AWS region |
+| `AWS_ENDPOINT_URL` | Optional (LocalStack) |
+
+DynamoDB table schema (single-table):
+
+| Attribute | Key | Notes |
+|-----------|-----|-------|
+| `pk` | partition | `traceId` |
+| `sk` | sort | `TRACE` or `RUN#<runId>` |
+| `listPk` | GSI `byStartTime` PK | `PROJECT#_all` on trace items |
+| `listSk` | GSI `byStartTime` SK | trace `startTime` (ISO) |
+| `trace` / `run` | — | full documents |
+
+Payload refs remain logical paths like `traces/{traceId}/payloads/{runId}/input.json`.
+
 ## Adapter Interfaces
 
 ```ts
@@ -187,6 +256,17 @@ export type StructureStoreAdapter = {
     limit?: number;
     cursor?: string;
   }): Promise<{ traces: Trace[]; nextCursor?: string }>;
+  patchTraceAnnotation(input: {
+    traceId: string;
+    annotation: Record<string, unknown>;
+    merge?: boolean;
+  }): Promise<Trace | null>;
+  patchRunAnnotation(input: {
+    traceId: string;
+    runId: string;
+    annotation: Record<string, unknown>;
+    merge?: boolean;
+  }): Promise<TraceRun | null>;
 };
 
 export type PayloadStoreAdapter = {

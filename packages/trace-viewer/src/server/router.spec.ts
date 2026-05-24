@@ -35,10 +35,54 @@ describe('appRouter', () => {
       listTraces: vi.fn(),
       getTraceTree: vi.fn(),
       getPayload,
+      patchTraceAnnotation: vi.fn(),
+      patchRunAnnotation: vi.fn(),
     } as unknown as TraceViewerApi;
 
     const caller = appRouter.createCaller({ traceViewerApi });
     await expect(caller.traces.getPayload({ ref: 'payload.json' })).resolves.toEqual({ ok: true });
     expect(getPayload).toHaveBeenCalledWith('payload.json');
+  });
+
+  it('delegates traces.patchAnnotation', async () => {
+    const patchTraceAnnotation = vi.fn(async () => ({ traceId: 't1', annotation: { label: 'x' } }));
+    const traceViewerApi = {
+      listTraces: vi.fn(),
+      getTraceTree: vi.fn(),
+      getPayload: vi.fn(),
+      patchTraceAnnotation,
+      patchRunAnnotation: vi.fn(),
+    } as unknown as TraceViewerApi;
+
+    const caller = appRouter.createCaller({ traceViewerApi });
+    await expect(
+      caller.traces.patchAnnotation({ traceId: 't1', annotation: { label: 'x' } }),
+    ).resolves.toEqual({ traceId: 't1', annotation: { label: 'x' } });
+    expect(patchTraceAnnotation).toHaveBeenCalledWith({ traceId: 't1', annotation: { label: 'x' } });
+  });
+
+  it('delegates traces.patchRunAnnotation', async () => {
+    const patchRunAnnotation = vi.fn(async () => ({ runId: 'r1', annotation: { note: 'y' } }));
+    const traceViewerApi = {
+      listTraces: vi.fn(),
+      getTraceTree: vi.fn(),
+      getPayload: vi.fn(),
+      patchTraceAnnotation: vi.fn(),
+      patchRunAnnotation,
+    } as unknown as TraceViewerApi;
+
+    const caller = appRouter.createCaller({ traceViewerApi });
+    await expect(
+      caller.traces.patchRunAnnotation({
+        traceId: 't1',
+        runId: 'r1',
+        annotation: { note: 'y' },
+      }),
+    ).resolves.toEqual({ runId: 'r1', annotation: { note: 'y' } });
+    expect(patchRunAnnotation).toHaveBeenCalledWith({
+      traceId: 't1',
+      runId: 'r1',
+      annotation: { note: 'y' },
+    });
   });
 });

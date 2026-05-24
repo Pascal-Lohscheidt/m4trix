@@ -1,4 +1,5 @@
 export type TraceMetadata = Record<string, string | number | boolean>;
+export type TraceAnnotation = Record<string, unknown>;
 
 export type TraceRow = {
   traceId: string;
@@ -8,6 +9,7 @@ export type TraceRow = {
   runCount: number;
   projectId?: string;
   metadata?: TraceMetadata;
+  annotation?: TraceAnnotation;
 };
 
 export type RunNode = {
@@ -25,6 +27,7 @@ export type RunNode = {
   inputRef?: string;
   outputRef?: string;
   metadata?: TraceMetadata;
+  annotation?: TraceAnnotation;
   children: RunNode[];
 };
 

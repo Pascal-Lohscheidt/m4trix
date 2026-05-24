@@ -77,6 +77,71 @@ describe('FsStructureStoreAdapter', () => {
 
     await expect(adapter.getTrace('missing')).resolves.toBeNull();
   });
+
+  it('patches trace and run annotations with deep merge by default', async () => {
+    const adapter = new FsStructureStoreAdapter({ path: root });
+    const trace = makeTrace({ annotation: { review: { status: 'open' } } });
+    const run = makeRun({ annotation: { note: 'first' } });
+
+    await adapter.upsertTrace(trace);
+    await adapter.upsertRun(run);
+
+    await expect(
+      adapter.patchTraceAnnotation({
+        traceId: 'trace-1',
+        annotation: { review: { author: 'pascal' }, label: 'bug' },
+      }),
+    ).resolves.toEqual({
+      ...trace,
+      annotation: { review: { status: 'open', author: 'pascal' }, label: 'bug' },
+    });
+
+    await expect(
+      adapter.patchRunAnnotation({
+        traceId: 'trace-1',
+        runId: 'run-1',
+        annotation: { note: 'updated', severity: 'high' },
+      }),
+    ).resolves.toEqual({
+      ...run,
+      annotation: { note: 'updated', severity: 'high' },
+    });
+  });
+
+  it('replaces or clears annotations when merge is false', async () => {
+    const adapter = new FsStructureStoreAdapter({ path: root });
+    await adapter.upsertTrace(makeTrace({ annotation: { a: 1, b: 2 } }));
+    await adapter.upsertRun(makeRun({ annotation: { x: 1 } }));
+
+    await expect(
+      adapter.patchTraceAnnotation({
+        traceId: 'trace-1',
+        annotation: { c: 3 },
+        merge: false,
+      }),
+    ).resolves.toEqual(expect.objectContaining({ annotation: { c: 3 } }));
+
+    await expect(
+      adapter.patchRunAnnotation({
+        traceId: 'trace-1',
+        runId: 'run-1',
+        annotation: {},
+        merge: false,
+      }),
+    ).resolves.toEqual(expect.not.objectContaining({ annotation: expect.anything() }));
+  });
+
+  it('returns null when patching missing trace or run', async () => {
+    const adapter = new FsStructureStoreAdapter({ path: root });
+    await adapter.upsertTrace(makeTrace());
+
+    await expect(
+      adapter.patchTraceAnnotation({ traceId: 'missing', annotation: { a: 1 } }),
+    ).resolves.toBeNull();
+    await expect(
+      adapter.patchRunAnnotation({ traceId: 'trace-1', runId: 'missing', annotation: { a: 1 } }),
+    ).resolves.toBeNull();
+  });
 });
 
 function makeTrace(overrides: Partial<Trace> = {}): Trace {

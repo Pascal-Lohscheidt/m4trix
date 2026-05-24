@@ -43,10 +43,23 @@
   "author": "Pascal Lohscheidt",
   "license": "MIT",
   "devDependencies": {
+    "@aws-sdk/client-dynamodb": "^3.1053.0",
+    "@aws-sdk/client-s3": "^3.1053.0",
+    "@aws-sdk/lib-dynamodb": "^3.1053.0",
     "@types/node": "^20.0.0",
     "tsup": "^7.0.0",
     "typescript": "^5.0.0",
     "vitest": "^3.1.2"
+  },
+  "peerDependencies": {
+    "@aws-sdk/client-dynamodb": "^3.0.0",
+    "@aws-sdk/client-s3": "^3.0.0",
+    "@aws-sdk/lib-dynamodb": "^3.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@aws-sdk/client-dynamodb": { "optional": true },
+    "@aws-sdk/client-s3": { "optional": true },
+    "@aws-sdk/lib-dynamodb": { "optional": true }
   },
   "publishConfig": {
     "access": "public"

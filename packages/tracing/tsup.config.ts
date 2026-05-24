@@ -12,4 +12,9 @@ export default defineConfig({
   treeshake: true,
   minify: false,
   target: ['node18', 'es2020'],
+  external: [
+    '@aws-sdk/client-dynamodb',
+    '@aws-sdk/client-s3',
+    '@aws-sdk/lib-dynamodb',
+  ],
 });
