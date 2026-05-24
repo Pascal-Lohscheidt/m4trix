@@ -1,6 +1,7 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile } from 'node:fs/promises';
 import { dirname, isAbsolute, normalize, relative, resolve, sep } from 'node:path';
 import type { PayloadStoreAdapter } from '../types.js';
+import { writeFileAtomic } from './atomic-write.js';
 
 export type FsPayloadStoreAdapterOptions = {
   path: string;
@@ -16,7 +17,7 @@ export class FsPayloadStoreAdapter implements PayloadStoreAdapter {
   async putJson(path: string, value: unknown): Promise<string> {
     const { absolutePath, ref } = this.resolvePath(path, 'relative path');
     await mkdir(dirname(absolutePath), { recursive: true });
-    await writeFile(absolutePath, `${JSON.stringify(value, null, 2)}\n`, 'utf-8');
+    await writeFileAtomic(absolutePath, `${JSON.stringify(value, null, 2)}\n`);
     return ref;
   }
 
@@ -36,7 +37,7 @@ export class FsPayloadStoreAdapter implements PayloadStoreAdapter {
 
     const { absolutePath, ref } = this.resolvePath(path, 'relative path');
     await mkdir(dirname(absolutePath), { recursive: true });
-    await writeFile(absolutePath, Buffer.concat(chunks));
+    await writeFileAtomic(absolutePath, Buffer.concat(chunks));
     return ref;
   }
 

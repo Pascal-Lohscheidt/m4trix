@@ -240,6 +240,67 @@ DynamoDB table schema (single-table):
 
 Payload refs remain logical paths like `traces/{traceId}/payloads/{runId}/input.json`.
 
+## Trace Sidecar (filesystem → AWS)
+
+For production deployments, write traces locally with the filesystem adapters and run
+`m4trix-tracing-sidecar` in a companion container to replicate payloads to S3 and structure to
+DynamoDB. The app avoids network latency and AWS credentials; the sidecar handles upload,
+ordering, and cleanup.
+
+```txt
+App (FsStructure + FsPayload)  →  shared volume (/traces)
+Sidecar (m4trix-tracing-sidecar)  →  S3 + DynamoDB
+```
+
+Replication order: **payloads first**, then **structure** (`trace.json`, `runs.ndjson`) once all
+referenced payload refs are uploaded. Local payload files are deleted after a successful S3 put.
+Progress is tracked in `{root}/.shipper/state.json` (sidecar-owned).
+
+### CLI
+
+After `pnpm --filter @m4trix/tracing build`:
+
+```sh
+TRACE_DYNAMO_TABLE=traces \
+TRACE_S3_BUCKET=my-payloads \
+AWS_REGION=us-east-1 \
+  m4trix-tracing-sidecar --root ./.traces --once
+```
+
+Flags:
+
+| Flag | Default | Purpose |
+|------|---------|---------|
+| `--root <dir>` | `TRACE_ROOT` or `/traces` | Local trace root |
+| `--interval <dur>` | `2s` | Poll interval (`500ms`, `2s`, `1m`) |
+| `--once` | off | Single replication pass, then exit |
+
+Uses the same env vars as the AWS adapters (`TRACE_DYNAMO_TABLE`, `TRACE_S3_BUCKET`, etc.).
+
+### Docker
+
+Image: `ghcr.io/pascal-lohscheidt/m4trix-tracing-sidecar`
+
+Build from the repository root:
+
+```sh
+docker build -f packages/tracing/Dockerfile -t m4trix-tracing-sidecar .
+```
+
+Run with a shared traces volume:
+
+```sh
+docker run --rm \
+  -v /path/to/traces:/traces \
+  -e TRACE_DYNAMO_TABLE \
+  -e TRACE_S3_BUCKET \
+  -e AWS_REGION \
+  ghcr.io/pascal-lohscheidt/m4trix-tracing-sidecar:latest
+```
+
+Mount the same volume in your application container at `/traces` and point both processes at
+that path (`FsStructureStoreAdapter` / `FsPayloadStoreAdapter` with `path: "/traces"`).
+
 ## Adapter Interfaces
 
 ```ts

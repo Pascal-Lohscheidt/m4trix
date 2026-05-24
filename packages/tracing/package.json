@@ -5,6 +5,9 @@
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "bin": {
+    "m4trix-tracing-sidecar": "./dist/trace-shipper-cli.js"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -42,10 +45,12 @@
   ],
   "author": "Pascal Lohscheidt",
   "license": "MIT",
-  "devDependencies": {
+  "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.1053.0",
     "@aws-sdk/client-s3": "^3.1053.0",
-    "@aws-sdk/lib-dynamodb": "^3.1053.0",
+    "@aws-sdk/lib-dynamodb": "^3.1053.0"
+  },
+  "devDependencies": {
     "@types/node": "^20.0.0",
     "tsup": "^7.0.0",
     "typescript": "^5.0.0",

@@ -1,4 +1,4 @@
-import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { mergeTraceAnnotation } from '../annotation-merge.js';
 import type {
@@ -11,6 +11,7 @@ import type {
   TraceRecord,
   TraceRun,
 } from '../types.js';
+import { writeFileAtomic } from './atomic-write.js';
 
 export type FsStructureStoreAdapterOptions = {
   path: string;
@@ -26,7 +27,7 @@ export class FsStructureStoreAdapter implements StructureStoreAdapter {
   async upsertTrace(trace: Trace): Promise<void> {
     const tracePath = this.tracePath(trace.traceId);
     await mkdir(dirname(tracePath), { recursive: true });
-    await writeFile(tracePath, `${JSON.stringify(trace, null, 2)}\n`, 'utf-8');
+    await writeFileAtomic(tracePath, `${JSON.stringify(trace, null, 2)}\n`);
   }
 
   async upsertRun(run: TraceRun): Promise<void> {
@@ -50,10 +51,9 @@ export class FsStructureStoreAdapter implements StructureStoreAdapter {
 
       const runsPath = this.runsPath(traceId);
       await mkdir(dirname(runsPath), { recursive: true });
-      await writeFile(
+      await writeFileAtomic(
         runsPath,
         `${[...byRunId.values()].map((run) => JSON.stringify(run)).join('\n')}\n`,
-        'utf-8',
       );
     }
   }

@@ -28,6 +28,16 @@ describe('FsPayloadStoreAdapter', () => {
     );
   });
 
+  it('does not leave tmp files after putJson', async () => {
+    const adapter = new FsPayloadStoreAdapter({ path: root });
+    await adapter.putJson('traces/trace-1/payloads/run-1/input.json', { ok: true });
+
+    const payloadDir = join(root, 'traces/trace-1/payloads/run-1');
+    const { readdir } = await import('node:fs/promises');
+    const names = await readdir(payloadDir);
+    expect(names.every((name) => !name.endsWith('.tmp'))).toBe(true);
+  });
+
   it('writes and reads byte streams for NDJSON event payloads', async () => {
     const adapter = new FsPayloadStoreAdapter({ path: root });
     const encoder = new TextEncoder();
