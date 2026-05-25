@@ -227,5 +227,14 @@
   },
   "seo": {
     "indexing": "all"
+  },
+  "contextual": {
+    "options": [
+      "copy",
+      "mcp",
+      "cursor",
+      "claude"
+    ],
+    "display": "header"
   }
 }
