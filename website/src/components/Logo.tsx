@@ -133,11 +133,7 @@ export function Logo(props: React.ComponentPropsWithoutRef<'svg'>) {
             type="matrix"
             values="0 0 0 0 0.378048 0 0 0 0 0.46841 0 0 0 0 0.920217 0 0 0 0.25 0"
           />
-          <feBlend
-            mode="normal"
-            in2="BackgroundImageFix"
-            result="effect1_dropShadow_3677_714"
-          />
+          <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_3677_714" />
           <feColorMatrix
             in="SourceAlpha"
             type="matrix"
@@ -202,11 +198,7 @@ export function Logo(props: React.ComponentPropsWithoutRef<'svg'>) {
             type="matrix"
             values="0 0 0 0 0.378048 0 0 0 0 0.46841 0 0 0 0 0.920217 0 0 0 0.25 0"
           />
-          <feBlend
-            mode="normal"
-            in2="BackgroundImageFix"
-            result="effect1_dropShadow_3677_714"
-          />
+          <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_3677_714" />
           <feColorMatrix
             in="SourceAlpha"
             type="matrix"
@@ -271,11 +263,7 @@ export function Logo(props: React.ComponentPropsWithoutRef<'svg'>) {
             type="matrix"
             values="0 0 0 0 0.378048 0 0 0 0 0.46841 0 0 0 0 0.920217 0 0 0 0.25 0"
           />
-          <feBlend
-            mode="normal"
-            in2="BackgroundImageFix"
-            result="effect1_dropShadow_3677_714"
-          />
+          <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_3677_714" />
           <feColorMatrix
             in="SourceAlpha"
             type="matrix"
@@ -340,11 +328,7 @@ export function Logo(props: React.ComponentPropsWithoutRef<'svg'>) {
             type="matrix"
             values="0 0 0 0 0.378048 0 0 0 0 0.46841 0 0 0 0 0.920217 0 0 0 0.25 0"
           />
-          <feBlend
-            mode="normal"
-            in2="BackgroundImageFix"
-            result="effect1_dropShadow_3677_714"
-          />
+          <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_3677_714" />
           <feColorMatrix
             in="SourceAlpha"
             type="matrix"
@@ -409,11 +393,7 @@ export function Logo(props: React.ComponentPropsWithoutRef<'svg'>) {
             type="matrix"
             values="0 0 0 0 0.378048 0 0 0 0 0.46841 0 0 0 0 0.920217 0 0 0 0.25 0"
           />
-          <feBlend
-            mode="normal"
-            in2="BackgroundImageFix"
-            result="effect1_dropShadow_3677_714"
-          />
+          <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_3677_714" />
           <feColorMatrix
             in="SourceAlpha"
             type="matrix"
@@ -461,7 +441,7 @@ export function Logo(props: React.ComponentPropsWithoutRef<'svg'>) {
         </clipPath>
       </defs>
     </svg>
-  )
+  );
 }
 
 export function LogoWithText(props: React.ComponentPropsWithoutRef<'svg'>) {
@@ -603,11 +583,7 @@ export function LogoWithText(props: React.ComponentPropsWithoutRef<'svg'>) {
             type="matrix"
             values="0 0 0 0 0.378048 0 0 0 0 0.46841 0 0 0 0 0.920217 0 0 0 0.25 0"
           />
-          <feBlend
-            mode="normal"
-            in2="BackgroundImageFix"
-            result="effect1_dropShadow_3677_865"
-          />
+          <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_3677_865" />
           <feColorMatrix
             in="SourceAlpha"
             type="matrix"
@@ -672,11 +648,7 @@ export function LogoWithText(props: React.ComponentPropsWithoutRef<'svg'>) {
             type="matrix"
             values="0 0 0 0 0.378048 0 0 0 0 0.46841 0 0 0 0 0.920217 0 0 0 0.25 0"
           />
-          <feBlend
-            mode="normal"
-            in2="BackgroundImageFix"
-            result="effect1_dropShadow_3677_865"
-          />
+          <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_3677_865" />
           <feColorMatrix
             in="SourceAlpha"
             type="matrix"
@@ -741,11 +713,7 @@ export function LogoWithText(props: React.ComponentPropsWithoutRef<'svg'>) {
             type="matrix"
             values="0 0 0 0 0.378048 0 0 0 0 0.46841 0 0 0 0 0.920217 0 0 0 0.25 0"
           />
-          <feBlend
-            mode="normal"
-            in2="BackgroundImageFix"
-            result="effect1_dropShadow_3677_865"
-          />
+          <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_3677_865" />
           <feColorMatrix
             in="SourceAlpha"
             type="matrix"
@@ -810,11 +778,7 @@ export function LogoWithText(props: React.ComponentPropsWithoutRef<'svg'>) {
             type="matrix"
             values="0 0 0 0 0.378048 0 0 0 0 0.46841 0 0 0 0 0.920217 0 0 0 0.25 0"
           />
-          <feBlend
-            mode="normal"
-            in2="BackgroundImageFix"
-            result="effect1_dropShadow_3677_865"
-          />
+          <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_3677_865" />
           <feColorMatrix
             in="SourceAlpha"
             type="matrix"
@@ -879,11 +843,7 @@ export function LogoWithText(props: React.ComponentPropsWithoutRef<'svg'>) {
             type="matrix"
             values="0 0 0 0 0.378048 0 0 0 0 0.46841 0 0 0 0 0.920217 0 0 0 0.25 0"
           />
-          <feBlend
-            mode="normal"
-            in2="BackgroundImageFix"
-            result="effect1_dropShadow_3677_865"
-          />
+          <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_3677_865" />
           <feColorMatrix
             in="SourceAlpha"
             type="matrix"
@@ -931,19 +891,24 @@ export function LogoWithText(props: React.ComponentPropsWithoutRef<'svg'>) {
         </clipPath>
       </defs>
     </svg>
-  )
+  );
 }
 
 export function ImageLogoWithText(
   props: React.ComponentPropsWithoutRef<'span'> & { alt?: string },
 ) {
-  const { alt, ...rest } = props
+  const { alt: _alt, ...rest } = props;
+  return <Wordmark {...rest} />;
+}
+
+export function Wordmark(props: React.ComponentPropsWithoutRef<'span'>) {
   return (
     <span
-      className="inline-flex items-center font-display text-xl font-bold tracking-tight"
-      {...rest}
+      className="inline-flex items-center font-mono text-[15px] font-bold tracking-wide text-text-1"
+      {...props}
     >
-      m4trix
+      <em className="not-italic text-(--accent) transition-[color] duration-300">m</em>
+      4trix
     </span>
-  )
+  );
 }

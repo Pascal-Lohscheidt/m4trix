@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="en" data-pkg="agents">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>m4trix — Landing Reference</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* ─── Design tokens ──────────────────────────────────────────────────── */
+:root {
+  --bg:        #09090b;
+  --bg-raised: #18181b;
+  --bg-subtle: #27272a;
+  --border:    rgba(255,255,255,0.07);
+  --border-md: rgba(255,255,255,0.13);
+  --text-1: #fafafa;
+  --text-2: #a1a1aa;
+  --text-3: #71717a;
+  --text-4: #52525b;
+  --green:  #4ade80;
+  --cyan:   #67e8f9;
+  --amber:  #fbbf24;
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
+  --r-sm: 5px; --r-md: 8px; --r-lg: 12px; --r-xl: 16px;
+}
+
+/* Package accent tokens */
+[data-pkg="agents"] {
+  --accent:        #a78bfa;
+  --accent-solid:  #7c3aed;
+  --accent-dim:    rgba(167,139,250,0.12);
+  --accent-border: rgba(167,139,250,0.30);
+  --accent-text:   #c4b5fd;
+  --glow-color:    rgba(124,58,237,0.14);
+  --glow-color-2:  rgba(103,232,249,0.07);
+}
+[data-pkg="evals"] {
+  --accent:        #34d399;
+  --accent-solid:  #059669;
+  --accent-dim:    rgba(52,211,153,0.10);
+  --accent-border: rgba(52,211,153,0.28);
+  --accent-text:   #6ee7b7;
+  --glow-color:    rgba(5,150,105,0.12);
+  --glow-color-2:  rgba(20,184,166,0.08);
+}
+[data-pkg="tracing"] {
+  --accent:        #38bdf8;
+  --accent-solid:  #0369a1;
+  --accent-dim:    rgba(56,189,248,0.10);
+  --accent-border: rgba(56,189,248,0.28);
+  --accent-text:   #7dd3fc;
+  --glow-color:    rgba(3,105,161,0.14);
+  --glow-color-2:  rgba(7,89,133,0.08);
+}
+
+/* ─── Base ───────────────────────────────────────────────────────────── */
+body {
+  font-family: var(--font-sans);
+  background: var(--bg);
+  color: var(--text-1);
+  min-height: 100vh;
+}
+
+/* ─── Matrix rain ────────────────────────────────────────────────────── */
+#matrix-rain {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  pointer-events: none; z-index: 0; opacity: 0.055;
+}
+.scanline {
+  pointer-events: none; position: fixed; inset: 0; z-index: 1;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(0,0,0,0.025) 0px, rgba(0,0,0,0.025) 1px,
+    transparent 1px, transparent 2px
+  );
+  background-size: 100% 2px;
+}
+
+/* ─── NAV ────────────────────────────────────────────────────────────── */
+.site-nav {
+  position: sticky; top: 0; z-index: 50;
+  border-bottom: 1px solid var(--border);
+  background: rgba(9,9,11,0.94);
+  backdrop-filter: blur(20px);
+  transition: border-color 0.3s;
+}
+.nav-inner {
+  max-width: 1280px; margin: 0 auto; padding: 0 1.5rem;
+  height: 56px; display: flex; align-items: center; justify-content: space-between;
+}
+/* Logo */
+.nav-logo { display: flex; align-items: center; gap: 10px; }
+.logo-text {
+  font-family: var(--font-mono); font-size: 15px; font-weight: 700;
+  color: var(--text-1); letter-spacing: 0.02em;
+}
+.logo-text em { font-style: normal; color: var(--accent); transition: color 0.3s; }
+/* Badge */
+.nav-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-family: var(--font-mono); font-size: 11px; font-weight: 600;
+  color: var(--accent);
+  border: 1px solid var(--accent-border);
+  background: var(--accent-dim);
+  padding: 2px 9px; border-radius: 999px;
+  transition: color 0.3s, border-color 0.3s, background 0.3s;
+}
+.nav-badge-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--accent);
+  animation: pulse 2s ease-in-out infinite;
+  transition: background 0.3s;
+}
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+/* Nav buttons */
+.nav-links { display: flex; align-items: center; gap: 8px; }
+.btn-nav-ghost {
+  display: flex; align-items: center; gap: 5px;
+  font-family: var(--font-mono); font-size: 11px; font-weight: 500;
+  color: var(--text-3);
+  border: 1px solid var(--border-md); background: transparent;
+  padding: 5px 11px; border-radius: var(--r-md); cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+  text-decoration: none;
+}
+.btn-nav-ghost:hover { color: var(--text-1); background: rgba(255,255,255,0.04); border-color: var(--text-3); }
+.btn-nav-docs {
+  display: flex; align-items: center; gap: 5px;
+  font-family: var(--font-mono); font-size: 11px; font-weight: 600;
+  color: var(--accent);
+  border: 1px solid var(--accent-border);
+  background: var(--accent-dim);
+  padding: 5px 11px; border-radius: var(--r-md); cursor: pointer;
+  transition: color 0.3s, border-color 0.3s, background 0.3s;
+  text-decoration: none;
+}
+.btn-nav-docs:hover { background: var(--accent-dim); filter: brightness(1.1); }
+.btn-nav-docs .prompt { opacity: 0.6; }
+.btn-nav-docs .arrow  { opacity: 0; transition: opacity 0.15s; }
+.btn-nav-docs:hover .arrow { opacity: 1; }
+
+/* ─── TABS BAR ───────────────────────────────────────────────────────── */
+.tabs-bar {
+  position: sticky; top: 56px; z-index: 40;
+  border-bottom: 1px solid var(--border);
+  background: rgba(9,9,11,0.88);
+  backdrop-filter: blur(12px);
+}
+.tabs-inner {
+  max-width: 1280px; margin: 0 auto; padding: 0 1.5rem;
+  display: flex; overflow-x: auto;
+}
+.tab-btn {
+  display: flex; align-items: center; gap: 8px; flex-shrink: 0;
+  font-family: var(--font-mono); font-size: 13px; font-weight: 500;
+  color: var(--text-4);
+  padding: 14px 18px; border: none;
+  border-bottom: 2px solid transparent;
+  background: transparent; cursor: pointer;
+  transition: color 0.15s, border-color 0.3s;
+  white-space: nowrap;
+}
+.tab-btn:hover { color: var(--text-2); }
+.tab-btn.active { color: var(--text-1); border-bottom-color: var(--accent); transition: color 0.15s, border-color 0.3s; }
+.tab-pill {
+  font-size: 10px; font-weight: 600;
+  padding: 2px 7px; border-radius: 4px;
+  border: 1px solid var(--border-md); background: var(--bg-raised); color: var(--text-4);
+  transition: all 0.3s;
+}
+.tab-btn.active .tab-pill {
+  border-color: var(--accent-border); background: var(--accent-dim); color: var(--accent-text);
+}
+
+/* ─── PANELS ─────────────────────────────────────────────────────────── */
+.tab-panel { display: none; position: relative; z-index: 2; }
+.tab-panel.active { display: block; }
+
+/* ─── HERO ───────────────────────────────────────────────────────────── */
+.hero { position: relative; overflow: hidden; padding: 80px 0 96px; }
+.glow {
+  position: absolute; border-radius: 50%; pointer-events: none;
+  filter: blur(110px);
+}
+.glow-1 { width: 500px; height: 380px; top: -140px; left: 18%; background: var(--glow-color); transition: background 0.4s; }
+.glow-2 { width: 360px; height: 280px; top: 35%; right: 16%; background: var(--glow-color-2); transition: background 0.4s; }
+.hero-inner { max-width: 1280px; margin: 0 auto; padding: 0 2rem; position: relative; z-index: 2; }
+.hero-layout { display: flex; flex-direction: column; align-items: center; gap: 48px; }
+@media (min-width: 960px) {
+  .hero-layout { flex-direction: row; align-items: center; }
+  .hero-text { text-align: left; }
+  .install-block, .entry-pills, .ctas { margin-left: 0; }
+}
+.hero-text { flex: 1; text-align: center; }
+.eyebrow {
+  font-family: var(--font-mono); font-size: 11px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.1em;
+  color: var(--accent); margin-bottom: 14px; transition: color 0.3s;
+}
+.hero h1 {
+  font-size: clamp(36px, 6vw, 64px); font-weight: 700;
+  letter-spacing: -0.025em; line-height: 1.1; color: var(--text-1);
+}
+.hero h1 .hl { color: var(--accent); transition: color 0.3s; }
+.hero-sub {
+  font-size: 17px; color: var(--text-2); margin-top: 16px;
+  line-height: 1.65; max-width: 520px;
+}
+.hero-sub code {
+  font-family: var(--font-mono); font-size: 13px;
+  padding: 1px 6px; border-radius: 4px;
+  border: 1px solid var(--border-md); background: rgba(255,255,255,0.04);
+  color: var(--cyan);
+}
+/* Install block */
+.install-block {
+  margin-top: 24px; max-width: 400px;
+  border-radius: var(--r-lg); border: 1px solid var(--border-md);
+  background: rgba(24,24,27,0.9); font-family: var(--font-mono); font-size: 13px; overflow: hidden;
+}
+.install-hdr {
+  padding: 7px 14px; border-bottom: 1px solid var(--border);
+  display: flex; justify-content: space-between; font-size: 10px; color: var(--text-4);
+}
+.install-body { padding: 10px 14px; display: flex; flex-direction: column; gap: 5px; }
+.install-row { display: flex; align-items: center; gap: 8px; }
+.i-prompt { color: var(--accent); transition: color 0.3s; }
+.i-pkg    { color: var(--accent); transition: color 0.3s; }
+.i-ok     { color: var(--green); }
+/* Entry pills */
+.entry-pills {
+  display: flex; flex-wrap: wrap; gap: 7px; margin-top: 16px;
+  font-family: var(--font-mono); font-size: 11px;
+  justify-content: center;
+}
+@media (min-width: 960px) { .entry-pills { justify-content: flex-start; } }
+.entry-pill {
+  padding: 5px 10px; border-radius: var(--r-md);
+  border: 1px solid var(--border); background: rgba(24,24,27,0.8);
+}
+.entry-pill .ep-pkg { color: var(--accent); transition: color 0.3s; }
+.entry-pill .ep-comment { color: var(--text-4); margin-left: 6px; }
+/* Convention pills (evals) */
+.convention-pills {
+  display: flex; flex-wrap: wrap; gap: 7px; margin-top: 18px;
+  font-family: var(--font-mono); font-size: 12px; justify-content: center;
+}
+.convention-pill {
+  padding: 5px 11px; border-radius: var(--r-md);
+  border: 1px solid var(--border); background: rgba(24,24,27,0.8);
+  color: var(--accent); transition: color 0.3s;
+}
+/* CTAs */
+.ctas { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 28px; justify-content: center; }
+@media (min-width: 960px) { .ctas { justify-content: flex-start; } }
+.btn-primary {
+  display: flex; align-items: center; gap: 6px;
+  font-family: var(--font-mono); font-size: 13px; font-weight: 600;
+  color: #fff; background: var(--accent-solid);
+  border: none; padding: 11px 22px; border-radius: var(--r-md); cursor: pointer;
+  transition: background 0.3s, filter 0.15s; text-decoration: none;
+}
+.btn-primary:hover { filter: brightness(1.12); }
+.btn-primary .arrow { opacity: 0; transition: opacity 0.15s; }
+.btn-primary:hover .arrow { opacity: 1; }
+.btn-secondary {
+  display: flex; align-items: center; gap: 7px;
+  font-family: var(--font-mono); font-size: 13px; font-weight: 500;
+  color: var(--text-2); border: 1px solid var(--border-md); background: transparent;
+  padding: 11px 22px; border-radius: var(--r-md); cursor: pointer;
+  transition: border-color 0.15s, color 0.15s; text-decoration: none;
+}
+.btn-secondary:hover { border-color: var(--text-3); color: var(--text-1); }
+
+/* ─── SIDE DIAGRAM ───────────────────────────────────────────────────── */
+.hero-diagram { width: 100%; max-width: 260px; flex-shrink: 0; }
+@media (min-width: 960px) { .hero-diagram { width: 260px; } }
+.diagram-card {
+  border-radius: var(--r-xl); border: 1px solid var(--border-md);
+  background: rgba(24,24,27,0.7); padding: 18px;
+  font-family: var(--font-mono); font-size: 12px;
+}
+.diagram-label {
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.1em; color: var(--text-4);
+  text-align: center; margin-bottom: 14px;
+}
+.d-nodes { display: flex; flex-direction: column; gap: 7px; }
+.d-node {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 12px; border-radius: var(--r-md);
+  background: var(--accent-dim); border: 1px solid var(--accent-border);
+  color: var(--accent-text); transition: all 0.3s;
+}
+.d-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); flex-shrink: 0; transition: background 0.3s; }
+.d-channel {
+  padding: 7px 12px; border-radius: var(--r-md); text-align: center;
+  border: 1px dashed rgba(103,232,249,0.3); background: rgba(103,232,249,0.05); color: var(--cyan);
+}
+.d-arrow { text-align: center; font-size: 11px; color: var(--text-4); }
+/* Tracing diagram boxes */
+.d-node-plain {
+  display: flex; align-items: center; justify-content: center;
+  padding: 8px 12px; border-radius: var(--r-md);
+  border: 1px solid var(--border-md); background: rgba(255,255,255,0.04); color: var(--text-2);
+}
+.d-split { display: flex; gap: 7px; }
+.d-split-box {
+  flex: 1; padding: 8px; border-radius: var(--r-md); text-align: center;
+  border: 1px dashed var(--border-md); color: var(--text-4); font-size: 10px; line-height: 1.5;
+}
+
+/* ─── BENTO ──────────────────────────────────────────────────────────── */
+.features { padding: 0 2rem 96px; position: relative; z-index: 2; }
+.features-inner { max-width: 1280px; margin: 0 auto; }
+.section-hd { text-align: center; margin-bottom: 48px; }
+.section-hd h2 { font-size: clamp(24px,4vw,36px); font-weight: 700; letter-spacing: -0.02em; color: var(--text-1); }
+.section-hd p  { font-size: 15px; color: var(--text-2); margin-top: 10px; }
+.bento { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px,1fr)); gap: 12px; }
+.bcard {
+  border-radius: var(--r-xl); border: 1px solid var(--border);
+  background: rgba(24,24,27,0.5); padding: 22px;
+  transition: border-color 0.15s, background 0.15s;
+}
+.bcard:hover { border-color: var(--accent-border); background: rgba(24,24,27,0.8); }
+.bcard-icon { font-size: 20px; margin-bottom: 12px; }
+.bcard h3 { font-family: var(--font-mono); font-size: 13px; font-weight: 600; color: var(--text-1); }
+.bcard p  { font-size: 13px; color: var(--text-2); margin-top: 6px; line-height: 1.55; }
+.bcard code {
+  display: block; font-family: var(--font-mono); font-size: 11px; color: var(--cyan);
+  background: rgba(9,9,11,0.8); border: 1px solid var(--border);
+  border-radius: var(--r-md); padding: 8px 10px; margin-top: 10px;
+}
+.bcard-tag {
+  display: inline-block; font-family: var(--font-mono); font-size: 10px; font-weight: 600;
+  padding: 2px 7px; border-radius: 4px; margin-top: 10px;
+  background: var(--accent-dim); color: var(--accent-text); transition: all 0.3s;
+}
+
+/* ─── FOOTER ─────────────────────────────────────────────────────────── */
+.site-footer { position: relative; z-index: 2; border-top: 1px solid var(--border); background: var(--bg); }
+.footer-inner {
+  max-width: 1280px; margin: 0 auto; padding: 8px 2rem;
+  display: flex; align-items: center; justify-content: space-between;
+  font-family: var(--font-mono); font-size: 11px; color: var(--text-4);
+}
+.footer-branch { display: flex; align-items: center; gap: 6px; }
+.footer-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); transition: background 0.3s; }
+.footer-gh { color: var(--text-4); text-decoration: none; transition: color 0.15s; }
+.footer-gh:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+
+<canvas id="matrix-rain"></canvas>
+<div class="scanline" aria-hidden="true"></div>
+
+<!-- ══ NAV ══════════════════════════════════════════════════════════════ -->
+<nav class="site-nav">
+  <div class="nav-inner">
+    <div class="nav-logo">
+      <span class="logo-text mono"><em>m</em>4trix</span>
+      <span class="nav-badge mono" id="nav-badge">
+        <span class="nav-badge-dot" id="nav-badge-dot"></span>
+        <span id="nav-badge-text">Pre-Alpha</span>
+      </span>
+    </div>
+    <div class="nav-links">
+      <a href="https://github.com/Pascal-Lohscheidt/m4trix" class="btn-nav-ghost mono">
+        <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clip-rule="evenodd"/></svg>
+        GitHub
+      </a>
+      <a href="https://docs.m4trix.dev" class="btn-nav-docs mono" id="nav-docs-btn">
+        <span class="prompt">$</span>
+        <span id="nav-docs-label">read docs</span>
+        <span class="arrow">→</span>
+      </a>
+    </div>
+  </div>
+</nav>
+
+<!-- ══ TABS ══════════════════════════════════════════════════════════════ -->
+<div class="tabs-bar" role="tablist">
+  <div class="tabs-inner">
+    <button class="tab-btn mono active" role="tab" aria-selected="true"  aria-controls="panel-agents"  onclick="switchTab('agents')">
+      Agent Orchestrator <span class="tab-pill">Pre-Alpha</span>
+    </button>
+    <button class="tab-btn mono"        role="tab" aria-selected="false" aria-controls="panel-evals"   onclick="switchTab('evals')">
+      Evals
+    </button>
+    <button class="tab-btn mono"        role="tab" aria-selected="false" aria-controls="panel-tracing" onclick="switchTab('tracing')">
+      Tracing
+    </button>
+  </div>
+</div>
+
+<!-- ══ PANEL: AGENTS ══════════════════════════════════════════════════════ -->
+<div id="panel-agents" class="tab-panel active" role="tabpanel">
+  <section class="hero">
+    <div class="glow glow-1"></div>
+    <div class="glow glow-2"></div>
+    <div class="hero-inner">
+      <div class="hero-layout">
+
+        <div class="hero-text">
+          <p class="eyebrow">Agentic infrastructure</p>
+          <h1>Orchestrate agents <span class="hl" id="hl-word">typesafe</span></h1>
+          <p class="hero-sub">
+            Event-driven agent orchestration. Type-safe events, channels, sinks.
+            <code>@m4trix/core/matrix</code>. Build, wire, stream.
+          </p>
+          <div class="install-block">
+            <div class="install-hdr"><span>Terminal</span><span>bash</span></div>
+            <div class="install-body">
+              <div class="install-row"><span class="mono i-prompt">$</span><span class="mono" style="color:var(--text-1);">pnpm add <span class="i-pkg">@m4trix/core</span></span></div>
+              <div class="install-row" style="padding-left:20px;"><span class="mono i-ok">✓</span><span class="mono" style="color:var(--green);opacity:0.85;">Done in 0.4s</span><span class="mono" style="color:var(--text-4);margin-left:10px;">Packages: +1</span></div>
+            </div>
+          </div>
+          <div class="entry-pills">
+            <span class="entry-pill"><span class="ep-pkg">@m4trix/core/matrix</span><span class="ep-comment">// agents & networks</span></span>
+            <span class="entry-pill"><span class="ep-pkg">@m4trix/stream</span><span class="ep-comment">// pipes</span></span>
+            <span class="entry-pill"><span class="ep-pkg">@m4trix/react</span><span class="ep-comment">// hooks</span></span>
+          </div>
+          <div class="ctas">
+            <a href="https://docs.m4trix.dev" class="btn-primary">Quick Start <span class="arrow">→</span></a>
+            <a href="https://github.com/Pascal-Lohscheidt/m4trix/stargazers" class="btn-secondary">
+              <svg width="15" height="15" fill="#fbbf24" viewBox="0 0 20 20" aria-hidden="true"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+              Star on GitHub
+            </a>
+          </div>
+        </div>
+
+        <div class="hero-diagram">
+          <div class="diagram-card">
+            <p class="diagram-label">Agent network</p>
+            <div class="d-nodes">
+              <div class="d-node"><span class="d-dot"></span><span>IngestAgent</span></div>
+              <div class="d-arrow">↓ events</div>
+              <div class="d-channel">channel('pipeline')</div>
+              <div class="d-arrow">↓ sink</div>
+              <div class="d-node"><span class="d-dot"></span><span>TransformAgent</span></div>
+              <div class="d-arrow">↓ SSE</div>
+              <div class="d-channel">HTTP stream</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <section class="features">
+    <div class="features-inner">
+      <div class="section-hd">
+        <h2>Write logic first. Wire it second.</h2>
+        <p>Most frameworks make you draw a graph before you write a line of code. m4trix doesn't.<br>Agents declare what events they care about. The network figures out the rest at runtime.</p>
+      </div>
+      <p style="max-width:640px;margin:0 auto 40px;text-align:center;font-size:14px;color:var(--text-3);line-height:1.7;">The six primitives below compose into any topology — a linear chain, a fan-out, a multi-tenant swarm. You never redraw a graph when requirements change; you change which channel an agent subscribes to.</p>
+      <div class="bento">
+        <div class="bcard"><div class="bcard-icon">⚡</div><h3>Event-Driven Agents</h3><p>Write a typed async function. Tell the factory which events trigger it and which it can emit. No base class, no decorator, no node to register — just logic and a schema.</p><code>AgentFactory.run().listensTo([evt]).logic(fn).produce({})</code><span class="bcard-tag">core</span></div>
+        <div class="bcard"><div class="bcard-icon">🔗</div><h3>Agent Networks</h3><p><code style="font-size:11px;color:var(--cyan);">setup()</code> is the only wiring ceremony. Subscribe an agent to a channel, tell it where to publish. Chain, fan-out, fork — always the same two lines.</p><code>AgentNetwork.setup(({ registerAgent }) => …)</code><span class="bcard-tag">core</span></div>
+        <div class="bcard"><div class="bcard-icon">🛡</div><h3>Typed Events</h3><p>The payload you emit in AgentA is the typed <code style="font-size:11px;color:var(--cyan);">triggerEvent</code> in AgentB. Effect Schema validates every handoff at runtime — a schema mismatch fails loudly, not silently in production.</p><code>AgentNetworkEvent.of('request', S.Struct({…}))</code><span class="bcard-tag">typesafe</span></div>
+        <div class="bcard"><div class="bcard-icon">📡</div><h3>SSE Streaming</h3><p>Call <code style="font-size:11px;color:var(--cyan);">.expose()</code> on a network and you have a streaming HTTP endpoint. The Next.js adapter is a one-liner. Your frontend reads a Server-Sent Events stream, not a polling loop.</p><code>NextEndpoint.from(network.expose({…})).handler()</code><span class="bcard-tag">stream</span></div>
+        <div class="bcard"><div class="bcard-icon">🔀</div><h3>Channels & Sinks</h3><p>Channels are named message buses. Swap an <code style="font-size:11px;color:var(--cyan);">httpStream</code> sink for Kafka without touching a single agent. The agent doesn't know — or care — where its events go.</p><code>createChannel('client').sink(sink.httpStream())</code><span class="bcard-tag">infra</span></div>
+        <div class="bcard"><div class="bcard-icon">📦</div><h3>Batteries Included</h3><p><code style="font-size:11px;color:var(--cyan);">useConversation()</code> manages SSE state in React. <code style="font-size:11px;color:var(--cyan);">Pump</code> chains transforms over streams. <code style="font-size:11px;color:var(--cyan);">AiCursor</code> renders a live typing indicator. Nothing to assemble separately.</p><code>@m4trix/core  |  @m4trix/stream  |  @m4trix/react</code><span class="bcard-tag">ecosystem</span></div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- ══ PANEL: EVALS ══════════════════════════════════════════════════════ -->
+<div id="panel-evals" class="tab-panel" role="tabpanel">
+  <section class="hero">
+    <div class="glow glow-1"></div>
+    <div class="glow glow-2"></div>
+    <div class="hero-inner">
+      <div class="hero-layout" style="justify-content:center;">
+        <div class="hero-text" style="text-align:center;max-width:720px;flex:none;">
+          <p class="eyebrow">@m4trix/evals</p>
+          <h1>Repeatable evals for <span class="hl">AI agents</span></h1>
+          <p class="hero-sub" style="margin:16px auto 0;max-width:580px;">
+            Define datasets, evaluators, and test cases as TypeScript files. The CLI discovers and runs them by convention — like Vitest, but for your AI outputs.
+          </p>
+          <div class="convention-pills">
+            <span class="convention-pill mono">*.dataset.ts</span>
+            <span class="convention-pill mono">*.evaluator.ts</span>
+            <span class="convention-pill mono">*.run-config.ts</span>
+            <span class="convention-pill mono">*.test-case.ts</span>
+          </div>
+          <div class="install-block" style="margin:24px auto 0;">
+            <div class="install-hdr"><span>Terminal</span><span>bash</span></div>
+            <div class="install-body">
+              <div class="install-row"><span class="mono i-prompt">$</span><span class="mono" style="color:var(--text-1);">pnpm add <span class="i-pkg">@m4trix/evals</span></span></div>
+              <div class="install-row" style="padding-left:20px;"><span class="mono i-ok">✓</span><span class="mono" style="color:var(--green);opacity:0.85;">Done in 0.4s</span></div>
+            </div>
+          </div>
+          <div class="ctas" style="justify-content:center;">
+            <a href="https://docs.m4trix.dev/evals" class="btn-primary">Get Started <span class="arrow">→</span></a>
+            <a href="https://github.com/Pascal-Lohscheidt/m4trix" class="btn-secondary">View on GitHub</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="features">
+    <div class="features-inner">
+      <div class="section-hd">
+        <h2>Stop guessing. Define what good looks like.</h2>
+        <p>You improved the prompt. But better by how much, versus which baseline, on which inputs?<br>Without a structured harness, every eval is a vibe check that you can't reproduce tomorrow.</p>
+      </div>
+      <p style="max-width:640px;margin:0 auto 40px;text-align:center;font-size:14px;color:var(--text-3);line-height:1.7;">The six primitives compose into a full eval pipeline: define your inputs once as TestCases, group them into Datasets by tag, score them with typed Evaluators, aggregate Metrics across repetitions, and run the whole thing from the CLI without wiring anything manually.</p>
+      <div class="bento">
+        <div class="bcard"><div class="bcard-icon">📊</div><h3>Dataset</h3><p>A named, tagged slice of your test cases. Run only the <code style="font-size:11px;color:var(--cyan);">'edge'</code> tag before a hotfix. Run the full suite before a release. Same eval files, different scope — no duplication.</p><code>Dataset.define({ name: 'my-dataset', includedTags: ['core'] })</code><span class="bcard-tag">define</span></div>
+        <div class="bcard"><div class="bcard-icon">🧪</div><h3>Evaluator</h3><p>A typed scoring function that knows its own context: the current run ID, which repetition it's on, how long the previous step took. All of that is in <code style="font-size:11px;color:var(--cyan);">meta</code> — no global state, no thread locals.</p><code>Evaluator.define({ name, evaluate: async ({ input, meta }) => … })</code><span class="bcard-tag">score</span></div>
+        <div class="bcard"><div class="bcard-icon">📋</div><h3>Test Cases</h3><p>Stable named inputs with tags. The same <code style="font-size:11px;color:var(--cyan);">'user-asks-ambiguous-question'</code> case feeds five different evaluators. Add a new evaluator next month and it picks up all existing cases automatically.</p><code>TestCase.define({ name, input: {…}, tags: ['edge'] })</code><span class="bcard-tag">define</span></div>
+        <div class="bcard"><div class="bcard-icon">⚙️</div><h3>Run Config</h3><p>Wire a Dataset to its Evaluators. Set <code style="font-size:11px;color:var(--cyan);">repetitions: 5</code> to measure variance. Set a <code style="font-size:11px;color:var(--cyan);">seed</code> to make sampling reproducible across runs. The RunConfig is what the CLI actually executes.</p><code>RunConfig.define({ name, rows: [{ dataset, evaluators }] })</code><span class="bcard-tag">run</span></div>
+        <div class="bcard"><div class="bcard-icon">📐</div><h3>Metrics</h3><p><code style="font-size:11px;color:var(--cyan);">latencyMetric</code> and <code style="font-size:11px;color:var(--cyan);">scoreMetric</code> ship out of the box. Defining a custom one is three lines: an <code style="font-size:11px;color:var(--cyan);">id</code>, a <code style="font-size:11px;color:var(--cyan);">format</code> function, and an optional <code style="font-size:11px;color:var(--cyan);">aggregate</code>. Results roll up across repetitions automatically.</p><code>Metric.of({ id, format: (v) => `${v}ms`, aggregate: avg })</code><span class="bcard-tag">score</span></div>
+        <div class="bcard"><div class="bcard-icon">🖥</div><h3>CLI Runner</h3><p>Drop files under <code style="font-size:11px;color:var(--cyan);">src/</code>. The runner finds <code style="font-size:11px;color:var(--cyan);">*.dataset.ts</code>, <code style="font-size:11px;color:var(--cyan);">*.evaluator.ts</code>, <code style="font-size:11px;color:var(--cyan);">*.run-config.ts</code>, builds the execution plan, and reports. No registration file, no config beyond the naming convention.</p><code>pnpm m4trix-evals run --config m4trix-eval.config.ts</code><span class="bcard-tag">cli</span></div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- ══ PANEL: TRACING ══════════════════════════════════════════════════════ -->
+<div id="panel-tracing" class="tab-panel" role="tabpanel">
+  <section class="hero">
+    <div class="glow glow-1"></div>
+    <div class="glow glow-2"></div>
+    <div class="hero-inner">
+      <div class="hero-layout">
+
+        <div class="hero-text">
+          <p class="eyebrow">@m4trix/tracing</p>
+          <h1>Trace your agents.<br><span class="hl">No cloud needed.</span></h1>
+          <p class="hero-sub">
+            A lightweight LangGraph/LangChain-compatible tracer. Structure stored separately from payloads. Works locally, on Docker, or with custom storage adapters.
+          </p>
+          <div class="install-block" style="margin-top:24px;">
+            <div class="install-hdr"><span>Terminal</span><span>bash</span></div>
+            <div class="install-body">
+              <div class="install-row"><span class="mono i-prompt">$</span><span class="mono" style="color:var(--text-1);">pnpm add <span class="i-pkg">@m4trix/tracing</span></span></div>
+              <div class="install-row" style="padding-left:20px;"><span class="mono i-ok">✓</span><span class="mono" style="color:var(--green);opacity:0.85;">Done in 0.4s</span></div>
+            </div>
+          </div>
+          <div class="ctas">
+            <a href="https://docs.m4trix.dev/tracing" class="btn-primary">Get Started <span class="arrow">→</span></a>
+            <a href="https://github.com/Pascal-Lohscheidt/m4trix" class="btn-secondary">View on GitHub</a>
+          </div>
+        </div>
+
+        <div class="hero-diagram">
+          <div class="diagram-card">
+            <p class="diagram-label">Storage model</p>
+            <div class="d-nodes">
+              <div class="d-node" style="justify-content:center;"><span>LangGraph / LangChain</span></div>
+              <div class="d-arrow">↓ callbacks</div>
+              <div class="d-node" style="justify-content:center;"><span>Tracer</span></div>
+              <div class="d-arrow">↓</div>
+              <div class="d-node-plain"><span>TraceStore</span></div>
+              <div class="d-split">
+                <div class="d-split-box">StructureStore<br><span style="color:var(--text-4);">small rows</span></div>
+                <div class="d-split-box">PayloadStore<br><span style="color:var(--text-4);">blob refs</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <section class="features">
+    <div class="features-inner">
+      <div class="section-hd">
+        <h2>Trace everything. Send it nowhere.</h2>
+        <p>LangSmith has a pricing page. m4trix/tracing has a folder. Drop in a callback handler and every run lands in <code style="font-size:0.85em;background:var(--bg-subtle);padding:1px 5px;border-radius:4px;">./.traces</code> on your machine — structured, queryable, and fully yours. No account. No upload. No cost per token. When you're ready to review, the same store that wrote the traces reads them back.</p>
+      </div>
+      <div class="bento">
+        <div class="bcard"><div class="bcard-icon">🔭</div><h3>Drop-in Adapter</h3><p>Already using LangGraph or LangChain? Pass the adapter in and the rest of your code doesn't change. One line to start capturing every model call, tool invocation, and chain step.</p><code>Tracer.from(store).adapt(toLangGraph)</code><span class="bcard-tag">adapter</span></div>
+        <div class="bcard"><div class="bcard-icon">🗄</div><h3>Split Storage</h3><p>Structure (run metadata, timing, status) lives in small queryable rows. Payloads (prompts, completions, embeddings) live in blob refs. Query the small stuff fast — fetch the large stuff only when you need it.</p><code>TraceStore.from({ structure, payload })</code><span class="bcard-tag">storage</span></div>
+        <div class="bcard"><div class="bcard-icon">🔍</div><h3>Read What You Wrote</h3><p>The same store that captured your traces serves them back. Reconstruct full trace trees, diff runs, surface failures — no separate read replica, no sync lag, no eventual consistency.</p><code>TraceViewerApi.from(store).getTraceTree(id)</code><span class="bcard-tag">api</span></div>
+        <div class="bcard"><div class="bcard-icon">💾</div><h3>Stays on Your Machine</h3><p>File-based adapter out of the box. No sign-up, no API key, no data leaving your laptop. Traces land in a folder you control — read them with the viewer or grep them directly.</p><code>FsStructureStoreAdapter.from({ dir: './.traces' })</code><span class="bcard-tag">local</span></div>
+        <div class="bcard"><div class="bcard-icon">🐳</div><h3>Docker-native</h3><p>In CI or a container environment? Mount a volume and both the agent and the viewer share the same path. No networking required — the filesystem is the bus.</p><code>docker run -v ./traces:/traces m4trix/trace-viewer</code><span class="bcard-tag">ops</span></div>
+        <div class="bcard"><div class="bcard-icon">✏️</div><h3>Human-in-the-Loop</h3><p>Annotate any run with a label and a note. Build review workflows where a human signs off on model behaviour before the next iteration ships — all from the same store, no third-party tool required.</p><code>api.patchRunAnnotation(runId, { label, note })</code><span class="bcard-tag">review</span></div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- ══ FOOTER ══════════════════════════════════════════════════════════════ -->
+<footer class="site-footer">
+  <div class="footer-inner">
+    <div style="display:flex;align-items:center;gap:14px;">
+      <span class="footer-branch"><span class="footer-dot"></span>main</span>
+      <span>MIT</span>
+      <span>Pascal Lohscheidt</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:14px;">
+      <a href="https://github.com/Pascal-Lohscheidt/m4trix" class="footer-gh">
+        <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clip-rule="evenodd"/></svg>
+      </a>
+      <span id="footer-year"></span>
+      <span>TypeScript</span>
+      <span>UTF-8</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+// ── Per-package nav content ───────────────────────────────────────────────
+const NAV_META = {
+  agents:  { badge: 'Pre-Alpha', docsLabel: 'read docs' },
+  evals:   { badge: 'Beta',      docsLabel: 'evals docs' },
+  tracing: { badge: 'Stable',    docsLabel: 'tracing docs' },
+};
+
+// ── Tab switch ────────────────────────────────────────────────────────────
+function switchTab(id) {
+  // Update html data attribute → CSS vars cascade automatically
+  document.documentElement.setAttribute('data-pkg', id);
+
+  // Tabs
+  document.querySelectorAll('.tab-btn').forEach(b => {
+    b.classList.remove('active');
+    b.setAttribute('aria-selected', 'false');
+  });
+  const activeBtn = document.querySelector(`[aria-controls="panel-${id}"]`);
+  if (activeBtn) { activeBtn.classList.add('active'); activeBtn.setAttribute('aria-selected', 'true'); }
+
+  // Panels
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel-' + id)?.classList.add('active');
+
+  // Nav badge + docs label
+  const m = NAV_META[id];
+  document.getElementById('nav-badge-text').textContent = m.badge;
+  document.getElementById('nav-docs-label').textContent = m.docsLabel;
+
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ── Animated headline (Agents panel only) ─────────────────────────────────
+const WORDS = ['typesafe', 'without global state', 'without fixed graphs', 'as event streams'];
+let wi = 0;
+const hlWord = document.getElementById('hl-word');
+const kf = document.createElement('style');
+kf.textContent = '@keyframes hl-slide { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }';
+document.head.appendChild(kf);
+setInterval(() => {
+  wi = (wi + 1) % WORDS.length;
+  hlWord.style.animation = 'none';
+  hlWord.offsetHeight;
+  hlWord.style.animation = 'hl-slide 0.45s ease-out';
+  hlWord.textContent = WORDS[wi];
+}, 2600);
+
+// ── Year ──────────────────────────────────────────────────────────────────
+document.getElementById('footer-year').textContent = '© ' + new Date().getFullYear();
+
+// ── Matrix rain ───────────────────────────────────────────────────────────
+(function () {
+  const canvas = document.getElementById('matrix-rain');
+  const ctx = canvas.getContext('2d');
+  const FONT = 14, SPEED = 45;
+  const CHARS = 'アイウエオカキクケコサシスセソ0123456789ABCDEF';
+  let cols, drops;
+  function resize() {
+    canvas.width  = window.innerWidth;
+    canvas.height = window.innerHeight;
+    cols  = Math.floor(canvas.width / FONT);
+    drops = Array.from({ length: cols }, () => Math.floor(Math.random() * -60));
+  }
+  resize();
+  window.addEventListener('resize', resize);
+  function draw() {
+    ctx.fillStyle = 'rgba(9,9,11,0.05)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#00ff41';
+    ctx.font = `${FONT}px monospace`;
+    for (let i = 0; i < drops.length; i++) {
+      ctx.fillText(CHARS[Math.floor(Math.random() * CHARS.length)], i * FONT, drops[i] * FONT);
+      if (drops[i] * FONT > canvas.height && Math.random() > 0.975) drops[i] = 0;
+      drops[i]++;
+    }
+  }
+  setInterval(draw, SPEED);
+})();
+</script>
+</body>
+</html>

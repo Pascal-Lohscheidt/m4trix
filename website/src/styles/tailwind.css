@@ -1,0 +1,472 @@
+@import 'tailwindcss';
+
+@plugin '@tailwindcss/typography';
+
+@custom-variant dark (&:where([data-mode="dark"], [data-mode="dark"] *));
+
+@theme {
+  --font-mono: var(--font-jetbrains-mono, ui-monospace, monospace);
+  --text-*: initial;
+  --text-xs: 0.75rem;
+  --text-xs--line-height: 1rem;
+  --text-sm: 0.875rem;
+  --text-sm--line-height: 1.5rem;
+  --text-base: 1rem;
+  --text-base--line-height: 2rem;
+  --text-lg: 1.125rem;
+  --text-lg--line-height: 1.75rem;
+  --text-xl: 1.25rem;
+  --text-xl--line-height: 2rem;
+  --text-2xl: 1.5rem;
+  --text-2xl--line-height: 2.5rem;
+  --text-3xl: 2rem;
+  --text-3xl--line-height: 2.5rem;
+  --text-4xl: 2.5rem;
+  --text-4xl--line-height: 3rem;
+  --text-5xl: 3rem;
+  --text-5xl--line-height: 3.5rem;
+  --text-6xl: 3.75rem;
+  --text-6xl--line-height: 1;
+  --text-7xl: 4.5rem;
+  --text-7xl--line-height: 1;
+  --text-8xl: 6rem;
+  --text-8xl--line-height: 1;
+  --text-9xl: 8rem;
+  --text-9xl--line-height: 1;
+
+  --font-sans: var(--font-inter);
+  --font-display: var(--font-lexend);
+  --font-display--font-feature-settings: 'ss01';
+
+  --container-8xl: 88rem;
+
+  /* Surfaces & text (dark defaults) */
+  --color-bg: #09090b;
+  --color-bg-raised: #18181b;
+  --color-bg-subtle: #27272a;
+  --color-text-1: #fafafa;
+  --color-text-2: #a1a1aa;
+  --color-text-3: #71717a;
+  --color-text-4: #52525b;
+
+  /* Semantic */
+  --color-success: #4ade80;
+  --color-code: #67e8f9;
+  --color-star: #fbbf24;
+
+  /* Radius */
+  --radius-sm: 5px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+}
+
+/* ─── Mode tokens ─────────────────────────────────────────────────────── */
+:root,
+[data-mode='dark'] {
+  --bg: #09090b;
+  --bg-raised: #18181b;
+  --bg-subtle: #27272a;
+  --border: rgba(255, 255, 255, 0.07);
+  --border-md: rgba(255, 255, 255, 0.13);
+  --text-1: #fafafa;
+  --text-2: #a1a1aa;
+  --text-3: #71717a;
+  --text-4: #52525b;
+  --green: #4ade80;
+  --cyan: #67e8f9;
+  --amber: #fbbf24;
+}
+
+[data-mode='light'] {
+  --bg: #f8f8fb;
+  --bg-raised: #ffffff;
+  --bg-subtle: #f0eff6;
+  --border: rgba(0, 0, 0, 0.07);
+  --border-md: rgba(0, 0, 0, 0.13);
+  --text-1: #0f0f13;
+  --text-2: #4b4b60;
+  --text-3: #7b7b96;
+  --text-4: #a0a0b8;
+  --green: #16a34a;
+  --cyan: #0891b2;
+  --amber: #d97706;
+
+  --color-bg: #f8f8fb;
+  --color-bg-raised: #ffffff;
+  --color-bg-subtle: #f0eff6;
+  --color-text-1: #0f0f13;
+  --color-text-2: #4b4b60;
+  --color-text-3: #7b7b96;
+  --color-text-4: #a0a0b8;
+  --color-success: #16a34a;
+  --color-code: #0891b2;
+  --color-star: #d97706;
+}
+
+/* ─── Package accent tokens ───────────────────────────────────────────── */
+[data-pkg='agents'] {
+  --accent: #a78bfa;
+  --accent-solid: #7c3aed;
+  --accent-dim: rgba(167, 139, 250, 0.12);
+  --accent-border: rgba(167, 139, 250, 0.3);
+  --accent-text: #c4b5fd;
+  --glow-1: rgba(124, 58, 237, 0.14);
+  --glow-2: rgba(103, 232, 249, 0.07);
+}
+
+[data-mode='light'][data-pkg='agents'] {
+  --accent: #7c3aed;
+  --accent-solid: #6d28d9;
+  --accent-dim: rgba(124, 58, 237, 0.08);
+  --accent-border: rgba(124, 58, 237, 0.25);
+  --accent-text: #5b21b6;
+}
+
+[data-pkg='evals'] {
+  --accent: #34d399;
+  --accent-solid: #059669;
+  --accent-dim: rgba(52, 211, 153, 0.1);
+  --accent-border: rgba(52, 211, 153, 0.28);
+  --accent-text: #6ee7b7;
+  --glow-1: rgba(5, 150, 105, 0.12);
+  --glow-2: rgba(20, 184, 166, 0.08);
+}
+
+[data-mode='light'][data-pkg='evals'] {
+  --accent: #059669;
+  --accent-solid: #047857;
+  --accent-dim: rgba(5, 150, 105, 0.08);
+  --accent-border: rgba(5, 150, 105, 0.25);
+  --accent-text: #065f46;
+}
+
+[data-pkg='tracing'] {
+  --accent: #38bdf8;
+  --accent-solid: #0369a1;
+  --accent-dim: rgba(56, 189, 248, 0.1);
+  --accent-border: rgba(56, 189, 248, 0.28);
+  --accent-text: #7dd3fc;
+  --glow-1: rgba(3, 105, 161, 0.14);
+  --glow-2: rgba(7, 89, 133, 0.08);
+}
+
+[data-mode='light'][data-pkg='tracing'] {
+  --accent: #0284c7;
+  --accent-solid: #0369a1;
+  --accent-dim: rgba(2, 132, 199, 0.08);
+  --accent-border: rgba(2, 132, 199, 0.25);
+  --accent-text: #075985;
+}
+
+@layer base {
+  [inert] ::-webkit-scrollbar {
+    display: none;
+  }
+
+  html {
+    transition:
+      background-color 0.2s,
+      color 0.2s;
+  }
+
+  body {
+    background-color: var(--bg);
+    color: var(--text-1);
+    font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+    min-height: 100vh;
+    transition:
+      background-color 0.2s,
+      color 0.2s;
+  }
+}
+
+@layer components {
+  .eyebrow {
+    @apply mb-3.5 font-mono text-[11px] font-bold tracking-[0.1em] uppercase;
+    color: var(--accent);
+    transition: color 0.3s;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center gap-1.5 rounded-md border-0 px-[22px] py-[11px] font-mono text-sm font-semibold text-white transition;
+    background-color: var(--accent-solid);
+  }
+
+  .btn-primary:hover {
+    filter: brightness(1.12);
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center gap-1.5 rounded-md border bg-transparent px-[22px] py-[11px] font-mono text-sm font-medium transition;
+    border-color: var(--border-md);
+    color: var(--text-2);
+  }
+
+  .btn-secondary:hover {
+    border-color: var(--text-3);
+    color: var(--text-1);
+  }
+
+  .btn-nav-ghost {
+    @apply inline-flex items-center gap-1.5 rounded-md border bg-transparent px-[11px] py-[5px] font-mono text-[11px] font-medium transition;
+    border-color: var(--border-md);
+    color: var(--text-3);
+  }
+
+  .btn-nav-ghost:hover {
+    border-color: var(--text-3);
+    color: var(--text-1);
+    background: rgba(255, 255, 255, 0.04);
+  }
+
+  .btn-nav-docs {
+    @apply inline-flex items-center gap-1.5 rounded-md border px-[11px] py-[5px] font-mono text-[11px] font-semibold transition;
+    border-color: var(--accent-border);
+    background: var(--accent-dim);
+    color: var(--accent);
+  }
+
+  .btn-nav-docs:hover {
+    filter: brightness(1.1);
+  }
+
+  .badge-accent {
+    @apply inline-flex items-center gap-1.5 rounded-full border px-[9px] py-0.5 font-mono text-[11px] font-semibold;
+    border-color: var(--accent-border);
+    background: var(--accent-dim);
+    color: var(--accent);
+    transition:
+      color 0.3s,
+      border-color 0.3s,
+      background 0.3s;
+  }
+
+  .badge-accent-dot {
+    @apply h-1.5 w-1.5 rounded-full;
+    background: var(--accent);
+    animation: pulse-dot 2s ease-in-out infinite;
+    transition: background 0.3s;
+  }
+
+  .tab-pill {
+    @apply rounded border px-[7px] py-0.5 text-[10px] font-semibold;
+    border-color: var(--border-md);
+    background: var(--bg-raised);
+    color: var(--text-4);
+    transition: all 0.3s;
+  }
+
+  .tab-pill-active {
+    border-color: var(--accent-border);
+    background: var(--accent-dim);
+    color: var(--accent-text);
+  }
+
+  .install-block {
+    @apply overflow-hidden rounded-lg border font-mono text-sm;
+    border-color: var(--border-md);
+    background: color-mix(in srgb, var(--bg-raised) 90%, transparent);
+  }
+
+  .install-block-hdr {
+    @apply flex items-center justify-between border-b px-3.5 py-1.5 text-[10px];
+    border-color: var(--border);
+    color: var(--text-4);
+  }
+
+  .install-block-body {
+    @apply flex flex-col gap-1.5 p-3.5;
+  }
+
+  .entry-pill {
+    @apply rounded-md border px-2.5 py-1.5 font-mono text-[11px];
+    border-color: var(--border);
+    background: color-mix(in srgb, var(--bg-raised) 80%, transparent);
+  }
+
+  .convention-pill {
+    @apply rounded-md border px-[11px] py-1.5 font-mono text-xs;
+    border-color: var(--border);
+    background: color-mix(in srgb, var(--bg-raised) 80%, transparent);
+    color: var(--accent);
+    transition: color 0.3s;
+  }
+
+  .bcard {
+    @apply rounded-xl border p-[22px] transition;
+    border-color: var(--border);
+    background: color-mix(in srgb, var(--bg-raised) 50%, transparent);
+  }
+
+  .bcard:hover {
+    border-color: var(--accent-border);
+    background: color-mix(in srgb, var(--bg-raised) 80%, transparent);
+  }
+
+  .bcard-hdr {
+    @apply mb-3 flex items-center gap-2.5;
+  }
+
+  .bcard-title {
+    @apply font-display text-[15px] leading-snug font-semibold tracking-tight text-text-1;
+  }
+
+  .bcard-tag {
+    @apply mt-2.5 inline-block rounded px-[7px] py-0.5 font-mono text-[10px] font-semibold;
+    background: var(--accent-dim);
+    color: var(--accent-text);
+    transition: all 0.3s;
+  }
+
+  .bcard-code {
+    @apply mt-2.5 block rounded-md border px-2.5 py-2 font-mono text-[11px];
+    border-color: var(--border);
+    background: color-mix(in srgb, var(--bg) 80%, transparent);
+    color: var(--cyan);
+  }
+
+  .code-block {
+    @apply overflow-hidden rounded-lg border font-mono text-xs;
+    border-color: var(--border-md);
+    background: color-mix(in srgb, var(--bg) 88%, transparent);
+  }
+
+  .code-block-hdr {
+    @apply flex items-center justify-between border-b px-3 py-1.5 text-[10px];
+    border-color: var(--border);
+    color: var(--text-4);
+  }
+
+  .code-block-body {
+    @apply overflow-x-auto px-3 py-3 text-[12px] leading-[1.65];
+    margin: 0;
+  }
+
+  .code-block-line {
+    @apply block min-h-[1.65em];
+  }
+
+  .diagram-card {
+    @apply rounded-xl border p-[18px] font-mono text-xs;
+    border-color: var(--border-md);
+    background: color-mix(in srgb, var(--bg-raised) 70%, transparent);
+  }
+
+  .diagram-node {
+    @apply flex items-center gap-2 rounded-md border px-3 py-2;
+    border-color: var(--accent-border);
+    background: var(--accent-dim);
+    color: var(--accent-text);
+    transition: all 0.3s;
+  }
+
+  .diagram-node-dot {
+    @apply h-[7px] w-[7px] shrink-0 rounded-full;
+    background: var(--accent);
+    transition: background 0.3s;
+  }
+
+  .diagram-channel {
+    @apply rounded-md border border-dashed px-3 py-2 text-center;
+    border-color: rgba(103, 232, 249, 0.3);
+    background: rgba(103, 232, 249, 0.05);
+    color: var(--cyan);
+  }
+
+  .diagram-node-plain {
+    @apply flex items-center justify-center rounded-md border px-3 py-2;
+    border-color: var(--border-md);
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text-2);
+  }
+
+  .diagram-split-box {
+    @apply flex-1 rounded-md border border-dashed px-2 py-2 text-center text-[10px] leading-snug;
+    border-color: var(--border-md);
+    color: var(--text-4);
+  }
+
+  .mode-toggle {
+    --pill-outer-r: var(--radius-lg);
+    --pill-inset: 3px;
+    @apply flex items-center gap-0.5 border;
+    border-color: var(--border-md);
+    background: var(--bg-raised);
+    border-radius: var(--pill-outer-r);
+    padding: var(--pill-inset);
+  }
+
+  .mode-btn {
+    @apply cursor-pointer border bg-transparent px-2.5 py-1 text-[11px] font-medium transition;
+    border-color: transparent;
+    color: var(--text-3);
+    /* concentric radius: R_inner = R_outer - padding - border */
+    border-radius: calc(var(--pill-outer-r) - var(--pill-inset) - 1px);
+  }
+
+  .mode-btn-active {
+    border-color: var(--accent-border);
+    background: var(--accent-dim);
+    color: var(--accent);
+  }
+
+  .concept-nav-btn {
+    @apply flex w-full cursor-pointer items-center gap-2.5 rounded-lg border border-transparent px-3 py-2.5 text-left font-mono text-[13px] font-medium transition-[color,background,border-color] duration-200;
+    color: var(--text-3);
+  }
+
+  .concept-nav-btn:hover {
+    color: var(--text-1);
+    background: color-mix(in srgb, var(--bg-raised) 60%, transparent);
+  }
+
+  .concept-nav-btn-active {
+    border-color: var(--accent-border);
+    background: var(--accent-dim);
+    color: var(--accent-text);
+  }
+
+  .concept-nav-btn-active:hover {
+    background: var(--accent-dim);
+    color: var(--accent-text);
+  }
+
+  .concept-detail {
+    @apply rounded-xl border p-6 sm:p-8;
+    border-color: var(--border-md);
+    background: color-mix(in srgb, var(--bg-raised) 50%, transparent);
+  }
+
+  .inline-code {
+    @apply rounded border px-1.5 py-0.5 font-mono text-[13px];
+    border-color: var(--border-md);
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--cyan);
+  }
+}
+
+@keyframes pulse-dot {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+
+@keyframes headline-fade {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.headline-slide {
+  animation: headline-fade 0.45s ease-out forwards;
+}

@@ -1,5 +1,5 @@
 {
-  "name": "tailwind-plus-syntax",
+  "name": "website",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -14,6 +14,7 @@
     "@headlessui/react": "^2.1.0",
     "@markdoc/markdoc": "^0.4.0",
     "@markdoc/next.js": "^0.3.4",
+    "@phosphor-icons/react": "^2.1.10",
     "@sindresorhus/slugify": "^2.1.0",
     "@tailwindcss/postcss": "^4.1.4",
     "@tailwindcss/typography": "^0.5.7",

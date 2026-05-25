@@ -182,6 +182,39 @@ jobs:
           name: Publish tracing package
           command: pnpm run tracing:publish
 
+  publish-tracing-sidecar:
+    docker:
+      - image: cimg/node:20.0
+    steps:
+      - checkout
+      - run:
+          name: Install dependencies
+          command: pnpm install
+      - setup_remote_docker
+      - run:
+          name: Check if tracing sidecar should be published
+          command: pnpm exec jiti scripts/check-package-scope.ts tracing || circleci step halt
+      - run:
+          name: Resolve tracing version from latest tag
+          command: |
+            VERSION=$(git tag -l '@m4trix/tracing@*' --sort=-version:refname | head -1 | sed 's/@m4trix\/tracing@//')
+            if [ -z "$VERSION" ]; then
+              echo "No @m4trix/tracing tag found"
+              exit 1
+            fi
+            echo "export TRACING_VERSION=${VERSION}" >> "$BASH_ENV"
+            echo "Tracing sidecar version: ${VERSION}"
+      - run:
+          name: Log in to GHCR
+          command: echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USERNAME" --password-stdin
+      - run:
+          name: Build and push sidecar image
+          command: |
+            IMAGE=ghcr.io/pascal-lohscheidt/m4trix-tracing-sidecar
+            docker build -f packages/tracing/Dockerfile -t "${IMAGE}:${TRACING_VERSION}" -t "${IMAGE}:latest" .
+            docker push "${IMAGE}:${TRACING_VERSION}"
+            docker push "${IMAGE}:latest"
+
   publish-trace-viewer:
     docker:
       - image: cimg/node:20.0
@@ -275,6 +308,15 @@ workflows:
             - NPM
           requires:
             - build
+          filters:
+            branches:
+              only: main
+      - publish-tracing-sidecar:
+          context:
+            - NPM
+            - GHCR
+          requires:
+            - publish-tracing
           filters:
             branches:
               only: main

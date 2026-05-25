@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>m4trix — Design System Explorer</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #0f0f0f;
+    color: #e4e4e7;
+    min-height: 100vh;
+  }
+
+  /* ── Selector bar ── */
+  .selector-bar {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(15,15,15,0.95);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+    padding: 0 2rem;
+    display: flex;
+    align-items: center;
+    gap: 0;
+    height: 52px;
+    overflow-x: auto;
+  }
+  .selector-bar-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #52525b;
+    margin-right: 1.5rem;
+    white-space: nowrap;
+    font-weight: 500;
+  }
+  .tab {
+    flex-shrink: 0;
+    padding: 0 16px;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    font-size: 13px;
+    font-weight: 500;
+    color: #71717a;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: color 0.15s, border-color 0.15s;
+    white-space: nowrap;
+  }
+  .tab:hover { color: #e4e4e7; }
+  .tab.active { color: #e4e4e7; }
+
+  /* ── Critique panel ── */
+  .critique {
+    max-width: 900px;
+    margin: 2.5rem auto 0;
+    padding: 0 2rem 2rem;
+  }
+  .critique h2 {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #52525b;
+    font-weight: 600;
+    margin-bottom: 1rem;
+  }
+  .critique-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .critique-card {
+    background: #18181b;
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.06);
+    padding: 1rem 1.25rem;
+  }
+  .critique-card .card-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 8px;
+  }
+  .critique-card.likes .card-label { color: #4ade80; }
+  .critique-card.dislikes .card-label { color: #f87171; }
+  .critique-card ul {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .critique-card li {
+    font-size: 13px;
+    color: #a1a1aa;
+    padding-left: 1.1em;
+    position: relative;
+    line-height: 1.5;
+  }
+  .critique-card li::before { position: absolute; left: 0; }
+  .critique-card.likes li::before { content: '✓'; color: #4ade80; }
+  .critique-card.dislikes li::before { content: '✗'; color: #f87171; }
+
+  /* ── Section heading ── */
+  .section-heading {
+    max-width: 900px;
+    margin: 2.5rem auto 1rem;
+    padding: 0 2rem;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #52525b;
+    font-weight: 600;
+  }
+
+  /* ── Theme panels ── */
+  .themes-wrapper {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 0 2rem 4rem;
+    display: flex;
+    flex-direction: column;
+    gap: 3rem;
+  }
+
+  .theme-block {
+    display: none;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+  .theme-block.active { display: flex; }
+
+  .theme-meta {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+  .theme-name {
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+  .theme-tagline {
+    font-size: 13px;
+    color: #71717a;
+    margin-top: 3px;
+  }
+  .theme-badge {
+    flex-shrink: 0;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 4px 10px;
+    border-radius: 6px;
+  }
+
+  /* ── THEME 1: Current ── */
+  .t1-preview {
+    background: #09090b;
+    border-radius: 14px;
+    border: 1px solid rgba(0,255,65,0.15);
+    overflow: hidden;
+  }
+  .t1-nav {
+    background: rgba(9,9,11,0.98);
+    border-bottom: 1px solid #27272a;
+    padding: 10px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .t1-logo { font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 14px; font-weight: 700; color: #00ff41; text-shadow: 0 0 12px rgba(0,255,65,0.4); }
+  .t1-nav-links { display: flex; gap: 8px; }
+  .t1-btn-ghost { font-family: monospace; font-size: 11px; color: #71717a; border: 1px solid #3f3f46; background: transparent; padding: 4px 10px; border-radius: 6px; cursor: pointer; }
+  .t1-btn-primary { font-family: monospace; font-size: 11px; color: #00ff41; border: 1px solid rgba(0,255,65,0.5); background: rgba(0,255,65,0.08); padding: 4px 10px; border-radius: 6px; cursor: pointer; }
+  .t1-hero {
+    padding: 40px 24px 30px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .t1-glow { position: absolute; top: -60px; left: 50%; transform: translateX(-50%); width: 300px; height: 200px; background: radial-gradient(ellipse, rgba(0,255,65,0.12) 0%, transparent 70%); pointer-events: none; }
+  .t1-hero h1 { font-size: 28px; font-weight: 700; color: #fff; letter-spacing: -0.02em; line-height: 1.2; }
+  .t1-hero h1 span { color: #00ff41; }
+  .t1-hero p { font-size: 13px; color: #71717a; margin-top: 10px; }
+  .t1-install {
+    margin: 16px auto 0;
+    max-width: 340px;
+    background: #18181b;
+    border: 1px solid rgba(0,255,65,0.2);
+    border-radius: 8px;
+    font-family: monospace;
+    font-size: 12px;
+    overflow: hidden;
+  }
+  .t1-install-header { padding: 6px 12px; border-bottom: 1px solid #27272a; display: flex; justify-content: space-between; color: #52525b; font-size: 10px; }
+  .t1-install-body { padding: 8px 12px; }
+  .t1-install-line { display: flex; gap: 8px; }
+  .t1-install-line .prompt { color: rgba(0,255,65,0.8); }
+  .t1-install-line .cmd { color: #d4d4d8; }
+  .t1-install-line .pkg { color: #00ff41; }
+  .t1-ctas { display: flex; gap: 10px; justify-content: center; margin-top: 16px; }
+  .t1-cta-primary { font-family: monospace; font-size: 12px; color: #00ff41; background: rgba(0,255,65,0.1); border: 1px solid rgba(0,255,65,0.5); padding: 8px 20px; border-radius: 6px; cursor: pointer; }
+  .t1-cta-secondary { font-family: monospace; font-size: 12px; color: #a1a1aa; border: 1px solid #3f3f46; background: transparent; padding: 8px 20px; border-radius: 6px; cursor: pointer; }
+  .t1-bento {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    padding: 0 20px 20px;
+  }
+  .t1-card {
+    background: rgba(24,24,27,0.7);
+    border: 1px solid #27272a;
+    border-radius: 10px;
+    padding: 14px;
+  }
+  .t1-card h3 { font-family: monospace; font-size: 11px; color: #00ff41; font-weight: 600; }
+  .t1-card p { font-size: 11px; color: #71717a; margin-top: 4px; line-height: 1.4; }
+  .t1-card code { display: block; font-family: monospace; font-size: 10px; color: #67e8f9; background: #09090b; border: 1px solid #27272a; border-radius: 4px; padding: 6px 8px; margin-top: 8px; }
+  .t1-footer { background: #09090b; border-top: 1px solid #27272a; padding: 7px 20px; display: flex; justify-content: space-between; font-family: monospace; font-size: 10px; color: #3f3f46; }
+
+  /* ── THEME 2: Refined (evolved current) ── */
+  .t2-preview {
+    background: #09090b;
+    border-radius: 14px;
+    border: 1px solid rgba(255,255,255,0.07);
+    overflow: hidden;
+  }
+  .t2-nav {
+    background: rgba(9,9,11,0.98);
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+    padding: 10px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .t2-logo { font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 700; color: #e4e4e7; letter-spacing: 0.04em; }
+  .t2-logo span { color: #a78bfa; }
+  .t2-badge { font-size: 10px; font-weight: 600; color: #a78bfa; background: rgba(167,139,250,0.12); border: 1px solid rgba(167,139,250,0.3); padding: 2px 8px; border-radius: 999px; margin-left: 8px; }
+  .t2-nav-links { display: flex; gap: 8px; align-items: center; }
+  .t2-btn-ghost { font-size: 12px; color: #71717a; border: 1px solid rgba(255,255,255,0.1); background: transparent; padding: 4px 12px; border-radius: 6px; cursor: pointer; font-family: inherit; }
+  .t2-btn-primary { font-size: 12px; color: #09090b; border: none; background: #a78bfa; padding: 4px 12px; border-radius: 6px; cursor: pointer; font-weight: 600; }
+  .t2-hero {
+    padding: 36px 24px 28px;
+    display: flex;
+    gap: 24px;
+    align-items: center;
+  }
+  .t2-hero-text { flex: 1; }
+  .t2-eyebrow { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: #a78bfa; margin-bottom: 8px; }
+  .t2-hero h1 { font-size: 26px; font-weight: 700; color: #fafafa; letter-spacing: -0.02em; line-height: 1.2; }
+  .t2-hero p { font-size: 13px; color: #71717a; margin-top: 8px; line-height: 1.6; }
+  .t2-install {
+    margin-top: 14px;
+    background: #18181b;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 8px;
+    font-family: monospace;
+    font-size: 12px;
+    overflow: hidden;
+  }
+  .t2-install-header { padding: 6px 12px; border-bottom: 1px solid rgba(255,255,255,0.06); display: flex; justify-content: space-between; color: #52525b; font-size: 10px; }
+  .t2-install-body { padding: 8px 12px; }
+  .t2-prompt { color: #a78bfa; }
+  .t2-pkg { color: #c4b5fd; }
+  .t2-success { color: #4ade80; }
+  .t2-ctas { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+  .t2-cta-primary { font-size: 12px; color: #09090b; background: #a78bfa; border: none; padding: 8px 18px; border-radius: 7px; cursor: pointer; font-weight: 600; }
+  .t2-cta-secondary { font-size: 12px; color: #a1a1aa; background: transparent; border: 1px solid rgba(255,255,255,0.12); padding: 8px 18px; border-radius: 7px; cursor: pointer; }
+  .t2-hero-visual { width: 220px; flex-shrink: 0; }
+  .t2-diagram { background: #18181b; border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 14px; }
+  .t2-diagram-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: #52525b; margin-bottom: 10px; text-align: center; }
+  .t2-nodes { display: flex; flex-direction: column; gap: 6px; }
+  .t2-node { background: rgba(167,139,250,0.1); border: 1px solid rgba(167,139,250,0.3); border-radius: 6px; padding: 6px 10px; font-size: 11px; font-family: monospace; color: #c4b5fd; display: flex; align-items: center; gap: 6px; }
+  .t2-node-dot { width: 6px; height: 6px; border-radius: 50%; background: #a78bfa; flex-shrink: 0; }
+  .t2-arrow { text-align: center; font-size: 10px; color: #3f3f46; }
+  .t2-channel { background: rgba(34,211,238,0.08); border: 1px dashed rgba(34,211,238,0.3); border-radius: 6px; padding: 6px 10px; font-size: 11px; font-family: monospace; color: #67e8f9; text-align: center; }
+  .t2-bento { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 0 20px 20px; }
+  .t2-card { background: #18181b; border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; padding: 14px; transition: border-color 0.15s; }
+  .t2-card:hover { border-color: rgba(167,139,250,0.3); }
+  .t2-card-icon { font-size: 18px; margin-bottom: 8px; }
+  .t2-card h3 { font-size: 12px; font-weight: 600; color: #e4e4e7; }
+  .t2-card p { font-size: 11px; color: #71717a; margin-top: 4px; line-height: 1.4; }
+  .t2-card code { display: block; font-family: monospace; font-size: 10px; color: #67e8f9; background: #09090b; border: 1px solid rgba(255,255,255,0.07); border-radius: 4px; padding: 6px 8px; margin-top: 8px; }
+  .t2-card-tag { display: inline-block; font-size: 10px; color: #a78bfa; background: rgba(167,139,250,0.1); border-radius: 4px; padding: 1px 6px; margin-top: 6px; }
+  .t2-footer { background: #09090b; border-top: 1px solid rgba(255,255,255,0.07); padding: 8px 20px; display: flex; justify-content: space-between; font-size: 11px; color: #3f3f46; }
+
+  /* ── THEME 3: Oxide (serious dark) ── */
+  .t3-preview {
+    background: #0d1117;
+    border-radius: 14px;
+    border: 1px solid rgba(255,255,255,0.07);
+    overflow: hidden;
+  }
+  .t3-nav {
+    background: #161b22;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    padding: 10px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .t3-logo { font-size: 14px; font-weight: 700; color: #f0f6fc; letter-spacing: -0.01em; display: flex; align-items: center; gap: 8px; }
+  .t3-logo-mark { width: 22px; height: 22px; background: linear-gradient(135deg, #3b82f6, #1d4ed8); border-radius: 5px; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; color: #fff; }
+  .t3-badge { font-size: 10px; font-weight: 500; color: #3b82f6; background: rgba(59,130,246,0.12); border: 1px solid rgba(59,130,246,0.25); padding: 2px 8px; border-radius: 999px; }
+  .t3-nav-right { display: flex; gap: 8px; align-items: center; }
+  .t3-btn-ghost { font-size: 12px; color: #8b949e; border: 1px solid rgba(255,255,255,0.1); background: transparent; padding: 4px 12px; border-radius: 6px; cursor: pointer; font-family: inherit; }
+  .t3-btn-primary { font-size: 12px; color: #fff; border: none; background: #1f6feb; padding: 4px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; }
+  .t3-hero { padding: 36px 24px 24px; }
+  .t3-eyebrow { display: flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 500; color: #3b82f6; margin-bottom: 12px; }
+  .t3-eyebrow-line { flex: 1; height: 1px; background: rgba(59,130,246,0.25); max-width: 60px; }
+  .t3-hero h1 { font-size: 26px; font-weight: 700; color: #f0f6fc; letter-spacing: -0.025em; line-height: 1.2; max-width: 500px; }
+  .t3-hero h1 em { font-style: normal; color: #58a6ff; }
+  .t3-hero p { font-size: 13px; color: #8b949e; margin-top: 8px; line-height: 1.6; max-width: 420px; }
+  .t3-tags { display: flex; gap: 6px; margin-top: 12px; flex-wrap: wrap; }
+  .t3-tag { font-size: 10px; font-weight: 500; font-family: monospace; color: #8b949e; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.09); padding: 3px 8px; border-radius: 5px; }
+  .t3-ctas { display: flex; gap: 8px; margin-top: 16px; }
+  .t3-cta-primary { font-size: 12px; color: #fff; background: #1f6feb; border: none; padding: 8px 18px; border-radius: 7px; cursor: pointer; font-weight: 600; }
+  .t3-cta-secondary { font-size: 12px; color: #c9d1d9; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12); padding: 8px 18px; border-radius: 7px; cursor: pointer; }
+  .t3-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 0 24px 16px; }
+  .t3-stat { background: #161b22; border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 12px 14px; }
+  .t3-stat-num { font-size: 20px; font-weight: 700; color: #f0f6fc; letter-spacing: -0.02em; }
+  .t3-stat-num span { font-size: 13px; font-weight: 500; color: #3b82f6; }
+  .t3-stat-label { font-size: 11px; color: #8b949e; margin-top: 2px; }
+  .t3-features { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 0 24px 20px; }
+  .t3-feature { display: flex; gap: 10px; align-items: flex-start; background: #161b22; border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 12px 14px; }
+  .t3-feature-icon { width: 28px; height: 28px; border-radius: 6px; background: rgba(59,130,246,0.15); display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
+  .t3-feature-body h3 { font-size: 12px; font-weight: 600; color: #c9d1d9; }
+  .t3-feature-body p { font-size: 11px; color: #8b949e; margin-top: 2px; line-height: 1.4; }
+  .t3-footer { background: #161b22; border-top: 1px solid rgba(255,255,255,0.07); padding: 8px 24px; display: flex; justify-content: space-between; font-size: 11px; color: #484f58; }
+
+  /* ── THEME 4: Amber CRT ── */
+  .t4-preview {
+    background: #0c0a06;
+    border-radius: 14px;
+    border: 1px solid rgba(251,191,36,0.15);
+    overflow: hidden;
+  }
+  .t4-nav {
+    background: #0f0c07;
+    border-bottom: 1px solid rgba(251,191,36,0.12);
+    padding: 10px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .t4-logo { font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 700; color: #fbbf24; letter-spacing: 0.1em; }
+  .t4-badge { font-size: 10px; font-weight: 600; color: #92400e; background: #78350f; border: 1px solid rgba(251,191,36,0.3); padding: 2px 8px; border-radius: 4px; margin-left: 8px; font-family: monospace; }
+  .t4-nav-right { display: flex; gap: 8px; align-items: center; }
+  .t4-btn-ghost { font-family: monospace; font-size: 11px; color: #78716c; border: 1px solid rgba(251,191,36,0.15); background: transparent; padding: 4px 10px; border-radius: 4px; cursor: pointer; }
+  .t4-btn-primary { font-family: monospace; font-size: 11px; color: #0c0a06; border: none; background: #fbbf24; padding: 4px 12px; border-radius: 4px; cursor: pointer; font-weight: 700; }
+  .t4-hero { padding: 36px 24px 24px; }
+  .t4-cursor { display: inline-block; width: 2px; height: 1em; background: #fbbf24; vertical-align: text-bottom; animation: blink 1s step-end infinite; margin-left: 2px; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+  .t4-hero h1 { font-family: monospace; font-size: 24px; font-weight: 700; color: #fef3c7; letter-spacing: -0.01em; line-height: 1.3; }
+  .t4-hero h1 span { color: #fbbf24; }
+  .t4-hero p { font-family: monospace; font-size: 12px; color: #a8a29e; margin-top: 8px; line-height: 1.6; }
+  .t4-terminal {
+    margin-top: 16px;
+    background: #0a0804;
+    border: 1px solid rgba(251,191,36,0.15);
+    border-radius: 8px;
+    font-family: monospace;
+    font-size: 12px;
+    max-width: 380px;
+    overflow: hidden;
+  }
+  .t4-term-header { background: rgba(251,191,36,0.06); padding: 6px 12px; border-bottom: 1px solid rgba(251,191,36,0.1); display: flex; justify-content: space-between; }
+  .t4-term-title { font-size: 10px; color: #78716c; }
+  .t4-term-dots { display: flex; gap: 4px; }
+  .t4-dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(251,191,36,0.2); }
+  .t4-term-body { padding: 12px; display: flex; flex-direction: column; gap: 4px; }
+  .t4-line { display: flex; gap: 8px; }
+  .t4-prompt { color: #fbbf24; }
+  .t4-cmd { color: #fef3c7; }
+  .t4-pkg { color: #fbbf24; }
+  .t4-ok { color: #fbbf24; opacity: 0.6; }
+  .t4-comment { color: #57534e; }
+  .t4-ctas { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
+  .t4-cta-primary { font-family: monospace; font-size: 12px; color: #0c0a06; background: #fbbf24; border: none; padding: 8px 18px; border-radius: 4px; cursor: pointer; font-weight: 700; }
+  .t4-cta-secondary { font-family: monospace; font-size: 12px; color: #a8a29e; background: transparent; border: 1px solid rgba(251,191,36,0.2); padding: 8px 18px; border-radius: 4px; cursor: pointer; }
+  .t4-bento { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 0 20px 20px; }
+  .t4-card { background: rgba(251,191,36,0.03); border: 1px solid rgba(251,191,36,0.12); border-radius: 6px; padding: 14px; }
+  .t4-card h3 { font-family: monospace; font-size: 11px; font-weight: 700; color: #fbbf24; text-transform: uppercase; letter-spacing: 0.06em; }
+  .t4-card p { font-size: 11px; color: #78716c; margin-top: 4px; line-height: 1.4; }
+  .t4-card code { display: block; font-family: monospace; font-size: 10px; color: #d97706; background: rgba(0,0,0,0.4); border: 1px solid rgba(251,191,36,0.08); border-radius: 4px; padding: 6px 8px; margin-top: 8px; }
+  .t4-footer { background: #0a0804; border-top: 1px solid rgba(251,191,36,0.1); padding: 7px 20px; display: flex; justify-content: space-between; font-family: monospace; font-size: 10px; color: #292524; }
+
+  /* ── Design tokens section ── */
+  .tokens-row {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .token-swatch {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #18181b;
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+  .swatch-dot { width: 20px; height: 20px; border-radius: 4px; flex-shrink: 0; }
+  .swatch-name { font-weight: 500; color: #e4e4e7; }
+  .swatch-hex { font-family: monospace; font-size: 11px; color: #71717a; }
+
+  /* ── Notes section ── */
+  .notes-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+  }
+  .note-card {
+    background: #18181b;
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 10px;
+    padding: 1rem;
+  }
+  .note-num {
+    font-size: 11px;
+    font-weight: 700;
+    font-family: monospace;
+    margin-bottom: 6px;
+  }
+  .note-card h4 { font-size: 13px; font-weight: 600; color: #e4e4e7; margin-bottom: 4px; }
+  .note-card p { font-size: 12px; color: #71717a; line-height: 1.5; }
+
+  @media (max-width: 640px) {
+    .critique-grid, .notes-grid { grid-template-columns: 1fr; }
+    .t1-bento, .t2-bento, .t3-stats, .t3-features, .t4-bento { grid-template-columns: 1fr 1fr; }
+    .t2-hero { flex-direction: column; }
+    .t2-hero-visual { width: 100%; }
+  }
+</style>
+</head>
+<body>
+
+<div class="selector-bar">
+  <span class="selector-bar-label">Design</span>
+  <div class="tab active" data-theme="current" onclick="switchTheme('current', this)">① Current</div>
+  <div class="tab" data-theme="refined" onclick="switchTheme('refined', this)">② Refined Current</div>
+  <div class="tab" data-theme="oxide" onclick="switchTheme('oxide', this)">③ Oxide</div>
+  <div class="tab" data-theme="crt" onclick="switchTheme('crt', this)">④ Amber CRT</div>
+</div>
+
+<!-- Critique panel (static, always visible) -->
+<div class="critique">
+  <h2>Design critique — current site</h2>
+  <div class="critique-grid">
+    <div class="critique-card likes">
+      <div class="card-label">What works</div>
+      <ul>
+        <li>IDE status-bar footer is brilliant — totally on-brand and unexpected</li>
+        <li>Terminal install block looks authentic; not a styled fake</li>
+        <li>CLI-style <code>$ read docs</code> nav button is a sharp detail</li>
+        <li>Animated headline cycling arguments communicates the differentiators fast</li>
+        <li>Bento grid is modern and keeps the feature scan short</li>
+      </ul>
+    </div>
+    <div class="critique-card dislikes">
+      <div class="card-label">What to reconsider</div>
+      <ul>
+        <li>Matrix rain + scanlines reads as "hacker aesthetic" cliché, not serious infra</li>
+        <li>All-green monochrome palette collapses visual hierarchy — CTAs, badges, and tags look identical</li>
+        <li>Bento cards have no visual weight differentiation; all six look the same importance</li>
+        <li>Hero has no diagram or visual — zero spatial intuition for how agents connect</li>
+        <li>"…no more graphs!" breaks the linguistic pattern of the headline cycle</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div class="section-heading" id="preview-label">Preview — ① Current design</div>
+
+<div class="themes-wrapper">
+
+  <!-- ① CURRENT -->
+  <div class="theme-block active" id="theme-current">
+    <div class="theme-meta">
+      <div>
+        <div class="theme-name" style="color:#00ff41;">Matrix / Hacker</div>
+        <div class="theme-tagline">The existing direction. Strong thematic coherence, single accent ramp.</div>
+      </div>
+      <div class="theme-badge" style="background:rgba(0,255,65,0.1);color:#00ff41;border:1px solid rgba(0,255,65,0.3);">Current</div>
+    </div>
+
+    <div class="t1-preview">
+      <div class="t1-nav">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span class="t1-logo">m4trix</span>
+          <span style="font-family:monospace;font-size:10px;color:rgba(0,255,65,0.8);background:rgba(0,255,65,0.08);border:1px solid rgba(0,255,65,0.3);padding:2px 8px;border-radius:4px;">● Alpha</span>
+        </div>
+        <div class="t1-nav-links">
+          <button class="t1-btn-ghost">GitHub</button>
+          <button class="t1-btn-primary">$ read docs →</button>
+        </div>
+      </div>
+      <div class="t1-hero">
+        <div class="t1-glow"></div>
+        <h1>Orchestrate agents <span>typesafe</span></h1>
+        <p>Event-driven agent orchestration. Type-safe events, channels, sinks.</p>
+        <div class="t1-install">
+          <div class="t1-install-header"><span>● # install</span><span>bash</span></div>
+          <div class="t1-install-body">
+            <div class="t1-install-line"><span class="prompt">$</span><span class="cmd">pnpm add <span class="pkg">@m4trix/core</span></span></div>
+            <div class="t1-install-line" style="margin-top:4px;padding-left:16px;"><span class="pkg">✓</span><span class="cmd" style="color:rgba(0,255,65,0.7);">Packages: +1</span><span class="cmd" style="color:#3f3f46;margin-left:8px;">Done in 0.4s</span></div>
+          </div>
+        </div>
+        <div class="t1-ctas">
+          <button class="t1-cta-primary">$ Quick Start →</button>
+          <button class="t1-cta-secondary">★ Star on GitHub</button>
+        </div>
+      </div>
+      <div class="t1-bento">
+        <div class="t1-card"><h3>Event-Driven Agents</h3><p>Type-safe agents with schema-validated events.</p><code>AgentFactory.run().listensTo(…)</code></div>
+        <div class="t1-card"><h3>Agent Network</h3><p>Wire agents to channels. One or a full swarm.</p><code>AgentNetwork.setup(…)</code></div>
+        <div class="t1-card"><h3>Typed Events</h3><p>Effect Schema validation. Runtime safety.</p><code>AgentNetworkEvent.of(…)</code></div>
+        <div class="t1-card"><h3>SSE Streaming</h3><p>Expose networks as HTTP APIs.</p><code>NextEndpoint.from(…).handler()</code></div>
+        <div class="t1-card"><h3>Channels & Sinks</h3><p>Named channels with HTTP stream and Kafka sinks.</p><code>createChannel(…).sink(…)</code></div>
+        <div class="t1-card" style="grid-column:span 1;"><h3>Batteries Included</h3><p>Matrix agents, Pump streaming, React hooks.</p><code>@m4trix/core | @m4trix/react</code></div>
+      </div>
+      <div class="t1-footer">
+        <span>● main &nbsp; MIT &nbsp; Pascal Lohscheidt</span>
+        <span>TypeScript &nbsp; UTF-8 &nbsp; © 2025</span>
+      </div>
+    </div>
+
+    <div class="tokens-row">
+      <div class="token-swatch"><div class="swatch-dot" style="background:#09090b;border:1px solid #27272a;"></div><span class="swatch-name">Background</span><span class="swatch-hex">#09090b</span></div>
+      <div class="token-swatch"><div class="swatch-dot" style="background:#00ff41;"></div><span class="swatch-name">Primary</span><span class="swatch-hex">#00ff41</span></div>
+      <div class="token-swatch"><div class="swatch-dot" style="background:#67e8f9;"></div><span class="swatch-name">Code</span><span class="swatch-hex">#67e8f9</span></div>
+      <div class="token-swatch"><div class="swatch-dot" style="background:#18181b;border:1px solid #27272a;"></div><span class="swatch-name">Surface</span><span class="swatch-hex">#18181b</span></div>
+      <div class="token-swatch"><div class="swatch-dot" style="background:#71717a;"></div><span class="swatch-name">Muted text</span><span class="swatch-hex">#71717a</span></div>
+    </div>
+  </div>
+
+  <!-- ② REFINED CURRENT -->
+  <div class="theme-block" id="theme-refined">
+    <div class="theme-meta">
+      <div>
+        <div class="theme-name" style="color:#a78bfa;">Evolved — Purple × Dark</div>
+        <div class="theme-tagline">Same dark foundation, richer palette. Adds hierarchy, hero diagram, semantic CTAs.</div>
+      </div>
+      <div class="theme-badge" style="background:rgba(167,139,250,0.12);color:#a78bfa;border:1px solid rgba(167,139,250,0.3);">Recommended</div>
+    </div>
+
+    <div class="t2-preview">
+      <div class="t2-nav">
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span class="t2-logo"><span style="color:#a78bfa;">m</span>4trix</span>
+          <span class="t2-badge">Alpha</span>
+        </div>
+        <div class="t2-nav-links">
+          <button class="t2-btn-ghost">GitHub</button>
+          <button class="t2-btn-primary">Docs →</button>
+        </div>
+      </div>
+      <div class="t2-hero">
+        <div class="t2-hero-text">
+          <div class="t2-eyebrow">Agentic infrastructure</div>
+          <h1>Orchestrate agents without the graph tax</h1>
+          <p>Event-driven, type-safe agent networks. No global state, no rigid topologies.</p>
+          <div class="t2-install">
+            <div class="t2-install-header"><span>Terminal</span><span>bash</span></div>
+            <div class="t2-install-body">
+              <div style="display:flex;gap:8px;"><span class="t2-prompt">$</span><span style="color:#e4e4e7;font-family:monospace;font-size:12px;">pnpm add <span class="t2-pkg">@m4trix/core</span></span></div>
+              <div style="display:flex;gap:8px;margin-top:4px;padding-left:16px;font-family:monospace;font-size:12px;"><span class="t2-success">✓</span><span style="color:#a78bfa;">Done in 0.4s</span></div>
+            </div>
+          </div>
+          <div class="t2-ctas">
+            <button class="t2-cta-primary">Quick Start</button>
+            <button class="t2-cta-secondary">View on GitHub</button>
+          </div>
+        </div>
+        <div class="t2-hero-visual">
+          <div class="t2-diagram">
+            <div class="t2-diagram-label">Agent network</div>
+            <div class="t2-nodes">
+              <div class="t2-node"><span class="t2-node-dot"></span>IngestAgent</div>
+              <div class="t2-arrow">↓ events</div>
+              <div class="t2-channel">channel('pipeline')</div>
+              <div class="t2-arrow">↓ sink</div>
+              <div class="t2-node"><span class="t2-node-dot"></span>TransformAgent</div>
+              <div class="t2-arrow">↓ SSE</div>
+              <div class="t2-channel">HTTP stream</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="t2-bento">
+        <div class="t2-card"><div class="t2-card-icon">⚡</div><h3>Event-Driven Agents</h3><p>Schema-validated events, no fixed graphs.</p><code>AgentFactory.run().listensTo(…)</code><span class="t2-card-tag">core</span></div>
+        <div class="t2-card"><div class="t2-card-icon">🔗</div><h3>Agent Networks</h3><p>Wire agents into swarms via channels.</p><code>AgentNetwork.setup(…)</code><span class="t2-card-tag">core</span></div>
+        <div class="t2-card"><div class="t2-card-icon">🛡</div><h3>Typed Events</h3><p>Effect Schema validation at runtime.</p><code>AgentNetworkEvent.of(…)</code><span class="t2-card-tag">typesafe</span></div>
+        <div class="t2-card"><div class="t2-card-icon">📡</div><h3>SSE Streaming</h3><p>HTTP stream adapters for Next.js & Express.</p><code>NextEndpoint.from(…).handler()</code><span class="t2-card-tag">stream</span></div>
+        <div class="t2-card"><div class="t2-card-icon">🔀</div><h3>Channels & Sinks</h3><p>Named channels, HTTP stream, Kafka sinks.</p><code>createChannel(…).sink(…)</code><span class="t2-card-tag">infra</span></div>
+        <div class="t2-card"><div class="t2-card-icon">📦</div><h3>Batteries Included</h3><p>React hooks, UI kit, pump streaming.</p><code>@m4trix/react | @m4trix/ui</code><span class="t2-card-tag">ecosystem</span></div>
+      </div>
+      <div class="t2-footer">
+        <span>main · MIT · Pascal Lohscheidt</span>
+        <span>TypeScript · © 2025</span>
+      </div>
+    </div>
+
+    <div class="tokens-row">
+      <div class="token-swatch"><div class="swatch-dot" style="background:#09090b;border:1px solid #27272a;"></div><span class="swatch-name">Background</span><span class="swatch-hex">#09090b</span></div>
+      <div class="token-swatch"><div class="swatch-dot" style="background:#a78bfa;"></div><span class="swatch-name">Primary</span><span class="swatch-hex">#a78bfa</span></div>
+      <div class="token-swatch"><div class="swatch-dot" style="background:#4ade80;"></div><span class="swatch-name">Success</span><span class="swatch-hex">#4ade80</span></div>
+      <div class="token-swatch"><div class="swatch-dot" style="background:#67e8f9;"></div><span class="swatch-name">Code</span><span class="swatch-hex">#67e8f9</span></div>
+      <div class="token-swatch"><div class="swatch-dot" style="background:#18181b;border:1px solid #27272a;"></div><span class="swatch-name">Surface</span><span class="swatch-hex">#18181b</span></div>
+    </div>
+
+    <div class="notes-grid">
+      <div class="note-card"><div class="note-num" style="color:#a78bfa;">01 — What changed</div><h4>Semantic CTAs</h4><p>Primary button is filled solid white-on-purple. Secondary is ghost. The hierarchy is now unambiguous at a glance.</p></div>
+      <div class="note-card"><div class="note-num" style="color:#a78bfa;">02 — What changed</div><h4>Hero diagram</h4><p>A live miniature network diagram anchors the hero. Visitors instantly see how agents, channels, and sinks relate spatially.</p></div>
+      <div class="note-card"><div class="note-num" style="color:#a78bfa;">03 — What changed</div><h4>Category tags on cards</h4><p>Small purple pill tags (core, stream, infra) let engineers scan which package a feature lives in before reading the description.</p></div>
+    </div>
+  </div>
+
+  <!-- ③ OXIDE -->
+  <div class="theme-block" id="theme-oxide">
+    <div class="theme-meta">
+      <div>
+        <div class="theme-name" style="color:#58a6ff;">Oxide — GitHub × Enterprise</div>
+        <div class="theme-tagline">Borrows the GitHub dark palette. Signals "production-grade" to enterprise evaluators.</div>
+      </div>
+      <div class="theme-badge" style="background:rgba(59,130,246,0.12);color:#58a6ff;border:1px solid rgba(59,130,246,0.3);">Alternative</div>
+    </div>
+
+    <div class="t3-preview">
+      <div class="t3-nav">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div class="t3-logo"><span class="t3-logo-mark">M</span> m4trix</div>
+          <span class="t3-badge">Alpha</span>
+        </div>
+        <div class="t3-nav-right">
+          <button class="t3-btn-ghost">GitHub</button>
+          <button class="t3-btn-primary">Get started</button>
+        </div>
+      </div>
+      <div class="t3-hero">
+        <div class="t3-eyebrow"><div class="t3-eyebrow-line"></div>Event-driven agent framework<div class="t3-eyebrow-line"></div></div>
+        <h1>Build agent networks that <em>compose</em>, not just connect</h1>
+        <p>Type-safe events, schema-validated channels, streaming sinks. No global state. No forced graphs. Just TypeScript.</p>
+        <div class="t3-tags">
+          <span class="t3-tag">TypeScript</span>
+          <span class="t3-tag">Effect Schema</span>
+          <span class="t3-tag">SSE Streaming</span>
+          <span class="t3-tag">MIT License</span>
+        </div>
+        <div class="t3-ctas">
+          <button class="t3-cta-primary">Get started →</button>
+          <button class="t3-cta-secondary">View on GitHub</button>
+        </div>
+      </div>
+      <div class="t3-stats">
+        <div class="t3-stat"><div class="t3-stat-num">0<span>deps</span></div><div class="t3-stat-label">Zero runtime deps</div></div>
+        <div class="t3-stat"><div class="t3-stat-num">100<span>%</span></div><div class="t3-stat-label">Type-safe at runtime</div></div>
+        <div class="t3-stat"><div class="t3-stat-num">4<span>pkgs</span></div><div class="t3-stat-label">Modular packages</div></div>
+      </div>
+      <div class="t3-features">
+        <div class="t3-feature"><div class="t3-feature-icon">⚡</div><div class="t3-feature-body"><h3>Event-Driven Agents</h3><p>Schema-validated events, no fixed graphs, no global state.</p></div></div>
+        <div class="t3-feature"><div class="t3-feature-icon">🔗</div><div class="t3-feature-body"><h3>Agent Networks</h3><p>Wire agents into swarms via named channels and sinks.</p></div></div>
+        <div class="t3-feature"><div class="t3-feature-icon">📡</div><div class="t3-feature-body"><h3>SSE Streaming</h3><p>Built-in Next.js & Express adapters. Stream to any client.</p></div></div>
+        <div class="t3-feature"><div class="t3-feature-icon">🛡</div><div class="t3-feature-body"><h3>Runtime Safety</h3><p>Effect Schema validation at every message boundary.</p></div></div>
+      </div>
+      <div class="t3-footer">
+        <span>main · MIT · Pascal Lohscheidt</span>
+        <span>TypeScript · © 2025</span>
+      </div>
+    </div>
+
+    <div class="tokens-row">
+      <div class="token-swatch"><div class="swatch-dot" style="background:#0d1117;border:1px solid rgba(255,255,255,0.1);"></div><span class="swatch-name">Background</span><span class="swatch-hex">#0d1117</span></div>
+      <div class="token-swatch"><div class="swatch-dot" style="background:#1f6feb;"></div><span class="swatch-name">Primary</span><span class="swatch-hex">#1f6feb</span></div>
+      <div class="token-swatch"><div class="swatch-dot" style="background:#58a6ff;"></div><span class="swatch-name">Accent text</span><span class="swatch-hex">#58a6ff</span></div>
+      <div class="token-swatch"><div class="swatch-dot" style="background:#161b22;border:1px solid rgba(255,255,255,0.1);"></div><span class="swatch-name">Surface</span><span class="swatch-hex">#161b22</span></div>
+      <div class="token-swatch"><div class="swatch-dot" style="background:#8b949e;"></div><span class="swatch-name">Muted text</span><span class="swatch-hex">#8b949e</span></div>
+    </div>
+
+    <div class="notes-grid">
+      <div class="note-card"><div class="note-num" style="color:#58a6ff;">01 — Tradeoff</div><h4>Enterprise credibility</h4><p>GitHub-adjacent palette makes the library feel production-tested. Evaluators at larger companies are more likely to trust it.</p></div>
+      <div class="note-card"><div class="note-num" style="color:#58a6ff;">02 — Tradeoff</div><h4>Less personality</h4><p>The m4trix brand identity is mostly gone. This could fit a company-level rebrand but dilutes the playful hacker spirit.</p></div>
+      <div class="note-card"><div class="note-num" style="color:#58a6ff;">03 — What's new</div><h4>Stats bar</h4><p>Social proof stat cards (0 deps, 100% type-safe, 4 packages) give engineers a fast yes/no before reading the features.</p></div>
+    </div>
+  </div>
+
+  <!-- ④ AMBER CRT -->
+  <div class="theme-block" id="theme-crt">
+    <div class="theme-meta">
+      <div>
+        <div class="theme-name" style="color:#fbbf24;">Amber CRT — Retro Terminal</div>
+        <div class="theme-tagline">Old-school amber phosphor. Distinctive, instantly memorable, still totally monospace-native.</div>
+      </div>
+      <div class="theme-badge" style="background:rgba(251,191,36,0.1);color:#fbbf24;border:1px solid rgba(251,191,36,0.3);">Wild card</div>
+    </div>
+
+    <div class="t4-preview">
+      <div class="t4-nav">
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span class="t4-logo">m4trix</span>
+          <span class="t4-badge">ALPHA</span>
+        </div>
+        <div class="t4-nav-right">
+          <button class="t4-btn-ghost">github</button>
+          <button class="t4-btn-primary">DOCS</button>
+        </div>
+      </div>
+      <div class="t4-hero">
+        <h1>Orchestrate agents <span>typesafe</span><span class="t4-cursor"></span></h1>
+        <p>Event-driven agent orchestration. Type-safe events, channels, sinks.<br>No global state. No graphs. Just TypeScript.</p>
+        <div class="t4-terminal">
+          <div class="t4-term-header">
+            <span class="t4-term-title">m4trix — bash</span>
+            <div class="t4-term-dots"><div class="t4-dot"></div><div class="t4-dot"></div><div class="t4-dot"></div></div>
+          </div>
+          <div class="t4-term-body">
+            <div class="t4-line"><span class="t4-prompt">~</span><span class="t4-comment"> # install m4trix</span></div>
+            <div class="t4-line"><span class="t4-prompt">$</span><span class="t4-cmd"> pnpm add <span class="t4-pkg">@m4trix/core</span></span></div>
+            <div class="t4-line" style="margin-top:4px;padding-left:16px;"><span class="t4-ok">✓</span><span class="t4-cmd" style="color:rgba(251,191,36,0.7);"> Packages: +1 &nbsp; Done in 0.4s</span></div>
+            <div class="t4-line" style="margin-top:8px;"><span class="t4-prompt">$</span><span class="t4-cmd"> node -e "<span class="t4-pkg">require('@m4trix/core')</span>"</span></div>
+            <div class="t4-line" style="padding-left:16px;"><span class="t4-comment">// {AgentFactory, AgentNetwork, …}</span></div>
+          </div>
+        </div>
+        <div class="t4-ctas">
+          <button class="t4-cta-primary">QUICK START</button>
+          <button class="t4-cta-secondary">★ Star on GitHub</button>
+        </div>
+      </div>
+      <div class="t4-bento">
+        <div class="t4-card"><h3>Event Agents</h3><p>Type-safe agents with schema-validated events.</p><code>AgentFactory.run().listensTo(…)</code></div>
+        <div class="t4-card"><h3>Networks</h3><p>Wire agents to channels. One or a full swarm.</p><code>AgentNetwork.setup(…)</code></div>
+        <div class="t4-card"><h3>Typed Events</h3><p>Effect Schema validation at runtime.</p><code>AgentNetworkEvent.of(…)</code></div>
+        <div class="t4-card"><h3>SSE Streaming</h3><p>HTTP stream adapters for Next.js & Express.</p><code>NextEndpoint.from(…)</code></div>
+        <div class="t4-card"><h3>Sinks</h3><p>HTTP stream and Kafka sinks out of the box.</p><code>createChannel(…).sink(…)</code></div>
+        <div class="t4-card"><h3>Batteries</h3><p>React hooks, pump streaming, UI kit.</p><code>@m4trix/react | @m4trix/ui</code></div>
+      </div>
+      <div class="t4-footer">
+        <span>● main &nbsp;·&nbsp; MIT &nbsp;·&nbsp; Pascal Lohscheidt</span>
+        <span>TS &nbsp;·&nbsp; UTF-8 &nbsp;·&nbsp; © 2025</span>
+      </div>
+    </div>
+
+    <div class="tokens-row">
+      <div class="token-swatch"><div class="swatch-dot" style="background:#0c0a06;border:1px solid rgba(251,191,36,0.15);"></div><span class="swatch-name">Background</span><span class="swatch-hex">#0c0a06</span></div>
+      <div class="token-swatch"><div class="swatch-dot" style="background:#fbbf24;"></div><span class="swatch-name">Primary (amber)</span><span class="swatch-hex">#fbbf24</span></div>
+      <div class="token-swatch"><div class="swatch-dot" style="background:#d97706;"></div><span class="swatch-name">Code accent</span><span class="swatch-hex">#d97706</span></div>
+      <div class="token-swatch"><div class="swatch-dot" style="background:#fef3c7;"></div><span class="swatch-name">Heading text</span><span class="swatch-hex">#fef3c7</span></div>
+      <div class="token-swatch"><div class="swatch-dot" style="background:#78716c;"></div><span class="swatch-name">Muted text</span><span class="swatch-hex">#78716c</span></div>
+    </div>
+
+    <div class="notes-grid">
+      <div class="note-card"><div class="note-num" style="color:#fbbf24;">01 — Why amber</div><h4>Genuinely distinct</h4><p>Every other AI/developer tool uses green or blue. Amber phosphor is immediately recognisable and signals "real terminal heritage" not "hacker movie."</p></div>
+      <div class="note-card"><div class="note-num" style="color:#fbbf24;">02 — Tradeoff</div><h4>Bolder commitment</h4><p>This is a harder sell to conservative orgs. It leans into personality over polish — great for indie/OSS traction, trickier for enterprise deals.</p></div>
+      <div class="note-card"><div class="note-num" style="color:#fbbf24;">03 — Nice detail</div><h4>Blinking cursor in h1</h4><p>The CSS-animated cursor in the headline is a one-liner but makes the page feel alive without a heavy JS animation library.</p></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  function switchTheme(id, tabEl) {
+    document.querySelectorAll('.theme-block').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.getElementById('theme-' + id).classList.add('active');
+    tabEl.classList.add('active');
+
+    const labels = {
+      current: '① Current design',
+      refined: '② Refined current — purple × dark',
+      oxide: '③ Oxide — enterprise dark',
+      crt: '④ Amber CRT — retro terminal'
+    };
+    document.getElementById('preview-label').textContent = 'Preview — ' + labels[id];
+  }
+</script>
+</body>
+</html>

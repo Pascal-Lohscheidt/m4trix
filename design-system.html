@@ -1,0 +1,976 @@
+<!DOCTYPE html>
+<html lang="en" data-mode="dark" data-pkg="agents">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>m4trix — Design System</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* ─── Base tokens (mode-agnostic) ─────────────────────────────────────── */
+:root {
+  /* Surfaces */
+  --bg:        #09090b;
+  --bg-raised: #18181b;
+  --bg-subtle: #27272a;
+  --border:    rgba(255,255,255,0.07);
+  --border-md: rgba(255,255,255,0.13);
+  /* Text */
+  --text-1: #fafafa;
+  --text-2: #a1a1aa;
+  --text-3: #71717a;
+  --text-4: #52525b;
+  /* Semantic */
+  --green:  #4ade80;
+  --cyan:   #67e8f9;
+  --amber:  #fbbf24;
+  /* Typography */
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
+  /* Radius */
+  --r-sm: 5px;
+  --r-md: 8px;
+  --r-lg: 12px;
+  --r-xl: 16px;
+}
+
+[data-mode="light"] {
+  --bg:        #f8f8fb;
+  --bg-raised: #ffffff;
+  --bg-subtle: #f0eff6;
+  --border:    rgba(0,0,0,0.07);
+  --border-md: rgba(0,0,0,0.13);
+  --text-1: #0f0f13;
+  --text-2: #4b4b60;
+  --text-3: #7b7b96;
+  --text-4: #a0a0b8;
+  --green:  #16a34a;
+  --cyan:   #0891b2;
+  --amber:  #d97706;
+}
+
+/* ─── Package accent tokens — injected by data-pkg ───────────────────── */
+
+/* Agents / violet */
+[data-pkg="agents"] {
+  --accent:        #a78bfa;
+  --accent-solid:  #7c3aed;
+  --accent-dim:    rgba(167,139,250,0.12);
+  --accent-border: rgba(167,139,250,0.3);
+  --accent-text:   #c4b5fd;  /* text on accent-dim */
+}
+[data-mode="light"][data-pkg="agents"] {
+  --accent:        #7c3aed;
+  --accent-solid:  #6d28d9;
+  --accent-dim:    rgba(124,58,237,0.08);
+  --accent-border: rgba(124,58,237,0.25);
+  --accent-text:   #5b21b6;
+}
+
+/* Evals / emerald */
+[data-pkg="evals"] {
+  --accent:        #34d399;
+  --accent-solid:  #059669;
+  --accent-dim:    rgba(52,211,153,0.1);
+  --accent-border: rgba(52,211,153,0.28);
+  --accent-text:   #6ee7b7;
+}
+[data-mode="light"][data-pkg="evals"] {
+  --accent:        #059669;
+  --accent-solid:  #047857;
+  --accent-dim:    rgba(5,150,105,0.08);
+  --accent-border: rgba(5,150,105,0.25);
+  --accent-text:   #065f46;
+}
+
+/* Tracing / sky */
+[data-pkg="tracing"] {
+  --accent:        #38bdf8;
+  --accent-solid:  #0369a1;
+  --accent-dim:    rgba(56,189,248,0.1);
+  --accent-border: rgba(56,189,248,0.28);
+  --accent-text:   #7dd3fc;
+}
+[data-mode="light"][data-pkg="tracing"] {
+  --accent:        #0284c7;
+  --accent-solid:  #0369a1;
+  --accent-dim:    rgba(2,132,199,0.08);
+  --accent-border: rgba(2,132,199,0.25);
+  --accent-text:   #075985;
+}
+
+/* ─── Global ──────────────────────────────────────────────────────────── */
+body {
+  font-family: var(--font-sans);
+  background: var(--bg);
+  color: var(--text-1);
+  min-height: 100vh;
+  transition: background 0.2s, color 0.2s;
+}
+
+/* ─── Top bar ─────────────────────────────────────────────────────────── */
+.topbar {
+  position: sticky; top: 0; z-index: 100;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  padding: 0 2rem; height: 52px;
+  display: flex; align-items: center; justify-content: space-between;
+  backdrop-filter: blur(10px);
+  transition: background 0.2s;
+}
+.topbar-left { display: flex; align-items: center; gap: 12px; }
+.topbar-wordmark {
+  font-family: var(--font-mono);
+  font-size: 15px; font-weight: 700;
+  color: var(--text-1); letter-spacing: 0.02em;
+}
+.topbar-wordmark em { font-style: normal; color: var(--accent); transition: color 0.25s; }
+.topbar-title {
+  font-size: 12px; color: var(--text-3);
+  padding-left: 10px;
+  border-left: 1px solid var(--border-md);
+  margin-left: 4px;
+}
+.topbar-right { display: flex; align-items: center; gap: 8px; }
+
+/* Pkg switcher */
+.pkg-switcher {
+  display: flex; align-items: center;
+  background: var(--bg-raised);
+  border: 1px solid var(--border-md);
+  border-radius: var(--r-lg); padding: 3px; gap: 2px;
+}
+.pkg-btn {
+  font-size: 11px; font-weight: 600;
+  padding: 4px 11px; border-radius: 8px;
+  color: var(--text-3); cursor: pointer;
+  border: none; background: transparent;
+  transition: all 0.15s; white-space: nowrap;
+  font-family: var(--font-mono);
+}
+.pkg-btn.active {
+  background: var(--accent-dim);
+  color: var(--accent);
+  border: 1px solid var(--accent-border);
+}
+.pkg-btn:not(.active):hover { color: var(--text-2); }
+
+/* Mode toggle */
+.mode-toggle {
+  display: flex; align-items: center;
+  background: var(--bg-raised);
+  border: 1px solid var(--border-md);
+  border-radius: var(--r-lg); padding: 3px; gap: 2px;
+}
+.mode-btn {
+  font-size: 11px; font-weight: 500;
+  padding: 4px 10px; border-radius: 8px;
+  color: var(--text-3); cursor: pointer;
+  border: none; background: transparent;
+  transition: all 0.15s;
+}
+.mode-btn.active {
+  background: var(--accent-dim);
+  color: var(--accent);
+  border: 1px solid var(--accent-border);
+}
+
+/* ─── Layout ──────────────────────────────────────────────────────────── */
+.page { max-width: 880px; margin: 0 auto; padding: 2.5rem 2rem 6rem; }
+.section { margin-top: 3rem; }
+.section-label {
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.12em; color: var(--text-4);
+  margin-bottom: 1rem; padding-bottom: 0.6rem;
+  border-bottom: 1px solid var(--border);
+}
+.subsection-label {
+  font-size: 10px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.1em; color: var(--accent);
+  margin-top: 1.5rem; margin-bottom: 0.75rem;
+  transition: color 0.25s;
+}
+
+/* ─── Page preview ────────────────────────────────────────────────────── */
+.preview-wrap {
+  background: var(--bg-raised);
+  border: 1px solid var(--border-md);
+  border-radius: var(--r-xl);
+  overflow: hidden;
+}
+.site-nav {
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  padding: 10px 20px;
+  display: flex; align-items: center; justify-content: space-between;
+  transition: background 0.2s;
+}
+.site-logo {
+  font-family: var(--font-mono);
+  font-size: 14px; font-weight: 700;
+  color: var(--text-1);
+  display: flex; align-items: center; gap: 8px;
+}
+.site-logo em { font-style: normal; color: var(--accent); transition: color 0.25s; }
+.site-badge {
+  font-size: 10px; font-weight: 600;
+  color: var(--accent); background: var(--accent-dim);
+  border: 1px solid var(--accent-border);
+  padding: 2px 8px; border-radius: 999px;
+  font-family: var(--font-mono);
+  transition: color 0.25s, background 0.25s, border-color 0.25s;
+}
+.preview-nav-links { display: flex; gap: 8px; align-items: center; }
+.p-btn-ghost {
+  font-size: 12px; color: var(--text-3);
+  border: 1px solid var(--border-md);
+  background: transparent; padding: 4px 12px;
+  border-radius: var(--r-md); cursor: pointer;
+  font-family: var(--font-sans);
+}
+.p-btn-primary {
+  font-size: 12px; color: #fff;
+  border: none; background: var(--accent-solid);
+  padding: 4px 12px; border-radius: var(--r-md);
+  cursor: pointer; font-weight: 600;
+  transition: background 0.25s;
+}
+/* Tab bar preview */
+.preview-tabs {
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+  padding: 0 20px;
+  display: flex; overflow: hidden;
+}
+.preview-tab {
+  padding: 10px 14px; font-family: var(--font-mono); font-size: 12px;
+  border-bottom: 2px solid transparent; color: var(--text-4);
+  display: flex; align-items: center; gap: 6px;
+}
+.preview-tab.active {
+  border-bottom-color: var(--accent);
+  color: var(--text-1);
+  transition: border-color 0.25s, color 0.25s;
+}
+.preview-tab-pill {
+  font-size: 9px; font-weight: 700;
+  padding: 1px 6px; border-radius: 4px;
+  background: var(--accent-dim); color: var(--accent);
+  border: 1px solid var(--accent-border);
+  transition: all 0.25s;
+}
+/* Hero preview */
+.preview-hero {
+  padding: 28px 24px 20px;
+  display: flex; gap: 20px; align-items: flex-start;
+}
+.preview-hero-text { flex: 1; }
+.preview-eyebrow {
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.1em; color: var(--accent); margin-bottom: 7px;
+  font-family: var(--font-mono); transition: color 0.25s;
+}
+.preview-hero h1 {
+  font-size: 20px; font-weight: 700; color: var(--text-1);
+  letter-spacing: -0.02em; line-height: 1.2;
+}
+.preview-hero h1 span { color: var(--accent); transition: color 0.25s; }
+.preview-hero p { font-size: 12px; color: var(--text-2); margin-top: 7px; line-height: 1.6; }
+.preview-install {
+  margin-top: 12px;
+  background: var(--bg); border: 1px solid var(--border-md);
+  border-radius: var(--r-md); font-family: var(--font-mono);
+  font-size: 11px; overflow: hidden; max-width: 320px;
+}
+.preview-install-hdr {
+  padding: 5px 10px; border-bottom: 1px solid var(--border);
+  display: flex; justify-content: space-between;
+  font-size: 9px; color: var(--text-4);
+}
+.preview-install-body { padding: 7px 10px; }
+.pi-row { display: flex; align-items: center; gap: 7px; }
+.pi-prompt { color: var(--accent); transition: color 0.25s; }
+.pi-pkg    { color: var(--accent); transition: color 0.25s; }
+.pi-ok     { color: var(--green); }
+.preview-ctas { display: flex; gap: 7px; margin-top: 12px; flex-wrap: wrap; }
+.p-cta-primary {
+  font-size: 11px; color: #fff; background: var(--accent-solid);
+  border: none; padding: 7px 14px; border-radius: var(--r-md);
+  cursor: pointer; font-weight: 600; transition: background 0.25s;
+}
+.p-cta-secondary {
+  font-size: 11px; color: var(--text-2); background: transparent;
+  border: 1px solid var(--border-md); padding: 7px 14px;
+  border-radius: var(--r-md); cursor: pointer;
+}
+/* Diagram */
+.preview-diagram {
+  width: 160px; flex-shrink: 0;
+  background: var(--bg); border: 1px solid var(--border-md);
+  border-radius: var(--r-lg); padding: 12px;
+  font-family: var(--font-mono); font-size: 10px;
+}
+.pd-label {
+  font-size: 9px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.08em; color: var(--text-4); text-align: center; margin-bottom: 8px;
+}
+.pd-node {
+  display: flex; align-items: center; gap: 6px;
+  padding: 5px 8px; border-radius: 5px;
+  background: var(--accent-dim); border: 1px solid var(--accent-border);
+  color: var(--accent-text); font-size: 10px;
+  transition: all 0.25s;
+}
+.pd-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--accent); flex-shrink: 0; transition: background 0.25s; }
+.pd-ch {
+  padding: 5px 8px; border-radius: 5px; text-align: center;
+  border: 1px dashed rgba(103,232,249,0.3); background: rgba(103,232,249,0.05);
+  color: var(--cyan); font-size: 10px;
+}
+.pd-arrow { text-align: center; color: var(--text-4); margin: 3px 0; }
+/* Bento */
+.preview-bento {
+  display: grid; grid-template-columns: repeat(3,1fr);
+  gap: 7px; padding: 0 16px 16px;
+}
+.pb-card {
+  background: var(--bg-raised); border: 1px solid var(--border);
+  border-radius: var(--r-lg); padding: 10px;
+}
+.pb-card h4 { font-size: 11px; font-weight: 600; color: var(--text-1); }
+.pb-card p  { font-size: 10px; color: var(--text-3); margin-top: 3px; line-height: 1.45; }
+.pb-tag {
+  display: inline-block; font-size: 9px; font-weight: 600;
+  font-family: var(--font-mono);
+  background: var(--accent-dim); color: var(--accent);
+  padding: 1px 5px; border-radius: 3px; margin-top: 5px;
+  transition: all 0.25s;
+}
+/* Footer */
+.preview-footer {
+  background: var(--bg); border-top: 1px solid var(--border);
+  padding: 6px 20px; display: flex; justify-content: space-between;
+  font-family: var(--font-mono); font-size: 10px; color: var(--text-4);
+}
+.pf-dot { display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: var(--accent); margin-right: 5px; transition: background 0.25s; }
+
+/* ─── Color tokens grid ───────────────────────────────────────────────── */
+.token-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 10px;
+}
+.token-card {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+}
+.token-chip {
+  height: 52px; width: 100%;
+  display: flex; align-items: flex-end; padding: 6px 10px;
+}
+.token-chip-label {
+  font-size: 9px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.06em; opacity: 0.55; font-family: var(--font-mono);
+}
+.token-meta { padding: 8px 10px 10px; display: flex; flex-direction: column; gap: 2px; }
+.token-name { font-size: 12px; font-weight: 600; color: var(--text-1); }
+.token-hex  { font-family: var(--font-mono); font-size: 11px; color: var(--text-3); }
+.token-use  { font-size: 11px; color: var(--text-3); margin-top: 2px; }
+
+/* Accent-reactive swatches */
+.swatch-accent       { background: var(--accent); transition: background 0.25s; }
+.swatch-accent-solid { background: var(--accent-solid); transition: background 0.25s; }
+.swatch-accent-dim   { background: var(--accent-dim); border: 1px solid var(--accent-border); transition: all 0.25s; }
+
+/* Package palette cards */
+.pkg-palette-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+}
+.pkg-palette-card {
+  border-radius: var(--r-lg); border: 1px solid var(--border); overflow: hidden;
+}
+.pkg-palette-header {
+  padding: 12px 14px 10px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.pkg-palette-name { font-size: 12px; font-weight: 600; color: var(--text-1); }
+.pkg-palette-pkg  { font-family: var(--font-mono); font-size: 10px; color: var(--text-3); }
+.pkg-swatches { display: flex; padding: 0 14px 14px; gap: 6px; }
+.pkg-swatch { flex: 1; height: 32px; border-radius: 5px; }
+.pkg-tokens { padding: 10px 14px 14px; display: flex; flex-direction: column; gap: 4px; border-top: 1px solid var(--border); }
+.pkg-token-row { display: flex; justify-content: space-between; align-items: center; }
+.pkg-token-label { font-size: 10px; color: var(--text-3); }
+.pkg-token-val   { font-family: var(--font-mono); font-size: 10px; }
+
+/* ─── Typography ──────────────────────────────────────────────────────── */
+.type-row { display: flex; flex-direction: column; gap: 6px; }
+.type-sample {
+  display: flex; align-items: baseline; gap: 14px;
+  padding: 10px 14px;
+  background: var(--bg-raised); border: 1px solid var(--border);
+  border-radius: var(--r-md);
+}
+.type-spec { font-family: var(--font-mono); font-size: 10px; color: var(--text-4); width: 150px; flex-shrink: 0; }
+
+/* ─── Component tokens ────────────────────────────────────────────────── */
+.comp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; }
+.comp-card {
+  background: var(--bg-raised); border: 1px solid var(--border);
+  border-radius: var(--r-lg); padding: 14px;
+}
+.comp-card-label {
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.08em; color: var(--text-4); margin-bottom: 10px;
+}
+.btn-demo-primary {
+  font-size: 12px; color: #fff; background: var(--accent-solid);
+  border: none; padding: 7px 16px; border-radius: var(--r-md);
+  cursor: pointer; font-weight: 600; transition: background 0.25s;
+}
+.btn-demo-secondary {
+  font-size: 12px; color: var(--text-2); background: transparent;
+  border: 1px solid var(--border-md); padding: 7px 16px;
+  border-radius: var(--r-md); cursor: pointer;
+}
+.btn-demo-tertiary {
+  font-size: 12px; color: var(--text-3); background: transparent;
+  border: 1px solid var(--border); padding: 7px 16px;
+  border-radius: var(--r-md); cursor: pointer;
+}
+.badge-accent {
+  font-size: 10px; font-weight: 600;
+  color: var(--accent); background: var(--accent-dim);
+  border: 1px solid var(--accent-border);
+  padding: 2px 8px; border-radius: 999px;
+  font-family: var(--font-mono); transition: all 0.25s;
+}
+.badge-cyan {
+  font-size: 10px; font-weight: 600;
+  color: var(--cyan); background: rgba(103,232,249,0.08);
+  border: 1px solid rgba(103,232,249,0.25);
+  padding: 2px 8px; border-radius: 999px;
+  font-family: var(--font-mono);
+}
+.badge-green {
+  font-size: 10px; font-weight: 600;
+  color: var(--green); background: rgba(74,222,128,0.08);
+  border: 1px solid rgba(74,222,128,0.25);
+  padding: 2px 8px; border-radius: 999px;
+  font-family: var(--font-mono);
+}
+.tag-accent {
+  display: inline-block; font-size: 10px; font-weight: 600;
+  font-family: var(--font-mono);
+  color: var(--accent); background: var(--accent-dim);
+  padding: 1px 6px; border-radius: 4px; transition: all 0.25s;
+}
+
+/* ─── Spacing & radius ────────────────────────────────────────────────── */
+.space-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; }
+.space-chip { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.space-bar  { background: var(--accent-dim); border: 1px solid var(--accent-border); border-radius: 3px; width: 36px; transition: all 0.25s; }
+.space-val  { font-family: var(--font-mono); font-size: 10px; color: var(--text-3); }
+.radius-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.radius-chip {
+  background: var(--bg-raised); border: 1px solid var(--border-md);
+  width: 72px; height: 52px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-mono); font-size: 10px; color: var(--text-3);
+}
+
+@media (max-width: 600px) {
+  .pkg-palette-grid { grid-template-columns: 1fr; }
+  .preview-bento { grid-template-columns: 1fr 1fr; }
+  .preview-hero { flex-direction: column; }
+  .preview-diagram { width: 100%; max-width: 260px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ── Top bar ── -->
+<div class="topbar">
+  <div class="topbar-left">
+    <span class="topbar-wordmark"><em>m</em>4trix</span>
+    <span class="topbar-title">Design System</span>
+  </div>
+  <div class="topbar-right">
+    <!-- Package switcher -->
+    <div class="pkg-switcher">
+      <button class="pkg-btn active" id="pkg-agents"   onclick="setPkg('agents')">Agents</button>
+      <button class="pkg-btn"        id="pkg-evals"    onclick="setPkg('evals')">Evals</button>
+      <button class="pkg-btn"        id="pkg-tracing"  onclick="setPkg('tracing')">Tracing</button>
+    </div>
+    <!-- Light / Dark -->
+    <div class="mode-toggle">
+      <button class="mode-btn active" id="btn-dark"  onclick="setMode('dark')">Dark</button>
+      <button class="mode-btn"        id="btn-light" onclick="setMode('light')">Light</button>
+    </div>
+  </div>
+</div>
+
+<div class="page">
+
+  <!-- ── Site preview ── -->
+  <div class="section">
+    <div class="section-label">Page preview — responds to package + mode</div>
+    <div class="preview-wrap">
+
+      <nav class="site-nav">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="site-logo"><em>m</em>4trix</span>
+          <span class="site-badge" id="preview-badge">Alpha</span>
+        </div>
+        <div class="preview-nav-links">
+          <button class="p-btn-ghost">GitHub</button>
+          <button class="p-btn-primary">Docs →</button>
+        </div>
+      </nav>
+
+      <div class="preview-tabs">
+        <div class="preview-tab active" id="ptab-agents">
+          Agent Orchestrator
+          <span class="preview-tab-pill">Pre-Alpha</span>
+        </div>
+        <div class="preview-tab" id="ptab-evals">Evals</div>
+        <div class="preview-tab" id="ptab-tracing">Tracing</div>
+      </div>
+
+      <div class="preview-hero">
+        <div class="preview-hero-text">
+          <p class="preview-eyebrow" id="preview-eyebrow">Agentic infrastructure</p>
+          <h1 id="preview-h1">Orchestrate agents <span id="preview-accent-word">typesafe</span></h1>
+          <p id="preview-sub">Event-driven agent orchestration. Type-safe events, channels, sinks.</p>
+          <div class="preview-install">
+            <div class="preview-install-hdr"><span>Terminal</span><span>bash</span></div>
+            <div class="preview-install-body">
+              <div class="pi-row"><span class="pi-prompt">$</span><span style="color:var(--text-1);font-size:11px;">pnpm add <span class="pi-pkg" id="preview-pkg-name">@m4trix/core</span></span></div>
+              <div class="pi-row" style="padding-left:16px;margin-top:3px;"><span class="pi-ok">✓</span><span style="color:var(--green);opacity:0.8;font-size:11px;">Done in 0.4s</span></div>
+            </div>
+          </div>
+          <div class="preview-ctas">
+            <button class="p-cta-primary">Quick Start →</button>
+            <button class="p-cta-secondary">GitHub</button>
+          </div>
+        </div>
+        <div class="preview-diagram">
+          <div class="pd-label" id="pd-label">Agent network</div>
+          <div id="pd-content">
+            <div class="pd-node"><span class="pd-dot"></span><span style="font-size:10px;">IngestAgent</span></div>
+            <div class="pd-arrow">↓</div>
+            <div class="pd-ch">channel('pipeline')</div>
+            <div class="pd-arrow">↓</div>
+            <div class="pd-node"><span class="pd-dot"></span><span style="font-size:10px;">TransformAgent</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="preview-bento">
+        <div class="pb-card"><h4 id="pb1-title">Event-Driven Agents</h4><p id="pb1-desc">Type-safe agents with schema-validated events.</p><span class="pb-tag" id="pb1-tag">core</span></div>
+        <div class="pb-card"><h4 id="pb2-title">Agent Networks</h4><p id="pb2-desc">Wire agents into swarms via channels.</p><span class="pb-tag" id="pb2-tag">core</span></div>
+        <div class="pb-card"><h4 id="pb3-title">SSE Streaming</h4><p id="pb3-desc">Built-in Next.js & Express adapters.</p><span class="pb-tag" id="pb3-tag">stream</span></div>
+      </div>
+
+      <footer class="preview-footer">
+        <span><span class="pf-dot"></span>main · MIT · Pascal Lohscheidt</span>
+        <span>TypeScript · © 2025</span>
+      </footer>
+    </div>
+  </div>
+
+  <!-- ── Package palettes ── -->
+  <div class="section">
+    <div class="section-label">Package palettes — all three at a glance</div>
+    <div class="pkg-palette-grid">
+
+      <!-- Agents -->
+      <div class="pkg-palette-card" style="background:var(--bg-raised);">
+        <div class="pkg-palette-header" style="background:rgba(167,139,250,0.06);border-bottom:1px solid rgba(167,139,250,0.15);">
+          <span class="pkg-palette-name">Agents</span>
+          <span class="pkg-palette-pkg">@m4trix/core</span>
+        </div>
+        <div class="pkg-swatches" style="padding-top:12px;">
+          <div class="pkg-swatch" style="background:#a78bfa;" title="#a78bfa"></div>
+          <div class="pkg-swatch" style="background:#7c3aed;" title="#7c3aed"></div>
+          <div class="pkg-swatch" style="background:rgba(167,139,250,0.12);border:1px solid rgba(167,139,250,0.3);" title="dim"></div>
+          <div class="pkg-swatch" style="background:#c4b5fd;" title="#c4b5fd text-on-dim"></div>
+        </div>
+        <div class="pkg-tokens">
+          <div class="pkg-token-row"><span class="pkg-token-label">accent</span><span class="pkg-token-val" style="color:#a78bfa;">#a78bfa</span></div>
+          <div class="pkg-token-row"><span class="pkg-token-label">solid</span><span class="pkg-token-val" style="color:#7c3aed;">#7c3aed</span></div>
+          <div class="pkg-token-row"><span class="pkg-token-label">dim</span><span class="pkg-token-val" style="color:var(--text-3);">rgba(167,139,250,.12)</span></div>
+          <div class="pkg-token-row"><span class="pkg-token-label">border</span><span class="pkg-token-val" style="color:var(--text-3);">rgba(167,139,250,.3)</span></div>
+          <div class="pkg-token-row"><span class="pkg-token-label">text-on-dim</span><span class="pkg-token-val" style="color:#c4b5fd;">#c4b5fd</span></div>
+        </div>
+      </div>
+
+      <!-- Evals -->
+      <div class="pkg-palette-card" style="background:var(--bg-raised);">
+        <div class="pkg-palette-header" style="background:rgba(52,211,153,0.06);border-bottom:1px solid rgba(52,211,153,0.15);">
+          <span class="pkg-palette-name">Evals</span>
+          <span class="pkg-palette-pkg">@m4trix/evals</span>
+        </div>
+        <div class="pkg-swatches" style="padding-top:12px;">
+          <div class="pkg-swatch" style="background:#34d399;" title="#34d399"></div>
+          <div class="pkg-swatch" style="background:#059669;" title="#059669"></div>
+          <div class="pkg-swatch" style="background:rgba(52,211,153,0.1);border:1px solid rgba(52,211,153,0.28);" title="dim"></div>
+          <div class="pkg-swatch" style="background:#6ee7b7;" title="#6ee7b7 text-on-dim"></div>
+        </div>
+        <div class="pkg-tokens">
+          <div class="pkg-token-row"><span class="pkg-token-label">accent</span><span class="pkg-token-val" style="color:#34d399;">#34d399</span></div>
+          <div class="pkg-token-row"><span class="pkg-token-label">solid</span><span class="pkg-token-val" style="color:#059669;">#059669</span></div>
+          <div class="pkg-token-row"><span class="pkg-token-label">dim</span><span class="pkg-token-val" style="color:var(--text-3);">rgba(52,211,153,.10)</span></div>
+          <div class="pkg-token-row"><span class="pkg-token-label">border</span><span class="pkg-token-val" style="color:var(--text-3);">rgba(52,211,153,.28)</span></div>
+          <div class="pkg-token-row"><span class="pkg-token-label">text-on-dim</span><span class="pkg-token-val" style="color:#6ee7b7;">#6ee7b7</span></div>
+        </div>
+      </div>
+
+      <!-- Tracing -->
+      <div class="pkg-palette-card" style="background:var(--bg-raised);">
+        <div class="pkg-palette-header" style="background:rgba(56,189,248,0.06);border-bottom:1px solid rgba(56,189,248,0.15);">
+          <span class="pkg-palette-name">Tracing</span>
+          <span class="pkg-palette-pkg">@m4trix/tracing</span>
+        </div>
+        <div class="pkg-swatches" style="padding-top:12px;">
+          <div class="pkg-swatch" style="background:#38bdf8;" title="#38bdf8"></div>
+          <div class="pkg-swatch" style="background:#0369a1;" title="#0369a1"></div>
+          <div class="pkg-swatch" style="background:rgba(56,189,248,0.1);border:1px solid rgba(56,189,248,0.28);" title="dim"></div>
+          <div class="pkg-swatch" style="background:#7dd3fc;" title="#7dd3fc text-on-dim"></div>
+        </div>
+        <div class="pkg-tokens">
+          <div class="pkg-token-row"><span class="pkg-token-label">accent</span><span class="pkg-token-val" style="color:#38bdf8;">#38bdf8</span></div>
+          <div class="pkg-token-row"><span class="pkg-token-label">solid</span><span class="pkg-token-val" style="color:#0369a1;">#0369a1</span></div>
+          <div class="pkg-token-row"><span class="pkg-token-label">dim</span><span class="pkg-token-val" style="color:var(--text-3);">rgba(56,189,248,.10)</span></div>
+          <div class="pkg-token-row"><span class="pkg-token-label">border</span><span class="pkg-token-val" style="color:var(--text-3);">rgba(56,189,248,.28)</span></div>
+          <div class="pkg-token-row"><span class="pkg-token-label">text-on-dim</span><span class="pkg-token-val" style="color:#7dd3fc;">#7dd3fc</span></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── Accent-reactive tokens ── -->
+  <div class="section">
+    <div class="section-label">Active accent tokens — switch package above to preview</div>
+    <div class="token-grid">
+
+      <div class="token-card">
+        <div class="token-chip swatch-accent"><span class="token-chip-label" style="color:#fff;">--accent</span></div>
+        <div class="token-meta">
+          <span class="token-name">Accent</span>
+          <span class="token-hex" id="tok-accent-hex">—</span>
+          <span class="token-use">Text links, eyebrow labels, tab indicator</span>
+        </div>
+      </div>
+
+      <div class="token-card">
+        <div class="token-chip swatch-accent-solid"><span class="token-chip-label" style="color:#fff;">--accent-solid</span></div>
+        <div class="token-meta">
+          <span class="token-name">Accent / Solid</span>
+          <span class="token-hex" id="tok-solid-hex">—</span>
+          <span class="token-use">Filled primary buttons</span>
+        </div>
+      </div>
+
+      <div class="token-card">
+        <div class="token-chip swatch-accent-dim"><span class="token-chip-label" id="tok-dim-label">--accent-dim</span></div>
+        <div class="token-meta">
+          <span class="token-name">Accent / Dim</span>
+          <span class="token-hex" id="tok-dim-hex">—</span>
+          <span class="token-use">Badge fills, card hover tints, diagram nodes</span>
+        </div>
+      </div>
+
+      <div class="token-card">
+        <div class="token-chip" style="background:var(--bg);border-bottom:1px solid var(--border);">
+          <span class="token-chip-label" style="color:var(--text-4);">--bg</span>
+        </div>
+        <div class="token-meta">
+          <span class="token-name">Background</span>
+          <span class="token-hex">dark: #09090b &nbsp;·&nbsp; light: #f8f8fb</span>
+          <span class="token-use">Page, nav, footer, code blocks</span>
+        </div>
+      </div>
+
+      <div class="token-card">
+        <div class="token-chip" style="background:var(--bg-raised);border-bottom:1px solid var(--border);">
+          <span class="token-chip-label" style="color:var(--text-4);">--bg-raised</span>
+        </div>
+        <div class="token-meta">
+          <span class="token-name">Surface / Raised</span>
+          <span class="token-hex">dark: #18181b &nbsp;·&nbsp; light: #ffffff</span>
+          <span class="token-use">Cards, panels, inputs</span>
+        </div>
+      </div>
+
+      <div class="token-card">
+        <div class="token-chip" style="background:#67e8f9;"><span class="token-chip-label" style="color:#164e63;">--cyan</span></div>
+        <div class="token-meta">
+          <span class="token-name">Cyan / Code</span>
+          <span class="token-hex">dark: #67e8f9 &nbsp;·&nbsp; light: #0891b2</span>
+          <span class="token-use">Inline code, channel nodes — shared across all packages</span>
+        </div>
+      </div>
+
+      <div class="token-card">
+        <div class="token-chip" style="background:#4ade80;"><span class="token-chip-label" style="color:#14532d;">--green</span></div>
+        <div class="token-meta">
+          <span class="token-name">Green / Success</span>
+          <span class="token-hex">dark: #4ade80 &nbsp;·&nbsp; light: #16a34a</span>
+          <span class="token-use">Install confirmation ✓, status indicators</span>
+        </div>
+      </div>
+
+      <div class="token-card">
+        <div class="token-chip" style="background:#fbbf24;"><span class="token-chip-label" style="color:#78350f;">--amber</span></div>
+        <div class="token-meta">
+          <span class="token-name">Amber / Star</span>
+          <span class="token-hex">#fbbf24</span>
+          <span class="token-use">GitHub star CTA icon — shared across all packages</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── Typography ── -->
+  <div class="section">
+    <div class="section-label">Typography scale</div>
+    <div class="type-row">
+      <div class="type-sample">
+        <span class="type-spec">display · 56–64px · 700 · Lexend</span>
+        <span style="font-size:32px;font-weight:700;color:var(--text-1);letter-spacing:-0.025em;line-height:1;">Orchestrate agents</span>
+      </div>
+      <div class="type-sample">
+        <span class="type-spec">h2 · 32px · 700</span>
+        <span style="font-size:22px;font-weight:700;color:var(--text-1);letter-spacing:-0.02em;">Everything you need</span>
+      </div>
+      <div class="type-sample">
+        <span class="type-spec">h3 card · 13px · 600</span>
+        <span style="font-size:13px;font-weight:600;color:var(--text-1);">Event-Driven Agents</span>
+      </div>
+      <div class="type-sample">
+        <span class="type-spec">eyebrow · 11px · 700 · mono · upper</span>
+        <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--accent);font-family:var(--font-mono);transition:color 0.25s;">Agentic infrastructure</span>
+      </div>
+      <div class="type-sample">
+        <span class="type-spec">body · 15–17px · 400 · 1.65</span>
+        <span style="font-size:14px;color:var(--text-2);line-height:1.65;">Type-safe events, channels, sinks. No global state, no rigid topologies.</span>
+      </div>
+      <div class="type-sample">
+        <span class="type-spec">code · 12px · mono</span>
+        <code style="font-family:var(--font-mono);font-size:12px;color:var(--cyan);">AgentFactory.run().listensTo([evt]).logic(fn).produce({})</code>
+      </div>
+      <div class="type-sample">
+        <span class="type-spec">section-label · 10px · 700 · upper</span>
+        <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:var(--text-4);">Color tokens</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Spacing ── -->
+  <div class="section">
+    <div class="section-label">Spacing scale (4px base)</div>
+    <div class="space-row">
+      <div class="space-chip"><div class="space-bar" style="height:4px;"></div><span class="space-val">4</span></div>
+      <div class="space-chip"><div class="space-bar" style="height:8px;"></div><span class="space-val">8</span></div>
+      <div class="space-chip"><div class="space-bar" style="height:12px;"></div><span class="space-val">12</span></div>
+      <div class="space-chip"><div class="space-bar" style="height:16px;"></div><span class="space-val">16</span></div>
+      <div class="space-chip"><div class="space-bar" style="height:24px;"></div><span class="space-val">24</span></div>
+      <div class="space-chip"><div class="space-bar" style="height:32px;"></div><span class="space-val">32</span></div>
+      <div class="space-chip"><div class="space-bar" style="height:48px;"></div><span class="space-val">48</span></div>
+      <div class="space-chip"><div class="space-bar" style="height:64px;"></div><span class="space-val">64</span></div>
+      <div class="space-chip"><div class="space-bar" style="height:96px;"></div><span class="space-val">96</span></div>
+    </div>
+  </div>
+
+  <!-- ── Radius ── -->
+  <div class="section">
+    <div class="section-label">Border radius</div>
+    <div class="radius-row">
+      <div class="radius-chip" style="border-radius:5px;">--r-sm<br>5px</div>
+      <div class="radius-chip" style="border-radius:8px;">--r-md<br>8px</div>
+      <div class="radius-chip" style="border-radius:12px;">--r-lg<br>12px</div>
+      <div class="radius-chip" style="border-radius:16px;">--r-xl<br>16px</div>
+      <div class="radius-chip" style="border-radius:999px;width:90px;">pill<br>999px</div>
+    </div>
+  </div>
+
+  <!-- ── Components ── -->
+  <div class="section">
+    <div class="section-label">Component tokens — accent-reactive</div>
+    <div class="comp-grid">
+
+      <div class="comp-card">
+        <div class="comp-card-label">Buttons</div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <button class="btn-demo-primary">Primary — filled</button>
+          <button class="btn-demo-secondary">Secondary — ghost</button>
+          <button class="btn-demo-tertiary">Tertiary — outline</button>
+        </div>
+      </div>
+
+      <div class="comp-card">
+        <div class="comp-card-label">Badges & tags</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;">
+          <span class="badge-accent" id="comp-badge-pkg">Pre-Alpha</span>
+          <span class="badge-cyan">stream</span>
+          <span class="badge-green">stable</span>
+          <span class="tag-accent">core</span>
+          <span class="tag-accent">infra</span>
+          <span class="tag-accent">typesafe</span>
+        </div>
+      </div>
+
+      <div class="comp-card">
+        <div class="comp-card-label">Border opacity scale</div>
+        <div style="display:flex;flex-direction:column;gap:5px;font-family:var(--font-mono);font-size:11px;color:var(--text-3);">
+          <span>default &nbsp; rgba(255,255,255, 0.07)</span>
+          <span>hover &nbsp;&nbsp; rgba(255,255,255, 0.13)</span>
+          <span>brand &nbsp;&nbsp; rgba(accent, 0.30)</span>
+          <span>code &nbsp;&nbsp;&nbsp; rgba(cyan, 0.30)</span>
+        </div>
+      </div>
+
+      <div class="comp-card">
+        <div class="comp-card-label">Fonts</div>
+        <div style="display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--text-2);">
+          <span style="font-family:var(--font-sans);">Inter / system-ui — UI body text</span>
+          <span style="font-family:var(--font-mono);">JetBrains Mono — code, terminal, logo, eyebrow</span>
+          <span>Lexend — display headings (h1, h2)</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div><!-- /page -->
+
+<script>
+// ── Package content map ─────────────────────────────────────────────────────
+const PKG_DATA = {
+  agents: {
+    badge: 'Pre-Alpha',
+    eyebrow: 'Agentic infrastructure',
+    h1Before: 'Orchestrate agents ',
+    h1Accent: 'typesafe',
+    sub: 'Event-driven agent orchestration. Type-safe events, channels, sinks.',
+    pkg: '@m4trix/core',
+    diagramLabel: 'Agent network',
+    diagramHTML: `
+      <div class="pd-node"><span class="pd-dot"></span><span style="font-size:10px;">IngestAgent</span></div>
+      <div class="pd-arrow">↓ events</div>
+      <div class="pd-ch">channel('pipeline')</div>
+      <div class="pd-arrow">↓ SSE</div>
+      <div class="pd-node"><span class="pd-dot"></span><span style="font-size:10px;">TransformAgent</span></div>`,
+    cards: [
+      { title: 'Event-Driven Agents', desc: 'Schema-validated events, no fixed graphs.', tag: 'core' },
+      { title: 'Agent Networks', desc: 'Wire agents into swarms via channels.', tag: 'core' },
+      { title: 'SSE Streaming', desc: 'Built-in Next.js & Express adapters.', tag: 'stream' },
+    ],
+    activeTabs: ['ptab-agents'],
+  },
+  evals: {
+    badge: 'Beta',
+    eyebrow: '@m4trix/evals',
+    h1Before: 'Repeatable evals for ',
+    h1Accent: 'AI agents',
+    sub: 'Define datasets, evaluators, test cases as TypeScript files. Run by convention.',
+    pkg: '@m4trix/evals',
+    diagramLabel: 'File discovery',
+    diagramHTML: `
+      <div class="pd-node"><span class="pd-dot"></span><span style="font-size:10px;">*.dataset.ts</span></div>
+      <div class="pd-arrow">↓</div>
+      <div class="pd-node"><span class="pd-dot"></span><span style="font-size:10px;">*.evaluator.ts</span></div>
+      <div class="pd-arrow">↓ CLI</div>
+      <div class="pd-ch">eval run</div>`,
+    cards: [
+      { title: 'Dataset', desc: 'Named test case collections with tag filters.', tag: 'define' },
+      { title: 'Evaluator', desc: 'Typed scoring functions with metrics.', tag: 'score' },
+      { title: 'CLI Runner', desc: 'File-based discovery, zero boilerplate.', tag: 'cli' },
+    ],
+    activeTabs: ['ptab-evals'],
+  },
+  tracing: {
+    badge: 'Stable',
+    eyebrow: '@m4trix/tracing',
+    h1Before: 'Trace your agents. ',
+    h1Accent: 'No cloud needed.',
+    sub: 'LangGraph-compatible tracer. Structure and payloads stored separately.',
+    pkg: '@m4trix/tracing',
+    diagramLabel: 'Storage model',
+    diagramHTML: `
+      <div class="pd-node" style="justify-content:center;"><span style="font-size:10px;">LangGraph</span></div>
+      <div class="pd-arrow">↓ callbacks</div>
+      <div class="pd-node" style="justify-content:center;"><span style="font-size:10px;">Tracer</span></div>
+      <div class="pd-arrow">↓</div>
+      <div class="pd-ch">TraceStore</div>`,
+    cards: [
+      { title: 'Tracer', desc: 'Drop-in LangGraph/LangChain adapter.', tag: 'adapter' },
+      { title: 'TraceStore', desc: 'Structure rows + payload blob refs.', tag: 'storage' },
+      { title: 'TraceViewerApi', desc: 'Query, reconstruct trees, annotate.', tag: 'api' },
+    ],
+    activeTabs: ['ptab-tracing'],
+  },
+};
+
+// Resolved hex values per package for the token display
+const PKG_TOKENS = {
+  agents:  { accent: '#a78bfa', solid: '#7c3aed', dim: 'rgba(167,139,250, 0.12)', border: 'rgba(167,139,250, 0.30)' },
+  evals:   { accent: '#34d399', solid: '#059669', dim: 'rgba(52,211,153, 0.10)',   border: 'rgba(52,211,153, 0.28)' },
+  tracing: { accent: '#38bdf8', solid: '#0369a1', dim: 'rgba(56,189,248, 0.10)',   border: 'rgba(56,189,248, 0.28)' },
+};
+
+function setPkg(pkg) {
+  const html = document.documentElement;
+  html.setAttribute('data-pkg', pkg);
+
+  // Switch pkg buttons
+  document.querySelectorAll('.pkg-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('pkg-' + pkg).classList.add('active');
+
+  // Update preview content
+  const d = PKG_DATA[pkg];
+  document.getElementById('preview-badge').textContent    = d.badge;
+  document.getElementById('preview-eyebrow').textContent  = d.eyebrow;
+  document.getElementById('preview-h1').innerHTML         = d.h1Before + '<span id="preview-accent-word">' + d.h1Accent + '</span>';
+  document.getElementById('preview-sub').textContent      = d.sub;
+  document.getElementById('preview-pkg-name').textContent = d.pkg;
+  document.getElementById('pd-label').textContent         = d.diagramLabel;
+  document.getElementById('pd-content').innerHTML         = d.diagramHTML;
+
+  // Cards
+  d.cards.forEach((c, i) => {
+    const n = i + 1;
+    document.getElementById('pb' + n + '-title').textContent = c.title;
+    document.getElementById('pb' + n + '-desc').textContent  = c.desc;
+    document.getElementById('pb' + n + '-tag').textContent   = c.tag;
+  });
+
+  // Preview tabs
+  document.querySelectorAll('.preview-tab').forEach(t => t.classList.remove('active'));
+  d.activeTabs.forEach(id => document.getElementById(id)?.classList.add('active'));
+
+  // Update token hex display
+  const t = PKG_TOKENS[pkg];
+  document.getElementById('tok-accent-hex').textContent = t.accent;
+  document.getElementById('tok-solid-hex').textContent  = t.solid;
+  document.getElementById('tok-dim-hex').textContent    = t.dim;
+}
+
+function setMode(mode) {
+  document.documentElement.setAttribute('data-mode', mode);
+  document.getElementById('btn-dark').classList.toggle('active',  mode === 'dark');
+  document.getElementById('btn-light').classList.toggle('active', mode === 'light');
+}
+
+// Init
+setPkg('agents');
+document.getElementById('tok-accent-hex').textContent = PKG_TOKENS.agents.accent;
+document.getElementById('tok-solid-hex').textContent  = PKG_TOKENS.agents.solid;
+document.getElementById('tok-dim-hex').textContent    = PKG_TOKENS.agents.dim;
+</script>
+</body>
+</html>

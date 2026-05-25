@@ -42,6 +42,10 @@
     },
     "@m4trix/ui#publish-package": {
       "dependsOn": ["^build"]
+    },
+    "website#build": {
+      "dependsOn": ["^build"],
+      "outputs": [".next/**", "!.next/cache/**"]
     }
   }
 }
