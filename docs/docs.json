@@ -1,11 +1,12 @@
 {
+  "$schema": "https://mintlify.com/docs.json",
   "theme": "maple",
   "name": "M4trix",
   "description": "A TypeScript toolkit for building AI-driven web applications.",
   "colors": {
-    "primary": "#16a34a",
-    "light": "#22c55e",
-    "dark": "#15803d"
+    "primary": "#7c3aed",
+    "light": "#a78bfa",
+    "dark": "#6d28d9"
   },
   "appearance": {
     "default": "dark"
@@ -13,7 +14,7 @@
   "background": {
     "decoration": "grid",
     "color": {
-      "light": "#f7f4ed",
+      "light": "#f8f8fb",
       "dark": "#09090b"
     }
   },
