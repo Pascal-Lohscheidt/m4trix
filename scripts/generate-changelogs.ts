@@ -93,12 +93,12 @@ function commitIncludedInRelease(commitHash: string, tag: ReleaseTag): boolean {
   }
 }
 
-/** Newest published tag that includes this commit (tags are the release source of truth). */
+/** First release tag that includes this commit (version when the change shipped). */
 function resolvePublishedVersion(scope: string, commitHash: string): string | null {
   const tags = loadReleaseTags(scope);
   const matching = tags.filter((tag) => commitIncludedInRelease(commitHash, tag));
   if (matching.length === 0) return null;
-  return matching[matching.length - 1].version;
+  return matching[0].version;
 }
 
 function latestPublishedVersion(scope: string): string | null {
