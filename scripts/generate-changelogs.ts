@@ -7,7 +7,8 @@
  *
  * Usage:
  *   jiti scripts/generate-changelogs.ts           # write files only
- *   jiti scripts/generate-changelogs.ts --commit  # write + git commit [skip ci]
+ *   jiti scripts/generate-changelogs.ts --commit      # write + git commit [skip ci]
+ *   jiti scripts/generate-changelogs.ts --fetch-tags  # fetch remote tags before resolving versions
  */
 
 import { execSync } from 'node:child_process';
@@ -16,13 +17,15 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   CHANGELOG_TYPES,
+  type ChangelogSection,
   GITHUB_REPO,
-  SECTION_CONFIG,
   SCOPE_TO_PATH,
   SCOPE_TO_SECTION,
+  SCOPE_TO_TAG_PREFIX,
+  SECTION_CONFIG,
+  SECTION_SCOPES,
   TYPE_LABELS,
   TYPE_TAGS,
-  type ChangelogSection,
 } from './changelog-config.ts';
 
 const ROOT = join(fileURLToPath(import.meta.url), '../..');
@@ -47,8 +50,89 @@ interface ChangelogEntry {
   scopeLabel: string | null;
 }
 
+interface ReleaseTag {
+  scope: string;
+  version: string;
+  commit: string;
+}
+
+const tagCache = new Map<string, ReleaseTag[]>();
+
 function run(cmd: string): string {
   return execSync(cmd, { encoding: 'utf-8', cwd: ROOT }).trim();
+}
+
+function loadReleaseTags(scope: string): ReleaseTag[] {
+  const cached = tagCache.get(scope);
+  if (cached) return cached;
+
+  const prefix = SCOPE_TO_TAG_PREFIX[scope];
+  if (!prefix) return [];
+
+  const names = run(`git tag -l '${prefix}*' --sort=version:refname`).split('\n').filter(Boolean);
+
+  const tags: ReleaseTag[] = names.map((name) => ({
+    scope,
+    version: name.slice(prefix.length),
+    commit: run(`git rev-parse ${name}^{commit}`),
+  }));
+
+  tagCache.set(scope, tags);
+  return tags;
+}
+
+function commitIncludedInRelease(commitHash: string, tag: ReleaseTag): boolean {
+  try {
+    execSync(`git merge-base --is-ancestor ${commitHash} ${tag.commit}`, {
+      cwd: ROOT,
+      stdio: 'ignore',
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Newest published tag that includes this commit (tags are the release source of truth). */
+function resolvePublishedVersion(scope: string, commitHash: string): string | null {
+  const tags = loadReleaseTags(scope);
+  const matching = tags.filter((tag) => commitIncludedInRelease(commitHash, tag));
+  if (matching.length === 0) return null;
+  return matching[matching.length - 1].version;
+}
+
+function latestPublishedVersion(scope: string): string | null {
+  const tags = loadReleaseTags(scope);
+  if (tags.length === 0) return null;
+  return tags[tags.length - 1].version;
+}
+
+function scopesForDayEntries(section: ChangelogSection, dayEntries: ChangelogEntry[]): string[] {
+  const fromLabels = new Set<string>();
+  for (const entry of dayEntries) {
+    if (!entry.scopeLabel) continue;
+    for (const part of entry.scopeLabel.split(',').map((s) => s.trim())) {
+      const normalized = part === 'traceer' ? 'trace-viewer' : part;
+      if (SECTION_SCOPES[section].includes(normalized)) {
+        fromLabels.add(normalized);
+      }
+    }
+  }
+  return fromLabels.size > 0 ? [...fromLabels] : SECTION_SCOPES[section];
+}
+
+function entryTouchesScope(entry: ChangelogEntry, scope: string): boolean {
+  if (!entry.scopeLabel) return false;
+  return entry.scopeLabel
+    .split(',')
+    .map((s) => (s.trim() === 'traceer' ? 'trace-viewer' : s.trim()))
+    .includes(scope);
+}
+
+function newestCommitForScope(dayEntries: ChangelogEntry[], scope: string): string {
+  const scoped = dayEntries.filter((e) => entryTouchesScope(e, scope));
+  const pool = scoped.length > 0 ? scoped : dayEntries;
+  return [...pool].sort((a, b) => b.commit.date.getTime() - a.commit.date.getTime())[0].commit.hash;
 }
 
 function escapeMdx(text: string): string {
@@ -183,42 +267,47 @@ function formatDateLabel(date: Date): string {
   });
 }
 
-function getPackageVersion(scope: string): string | null {
-  const pkgPath = SCOPE_TO_PATH[scope];
-  if (!pkgPath) return null;
-  try {
-    const pkg = JSON.parse(readFileSync(join(ROOT, pkgPath, 'package.json'), 'utf-8')) as {
-      version?: string;
-    };
-    return pkg.version ?? null;
-  } catch {
-    return null;
-  }
-}
+function versionDescription(section: ChangelogSection, dayEntries: ChangelogEntry[]): string {
+  const scopes = scopesForDayEntries(section, dayEntries);
+  const published: string[] = [];
+  const unreleasedScopes: string[] = [];
 
-function versionDescription(section: ChangelogSection, dayCommits: ChangelogEntry[]): string {
-  const config = SECTION_CONFIG[section];
-  const versions = new Set<string>();
-
-  versions.add(getPackageVersion(config.primaryPackage) ?? '');
-  if (section === 'tracing') {
-    const tv = getPackageVersion('trace-viewer');
-    if (tv) versions.add(tv);
-  }
-  if (section === 'agents') {
-    for (const scope of ['stream', 'react', 'ui'] as const) {
-      const v = getPackageVersion(scope);
-      if (v) versions.add(v);
+  for (const scope of scopes) {
+    const commitHash = newestCommitForScope(dayEntries, scope);
+    const version = resolvePublishedVersion(scope, commitHash);
+    if (version) {
+      published.push(scopes.length === 1 ? `v${version}` : `${scope} v${version}`);
+    } else {
+      unreleasedScopes.push(scope);
     }
   }
 
-  const unique = [...versions].filter(Boolean);
-  if (unique.length === 1) return `v${unique[0]}`;
-  if (unique.length > 1) {
-    const sorted = [...unique].sort();
-    return `v${sorted[sorted.length - 1]}`;
+  if (published.length > 0 && unreleasedScopes.length === 0) {
+    return published.join(' · ');
   }
-  return `${dayCommits.length} change${dayCommits.length === 1 ? '' : 's'}`;
+
+  if (published.length > 0 && unreleasedScopes.length > 0) {
+    const latest = unreleasedScopes
+      .map((s) => {
+        const v = latestPublishedVersion(s);
+        return v ? `${s} v${v}` : s;
+      })
+      .join(', ');
+    return `${published.join(' · ')} · unreleased (${latest})`;
+  }
+
+  const latestParts = scopes
+    .map((s) => {
+      const v = latestPublishedVersion(s);
+      return v ? `${s} v${v}` : null;
+    })
+    .filter(Boolean);
+
+  if (latestParts.length > 0) {
+    return `Unreleased · latest ${latestParts.join(', ')}`;
+  }
+
+  return `${dayEntries.length} change${dayEntries.length === 1 ? '' : 's'}`;
 }
 
 function renderCommitLine(entry: ChangelogEntry): string {
@@ -364,6 +453,11 @@ function commitChangelogs(): void {
 
 function main(): void {
   const shouldCommit = process.argv.includes('--commit');
+
+  if (process.argv.includes('--fetch-tags')) {
+    run('git fetch --tags --quiet');
+  }
+
   const commits = loadCommits();
   const bySection = new Map<ChangelogSection, ChangelogEntry[]>();
 

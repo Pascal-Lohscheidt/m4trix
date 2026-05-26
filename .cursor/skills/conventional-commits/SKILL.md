@@ -108,7 +108,7 @@ Do **not** run `git commit` unless the user asked to commit.
 
 See [examples.md](examples.md) for good and bad messages from this repo.
 
-Changelog pages live at `docs/{project,evals,tracing}/changelog.mdx` (Mintlify requires **`.mdx`** for the `<Update>` component).
+Changelog pages live at `docs/{project,evals,tracing}/changelog.mdx` (Mintlify requires **`.mdx`** for the `<Update>` component). Version labels are derived from **git tags** (`@m4trix/<pkg>@x.y.z`), not `package.json`.
 
 After merging user-facing commits, changelogs refresh with:
 

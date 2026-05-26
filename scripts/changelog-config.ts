@@ -29,6 +29,24 @@ export const SCOPE_TO_PATH: Record<string, string> = {
   ui: 'packages/ui/',
 };
 
+/** npm-style release tags — source of truth for published versions (not package.json). */
+export const SCOPE_TO_TAG_PREFIX: Record<string, string> = {
+  core: '@m4trix/core@',
+  evals: '@m4trix/evals@',
+  stream: '@m4trix/stream@',
+  react: '@m4trix/react@',
+  tracing: '@m4trix/tracing@',
+  'trace-viewer': '@m4trix/trace-viewer@',
+  ui: '@m4trix/ui@',
+};
+
+/** Package scopes whose release tags apply to each changelog section. */
+export const SECTION_SCOPES: Record<ChangelogSection, string[]> = {
+  agents: ['core', 'stream', 'react', 'ui'],
+  evals: ['evals'],
+  tracing: ['tracing', 'trace-viewer'],
+};
+
 export const SECTION_CONFIG: Record<
   ChangelogSection,
   {

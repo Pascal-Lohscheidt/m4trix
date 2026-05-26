@@ -54,7 +54,7 @@ Docs changelogs are generated from conventional commits. After merging product c
 pnpm changelog:commit
 ```
 
-This updates the Mintlify changelog pages for Agents, Evals, and Tracing (routed by commit scope) and commits with `[skip ci]` so CI does not re-run.
+This updates the Mintlify changelog pages for Agents, Evals, and Tracing (routed by commit scope). Version labels come from **git release tags** (`@m4trix/<package>@x.y.z`), not `package.json`. Use `--fetch-tags` if tags are only on the remote. Commits with `[skip ci]` so CI does not re-run.
 
 ## Principles
 
