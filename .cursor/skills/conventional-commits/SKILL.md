@@ -108,6 +108,8 @@ Do **not** run `git commit` unless the user asked to commit.
 
 See [examples.md](examples.md) for good and bad messages from this repo.
 
+Changelog pages live at `docs/{project,evals,tracing}/changelog.mdx` (Mintlify requires **`.mdx`** for the `<Update>` component).
+
 After merging user-facing commits, changelogs refresh with:
 
 ```bash

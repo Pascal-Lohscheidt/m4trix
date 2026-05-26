@@ -20,7 +20,7 @@ We follow [Semantic Versioning](https://semver.org/) (semver) where applicable:
 - **Minor** — New features, backward compatible
 - **Patch** — Bug fixes, backward compatible
 
-During alpha, we may release without strict semver adherence. Check the [Changelog](changelog) and release notes for details.
+During alpha, we may release without strict semver adherence. Check the [Changelog](/project/changelog) and release notes for details.
 
 ## Feedback
 

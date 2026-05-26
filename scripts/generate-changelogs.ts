@@ -29,7 +29,7 @@ const ROOT = join(fileURLToPath(import.meta.url), '../..');
 
 const SKIP_COMMIT_PATTERNS = [/^docs\(changelog\):/i, /^docs: update changelogs/i, /\[skip ci\]/i];
 
-const GENERATED_MARKER = '<!-- changelog:generated -->';
+const GENERATED_MARKER = '{/* changelog:generated */}';
 
 interface ParsedCommit {
   hash: string;
