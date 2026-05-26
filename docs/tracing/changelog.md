@@ -1,0 +1,88 @@
+---
+title: "Changelog"
+description: "Release notes for @m4trix/tracing and @m4trix/trace-viewer."
+rss: true
+---
+
+<!-- changelog:generated -->
+
+Product updates for **@m4trix/tracing**, generated from [conventional commits](https://www.conventionalcommits.org/) in the monorepo. Scopes in commit messages route entries to the Agents, Evals, or Tracing changelogs.
+
+_Last regenerated 2026-05-26 (UTC)._
+
+<Update label="May 24, 2026" description="v0.8.0" tags={["Features","Improvements"]} rss={{ title: "May 24, 2026 — @m4trix/tracing updates", description: "introduction of side care trace shipping; package restructuring; s3 dynamo support + annotation support" }}>
+
+### New features
+
+- s3 dynamo support + annotation support (`tracing, trace-viewer`) ([363d7e5](https://github.com/Pascal-Lohscheidt/m4trix/commit/363d7e57a00207f81f04ca9dbbd6b38ae62cbf7a))
+
+### Improvements
+
+- introduction of side care trace shipping (`tracing`) ([99fc4f1](https://github.com/Pascal-Lohscheidt/m4trix/commit/99fc4f16b76e8ee113f08850652e014ad6e5e810))
+- package restructuring (`tracing`) ([cce5d4d](https://github.com/Pascal-Lohscheidt/m4trix/commit/cce5d4dec26d582cac71f7811df2f8011a212d6a))
+
+</Update>
+
+<Update label="May 15, 2026" description="v0.8.0" tags={["Features"]} rss={{ title: "May 15, 2026 — @m4trix/tracing updates", description: "added cost esitamte; improved token display for langgraph" }}>
+
+### New features
+
+- added cost esitamte (`trace-viewer`) ([a36c751](https://github.com/Pascal-Lohscheidt/m4trix/commit/a36c751dbb9923248791a4230cfd7920eb78a970))
+- improved token display for langgraph (`trace-viewer`) ([0aa255e](https://github.com/Pascal-Lohscheidt/m4trix/commit/0aa255e89a752e0a67182d1ad51267a13bd10f1f))
+
+</Update>
+
+<Update label="May 14, 2026" description="v0.8.0" tags={["Features","Improvements"]} rss={{ title: "May 14, 2026 — @m4trix/tracing updates", description: "added adapter to offer different tracer shapes; added adapter to offer different tracer shapes; code cleanup" }}>
+
+### New features
+
+- introduction of trace profiles for specific engines (`trace-viewer`) ([68ae559](https://github.com/Pascal-Lohscheidt/m4trix/commit/68ae559493f2f63e8234a7f4026af77e0b1c6acf))
+
+### Improvements
+
+- added adapter to offer different tracer shapes (`trace-viewer`) ([eebb7d2](https://github.com/Pascal-Lohscheidt/m4trix/commit/eebb7d25972c43278e11ad4b27f6b9b8e0bf6724))
+- added adapter to offer different tracer shapes (`trace-viewer`) ([1d02a26](https://github.com/Pascal-Lohscheidt/m4trix/commit/1d02a26148bde3ab2ac8bf8f0447dc501bd05592))
+- code cleanup (`trace-viewer`) ([65b735e](https://github.com/Pascal-Lohscheidt/m4trix/commit/65b735e3f3357f8d1c86e88b5c4e14c366803aae))
+
+</Update>
+
+<Update label="May 9, 2026" description="v0.8.0" tags={["Features","Fixes"]} rss={{ title: "May 9, 2026 — @m4trix/tracing updates", description: "new filter options; new layout improvements; fixed package setup" }}>
+
+### New features
+
+- new filter options (`trace-viewer`) ([cdaf515](https://github.com/Pascal-Lohscheidt/m4trix/commit/cdaf5157b6b5ea40af45d7a8d2d770e5820dacda))
+- new layout improvements (`trace-viewer`) ([ace20a8](https://github.com/Pascal-Lohscheidt/m4trix/commit/ace20a836536e73f4b4225d4e8db211ded63cd43))
+
+### Bug fixes
+
+- fixed package setup (`trace-viewer`) ([9583b21](https://github.com/Pascal-Lohscheidt/m4trix/commit/9583b216c482f06ccfc84378b8afd021b13457f0))
+- fixed package setup (`trace-viewer`) ([b1161c0](https://github.com/Pascal-Lohscheidt/m4trix/commit/b1161c06508991cab8fbd04f785f905cfecfe92c))
+- hotfixed ci (`trace-viewer`) ([c2f8037](https://github.com/Pascal-Lohscheidt/m4trix/commit/c2f8037a473a2b94c3a45d793e9145225bda1e1f))
+
+</Update>
+
+<Update label="May 8, 2026" description="v0.8.0" tags={["Features"]} rss={{ title: "May 8, 2026 — @m4trix/tracing updates", description: "bundle, design and setup improvement; first version of trace viewer; first version of tracing" }}>
+
+### New features
+
+- bundle, design and setup improvement (`trace-viewer`) ([37e9277](https://github.com/Pascal-Lohscheidt/m4trix/commit/37e9277c831d39aff7ae9d377ecaf325378913f6))
+- first version of trace viewer (`trace-viewer`) ([8968df5](https://github.com/Pascal-Lohscheidt/m4trix/commit/8968df52a7137b073cfa11368575ad6009a2a18e))
+- first version of tracing (`tracing`) ([15560f0](https://github.com/Pascal-Lohscheidt/m4trix/commit/15560f052a50a1ed446600fd9a0031a97c29eb50))
+
+</Update>
+
+<Update label="April 18, 2026" description="v0.8.0" tags={["Improvements"]} rss={{ title: "April 18, 2026 — @m4trix/tracing updates", description: "update import paths to use .js extensions for consistency" }}>
+
+### Improvements
+
+- update import paths to use .js extensions for consistency ([97e481c](https://github.com/Pascal-Lohscheidt/m4trix/commit/97e481cc37368ee68fac654649424c19163b3241))
+
+</Update>
+
+<Update label="February 18, 2026" description="v0.8.0" tags={["Features"]} rss={{ title: "February 18, 2026 — @m4trix/tracing updates", description: "introduction of tracing" }}>
+
+### New features
+
+- introduction of tracing (`tracing`) ([0459ec3](https://github.com/Pascal-Lohscheidt/m4trix/commit/0459ec3bea894bb34901ebf2567e31172ffd5fad))
+
+</Update>

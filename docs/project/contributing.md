@@ -46,6 +46,16 @@ feat(matrix): add retry support to agent logic
 Closes #123
 ```
 
+## Changelog
+
+Docs changelogs are generated from conventional commits. After merging product changes, run:
+
+```bash
+pnpm changelog:commit
+```
+
+This updates the Mintlify changelog pages for Agents, Evals, and Tracing (routed by commit scope) and commits with `[skip ci]` so CI does not re-run.
+
 ## Principles
 
 From the project README:

@@ -1,0 +1,134 @@
+---
+title: "Changelog"
+description: "Release notes for @m4trix/evals."
+rss: true
+---
+
+<!-- changelog:generated -->
+
+Product updates for **@m4trix/evals**, generated from [conventional commits](https://www.conventionalcommits.org/) in the monorepo. Scopes in commit messages route entries to the Agents, Evals, or Tracing changelogs.
+
+_Last regenerated 2026-05-26 (UTC)._
+
+<Update label="May 9, 2026" description="v0.7.0" tags={["Fixes"]} rss={{ title: "May 9, 2026 — @m4trix/evals updates", description: "hotfixed ci" }}>
+
+### Bug fixes
+
+- hotfixed ci (`evals`) ([663083c](https://github.com/Pascal-Lohscheidt/m4trix/commit/663083c88fe21ffed1a3e1954e32321c9d1efff6))
+
+</Update>
+
+<Update label="April 18, 2026" description="v0.7.0" tags={["Features","Fixes","Improvements"]} rss={{ title: "April 18, 2026 — @m4trix/evals updates", description: "datasets now accept top level and filter; update import paths to use .js extensions for consistency; update import paths to use .js extensions for consistency" }}>
+
+### New features
+
+- introduction of tag filters (`evals`) ([6f71580](https://github.com/Pascal-Lohscheidt/m4trix/commit/6f71580e666acf0e1e2125b67f6de4220da364eb))
+
+### Bug fixes
+
+- datasets now accept top level and filter (`evals`) ([0c110fa](https://github.com/Pascal-Lohscheidt/m4trix/commit/0c110fa1621713d6b8d8e443e67a04809ae87744))
+
+### Improvements
+
+- update import paths to use .js extensions for consistency ([97e481c](https://github.com/Pascal-Lohscheidt/m4trix/commit/97e481cc37368ee68fac654649424c19163b3241))
+- update import paths to use .js extensions for consistency (`evals`) ([6dc73ac](https://github.com/Pascal-Lohscheidt/m4trix/commit/6dc73ac2aeb06e77e3511e708e5e405694130acd))
+
+</Update>
+
+<Update label="April 9, 2026" description="v0.7.0" tags={["Features"]} rss={{ title: "April 9, 2026 — @m4trix/evals updates", description: "introduced sampling" }}>
+
+### New features
+
+- introduced sampling (`evals`) ([4fd81ac](https://github.com/Pascal-Lohscheidt/m4trix/commit/4fd81ac9403455832a23d0379377cbb4af9789d6))
+
+</Update>
+
+<Update label="March 27, 2026" description="v0.7.0" tags={["Features"]} rss={{ title: "March 27, 2026 — @m4trix/evals updates", description: "introduced grouped test case export" }}>
+
+### New features
+
+- introduced grouped test case export (`evals`) ([0505039](https://github.com/Pascal-Lohscheidt/m4trix/commit/0505039404e7c2ce92d220de7df33bff331289c4))
+
+</Update>
+
+<Update label="March 22, 2026" description="v0.7.0" tags={["Features"]} rss={{ title: "March 22, 2026 — @m4trix/evals updates", description: "introduced triggeredAt; introduced trigger timestamp" }}>
+
+### New features
+
+- introduced triggeredAt (`evals`) ([6258460](https://github.com/Pascal-Lohscheidt/m4trix/commit/6258460bd9273231763c09541063cda2995fb5f5))
+- introduced trigger timestamp (`evals`) ([e0cabeb](https://github.com/Pascal-Lohscheidt/m4trix/commit/e0cabeb15493049021ea0158ecc6962112884ef0))
+
+</Update>
+
+<Update label="March 20, 2026" description="v0.7.0" tags={["Features"]} rss={{ title: "March 20, 2026 — @m4trix/evals updates", description: "introduced test case name in meta; introduced experiment name; adjustment of dataset and test case naming" }}>
+
+### New features
+
+- introduced test case name in meta (`evals`) ([a7959dc](https://github.com/Pascal-Lohscheidt/m4trix/commit/a7959dc052e2184a772e30cafd393bb041dddebe))
+- introduced experiment name (`evals`) ([c2bf0d7](https://github.com/Pascal-Lohscheidt/m4trix/commit/c2bf0d77433433db9d8d4aa8306e1a2e5aeb1c9d))
+- adjustment of dataset and test case naming (`evals`) ([f941bd7](https://github.com/Pascal-Lohscheidt/m4trix/commit/f941bd79a240ef043bb2672d7d202c07a738f238))
+- introduction of ci mode (`evals`) ([3aa1ec1](https://github.com/Pascal-Lohscheidt/m4trix/commit/3aa1ec13a9674cc0322f156d115414558b8338f4))
+- introduction of tags (`evals`) ([3b82060](https://github.com/Pascal-Lohscheidt/m4trix/commit/3b82060b699429347c5c63ebb0f2fb43c39ff87b))
+- new naming convention (`evals`) ([24f2dd9](https://github.com/Pascal-Lohscheidt/m4trix/commit/24f2dd917d9f0acc91a4b00925e09c00fade865a))
+- new run structure with run configs (`evals`) ([65e46db](https://github.com/Pascal-Lohscheidt/m4trix/commit/65e46db1e639275ec5800d8a0ec71df826ddbe3f))
+
+</Update>
+
+<Update label="March 7, 2026" description="v0.7.0" tags={["Features"]} rss={{ title: "March 7, 2026 — @m4trix/evals updates", description: "new features and project restructure" }}>
+
+### New features
+
+- new features and project restructure ([c5bdf34](https://github.com/Pascal-Lohscheidt/m4trix/commit/c5bdf34571ba590de2106965330e8aa635d1b08d))
+
+</Update>
+
+<Update label="February 26, 2026" description="v0.7.0" tags={["Features","Fixes"]} rss={{ title: "February 26, 2026 — @m4trix/evals updates", description: "removed cpu concurrency defintion; improved concurrency for evals; replaced the json diff package due to invalid package hashes" }}>
+
+### New features
+
+- removed cpu concurrency defintion (`evals`) ([189299e](https://github.com/Pascal-Lohscheidt/m4trix/commit/189299e4b01948b666d78f40eab0357da5be6870))
+- improved concurrency for evals (`evals`) ([50c3bcf](https://github.com/Pascal-Lohscheidt/m4trix/commit/50c3bcf2a230e4c6dbe6af78db47321c65bf59a6))
+
+### Bug fixes
+
+- replaced the json diff package due to invalid package hashes (`evals`) ([7a12092](https://github.com/Pascal-Lohscheidt/m4trix/commit/7a1209232aaafa909e8970806bd8a06c8a026cf1))
+
+</Update>
+
+<Update label="February 21, 2026" description="v0.7.0" tags={["Features"]} rss={{ title: "February 21, 2026 — @m4trix/evals updates", description: "integrate json-diff for enhanced diff logging and evaluation; enhance RunDetailsView and RunView for better score and metric display; update dependencies and enhance CLI functionality" }}>
+
+### New features
+
+- integrate json-diff for enhanced diff logging and evaluation (`evals`) ([0050228](https://github.com/Pascal-Lohscheidt/m4trix/commit/00502287cee9ff5a85a7e80aa1a736767c435a08))
+- enhance RunDetailsView and RunView for better score and metric display (`evals`) ([5bf9416](https://github.com/Pascal-Lohscheidt/m4trix/commit/5bf9416915d6974c1efd33b05f2ca8f16d7ca7a2))
+- update dependencies and enhance CLI functionality (`evals`) ([2d29850](https://github.com/Pascal-Lohscheidt/m4trix/commit/2d29850d22365b34b75ece64058e29ac12a44754))
+
+</Update>
+
+<Update label="February 20, 2026" description="v0.7.0" tags={["Features"]} rss={{ title: "February 20, 2026 — @m4trix/evals updates", description: "enhance test case handling with reruns and aggregation support; improved cli; improved cli" }}>
+
+### New features
+
+- enhance test case handling with reruns and aggregation support (`evals`) ([fb4cfb2](https://github.com/Pascal-Lohscheidt/m4trix/commit/fb4cfb2c2da9085e760223466da79383a061d4b6))
+- improved cli (`evals`) ([471394a](https://github.com/Pascal-Lohscheidt/m4trix/commit/471394aab469560e57b85ffefa6e836721fb624b))
+- improved cli (`evals`) ([5f077da](https://github.com/Pascal-Lohscheidt/m4trix/commit/5f077dab5ff936b598663d615afb5981c60d64e9))
+
+</Update>
+
+<Update label="February 19, 2026" description="v0.7.0" tags={["Features"]} rss={{ title: "February 19, 2026 — @m4trix/evals updates", description: "improved cli; added diffing" }}>
+
+### New features
+
+- improved cli (`evals`) ([a94da38](https://github.com/Pascal-Lohscheidt/m4trix/commit/a94da38a032d2264dc14d9c1b8306b59d6b89bc8))
+- added diffing (`evals`) ([9a9263f](https://github.com/Pascal-Lohscheidt/m4trix/commit/9a9263f768be82b095be168a08667cc667810a48))
+
+</Update>
+
+<Update label="February 18, 2026" description="v0.7.0" tags={["Features"]} rss={{ title: "February 18, 2026 — @m4trix/evals updates", description: "update version to 0.7.0, add output handling in evaluator, and enhance test case structure (#27); first version (#26)" }}>
+
+### New features
+
+- update version to 0.7.0, add output handling in evaluator, and enhance test case structure (#27) (`evals`) ([eaf9d8f](https://github.com/Pascal-Lohscheidt/m4trix/commit/eaf9d8f4c8b5d27395fe81abf2b537cbeb01b3d1))
+- first version (#26) (`evals`) ([9146b35](https://github.com/Pascal-Lohscheidt/m4trix/commit/9146b3556a238524aab4016a57e35389433ed249))
+
+</Update>

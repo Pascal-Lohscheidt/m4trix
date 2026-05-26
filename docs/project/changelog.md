@@ -1,0 +1,52 @@
+---
+title: "Changelog"
+description: "Release notes for @m4trix/core, stream, react, and ui."
+rss: true
+---
+
+<!-- changelog:generated -->
+
+Product updates for **@m4trix/core**, generated from [conventional commits](https://www.conventionalcommits.org/) in the monorepo. Scopes in commit messages route entries to the Agents, Evals, or Tracing changelogs.
+
+_Last regenerated 2026-05-26 (UTC)._
+
+<Update label="April 18, 2026" description="v0.7.0" tags={["Improvements"]} rss={{ title: "April 18, 2026 — @m4trix/core updates", description: "update import paths to use .js extensions for consistency" }}>
+
+### Improvements
+
+- update import paths to use .js extensions for consistency ([97e481c](https://github.com/Pascal-Lohscheidt/m4trix/commit/97e481cc37368ee68fac654649424c19163b3241))
+
+</Update>
+
+<Update label="March 7, 2026" description="v0.7.0" tags={["Features"]} rss={{ title: "March 7, 2026 — @m4trix/core updates", description: "main channel api changes; new features and project restructure" }}>
+
+### New features
+
+- main channel api changes (`core`) ([e4fd96f](https://github.com/Pascal-Lohscheidt/m4trix/commit/e4fd96ff56a3371cdbc6c827ef4c27f04aaf774d))
+- new features and project restructure ([c5bdf34](https://github.com/Pascal-Lohscheidt/m4trix/commit/c5bdf34571ba590de2106965330e8aa635d1b08d))
+
+</Update>
+
+<Update label="February 27, 2026" description="v0.7.0" tags={["Features"]} rss={{ title: "February 27, 2026 — @m4trix/core updates", description: "another refactoring of the skill api" }}>
+
+### New features
+
+- another refactoring of the skill api (`core`) ([61fae57](https://github.com/Pascal-Lohscheidt/m4trix/commit/61fae5715f753636762ddc413f43813f6bc38741))
+
+</Update>
+
+<Update label="February 25, 2026" description="v0.7.0" tags={["Features"]} rss={{ title: "February 25, 2026 — @m4trix/core updates", description: "improved skill interface" }}>
+
+### New features
+
+- improved skill interface (`core`) ([3b2b342](https://github.com/Pascal-Lohscheidt/m4trix/commit/3b2b3426bb9f65d8a9906378c999bc939548b0e5))
+
+</Update>
+
+<Update label="February 22, 2026" description="v0.7.0" tags={["Features"]} rss={{ title: "February 22, 2026 — @m4trix/core updates", description: "add skill export and enhance type safety in event-plane" }}>
+
+### New features
+
+- add skill export and enhance type safety in event-plane (`matrix`) ([5bfa399](https://github.com/Pascal-Lohscheidt/m4trix/commit/5bfa3996069a6441aed06cdc32f08a692d492dc0))
+
+</Update>

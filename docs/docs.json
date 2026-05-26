@@ -98,6 +98,7 @@
         "group": "Project",
         "pages": [
           "project/versioning-stability",
+          "project/changelog",
           "project/changelog-migrations",
           "project/faq-troubleshooting",
           "project/security",
@@ -168,6 +169,7 @@
             "group": "Project",
             "pages": [
               "project/versioning-stability",
+              "project/changelog",
               "project/changelog-migrations",
               "project/faq-troubleshooting",
               "project/security",
@@ -190,6 +192,10 @@
           {
             "group": "API Reference",
             "pages": ["evals/api-reference"]
+          },
+          {
+            "group": "Project",
+            "pages": ["evals/changelog"]
           }
         ]
       },
@@ -207,6 +213,10 @@
           {
             "group": "API Reference",
             "pages": ["tracing/api-reference"]
+          },
+          {
+            "group": "Project",
+            "pages": ["tracing/changelog"]
           }
         ]
       }

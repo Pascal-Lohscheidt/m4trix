@@ -40,7 +40,9 @@
     "release:bump:react": "jiti scripts/bump-and-tag.ts react",
     "release:bump:tracing": "jiti scripts/bump-and-tag.ts tracing",
     "release:bump:trace-viewer": "jiti scripts/bump-and-tag.ts trace-viewer",
-    "release:bump:ui": "jiti scripts/bump-and-tag.ts ui"
+    "release:bump:ui": "jiti scripts/bump-and-tag.ts ui",
+    "changelog": "jiti scripts/generate-changelogs.ts",
+    "changelog:commit": "jiti scripts/generate-changelogs.ts --commit"
   },
   "devDependencies": {
     "@m4trix/trace-viewer": "workspace:*",
