@@ -27,7 +27,7 @@
     "dev": "vite --host 127.0.0.1",
     "lint": "biome lint .",
     "format": "biome format --write .",
-    "prepare": "npm run build",
+    "prepublishOnly": "pnpm run build",
     "publish-package": "pnpm publish --no-git-checks",
     "release": "pnpm -C ../.. run release:bump:trace-viewer",
     "test": "vitest run --config vitest.config.ts"
