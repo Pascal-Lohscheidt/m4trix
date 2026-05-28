@@ -281,14 +281,13 @@ workflows:
   test-and-build:
     jobs:
       - test
+      - build
       # - audit  # temporarily skipped; job kept above for re-enable
-      - build:
-          requires:
-            - test
       - publish-core:
           context:
             - NPM
           requires:
+            - test
             - build
           filters:
             branches:
@@ -297,6 +296,7 @@ workflows:
           context:
             - NPM
           requires:
+            - test
             - build
           filters:
             branches:
@@ -305,6 +305,7 @@ workflows:
           context:
             - NPM
           requires:
+            - test
             - build
           filters:
             branches:
@@ -313,6 +314,7 @@ workflows:
           context:
             - NPM
           requires:
+            - test
             - build
           filters:
             branches:
@@ -321,6 +323,7 @@ workflows:
           context:
             - NPM
           requires:
+            - test
             - build
           filters:
             branches:
@@ -346,6 +349,7 @@ workflows:
           context:
             - NPM
           requires:
+            - test
             - build
           filters:
             branches:
