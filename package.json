@@ -74,7 +74,20 @@
       "rollup": ">=4.59.0",
       "flatted": ">=3.4.2",
       "langsmith": ">=0.6.0",
-      "langchain": ">=0.3.37"
+      "langchain": ">=0.3.37",
+      "website>react": "18.3.1",
+      "website>react-dom": "18.3.1",
+      "@m4trix/trace-viewer>react": "19.1.0",
+      "@m4trix/trace-viewer>react-dom": "19.1.0",
+      "@m4trix/react>react": "19.1.0",
+      "@m4trix/react>react-dom": "19.1.0",
+      "@m4trix/evals>react": "19.1.0",
+      "core-example>react": "19.2.3",
+      "core-example>react-dom": "19.2.3",
+      "@repo/open-ai-speech-to-speech-example>react": "19.1.0",
+      "@repo/open-ai-speech-to-speech-example>react-dom": "19.1.0",
+      "@repo/ui-integration-example>react": "19.1.0",
+      "@repo/ui-integration-example>react-dom": "19.1.0"
     }
   }
 }
