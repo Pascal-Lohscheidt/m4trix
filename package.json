@@ -10,6 +10,7 @@
     "lint": "biome lint .",
     "format": "biome format --write .",
     "check": "biome check --write .",
+    "audit": "pnpm audit --audit-level high --ignore-registry-errors",
     "get:turbo": "npm install -g turbo",
     "test": "vitest --typecheck",
     "test:coverage": "vitest run --coverage",

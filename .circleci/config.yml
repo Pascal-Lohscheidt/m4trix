@@ -45,6 +45,18 @@ jobs:
           path: dist
           destination: dist
 
+  audit:
+    docker:
+      - image: cimg/node:20.0
+    steps:
+      - checkout
+      - run:
+          name: Install dependencies
+          command: pnpm install
+      - run:
+          name: Audit dependencies
+          command: pnpm run audit
+
   publish-core:
     docker:
       - image: cimg/node:20.0
@@ -268,9 +280,11 @@ workflows:
   test-and-build:
     jobs:
       - test
+      - audit
       - build:
           requires:
             - test
+            - audit
       - publish-core:
           context:
             - NPM
