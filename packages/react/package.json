@@ -38,7 +38,7 @@
     "react-dom": ">=18.0.0"
   },
   "dependencies": {
-    "socket.io-client": "^4.7.2"
+    "socket.io-client": "^4.8.0"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
@@ -46,7 +46,7 @@
     "@types/react-dom": "^19.1.2",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
-    "tsup": "^7.0.0",
+    "tsup": "^8.0.0",
     "typescript": "^5.0.0"
   },
   "publishConfig": {

@@ -19,35 +19,29 @@ describe('AiCursor', () => {
     expect(aiCursor).toBeDefined();
   });
 
-  it(
-    'spawn() and move() the cursor to a position',
-    async () => {
-      const cursor = AiCursor.spawn();
+  it('spawn() and move() the cursor to a position', { timeout: 10_000 }, async () => {
+    const cursor = AiCursor.spawn();
 
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      cursor.moveTo([100, 100]);
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    cursor.moveTo([100, 100]);
 
-      await new Promise((resolve) => setTimeout(resolve, 1_000));
+    await new Promise((resolve) => setTimeout(resolve, 1_000));
 
-      const aiCursor = window.document.body.querySelector('ai-cursor');
-      expect(aiCursor).toBeDefined();
+    const aiCursor = window.document.body.querySelector('ai-cursor');
+    expect(aiCursor).toBeDefined();
 
-      const span = aiCursor?.shadowRoot?.querySelector('#cursor-graphic-parent');
+    const span = aiCursor?.shadowRoot?.querySelector('#cursor-graphic-parent');
 
-      // since the mouse cursor uses css to animate the position, we need to check the styling in JSDom
-      // it is questionable if this a very valuable test.
+    // since the mouse cursor uses css to animate the position, we need to check the styling in JSDom
+    // it is questionable if this a very valuable test.
 
-      //translateX(100px) translateY(100px)
-      const regex = /translateX\(([^)]+)px\)\s+translateY\(([^)]+)px\)/;
-      const match = span?.getAttribute('style')?.match(regex);
-      expect(match).toBeDefined();
+    //translateX(100px) translateY(100px)
+    const regex = /translateX\(([^)]+)px\)\s+translateY\(([^)]+)px\)/;
+    const match = span?.getAttribute('style')?.match(regex);
+    expect(match).toBeDefined();
 
-      const [, translateX, translateY] = match!;
-      expect(translateX).toBeCloseTo(100);
-      expect(translateY).toBeCloseTo(100);
-    },
-    {
-      timeout: 10_000,
-    },
-  );
+    const [, translateX, translateY] = match!;
+    expect(translateX).toBeCloseTo(100);
+    expect(translateY).toBeCloseTo(100);
+  });
 });

@@ -33,7 +33,7 @@
   },
   "dependencies": {
     "@pppp606/ink-chart": "0.2.4",
-    "effect": "^3.16.10",
+    "effect": "^3.20.0",
     "diff": "^8.0.0",
     "fast-json-stable-stringify": "^2.1.0",
     "fullscreen-ink": "^0.1.0",
@@ -44,7 +44,7 @@
   "devDependencies": {
     "@types/node": "^20.0.0",
     "@types/react": "^19.1.2",
-    "tsup": "^7.0.0",
+    "tsup": "^8.0.0",
     "typescript": "^5.0.0"
   },
   "publishConfig": {

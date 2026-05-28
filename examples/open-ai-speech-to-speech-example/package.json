@@ -12,11 +12,11 @@
   "dependencies": {
     "@heroicons/react": "^2.0.18",
     "@openai/realtime-api-beta": "github:openai/openai-realtime-api-beta",
-    "next": "15.3.1",
+    "next": "15.5.18",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "socket.io": "^4.7.2",
-    "socket.io-client": "^4.7.2",
+    "socket.io": "^4.8.0",
+    "socket.io-client": "^4.8.0",
     "@m4trix/core": "workspace:*",
     "@m4trix/react": "workspace:*",
     "ws": "^8.18.1"
@@ -31,7 +31,7 @@
     "@types/ws": "^8.18.1",
     "concurrently": "^8.2.2",
     "eslint": "^9",
-    "eslint-config-next": "15.3.1",
+    "eslint-config-next": "15.5.18",
     "jiti": "^1.21.0",
     "tailwindcss": "^4",
     "ts-node": "^10.9.2",
