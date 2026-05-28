@@ -1,5 +1,5 @@
 import type { TraceViewerApi } from '@m4trix/tracing';
-import { initTRPC } from '@trpc/server';
+import { type AnyRouter, initTRPC } from '@trpc/server';
 import { z } from 'zod';
 
 export type TraceViewerContext = {
@@ -23,7 +23,7 @@ const annotationInput = z.object({
   merge: z.boolean().optional(),
 });
 
-export const appRouter = t.router({
+const appRouterImpl = t.router({
   traces: t.router({
     list: t.procedure.input(listInput).query(async ({ ctx, input }) => {
       return ctx.traceViewerApi.listTraces(input ?? {});
@@ -49,4 +49,6 @@ export const appRouter = t.router({
   }),
 });
 
-export type AppRouter = typeof appRouter;
+export type AppRouter = typeof appRouterImpl;
+/** Public router instance; typed as AnyRouter so .d.ts emit stays portable across TS/tRPC versions. */
+export const appRouter: AnyRouter = appRouterImpl;
