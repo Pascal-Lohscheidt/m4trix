@@ -45,7 +45,6 @@ jobs:
           path: dist
           destination: dist
 
-  # Temporarily disabled in workflow — re-add under test-and-build when audit is clean.
   audit:
     docker:
       - image: cimg/node:20.0
@@ -55,8 +54,8 @@ jobs:
           name: Install dependencies
           command: pnpm install
       - run:
-          name: Audit dependencies
-          command: pnpm run audit
+          name: Audit deployed packages
+          command: pnpm exec jiti scripts/audit-deployed-packages.ts
 
   publish-core:
     docker:
@@ -281,8 +280,11 @@ workflows:
   test-and-build:
     jobs:
       - test
-      - build
-      # - audit  # temporarily skipped; job kept above for re-enable
+      - audit
+      - build:
+          requires:
+            - test
+            - audit
       - publish-core:
           context:
             - NPM

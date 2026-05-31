@@ -10,7 +10,7 @@
     "lint": "biome lint .",
     "format": "biome format --write .",
     "check": "biome check --write .",
-    "audit": "pnpm audit --audit-level high --ignore-registry-errors",
+    "audit": "jiti scripts/audit-deployed-packages.ts",
     "get:turbo": "npm install -g turbo",
     "test": "vitest --typecheck",
     "test:coverage": "vitest run --coverage",
@@ -48,6 +48,7 @@
   "devDependencies": {
     "@m4trix/trace-viewer": "workspace:*",
     "@testing-library/dom": "^10.4.0",
+    "@types/node": "^20.0.0",
     "@vitest/coverage-v8": "^4.0.0",
     "@biomejs/biome": "^2.4.6",
     "jsdom": "^26.1.0",
