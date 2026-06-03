@@ -1,5 +1,6 @@
 export type { LangGraphTracer } from './adapters/langgraph.js';
 export { toLangGraph } from './adapters/langgraph.js';
+export { toM4trixTracer } from './adapters/m4trix-tracer.js';
 export * from './annotation-merge.js';
 export { mergeTraceAnnotation } from './annotation-merge.js';
 export * from './storage-adapter/dynamo-structure-store-adapter.js';

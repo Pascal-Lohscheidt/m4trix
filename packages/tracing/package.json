@@ -51,17 +51,20 @@
     "@aws-sdk/lib-dynamodb": "^3.1053.0"
   },
   "devDependencies": {
+    "@m4trix/core": "workspace:*",
     "@types/node": "^20.0.0",
     "tsup": "^8.0.0",
     "typescript": "^5.0.0",
     "vitest": "^4.0.0"
   },
   "peerDependencies": {
+    "@m4trix/core": "^0.7.0",
     "@aws-sdk/client-dynamodb": "^3.0.0",
     "@aws-sdk/client-s3": "^3.0.0",
     "@aws-sdk/lib-dynamodb": "^3.0.0"
   },
   "peerDependenciesMeta": {
+    "@m4trix/core": { "optional": true },
     "@aws-sdk/client-dynamodb": { "optional": true },
     "@aws-sdk/client-s3": { "optional": true },
     "@aws-sdk/lib-dynamodb": { "optional": true }

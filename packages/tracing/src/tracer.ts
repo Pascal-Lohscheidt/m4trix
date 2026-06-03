@@ -53,15 +53,17 @@ export class Tracer {
     const chainType = isTraceRunType(runTypeOrName) ? runTypeOrName : 'chain';
     const chainName = name ?? (isTraceRunType(runTypeOrName) ? undefined : runTypeOrName);
 
-    return this.track(this.startRun({
-      extra: compactRecord({ runType: runTypeOrName, serialized, tags }),
-      input: inputs,
-      metadata,
-      name: chainName ?? inferName(serialized) ?? chainType,
-      parentRunId,
-      runId,
-      type: chainType,
-    }));
+    return this.track(
+      this.startRun({
+        extra: compactRecord({ runType: runTypeOrName, serialized, tags }),
+        input: inputs,
+        metadata,
+        name: chainName ?? inferName(serialized) ?? chainType,
+        parentRunId,
+        runId,
+        type: chainType,
+      }),
+    );
   }
 
   async handleChainEnd(outputs: unknown, runId: string): Promise<void> {
@@ -82,15 +84,17 @@ export class Tracer {
     metadata?: Record<string, unknown>,
     name?: string,
   ): Promise<void> {
-    return this.track(this.startRun({
-      extra: compactRecord({ extraParams, serialized, tags }),
-      input: prompts,
-      metadata,
-      name: name ?? inferName(serialized) ?? 'LLM',
-      parentRunId,
-      runId,
-      type: 'llm',
-    }));
+    return this.track(
+      this.startRun({
+        extra: compactRecord({ extraParams, serialized, tags }),
+        input: prompts,
+        metadata,
+        name: name ?? inferName(serialized) ?? 'LLM',
+        parentRunId,
+        runId,
+        type: 'llm',
+      }),
+    );
   }
 
   async handleChatModelStart(
@@ -103,15 +107,17 @@ export class Tracer {
     metadata?: Record<string, unknown>,
     name?: string,
   ): Promise<void> {
-    return this.track(this.startRun({
-      extra: compactRecord({ extraParams, serialized, tags }),
-      input: messages,
-      metadata,
-      name: name ?? inferName(serialized) ?? 'Chat model',
-      parentRunId,
-      runId,
-      type: 'chat_model',
-    }));
+    return this.track(
+      this.startRun({
+        extra: compactRecord({ extraParams, serialized, tags }),
+        input: messages,
+        metadata,
+        name: name ?? inferName(serialized) ?? 'Chat model',
+        parentRunId,
+        runId,
+        type: 'chat_model',
+      }),
+    );
   }
 
   async handleLLMEnd(output: unknown, runId: string): Promise<void> {
@@ -131,15 +137,17 @@ export class Tracer {
     metadata?: Record<string, unknown>,
     name?: string,
   ): Promise<void> {
-    return this.track(this.startRun({
-      extra: compactRecord({ serialized, tags }),
-      input,
-      metadata,
-      name: name ?? inferName(serialized) ?? 'Tool',
-      parentRunId,
-      runId,
-      type: 'tool',
-    }));
+    return this.track(
+      this.startRun({
+        extra: compactRecord({ serialized, tags }),
+        input,
+        metadata,
+        name: name ?? inferName(serialized) ?? 'Tool',
+        parentRunId,
+        runId,
+        type: 'tool',
+      }),
+    );
   }
 
   async handleToolEnd(output: unknown, runId: string): Promise<void> {
@@ -159,15 +167,17 @@ export class Tracer {
     metadata?: Record<string, unknown>,
     name?: string,
   ): Promise<void> {
-    return this.track(this.startRun({
-      extra: compactRecord({ serialized, tags }),
-      input: query,
-      metadata,
-      name: name ?? inferName(serialized) ?? 'Retriever',
-      parentRunId,
-      runId,
-      type: 'retriever',
-    }));
+    return this.track(
+      this.startRun({
+        extra: compactRecord({ serialized, tags }),
+        input: query,
+        metadata,
+        name: name ?? inferName(serialized) ?? 'Retriever',
+        parentRunId,
+        runId,
+        type: 'retriever',
+      }),
+    );
   }
 
   async handleRetrieverEnd(documents: unknown, runId: string): Promise<void> {
@@ -280,7 +290,7 @@ export class Tracer {
         ? { projectId: metadata.projectId }
         : existingTrace?.projectId
           ? { projectId: existingTrace.projectId }
-        : {}),
+          : {}),
       name: run.name,
       status: traceRuns.some((candidate) => candidate.status === 'error') ? 'error' : run.status,
       startTime: run.startTime,

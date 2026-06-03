@@ -10,6 +10,7 @@ dist/
 build/
 coverage/
 tmp/
+agent-tmp/
 
 # Testing
 .vitest/

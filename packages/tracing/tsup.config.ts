@@ -12,7 +12,7 @@ export default defineConfig([
     minify: false,
     target: ['node20', 'es2020'],
     platform: 'node',
-    external: ['@aws-sdk/client-dynamodb', '@aws-sdk/client-s3', '@aws-sdk/lib-dynamodb'],
+    external: ['@aws-sdk/client-dynamodb', '@aws-sdk/client-s3', '@aws-sdk/lib-dynamodb', '@m4trix/core'],
   },
   {
     entry: { 'trace-shipper-cli': 'src/trace-shipper-cli.ts' },
@@ -25,6 +25,6 @@ export default defineConfig([
     minify: false,
     target: 'node20',
     platform: 'node',
-    external: ['@aws-sdk/client-dynamodb', '@aws-sdk/client-s3', '@aws-sdk/lib-dynamodb'],
+    external: ['@aws-sdk/client-dynamodb', '@aws-sdk/client-s3', '@aws-sdk/lib-dynamodb', '@m4trix/core'],
   },
 ]);
