@@ -1,5 +1,18 @@
-import { Brand, Effect, Schema as S } from 'effect';
+import { Effect, Schema as S } from 'effect';
 import type { ParseError } from 'effect/ParseResult';
+import {
+  assertUniqueLayerNames,
+  type DepedencyLayerDef,
+  type LayersFromDeps,
+  toLayerArray,
+} from './dependency-layer.js';
+
+export {
+  DepedencyLayer,
+  type DepedencyLayerDef,
+  LayerName,
+  type LayersFromDeps,
+} from './dependency-layer.js';
 
 /**
  * A skill is commonly used by now in the agentic ecosystem.
@@ -19,117 +32,6 @@ import type { ParseError } from 'effect/ParseResult';
  * A common example would be a database connection.
  * Or an auth user context.
  */
-
-/** Regex: camelCase (e.g. myLayerFoo) */
-const CAMEL_CASE_REGEX = /^[a-z][a-zA-Z0-9]*$/;
-
-/**
- * Branded type for layer/dependency names. Enforces camelCase at runtime via refinement.
- * Used internally for parsing, validation, and uniqueness enforcement across layers.
- */
-export type LayerName = string & Brand.Brand<'LayerName'>;
-
-export const LayerName = Brand.refined<LayerName>(
-  (s: unknown) => typeof s === 'string' && CAMEL_CASE_REGEX.test(s),
-  (s: unknown) => Brand.error(`Expected camelCase (e.g. myLayerFoo), got: ${s}`),
-);
-
-/** Error type when DepType contains reserved 'config' - produces explicit type error */
-type ReservedConfigError = "DepType must not contain 'config' - it is reserved by the layer";
-
-/** Definition of a single skill dependency with a branded name and config schema */
-export type DepedencyLayerDef<
-  N extends string,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  _DepType,
-  ConfigSchema extends S.Schema.Any,
-> = {
-  readonly _tag: 'SkillDependencyDef';
-  readonly name: LayerName;
-  readonly _name: N;
-  readonly config: ConfigSchema;
-  readonly decodeConfig: (u: unknown) => Effect.Effect<S.Schema.Type<ConfigSchema>, ParseError>;
-};
-
-/** Layer value: DepType spread plus config (config is decoded from schema) */
-type LayerValue<DepType, ConfigSchema extends S.Schema.Any> = Omit<DepType, 'config'> & {
-  config: S.Schema.Type<ConfigSchema>;
-};
-
-/** Build layers object type from a tuple of dependency definitions */
-type DependenciesToLayers<T> =
-  T extends DepedencyLayerDef<infer N, infer DepType, infer ConfigSchema>
-    ? { [K in N]: LayerValue<DepType, ConfigSchema> }
-    : never;
-
-type UnionToIntersection<U> = (U extends unknown ? (k: U) => void : never) extends (
-  k: infer I,
-) => void
-  ? I
-  : never;
-
-/** Build layers object from union of dependency types */
-export type LayersFromDeps<T extends DepedencyLayerDef<string, unknown, S.Schema.Any>> = [
-  T,
-] extends [never]
-  ? Record<string, never>
-  : UnionToIntersection<DependenciesToLayers<T>>;
-
-type DepedencyLayerBuilder<N extends string, ConfigSchema extends S.Schema.Any> = DepedencyLayerDef<
-  N,
-  object,
-  ConfigSchema
-> & {
-  define<_DepType>(): 'config' extends keyof _DepType
-    ? ReservedConfigError
-    : DepedencyLayerDef<N, _DepType, ConfigSchema>;
-};
-
-export const DepedencyLayer = {
-  of<const N extends string, ConfigSchema extends S.Schema.Any>(def: {
-    name: N;
-    config: ConfigSchema;
-  }): DepedencyLayerBuilder<N, ConfigSchema> {
-    const name = LayerName(def.name as string);
-    const decodeConfig = S.decodeUnknown(def.config);
-    const dep = {
-      _tag: 'SkillDependencyDef' as const,
-      name,
-      _name: def.name,
-      config: def.config,
-      decodeConfig: decodeConfig as (
-        u: unknown,
-      ) => Effect.Effect<S.Schema.Type<ConfigSchema>, ParseError>,
-    };
-    return Object.assign(dep, {
-      define: () => dep,
-    }) as unknown as DepedencyLayerBuilder<N, ConfigSchema>;
-  },
-};
-
-/** Normalize single or array of layers to readonly array */
-function toLayerArray<D extends DepedencyLayerDef<string, unknown, S.Schema.Any>>(
-  layers: [D, ...D[]] | [ReadonlyArray<D>],
-): ReadonlyArray<D> {
-  if (layers.length === 1 && Array.isArray(layers[0])) {
-    return layers[0];
-  }
-  return [...(layers as [D, ...D[]])];
-}
-
-/** Check for duplicate layer names and throw if found */
-function assertUniqueLayerNames<D extends DepedencyLayerDef<string, unknown, S.Schema.Any>>(
-  layers: ReadonlyArray<D>,
-): void {
-  const seen = new Set<string>();
-  for (const dep of layers) {
-    const key = dep.name as string;
-    if (seen.has(key)) {
-      throw new Error(`Duplicate layer name: ${key}`);
-    }
-    seen.add(key);
-  }
-}
 
 /** Unique brand symbol for Done, following Effect's branded-type pattern */
 const DoneTypeId: unique symbol = Symbol.for('sunken-trove/Done');

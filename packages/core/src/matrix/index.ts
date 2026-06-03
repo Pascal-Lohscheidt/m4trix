@@ -8,5 +8,8 @@ export {
   consoleTracer,
   consoleTracerLayer,
 } from './console-tracer.js';
+export * from './tracing/network-tracer.js';
 export * from './io/index.js';
+export * from './dependency-layer.js';
 export * from './skill.js';
+export * from './tool.js';

@@ -1,4 +1,7 @@
-import { Cause, Effect, type Fiber, PubSub, Queue, type Scope } from 'effect';
+import { randomUUID } from 'node:crypto';
+import { Cause, Deferred, Effect, type Fiber, PubSub, Queue, type Scope } from 'effect';
+import type * as Duration from 'effect/Duration';
+import { type NetworkTracer, noopNetworkTracer } from '../tracing/network-tracer.js';
 import type { AgentNetwork, AnyAgent } from './agent-network.js';
 import type { ContextEvents, EventMeta, RunEvents } from './agent-network-event.js';
 import type { ChannelName, ConfiguredChannel } from './channel.js';
@@ -13,6 +16,15 @@ export type Envelope = {
   payload: unknown;
 };
 
+export class PublishAndAwaitTimeoutError extends Error {
+  readonly _tag = 'PublishAndAwaitTimeoutError';
+
+  constructor(readonly timeout: Duration.DurationInput) {
+    super(`publishAndAwait timed out after ${String(timeout)}`);
+    this.name = 'PublishAndAwaitTimeoutError';
+  }
+}
+
 /* ─── EventPlane ─── */
 
 export type EventPlane = {
@@ -21,6 +33,12 @@ export type EventPlane = {
     channels: readonly ConfiguredChannel[],
     envelope: Envelope,
   ) => Effect.Effect<boolean>;
+  readonly publishAndAwait: (
+    channels: readonly ConfiguredChannel[],
+    envelope: Envelope,
+    match: (reply: Envelope) => boolean,
+    options?: { timeout?: Duration.DurationInput },
+  ) => Effect.Effect<Envelope, PublishAndAwaitTimeoutError>;
   readonly subscribe: (
     channel: ChannelName,
   ) => Effect.Effect<Queue.Dequeue<Envelope>, never, Scope.Scope>;
@@ -37,6 +55,7 @@ type CreateEventPlaneOptions = {
   network: AgentNetwork;
   capacity?: number;
   store?: AgentNetworkStore<Envelope>;
+  networkTracer?: NetworkTracer;
 };
 
 /**
@@ -50,10 +69,16 @@ export const createEventPlane = (options: CreateEventPlaneOptions): Effect.Effec
       network,
       capacity = DEFAULT_CAPACITY,
       store = createInMemoryNetworkStore<Envelope>(),
+      networkTracer = noopNetworkTracer,
     } = options;
 
     const channels = network.getChannels();
     const pubsubs = new Map<ChannelName, PubSub.PubSub<Envelope>>();
+    const waiters = new Set<{
+      request: Envelope;
+      match: (reply: Envelope) => boolean;
+      deferred: Deferred.Deferred<Envelope, PublishAndAwaitTimeoutError>;
+    }>();
 
     for (const channel of channels.values()) {
       const pubsub = yield* PubSub.bounded<Envelope>(capacity);
@@ -66,9 +91,19 @@ export const createEventPlane = (options: CreateEventPlaneOptions): Effect.Effec
       return p;
     };
 
+    const notifyWaiters = (envelope: Envelope): void => {
+      for (const waiter of waiters) {
+        if (waiter.request !== envelope && waiter.match(envelope)) {
+          waiters.delete(waiter);
+          Effect.runFork(Deferred.succeed(waiter.deferred, envelope));
+        }
+      }
+    };
+
     const recordEvent = (envelope: Envelope): void => {
       const { contextId, runId } = envelope.meta;
       store.storeEvent(contextId, runId, envelope);
+      notifyWaiters(envelope);
     };
 
     const publishToPubSub = (channel: ChannelName, envelope: Envelope): Effect.Effect<boolean> =>
@@ -76,6 +111,16 @@ export const createEventPlane = (options: CreateEventPlaneOptions): Effect.Effec
 
     const publish = (channel: ChannelName, envelope: Envelope): Effect.Effect<boolean> =>
       Effect.sync(() => recordEvent(envelope)).pipe(
+        Effect.tap(() =>
+          Effect.promise(() =>
+            networkTracer.onEventPublish({
+              channel,
+              name: envelope.name,
+              meta: envelope.meta,
+              payload: envelope.payload,
+            }),
+          ),
+        ),
         Effect.flatMap(() => publishToPubSub(channel, envelope)),
         Effect.withSpan('event.publish', {
           attributes: {
@@ -93,6 +138,21 @@ export const createEventPlane = (options: CreateEventPlaneOptions): Effect.Effec
       envelope: Envelope,
     ): Effect.Effect<boolean> =>
       Effect.sync(() => recordEvent(envelope)).pipe(
+        Effect.tap(() =>
+          Effect.all(
+            targetChannels.map((c) =>
+              Effect.promise(() =>
+                networkTracer.onEventPublish({
+                  channel: c.name,
+                  name: envelope.name,
+                  meta: envelope.meta,
+                  payload: envelope.payload,
+                }),
+              ),
+            ),
+            { concurrency: 'unbounded' },
+          ),
+        ),
         Effect.flatMap(() =>
           Effect.all(
             targetChannels.map((c) => publishToPubSub(c.name, envelope)),
@@ -109,6 +169,29 @@ export const createEventPlane = (options: CreateEventPlaneOptions): Effect.Effec
           },
         }),
       );
+
+    const publishAndAwait = (
+      targetChannels: readonly ConfiguredChannel[],
+      envelope: Envelope,
+      match: (reply: Envelope) => boolean,
+      options?: { timeout?: Duration.DurationInput },
+    ): Effect.Effect<Envelope, PublishAndAwaitTimeoutError> =>
+      Effect.gen(function* () {
+        const timeout = options?.timeout ?? '30 seconds';
+        const deferred = yield* Deferred.make<Envelope, PublishAndAwaitTimeoutError>();
+        const waiter = { request: envelope, match, deferred };
+
+        waiters.add(waiter);
+        yield* publishToChannels(targetChannels, envelope);
+
+        const timeoutEffect = Effect.sleep(timeout).pipe(
+          Effect.flatMap(() => Effect.fail(new PublishAndAwaitTimeoutError(timeout))),
+        );
+
+        return yield* Effect.raceFirst(Deferred.await(deferred), timeoutEffect).pipe(
+          Effect.ensuring(Effect.sync(() => waiters.delete(waiter))),
+        );
+      });
 
     const subscribe = (
       channel: ChannelName,
@@ -142,6 +225,7 @@ export const createEventPlane = (options: CreateEventPlaneOptions): Effect.Effec
     return {
       publish,
       publishToChannels,
+      publishAndAwait,
       subscribe,
       getRunEvents,
       getContextEvents,
@@ -179,6 +263,8 @@ export const runSubscriber = (
   plane: EventPlane,
   emitQueue?: EmitQueue,
   channelName?: ChannelName,
+  networkTracer: NetworkTracer = noopNetworkTracer,
+  layers?: Record<string, unknown>,
 ): Effect.Effect<Fiber.RuntimeFiber<void, never>> =>
   Effect.gen(function* () {
     const listensTo = agent.getListensTo?.() ?? [];
@@ -192,6 +278,13 @@ export const runSubscriber = (
         }
         const runEvents = plane.getRunEvents(envelope.meta.runId, envelope.meta.contextId);
         const contextEvents = plane.getContextEvents(envelope.meta.contextId);
+        const scope = yield* Effect.promise(() =>
+          networkTracer.onAgentInvokeStart({
+            agentId,
+            channel: channelName,
+            trigger: envelope,
+          }),
+        );
         yield* Effect.withSpan('agent.listen', {
           attributes: {
             agentId,
@@ -228,12 +321,40 @@ export const runSubscriber = (
                       Effect.runFork(plane.publishToChannels(publishesTo, fullEnvelope));
                     }
                   },
+                  emitAndAwait: (
+                    userEvent: { name: string; payload: unknown },
+                    match: (reply: Envelope) => boolean,
+                    options?: { timeout?: Duration.DurationInput },
+                  ) => {
+                    const correlationId = randomUUID();
+                    const requestEnvelope: Envelope = {
+                      name: userEvent.name,
+                      meta: {
+                        ...envelope.meta,
+                        correlationId,
+                        causationId: envelope.meta.correlationId,
+                      },
+                      payload: userEvent.payload,
+                    };
+                    const scopedMatch = (reply: Envelope): boolean =>
+                      reply.meta.correlationId === correlationId && match(reply);
+                    return Effect.runPromise(
+                      plane.publishAndAwait(publishesTo, requestEnvelope, scopedMatch, options),
+                    );
+                  },
+                  layers,
                   runEvents,
                   contextEvents,
+                  tracing: scope,
                 }),
               catch: (e: unknown) => e,
             }),
           ),
+        ).pipe(
+          Effect.tapError((e) =>
+            Effect.promise(() => networkTracer.onAgentInvokeEnd(scope, e as Error)),
+          ),
+          Effect.tap(() => Effect.promise(() => networkTracer.onAgentInvokeEnd(scope))),
         );
       }).pipe(
         Effect.catchAllCause((cause: Cause.Cause<unknown>) =>
@@ -256,6 +377,9 @@ export const runSubscriber = (
 export type RunOptions = {
   /** When provided, agent emits are queued and published by a drain fiber in the same Effect context. Use when run is forked from expose without a shared plane. */
   emitQueue?: EmitQueue;
+  networkTracer?: NetworkTracer;
+  /** Injected dependency layer values for agent invocations */
+  layers?: Record<string, unknown>;
 };
 
 /**
@@ -271,11 +395,22 @@ export const run = (
   Effect.gen(function* () {
     const registrations = network.getAgentRegistrations();
     const emitQueue = options?.emitQueue;
+    const networkTracer = options?.networkTracer ?? noopNetworkTracer;
+    const layers = options?.layers;
 
     for (const reg of registrations.values()) {
       for (const channel of reg.subscribedTo) {
         const dequeue = yield* plane.subscribe(channel.name);
-        yield* runSubscriber(reg.agent, reg.publishesTo, dequeue, plane, emitQueue, channel.name);
+        yield* runSubscriber(
+          reg.agent,
+          reg.publishesTo,
+          dequeue,
+          plane,
+          emitQueue,
+          channel.name,
+          networkTracer,
+          layers,
+        );
       }
     }
 

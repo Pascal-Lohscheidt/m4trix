@@ -1,8 +1,22 @@
 import type { Schema as S } from 'effect';
-import { Effect, type Scope } from 'effect';
+import { Effect, type Layer, type Scope } from 'effect';
 import type { AgentFactory } from '../agent-factory.js';
+import { consoleTracerLayer } from '../console-tracer.js';
+import {
+  assertDepedencyMatch,
+  assertLayersProvided,
+  assertUniqueLayerNames,
+  type DepedencyLayerDef,
+  type LayerInstancesFromDeps,
+  toLayerArray,
+} from '../dependency-layer.js';
 import { expose } from '../io/expose.js';
 import type { ExposedAPI, ExposeOptions } from '../io/types.js';
+import {
+  consoleNetworkTracer,
+  type NetworkTracer,
+  noopNetworkTracer,
+} from '../tracing/network-tracer.js';
 import type { AgentNetworkEventDef } from './agent-network-event.js';
 import { ChannelName, ConfiguredChannel, Sink } from './channel.js';
 import type { Envelope, EventPlane } from './event-plane.js';
@@ -21,6 +35,8 @@ export interface AnyAgent {
   invoke(options?: any): Promise<void>;
   /** Event names this agent listens to. Empty = listen to all. */
   getListensTo?(): readonly string[];
+  /** Dependency layer definitions declared by this agent */
+  getDependencyLayers?(): ReadonlyArray<DepedencyLayerDef<string, unknown, S.Schema.Any>>;
 }
 
 /* ─── Agent Binding (returned by registerAgent) ─── */
@@ -65,6 +81,35 @@ export type SpawnerBuilder<
   onSpawn(fn: (ctx: SpawnCallbackContext<TRegistry>) => AnyAgent): SpawnerBuilder<TRegistry>;
 };
 
+/* ─── Setup Options ─── */
+
+export type AgentNetworkSetupOptions = {
+  /** Log network runs, events, and agent invocations to stdout. Off by default. */
+  consoleTracing?: boolean;
+  /** Custom NetworkTracer for agent network lifecycle hooks. */
+  networkTracer?: NetworkTracer;
+  /** Effect layer for event plane span logging. */
+  tracingLayer?: Layer.Layer<never>;
+};
+
+export type NetworkRunOptions<
+  TDeps extends DepedencyLayerDef<string, unknown, S.Schema.Any> = never,
+> = [TDeps] extends [never]
+  ? { capacity?: number; layers?: Record<string, never> }
+  : { capacity?: number; layers: LayerInstancesFromDeps<TDeps> };
+
+function resolveSetupTracing(options?: AgentNetworkSetupOptions): {
+  networkTracer: NetworkTracer;
+  tracingLayer: Layer.Layer<never> | undefined;
+} {
+  const consoleTracing = options?.consoleTracing ?? false;
+  return {
+    networkTracer:
+      options?.networkTracer ?? (consoleTracing ? consoleNetworkTracer : noopNetworkTracer),
+    tracingLayer: options?.tracingLayer ?? (consoleTracing ? consoleTracerLayer : undefined),
+  };
+}
+
 /* ─── Setup Context ─── */
 
 export type AgentNetworkSetupContext = {
@@ -96,41 +141,105 @@ type SpawnerRegistration = {
   onSpawnFn?: (ctx: SpawnCallbackContext<Record<string, AgentFactory>>) => AnyAgent;
 };
 
-/* ─── AgentNetwork ─── */
+/* ─── AgentNetworkBuilder ─── */
 
-export class AgentNetwork {
-  private _mainChannel: ConfiguredChannel | undefined;
-  private channels: Map<ChannelName, ConfiguredChannel> = new Map();
-  private agentRegistrations: Map<string, AgentRegistration> = new Map();
-  private spawnerRegistrations: SpawnerRegistration[] = [];
-  private _store: AgentNetworkStore<Envelope>;
+export class AgentNetworkBuilder<
+  TDeps extends DepedencyLayerDef<string, unknown, S.Schema.Any> = never,
+> {
+  private _dependencyLayers: ReadonlyArray<DepedencyLayerDef<string, unknown, S.Schema.Any>>;
 
-  private constructor() {
-    this._store = createInMemoryNetworkStore<Envelope>();
+  private constructor(
+    dependencyLayers: ReadonlyArray<DepedencyLayerDef<string, unknown, S.Schema.Any>>,
+  ) {
+    this._dependencyLayers = dependencyLayers;
   }
 
-  /* ─── Public Static Factory ─── */
+  static empty(): AgentNetworkBuilder<never> {
+    return new AgentNetworkBuilder([]);
+  }
 
-  static setup(callback: (ctx: AgentNetworkSetupContext) => void): AgentNetwork {
-    const network = new AgentNetwork();
-    const mainChannel = network.addChannel('main');
-    network.setMainChannel(mainChannel);
+  static fromLayers<D extends DepedencyLayerDef<string, unknown, S.Schema.Any>>(
+    layers: ReadonlyArray<D>,
+  ): AgentNetworkBuilder<D> {
+    assertUniqueLayerNames(layers);
+    return new AgentNetworkBuilder(layers);
+  }
 
-    const ctx: AgentNetworkSetupContext = {
-      mainChannel,
-      createChannel: (name: string) => network.addChannel(name),
-      sink: Sink,
-      registerAgent: (agent) => network.registerAgentInternal(agent),
-      registerAggregator: (aggregator) => network.registerAggregatorInternal(aggregator),
-      spawner: (factory) => network.createSpawnerInternal(factory),
-    };
+  dependsOn<D extends DepedencyLayerDef<string, unknown, S.Schema.Any>>(
+    ...layers: [D, ...D[]] | [ReadonlyArray<D>]
+  ): AgentNetworkBuilder<TDeps | D> {
+    const normalized = toLayerArray(layers);
+    const allLayers = [...this._dependencyLayers, ...normalized];
+    assertUniqueLayerNames(allLayers);
+    return new AgentNetworkBuilder<TDeps | D>(allLayers);
+  }
+
+  setup(
+    callback: (ctx: AgentNetworkSetupContext) => void,
+    options?: AgentNetworkSetupOptions,
+  ): AgentNetwork<TDeps> {
+    const network = new AgentNetwork<TDeps>(options, this._dependencyLayers);
+    const ctx = network.createSetupContext();
 
     callback(ctx);
 
     return network;
   }
+}
+
+/* ─── AgentNetwork ─── */
+
+export class AgentNetwork<TDeps extends DepedencyLayerDef<string, unknown, S.Schema.Any> = never> {
+  private _mainChannel: ConfiguredChannel | undefined;
+  private channels: Map<ChannelName, ConfiguredChannel> = new Map();
+  private agentRegistrations: Map<string, AgentRegistration> = new Map();
+  private spawnerRegistrations: SpawnerRegistration[] = [];
+  private _store: AgentNetworkStore<Envelope>;
+  private _networkTracer: NetworkTracer;
+  private _tracingLayer: Layer.Layer<never> | undefined;
+  private _dependencyLayers: ReadonlyArray<DepedencyLayerDef<string, unknown, S.Schema.Any>>;
+
+  constructor(
+    options?: AgentNetworkSetupOptions,
+    dependencyLayers: ReadonlyArray<DepedencyLayerDef<string, unknown, S.Schema.Any>> = [],
+  ) {
+    this._store = createInMemoryNetworkStore<Envelope>();
+    const tracing = resolveSetupTracing(options);
+    this._networkTracer = tracing.networkTracer;
+    this._tracingLayer = tracing.tracingLayer;
+    this._dependencyLayers = dependencyLayers;
+  }
+
+  /* ─── Public Static Factory ─── */
+
+  static dependsOn<D extends DepedencyLayerDef<string, unknown, S.Schema.Any>>(
+    ...layers: [D, ...D[]] | [ReadonlyArray<D>]
+  ): AgentNetworkBuilder<D> {
+    return AgentNetworkBuilder.fromLayers(toLayerArray(layers));
+  }
+
+  static setup(
+    callback: (ctx: AgentNetworkSetupContext) => void,
+    options?: AgentNetworkSetupOptions,
+  ): AgentNetwork<never> {
+    return AgentNetworkBuilder.empty().setup(callback, options);
+  }
 
   /* ─── Internal Builders ─── */
+
+  /** @internal Creates the typed setup context used by AgentNetworkBuilder. */
+  createSetupContext(): AgentNetworkSetupContext {
+    const mainChannel = this.addChannel('main');
+
+    return {
+      mainChannel,
+      createChannel: (name: string) => this.addChannel(name),
+      sink: Sink,
+      registerAgent: (agent) => this.registerAgentInternal(agent),
+      registerAggregator: (aggregator) => this.registerAggregatorInternal(aggregator),
+      spawner: (factory) => this.createSpawnerInternal(factory),
+    };
+  }
 
   private addChannel(name: string): ConfiguredChannel {
     const channelName = ChannelName(name);
@@ -140,14 +249,19 @@ export class AgentNetwork {
     }
     const channel = new ConfiguredChannel(channelName);
     this.channels.set(channelName, channel);
+    if (channelName === 'main' && !this._mainChannel) {
+      this._mainChannel = channel;
+    }
     return channel;
   }
 
-  private setMainChannel(channel: ConfiguredChannel): void {
-    this._mainChannel = channel;
-  }
-
   private registerAgentInternal(agent: AnyAgent): AgentBinding {
+    assertDepedencyMatch({
+      agentId: agent.getId(),
+      agentLayers: agent.getDependencyLayers?.() ?? [],
+      networkLayers: this._dependencyLayers,
+    });
+
     const registration: AgentRegistration = {
       agent,
       subscribedTo: [],
@@ -228,9 +342,23 @@ export class AgentNetwork {
     return this.spawnerRegistrations;
   }
 
+  getDependencyLayers(): ReadonlyArray<DepedencyLayerDef<string, unknown, S.Schema.Any>> {
+    return this._dependencyLayers;
+  }
+
   /** Store defined at network setup time. Shared across all event planes created for this network. */
   getStore(): AgentNetworkStore<Envelope> {
     return this._store;
+  }
+
+  /** NetworkTracer configured at setup time. Used by run() and expose() unless overridden. */
+  getNetworkTracer(): NetworkTracer {
+    return this._networkTracer;
+  }
+
+  /** Effect tracing layer configured at setup time. Used by run() and expose() unless overridden. */
+  getTracingLayer(): Layer.Layer<never> | undefined {
+    return this._tracingLayer;
   }
 
   /**
@@ -242,7 +370,7 @@ export class AgentNetwork {
    * const api = network.expose({ protocol: "sse", auth, select });
    * export const GET = NextEndpoint.from(api, { requestToContextId, requestToRunId }).handler();
    */
-  expose(options: ExposeOptions): ExposedAPI {
+  expose(options: ExposeOptions<TDeps>): ExposedAPI {
     return expose(this, options);
   }
 
@@ -254,22 +382,32 @@ export class AgentNetwork {
    * Returns the EventPlane for publishing. Use `Effect.scoped` so the run is
    * interrupted when the scope ends.
    */
-  run(capacity?: number): Effect.Effect<EventPlane, never, Scope.Scope> {
-    return this.runScoped(this, capacity);
+  run(options?: NetworkRunOptions<TDeps>): Effect.Effect<EventPlane, never, Scope.Scope> {
+    assertLayersProvided(this._dependencyLayers, options?.layers as Record<string, unknown>);
+    return this.runScoped(this, options);
   }
 
   private runScoped(
-    network: AgentNetwork,
-    capacity?: number,
+    network: AgentNetwork<TDeps>,
+    options?: NetworkRunOptions<TDeps>,
   ): Effect.Effect<EventPlane, never, Scope.Scope> {
-    return Effect.gen(function* () {
+    const networkTracer = network.getNetworkTracer();
+    const program = Effect.gen(function* () {
       const plane = yield* createEventPlane({
         network,
-        capacity,
+        capacity: options?.capacity,
         store: network.getStore(),
+        networkTracer,
       });
-      yield* Effect.fork(run(network, plane));
+      yield* Effect.fork(
+        run(network, plane, {
+          networkTracer,
+          layers: options?.layers as unknown as Record<string, unknown> | undefined,
+        }),
+      );
       return plane;
     });
+    const tracingLayer = network.getTracingLayer();
+    return tracingLayer ? program.pipe(Effect.provide(tracingLayer)) : program;
   }
 }

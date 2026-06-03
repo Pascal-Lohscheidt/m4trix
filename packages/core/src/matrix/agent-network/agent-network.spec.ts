@@ -1,6 +1,7 @@
 import { Effect, Queue, Schema as S } from 'effect';
 import { describe, expect, test, vitest } from 'vitest';
 import { AgentFactory } from '../agent-factory.js';
+import { consoleNetworkTracer, noopNetworkTracer } from '../tracing/network-tracer.js';
 import { AgentNetwork } from './agent-network.js';
 import type { EventMeta } from './agent-network-event.js';
 import { AgentNetworkEvent } from './agent-network-event.js';
@@ -23,9 +24,7 @@ describe('AgentNetwork', () => {
       const weatherSet = AgentNetworkEvent.of('weather-set', S.Struct({ temp: S.Number }));
 
       const network = AgentNetwork.setup(({ mainChannel, sink }) => {
-        const main = mainChannel
-          .events([weatherSet])
-          .sink(sink.kafka({ topic: 'main' }));
+        const main = mainChannel.events([weatherSet]).sink(sink.kafka({ topic: 'main' }));
 
         expect(main.getEvents()).toHaveLength(1);
         expect(main.getEvents()[0]?.name).toBe('weather-set');
@@ -278,24 +277,24 @@ describe('AgentNetwork', () => {
         S.Struct({ forecast: S.String }),
       );
 
-      const logicSpy = vitest.fn<
-        [
-          {
-            triggerEvent: {
-              name: string;
-              meta: EventMeta;
-              payload: { temp: number };
-            };
-            emit: (e: unknown) => void;
-          },
-        ],
-        Promise<void>
-      >(async ({ triggerEvent, emit }) => {
-        emit({
-          name: 'weather-forecast-created',
-          payload: { forecast: `Temp was ${triggerEvent.payload.temp}` },
-        });
-      });
+      const logicSpy = vitest.fn(
+        async ({
+          triggerEvent,
+          emit,
+        }: {
+          triggerEvent: {
+            name: string;
+            meta: EventMeta;
+            payload: { temp: number };
+          };
+          emit: (e: unknown) => void;
+        }) => {
+          emit({
+            name: 'weather-forecast-created',
+            payload: { forecast: `Temp was ${triggerEvent.payload.temp}` },
+          });
+        },
+      );
 
       const WeatherAgent = AgentFactory.run()
         .listensTo([weatherSet])
@@ -383,6 +382,26 @@ describe('AgentNetwork', () => {
       const spy = await Effect.runPromise(program.pipe(Effect.scoped));
 
       expect(spy).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('setup - tracing', () => {
+    test('uses noop tracer by default', () => {
+      const network = AgentNetwork.setup(() => {});
+      expect(network.getNetworkTracer()).toBe(noopNetworkTracer);
+      expect(network.getTracingLayer()).toBeUndefined();
+    });
+
+    test('opts into console tracing at setup time', () => {
+      const network = AgentNetwork.setup(() => {}, { consoleTracing: true });
+      expect(network.getNetworkTracer()).toBe(consoleNetworkTracer);
+      expect(network.getTracingLayer()).toBeDefined();
+    });
+
+    test('allows custom networkTracer at setup time', () => {
+      const customTracer = { ...noopNetworkTracer };
+      const network = AgentNetwork.setup(() => {}, { networkTracer: customTracer });
+      expect(network.getNetworkTracer()).toBe(customTracer);
     });
   });
 });

@@ -9,6 +9,22 @@ import { createInMemoryNetworkStore } from './stores/inmemory-network-store.js';
 
 const meta = { runId: 'test-run', contextId: 'test-context' };
 
+function requireChannel(network: AgentNetwork, name: string) {
+  const channel = network.getChannels().get(name);
+  if (!channel) {
+    throw new Error(`Expected channel ${name} to exist`);
+  }
+  return channel;
+}
+
+function requireMainChannel(network: AgentNetwork) {
+  const channel = network.getMainChannel();
+  if (!channel) {
+    throw new Error('Expected main channel to exist');
+  }
+  return channel;
+}
+
 describe('EventPlane', () => {
   describe('createEventPlane', () => {
     test('creates a plane with one PubSub per channel', async () => {
@@ -121,6 +137,230 @@ describe('EventPlane', () => {
     });
   });
 
+  describe('publishAndAwait', () => {
+    test('resolves when a later event matches the predicate', async () => {
+      const network = AgentNetwork.setup(({ createChannel }) => {
+        createChannel('client');
+      });
+
+      const program = Effect.gen(function* () {
+        const plane = yield* createEventPlane({ network });
+        const clientCh = requireChannel(network, 'client');
+
+        const waiter = yield* Effect.fork(
+          plane.publishAndAwait(
+            [clientCh],
+            {
+              name: 'request',
+              meta: { ...meta, correlationId: 'corr-1' },
+              payload: { id: 1 },
+            },
+            (reply) => reply.name === 'response' && reply.meta.correlationId === 'corr-1',
+          ),
+        );
+
+        yield* Effect.sleep('1 millis');
+        yield* plane.publish(clientCh.name, {
+          name: 'response',
+          meta: { ...meta, correlationId: 'corr-1' },
+          payload: { ok: true },
+        });
+
+        return yield* Fiber.join(waiter);
+      });
+
+      const reply = await Effect.runPromise(program.pipe(Effect.scoped));
+
+      expect(reply).toMatchObject({
+        name: 'response',
+        meta: { correlationId: 'corr-1' },
+        payload: { ok: true },
+      });
+    });
+
+    test('ignores non-matching events', async () => {
+      const network = AgentNetwork.setup(({ createChannel }) => {
+        createChannel('client');
+      });
+
+      const program = Effect.gen(function* () {
+        const plane = yield* createEventPlane({ network });
+        const clientCh = requireChannel(network, 'client');
+
+        const waiter = yield* Effect.fork(
+          plane.publishAndAwait(
+            [clientCh],
+            {
+              name: 'request',
+              meta: { ...meta, correlationId: 'corr-2' },
+              payload: {},
+            },
+            (reply) => reply.name === 'response' && reply.meta.correlationId === 'corr-2',
+          ),
+        );
+
+        yield* Effect.sleep('1 millis');
+        yield* plane.publish(clientCh.name, {
+          name: 'response',
+          meta: { ...meta, correlationId: 'other-corr' },
+          payload: { ignored: true },
+        });
+        yield* plane.publish(clientCh.name, {
+          name: 'response',
+          meta: { ...meta, correlationId: 'corr-2' },
+          payload: { ok: true },
+        });
+
+        return yield* Fiber.join(waiter);
+      });
+
+      const reply = await Effect.runPromise(program.pipe(Effect.scoped));
+
+      expect(reply).toMatchObject({
+        name: 'response',
+        meta: { correlationId: 'corr-2' },
+        payload: { ok: true },
+      });
+    });
+
+    test('auto-unregisters a waiter after a match', async () => {
+      const network = AgentNetwork.setup(({ createChannel }) => {
+        createChannel('client');
+      });
+      const matchSpy = vitest.fn((reply: Envelope) => reply.name === 'response');
+
+      const program = Effect.gen(function* () {
+        const plane = yield* createEventPlane({ network });
+        const clientCh = requireChannel(network, 'client');
+
+        const waiter = yield* Effect.fork(
+          plane.publishAndAwait(
+            [clientCh],
+            {
+              name: 'request',
+              meta,
+              payload: {},
+            },
+            matchSpy,
+          ),
+        );
+
+        yield* Effect.sleep('1 millis');
+        yield* plane.publish(clientCh.name, {
+          name: 'response',
+          meta,
+          payload: { n: 1 },
+        });
+        const reply = yield* Fiber.join(waiter);
+
+        yield* plane.publish(clientCh.name, {
+          name: 'response',
+          meta,
+          payload: { n: 2 },
+        });
+
+        return reply;
+      });
+
+      const reply = await Effect.runPromise(program.pipe(Effect.scoped));
+
+      expect(reply).toMatchObject({ payload: { n: 1 } });
+      expect(matchSpy).toHaveBeenCalledTimes(1);
+    });
+
+    test('times out and unregisters when no event matches', async () => {
+      const network = AgentNetwork.setup(({ createChannel }) => {
+        createChannel('client');
+      });
+      const matchSpy = vitest.fn((reply: Envelope) => reply.name === 'response');
+
+      const program = Effect.gen(function* () {
+        const plane = yield* createEventPlane({ network });
+        const clientCh = requireChannel(network, 'client');
+
+        const first = yield* Effect.either(
+          plane.publishAndAwait(
+            [clientCh],
+            {
+              name: 'request',
+              meta,
+              payload: {},
+            },
+            matchSpy,
+            { timeout: '10 millis' },
+          ),
+        );
+
+        yield* plane.publish(clientCh.name, {
+          name: 'response',
+          meta,
+          payload: { tooLate: true },
+        });
+
+        return first;
+      });
+
+      const result = await Effect.runPromise(program.pipe(Effect.scoped));
+
+      expect(result._tag).toBe('Left');
+      expect(matchSpy).not.toHaveBeenCalled();
+    });
+
+    test('keeps concurrent waiters isolated by correlation id', async () => {
+      const network = AgentNetwork.setup(({ createChannel }) => {
+        createChannel('client');
+      });
+
+      const program = Effect.gen(function* () {
+        const plane = yield* createEventPlane({ network });
+        const clientCh = requireChannel(network, 'client');
+
+        const waiterA = yield* Effect.fork(
+          plane.publishAndAwait(
+            [clientCh],
+            {
+              name: 'request',
+              meta: { ...meta, correlationId: 'corr-a' },
+              payload: {},
+            },
+            (reply) => reply.name === 'response' && reply.meta.correlationId === 'corr-a',
+          ),
+        );
+        const waiterB = yield* Effect.fork(
+          plane.publishAndAwait(
+            [clientCh],
+            {
+              name: 'request',
+              meta: { ...meta, correlationId: 'corr-b' },
+              payload: {},
+            },
+            (reply) => reply.name === 'response' && reply.meta.correlationId === 'corr-b',
+          ),
+        );
+
+        yield* Effect.sleep('1 millis');
+        yield* plane.publish(clientCh.name, {
+          name: 'response',
+          meta: { ...meta, correlationId: 'corr-b' },
+          payload: { value: 'b' },
+        });
+        yield* plane.publish(clientCh.name, {
+          name: 'response',
+          meta: { ...meta, correlationId: 'corr-a' },
+          payload: { value: 'a' },
+        });
+
+        const [replyA, replyB] = yield* Effect.all([Fiber.join(waiterA), Fiber.join(waiterB)]);
+        return { replyA, replyB };
+      });
+
+      const { replyA, replyB } = await Effect.runPromise(program.pipe(Effect.scoped));
+
+      expect(replyA).toMatchObject({ payload: { value: 'a' } });
+      expect(replyB).toMatchObject({ payload: { value: 'b' } });
+    });
+  });
+
   describe('runSubscriber', () => {
     test('invokes agent with runEvents and contextEvents', async () => {
       const requestEvt = AgentNetworkEvent.of('request', S.Struct({ x: S.Number }));
@@ -130,22 +370,19 @@ describe('EventPlane', () => {
       );
 
       const logicSpy = vitest.fn<
-        [
-          {
-            triggerEvent: { meta: EventMeta; payload: { x: number } };
-            emit: (e: unknown) => void;
-            runEvents: readonly { name: string; meta: EventMeta; payload: unknown }[];
-            contextEvents: {
-              all: readonly { name: string; meta: EventMeta; payload: unknown }[];
-              byRun(runId: string): readonly { name: string; meta: EventMeta; payload: unknown }[];
-              map: ReadonlyMap<
-                string,
-                readonly { name: string; meta: EventMeta; payload: unknown }[]
-              >;
-            };
-          },
-        ],
-        Promise<void>
+        (ctx: {
+          triggerEvent: { meta: EventMeta; payload: { x: number } };
+          emit: (e: unknown) => void;
+          runEvents: readonly { name: string; meta: EventMeta; payload: unknown }[];
+          contextEvents: {
+            all: readonly { name: string; meta: EventMeta; payload: unknown }[];
+            byRun(runId: string): readonly { name: string; meta: EventMeta; payload: unknown }[];
+            map: ReadonlyMap<
+              string,
+              readonly { name: string; meta: EventMeta; payload: unknown }[]
+            >;
+          };
+        }) => Promise<void>
       >(async ({ emit, runEvents, contextEvents }) => {
         const historyCount = runEvents.length;
         const contextRunIds = [...contextEvents.map.keys()];
@@ -219,13 +456,10 @@ describe('EventPlane', () => {
       );
 
       const logicSpy = vitest.fn<
-        [
-          {
-            triggerEvent: { meta: EventMeta; payload: { temp: number } };
-            emit: (e: unknown) => void;
-          },
-        ],
-        Promise<void>
+        (ctx: {
+          triggerEvent: { meta: EventMeta; payload: { temp: number } };
+          emit: (e: unknown) => void;
+        }) => Promise<void>
       >(async ({ triggerEvent, emit }) => {
         emit({
           name: 'weather-forecast-created',
@@ -335,13 +569,10 @@ describe('EventPlane', () => {
       );
 
       const runLogicSpy = vitest.fn<
-        [
-          {
-            triggerEvent: { meta: EventMeta; payload: { temp: number } };
-            emit: (e: unknown) => void;
-          },
-        ],
-        Promise<void>
+        (ctx: {
+          triggerEvent: { meta: EventMeta; payload: { temp: number } };
+          emit: (e: unknown) => void;
+        }) => Promise<void>
       >(async ({ triggerEvent, emit }) => {
         emit({
           name: 'weather-forecast-created',
@@ -400,6 +631,143 @@ describe('EventPlane', () => {
           }),
         }),
       );
+    });
+
+    test('agent can emitAndAwait a reply produced by another subscriber', async () => {
+      const Start = AgentNetworkEvent.of('start', S.Struct({ id: S.String }));
+      const TaskRequested = AgentNetworkEvent.of('task-requested', S.Struct({ id: S.String }));
+      const TaskResult = AgentNetworkEvent.of(
+        'task-result',
+        S.Struct({ id: S.String, value: S.String }),
+      );
+      const Final = AgentNetworkEvent.of('final', S.Struct({ id: S.String, value: S.String }));
+
+      const network = AgentNetwork.setup(({ mainChannel, createChannel, registerAgent }) => {
+        const worker = createChannel('worker');
+        const client = createChannel('client');
+        const orchestrator = AgentFactory.run()
+          .listensTo([Start])
+          .emits([TaskRequested, Final])
+          .logic(async ({ triggerEvent, emit, emitAndAwait }) => {
+            const reply = await emitAndAwait(
+              TaskRequested.make({ id: triggerEvent.payload.id }),
+              (event) => event.name === 'task-result',
+              { timeout: '100 millis' },
+            );
+            const payload = reply.payload as { value: string };
+            emit(Final.make({ id: triggerEvent.payload.id, value: payload.value }));
+          })
+          .produce({});
+        const workerAgent = AgentFactory.run()
+          .listensTo([TaskRequested])
+          .emits([TaskResult])
+          .logic(async ({ triggerEvent, emit }) => {
+            emit(TaskResult.make({ id: triggerEvent.payload.id, value: 'done' }));
+          })
+          .produce({});
+
+        registerAgent(orchestrator).subscribe(mainChannel).publishTo(worker);
+        registerAgent(workerAgent).subscribe(worker).publishTo(client);
+      });
+
+      const program = Effect.gen(function* () {
+        const plane = yield* createEventPlane({ network });
+        const mainCh = requireMainChannel(network);
+        const workerCh = requireChannel(network, 'worker');
+        const workerDequeue = yield* plane.subscribe(workerCh.name);
+        const runFiber = yield* Effect.fork(run(network, plane).pipe(Effect.scoped));
+
+        yield* Effect.sleep('10 millis');
+        yield* plane.publish(mainCh.name, {
+          name: 'start',
+          meta,
+          payload: { id: 'task-1' },
+        });
+
+        const request = yield* Queue.take(workerDequeue);
+        const final = yield* Queue.take(workerDequeue);
+
+        yield* Fiber.interrupt(runFiber);
+
+        return { request, final };
+      });
+
+      const { request, final } = await Effect.runPromise(program.pipe(Effect.scoped));
+
+      expect(request).toMatchObject({
+        name: 'task-requested',
+        meta: { correlationId: expect.any(String) },
+        payload: { id: 'task-1' },
+      });
+      expect(final).toMatchObject({
+        name: 'final',
+        payload: { id: 'task-1', value: 'done' },
+      });
+    });
+
+    test('emitAndAwait times out and unregisters its waiter when no subscriber replies', async () => {
+      const Start = AgentNetworkEvent.of('start', S.Struct({ id: S.String }));
+      const TaskRequested = AgentNetworkEvent.of('task-requested', S.Struct({ id: S.String }));
+      const Failed = AgentNetworkEvent.of('failed', S.Struct({ message: S.String }));
+      const matchSpy = vitest.fn((event: Envelope) => event.name === 'task-result');
+
+      const network = AgentNetwork.setup(({ mainChannel, createChannel, registerAgent }) => {
+        const worker = createChannel('worker');
+        createChannel('client');
+        const orchestrator = AgentFactory.run()
+          .listensTo([Start])
+          .emits([TaskRequested, Failed])
+          .logic(async ({ triggerEvent, emit, emitAndAwait }) => {
+            try {
+              await emitAndAwait(TaskRequested.make({ id: triggerEvent.payload.id }), matchSpy, {
+                timeout: '10 millis',
+              });
+            } catch (error) {
+              emit(Failed.make({ message: (error as Error).message }));
+            }
+          })
+          .produce({});
+
+        registerAgent(orchestrator).subscribe(mainChannel).publishTo(worker);
+      });
+
+      const program = Effect.gen(function* () {
+        const plane = yield* createEventPlane({ network });
+        const mainCh = requireMainChannel(network);
+        const workerCh = requireChannel(network, 'worker');
+        const clientCh = requireChannel(network, 'client');
+        const workerDequeue = yield* plane.subscribe(workerCh.name);
+        const runFiber = yield* Effect.fork(run(network, plane).pipe(Effect.scoped));
+
+        yield* Effect.sleep('10 millis');
+        yield* plane.publish(mainCh.name, {
+          name: 'start',
+          meta,
+          payload: { id: 'task-1' },
+        });
+
+        const request = yield* Queue.take(workerDequeue);
+        const failed = yield* Queue.take(workerDequeue);
+
+        yield* plane.publish(clientCh.name, {
+          name: 'task-result',
+          meta: { ...meta, correlationId: request.meta.correlationId },
+          payload: { late: true },
+        });
+        yield* Effect.sleep('20 millis');
+
+        yield* Fiber.interrupt(runFiber);
+
+        return { failed };
+      });
+
+      const { failed } = await Effect.runPromise(program.pipe(Effect.scoped));
+
+      expect(failed).toMatchObject({
+        name: 'failed',
+        payload: { message: expect.stringContaining('publishAndAwait timed out') },
+      });
+      expect(matchSpy).not.toHaveBeenCalled();
     });
   });
 

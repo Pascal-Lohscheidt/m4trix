@@ -77,13 +77,10 @@ function getDepth(parent: Option.Option<Tracer.AnySpan>): number {
  * @example
  * ```ts
  * import { Effect } from 'effect';
- * import { AgentNetwork, consoleTracerLayer } from '@m4trix/core/matrix';
+ * import { AgentNetwork } from '@m4trix/core/matrix';
  *
- * const network = AgentNetwork.setup(({ ... }) => { ... });
- * const program = network.run().pipe(
- *   Effect.provide(consoleTracerLayer),
- *   Effect.scoped
- * );
+ * const network = AgentNetwork.setup(({ ... }) => { ... }, { consoleTracing: true });
+ * const program = network.run().pipe(Effect.scoped);
  * Effect.runPromise(program);
  * ```
  */

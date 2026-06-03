@@ -1,14 +1,16 @@
-import { Effect, Queue } from 'effect';
+import { Effect, Queue, type Schema as S } from 'effect';
 import type { AgentNetwork } from '../agent-network/agent-network.js';
 import type { ConfiguredChannel } from '../agent-network/channel.js';
-import { createEventPlane, run } from '../agent-network/event-plane.js';
-import type { Envelope } from '../agent-network/event-plane.js';
 import { ChannelName, isHttpStreamSink } from '../agent-network/channel.js';
+import type { Envelope } from '../agent-network/event-plane.js';
+import { createEventPlane, run } from '../agent-network/event-plane.js';
+import { assertLayersProvided, type DepedencyLayerDef } from '../dependency-layer.js';
+import { noopNetworkTracer } from '../tracing/network-tracer.js';
 import type {
-  ExposeOptions,
-  ExposeRequest,
   ExposedAPI,
   ExposedStream,
+  ExposeOptions,
+  ExposeRequest,
   StreamFactory,
 } from './types.js';
 
@@ -97,8 +99,24 @@ function streamFromDequeue(
  * const api = agentNetwork.expose({ protocol: "sse", auth, select });
  * export const GET = NextEndpoint.from(api, { requestToContextId, requestToRunId }).handler();
  */
-export function expose(network: AgentNetwork, options: ExposeOptions): ExposedAPI {
-  const { auth, select, plane: providedPlane, onRequest, triggerEvents, tracingLayer } = options;
+export function expose<TDeps extends DepedencyLayerDef<string, unknown, S.Schema.Any>>(
+  network: AgentNetwork<TDeps>,
+  options: ExposeOptions<TDeps>,
+): ExposedAPI {
+  const {
+    auth,
+    select,
+    plane: providedPlane,
+    onRequest,
+    triggerEvents,
+    tracingLayer = network.getTracingLayer(),
+    networkTracer = network.getNetworkTracer() ?? noopNetworkTracer,
+    layers,
+  } = options;
+  assertLayersProvided(
+    network.getDependencyLayers(),
+    layers as Record<string, unknown> | undefined,
+  );
   const triggerEventDef = triggerEvents?.[0];
   const triggerEventName = triggerEventDef?.name ?? 'request';
   const channels = resolveChannels(network, select);
@@ -116,9 +134,20 @@ export function expose(network: AgentNetwork, options: ExposeOptions): ExposedAP
     const payload = await extractPayload(req);
     const signal = req.request?.signal;
 
+    const runState = {
+      runId: req.runId ?? crypto.randomUUID(),
+      contextId: req.contextId ?? crypto.randomUUID(),
+      error: undefined as Error | undefined,
+    };
+
     const program = Effect.gen(function* () {
       const plane =
-        providedPlane ?? (yield* createEventPlane({ network, store: network.getStore() }));
+        providedPlane ??
+        (yield* createEventPlane({
+          network,
+          store: network.getStore(),
+          networkTracer,
+        }));
       if (!providedPlane) {
         const emitQueue = yield* Queue.unbounded<{
           channels: readonly ConfiguredChannel[];
@@ -133,20 +162,32 @@ export function expose(network: AgentNetwork, options: ExposeOptions): ExposedAP
             ),
           ),
         );
-        yield* Effect.fork(run(network, plane, { emitQueue }));
+        yield* Effect.fork(
+          run(network, plane, {
+            emitQueue,
+            networkTracer,
+            layers: layers as Record<string, unknown> | undefined,
+          }),
+        );
         // Allow run() to subscribe agents before we publish (PubSub does not buffer for future subscribers)
         yield* Effect.sleep('10 millis');
       }
 
-      const targetChannel = mainChannel?.name ?? channels[0]!;
-      let runId = req.runId ?? crypto.randomUUID();
-      let contextId = req.contextId ?? crypto.randomUUID();
+      const firstChannel = channels[0];
+      if (!firstChannel) {
+        throw new Error('expose: no channels to subscribe to');
+      }
+      const targetChannel = mainChannel?.name ?? firstChannel;
+
+      yield* Effect.promise(() =>
+        networkTracer.onRunStart({ runId: runState.runId, contextId: runState.contextId }),
+      );
 
       const setRunId = (id: string): void => {
-        runId = id;
+        runState.runId = id;
       };
       const setContextId = (id: string): void => {
-        contextId = id;
+        runState.contextId = id;
       };
 
       const emitStartEvent = (opts: {
@@ -167,7 +208,7 @@ export function expose(network: AgentNetwork, options: ExposeOptions): ExposedAP
       };
 
       // Subscribe to first channel before emitting (so we don't miss agent output)
-      const dequeue = yield* plane.subscribe(channels[0]!);
+      const dequeue = yield* plane.subscribe(firstChannel);
 
       if (onRequest) {
         yield* Effect.tryPromise(() =>
@@ -184,7 +225,7 @@ export function expose(network: AgentNetwork, options: ExposeOptions): ExposedAP
       } else if (!providedPlane) {
         const envelope: Envelope = {
           name: triggerEventName,
-          meta: { runId, contextId },
+          meta: { runId: runState.runId, contextId: runState.contextId },
           payload,
         };
         yield* plane.publish(targetChannel, envelope);
@@ -198,7 +239,24 @@ export function expose(network: AgentNetwork, options: ExposeOptions): ExposedAP
         return yield* Effect.tryPromise(() => consumer(stream));
       }
       return stream;
-    });
+    }).pipe(
+      Effect.tapError((e) =>
+        Effect.sync(() => {
+          runState.error = e instanceof Error ? e : new Error(String(e));
+        }),
+      ),
+      Effect.ensuring(
+        Effect.gen(function* () {
+          yield* Effect.promise(() =>
+            networkTracer.onRunEnd(
+              { runId: runState.runId, contextId: runState.contextId },
+              runState.error,
+            ),
+          );
+          yield* Effect.promise(() => networkTracer.flush());
+        }),
+      ),
+    );
 
     const runnable = tracingLayer
       ? program.pipe(Effect.provide(tracingLayer), Effect.scoped)
