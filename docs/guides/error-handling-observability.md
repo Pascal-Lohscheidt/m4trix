@@ -74,3 +74,37 @@ registerAgent(loggerAgent).subscribe(main).subscribe(processing);
 ### Event Meta
 
 Every event has `meta.runId`, `meta.contextId`, `meta.correlationId`, `meta.causationId`, and `meta.ts`. Use these for distributed tracing and correlation.
+
+### NetworkTracer
+
+Core exposes a pluggable `NetworkTracer` interface. Configure tracing when defining the network; `network.expose()` inherits those defaults. Agents receive a `tracing` scope in `.logic()`:
+
+```ts
+import { AgentNetwork } from '@m4trix/core/matrix';
+import { Tracer, TraceStore, toM4trixTracer } from '@m4trix/tracing';
+
+const tracer = Tracer.from(traceStore);
+
+const network = AgentNetwork.setup(
+  ({ registerAgent }) => {
+    // wire agents and channels
+  },
+  {
+    consoleTracing: true, // opt-in stdout spans + network trace logs
+    networkTracer: toM4trixTracer(tracer), // TraceStore / trace-viewer
+  },
+);
+
+const api = network.expose({
+  protocol: 'sse',
+  select: { channels: 'client' },
+});
+
+const agent = AgentFactory.run()
+  .listensTo([messageEvent])
+  .logic(async ({ tracing }) => {
+    const llm = tracing.startRun('llm', 'gpt-4o', { prompt: 'hello' });
+    await llm.end({ text: 'hi' });
+  })
+  .produce({});
+```

@@ -39,6 +39,26 @@ registerAgent(executorAgent).subscribe(processing).publishTo(client);
 
 Use for multi-step workflows (e.g. plan → execute → respond).
 
+## Loopback / Emit-and-Await
+
+Use `emitAndAwait` when an agent or tool needs to emit an event and pause until a later event on the network satisfies a matcher.
+
+```ts
+.logic(async ({ triggerEvent, emitAndAwait, emit }) => {
+  const reply = await emitAndAwait(
+    taskRequested.make({ id: triggerEvent.payload.id }),
+    (event) => event.name === 'task-result',
+    { timeout: '30 seconds' },
+  );
+
+  emit(finalEvent.make({ result: reply.payload }));
+})
+```
+
+Each call is scoped with a generated `meta.correlationId`, and the matcher only runs for events that carry that same correlation id. Since emitted events copy the triggering event meta, a worker agent that handles the request and emits a reply will automatically echo the correlation id.
+
+The reply must be produced by a different subscriber while the caller is waiting. If an agent emits a request and waits for a reply that only the same blocked invocation can produce, the wait will time out.
+
 ## Join (Multiple Inputs)
 
 To "join" multiple event streams, create an agent that listens to multiple event types and combines them. Use `listensTo([eventA, eventB])` — the agent runs when either event arrives. For true join semantics (wait for both), you may need to implement state in the agent (e.g. store partial results, emit only when both have arrived).

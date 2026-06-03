@@ -5,7 +5,7 @@ type LayerDepType = {
 };
 
 const layer = DepedencyLayer.of({
-  name: 'searchInfo',
+  name: 'SearchInfo',
   config: S.Struct({
     query: S.String,
   }),
@@ -17,6 +17,6 @@ export const searchInfoSkill = Skill.of()
   .chunk(S.String)
   .done(S.Struct({ result: S.String }))
   .define(({ input, layers }) => {
-    const { config } = layers.searchInfo;
+    const { config } = layers.SearchInfo;
     return { result: config.query };
   });
