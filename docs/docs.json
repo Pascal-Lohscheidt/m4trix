@@ -1,7 +1,7 @@
 {
   "$schema": "https://mintlify.com/docs.json",
   "theme": "maple",
-  "name": "M4trix",
+  "name": "m4trix",
   "description": "A TypeScript toolkit for building AI-driven web applications.",
   "colors": {
     "primary": "#7c3aed",
@@ -25,7 +25,7 @@
     }
   },
   "icons": {
-    "library": "lucide"
+    "library": "fontawesome"
   },
   "styling": {
     "codeblocks": "dark"
@@ -242,11 +242,20 @@
   },
   "contextual": {
     "options": [
-      "copy",
-      "mcp",
       "cursor",
-      "claude"
+      "add-mcp",
+      "copy",
+      "mcp"
     ],
     "display": "header"
+  },
+  "logo": {
+    "light": "/docs/images/m4trix_logo.png",
+    "dark": "/docs/images/m4trix_logo.png",
+    "href": "https://m4trix.dev"
+  },
+  "favicon": {
+    "light": "/docs/images/m4trix_logo.png",
+    "dark": "/docs/images/m4trix_logo.png"
   }
 }
