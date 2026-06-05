@@ -46,6 +46,7 @@
           "getting-started/hello-world",
           "getting-started/run-expected-output",
           "getting-started/whats-happening",
+          "getting-started/how-to",
           "getting-started/next-steps"
         ]
       },
@@ -117,6 +118,7 @@
               "getting-started/hello-world",
               "getting-started/run-expected-output",
               "getting-started/whats-happening",
+              "getting-started/how-to",
               "getting-started/next-steps"
             ]
           },

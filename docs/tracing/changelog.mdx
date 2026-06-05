@@ -10,15 +10,19 @@ Product updates for **@m4trix/tracing**, generated from [conventional commits](h
 
 _Last regenerated 2026-06-05 (UTC)._
 
-<Update label="June 3, 2026" description="Unreleased · latest tracing v0.9.1" tags={["Features"]} rss={{ title: "June 3, 2026 — @m4trix/tracing updates", description: "add toM4trixTracer adapter for matrix NetworkTracer" }}>
+<Update label="June 3, 2026" description="Unreleased · latest tracing v0.9.2" tags={["Features"]} rss={{ title: "June 3, 2026 — @m4trix/tracing updates", description: "add toM4trixTracer adapter for matrix NetworkTracer" }}>
 
 ### New features
 
 - add toM4trixTracer adapter for matrix NetworkTracer (`tracing`) ([e6728d0](https://github.com/Pascal-Lohscheidt/m4trix/commit/e6728d0bb098a36e779fd885787289a8bacc60da))
 
+  - Bridge Tracer to core NetworkTracer for runs, agent invokes, and child spans
+  - Persist AgentNetwork lifecycle into TraceStore (same pipeline as LangChain traces)
+  - Export toM4trixTracer; optional @m4trix/core peer dependency for the adapter
+
 </Update>
 
-<Update label="May 28, 2026" description="Unreleased · latest trace-viewer v0.14.0, tracing v0.9.1" tags={["Fixes"]} rss={{ title: "May 28, 2026 — @m4trix/tracing updates", description: "trpc version bump; trpc version bump; trpc version bump" }}>
+<Update label="May 28, 2026" description="trace-viewer v0.14.1 · tracing v0.9.2" tags={["Fixes"]} rss={{ title: "May 28, 2026 — @m4trix/tracing updates", description: "trpc version bump; trpc version bump; trpc version bump" }}>
 
 ### Bug fixes
 
@@ -26,6 +30,12 @@ _Last regenerated 2026-06-05 (UTC)._
 - trpc version bump (`trace-viewer`) ([962262a](https://github.com/Pascal-Lohscheidt/m4trix/commit/962262a2cc8dc1d6af395649282b7d5256c0e1ba))
 - trpc version bump (`trace-viewer`) ([0d1f2cf](https://github.com/Pascal-Lohscheidt/m4trix/commit/0d1f2cf322c2b37e2ddca8e8aa15e82e37aa90e1))
 - upgrade dependencies to clear high-severity audit findings (`tracing, trace-viewer`) ([3316b84](https://github.com/Pascal-Lohscheidt/m4trix/commit/3316b84971ab10b6c8bbe733b34a1bbaad8946c5))
+
+  - bump effect, langchain, and socket.io in core; effect in evals
+  - upgrade vitest 4 and tsup 8 across packages; turbo at root
+  - add pnpm overrides for transitive advisories (axios, protobufjs, etc.)
+  - align example apps and website on patched next releases
+  - fix ui vitest 4 test options API in AiCursor spec
 
 </Update>
 

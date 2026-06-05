@@ -10,11 +10,17 @@ Product updates for **@m4trix/evals**, generated from [conventional commits](htt
 
 _Last regenerated 2026-06-05 (UTC)._
 
-<Update label="May 28, 2026" description="Unreleased · latest evals v0.34.2" tags={["Fixes"]} rss={{ title: "May 28, 2026 — @m4trix/evals updates", description: "upgrade dependencies to clear high-severity audit findings" }}>
+<Update label="May 28, 2026" description="v0.34.3" tags={["Fixes"]} rss={{ title: "May 28, 2026 — @m4trix/evals updates", description: "upgrade dependencies to clear high-severity audit findings" }}>
 
 ### Bug fixes
 
 - upgrade dependencies to clear high-severity audit findings (`evals`) ([3316b84](https://github.com/Pascal-Lohscheidt/m4trix/commit/3316b84971ab10b6c8bbe733b34a1bbaad8946c5))
+
+  - bump effect, langchain, and socket.io in core; effect in evals
+  - upgrade vitest 4 and tsup 8 across packages; turbo at root
+  - add pnpm overrides for transitive advisories (axios, protobufjs, etc.)
+  - align example apps and website on patched next releases
+  - fix ui vitest 4 test options API in AiCursor spec
 
 </Update>
 
@@ -108,8 +114,27 @@ _Last regenerated 2026-06-05 (UTC)._
 ### New features
 
 - integrate json-diff for enhanced diff logging and evaluation (`evals`) ([0050228](https://github.com/Pascal-Lohscheidt/m4trix/commit/00502287cee9ff5a85a7e80aa1a736767c435a08))
+
+  - Replaced 'diff' dependency with 'json-diff' for improved diff functionality.
+  - Added logging capabilities to evaluators, allowing for detailed message capture during test execution.
+  - Updated evaluator interface to include a new 'log' method for logging messages and objects.
+  - Enhanced RunDetailsView and RunView to display log messages alongside diffs, improving clarity in test case results.
+  - Introduced options for customizing diff output, including sorting and key exclusion.
+  - Added tests for new diff and logging functionalities to ensure reliability.
 - enhance RunDetailsView and RunView for better score and metric display (`evals`) ([5bf9416](https://github.com/Pascal-Lohscheidt/m4trix/commit/5bf9416915d6974c1efd33b05f2ca8f16d7ca7a2))
+
+  - Updated RunDetailsView to conditionally render scores and metrics, improving clarity in test case results.
+  - Modified RunView to aggregate and display evaluator scores and metrics, ensuring a more informative output.
+  - Introduced handling for cases with no scores, enhancing user experience in the CLI.
+  - Improved overall structure and readability of score and metric presentation in the CLI.
 - update dependencies and enhance CLI functionality (`evals`) ([2d29850](https://github.com/Pascal-Lohscheidt/m4trix/commit/2d29850d22365b34b75ece64058e29ac12a44754))
+
+  - Added '@pppp606/ink-chart' and 'diff' as dependencies.
+  - Removed 'json-diff' dependency in favor of 'diff'.
+  - Introduced overview row count management in the CLI for better navigation.
+  - Enhanced DatasetsView to display run scores and trends using LineGraph.
+  - Updated score aggregation to include standard deviation for better insights.
+  - Improved overall CLI experience with refined navigation and display logic.
 
 </Update>
 
@@ -137,6 +162,16 @@ _Last regenerated 2026-06-05 (UTC)._
 ### New features
 
 - update version to 0.7.0, add output handling in evaluator, and enhance test case structure (#27) (`evals`) ([eaf9d8f](https://github.com/Pascal-Lohscheidt/m4trix/commit/eaf9d8f4c8b5d27395fe81abf2b537cbeb01b3d1))
+
+  - Bump package version to 0.7.0 in package.json
+  - Introduce output handling in Evaluator and TestCase classes
+  - Update README and examples to reflect new output features
+  - Refactor evaluator tests to accommodate new input structure
+  - Add output schema and output handling in test cases for better validation
 - first version (#26) (`evals`) ([9146b35](https://github.com/Pascal-Lohscheidt/m4trix/commit/9146b3556a238524aab4016a57e35389433ed249))
+
+  * feat(evals): first version
+  
+  * fix: for tests
 
 </Update>

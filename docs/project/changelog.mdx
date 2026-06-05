@@ -10,31 +10,52 @@ Product updates for **@m4trix/core**, generated from [conventional commits](http
 
 _Last regenerated 2026-06-05 (UTC)._
 
-<Update label="June 5, 2026" description="Unreleased · latest core v0.16.1, stream v0.8.2, react v0.8.2, ui v0.8.2" tags={["Features"]} rss={{ title: "June 5, 2026 — @m4trix/core updates", description: "replace channel sinks with proxy consumers" }}>
+<Update label="June 5, 2026" description="Unreleased · latest core v0.16.2, stream v0.8.3, react v0.8.3, ui v0.8.3" tags={["Features"]} rss={{ title: "June 5, 2026 — @m4trix/core updates", description: "replace channel sinks with proxy consumers" }}>
 
 ### Breaking changes
 
 - replace channel sinks with proxy consumers (`matrix`) **BREAKING** ([90871b6](https://github.com/Pascal-Lohscheidt/m4trix/commit/90871b64d9dbe07a87e3f1c5de8c2c529bdd92d9))
 
+  Add channel proxy declarations, explicit SSE proxy consumers, custom proxy registration, and inbound event publishing through InteractiveProxyHandle.
+  
+  BREAKING CHANGE: AgentNetwork setup now provides `proxy` instead of `sink`, channels use `.proxy(...)`/`getProxies()` instead of `.sink(...)`/`getSinks()`, and `network.expose()` now accepts proxy consumers such as `registerSSEStream(...)` instead of `\{ protocol, select }` options.
+
 ### New features
 
 - replace channel sinks with proxy consumers (`matrix`) **BREAKING** ([90871b6](https://github.com/Pascal-Lohscheidt/m4trix/commit/90871b64d9dbe07a87e3f1c5de8c2c529bdd92d9))
 
+  Add channel proxy declarations, explicit SSE proxy consumers, custom proxy registration, and inbound event publishing through InteractiveProxyHandle.
+  
+  BREAKING CHANGE: AgentNetwork setup now provides `proxy` instead of `sink`, channels use `.proxy(...)`/`getProxies()` instead of `.sink(...)`/`getSinks()`, and `network.expose()` now accepts proxy consumers such as `registerSSEStream(...)` instead of `\{ protocol, select }` options.
+
 </Update>
 
-<Update label="June 3, 2026" description="Unreleased · latest core v0.16.1, stream v0.8.2, react v0.8.2, ui v0.8.2" tags={["Features"]} rss={{ title: "June 3, 2026 — @m4trix/core updates", description: "add dependency layers, typed tools, and network tracing" }}>
+<Update label="June 3, 2026" description="Unreleased · latest core v0.16.2, stream v0.8.3, react v0.8.3, ui v0.8.3" tags={["Features"]} rss={{ title: "June 3, 2026 — @m4trix/core updates", description: "add dependency layers, typed tools, and network tracing" }}>
 
 ### New features
 
 - add dependency layers, typed tools, and network tracing (`matrix`) ([4e2c6fa](https://github.com/Pascal-Lohscheidt/m4trix/commit/4e2c6fa14adabb5aec1b7f832fb946652692771a))
 
+  - Extract DepedencyLayer for injection across skills, agents, and networks
+  - AgentFactory dependsOn/tools; agent logic gets layers, tools, emitAndAwait, tracing
+  - Tool builder with Effect schemas, layer deps, and optional event emission
+  - AgentNetwork.dependsOn with layer injection at run() and expose()
+  - EventPlane.publishAndAwait for request-reply over the event bus
+  - NetworkTracer hooks for runs, event publish, and agent invocations
+
 </Update>
 
-<Update label="May 28, 2026" description="Unreleased · latest core v0.16.1, stream v0.8.2, react v0.8.2, ui v0.8.2" tags={["Fixes"]} rss={{ title: "May 28, 2026 — @m4trix/core updates", description: "upgrade dependencies to clear high-severity audit findings" }}>
+<Update label="May 28, 2026" description="core v0.16.2 · stream v0.8.3 · react v0.8.3 · ui v0.8.3" tags={["Fixes"]} rss={{ title: "May 28, 2026 — @m4trix/core updates", description: "upgrade dependencies to clear high-severity audit findings" }}>
 
 ### Bug fixes
 
 - upgrade dependencies to clear high-severity audit findings (`core, stream, react, ui`) ([3316b84](https://github.com/Pascal-Lohscheidt/m4trix/commit/3316b84971ab10b6c8bbe733b34a1bbaad8946c5))
+
+  - bump effect, langchain, and socket.io in core; effect in evals
+  - upgrade vitest 4 and tsup 8 across packages; turbo at root
+  - add pnpm overrides for transitive advisories (axios, protobufjs, etc.)
+  - align example apps and website on patched next releases
+  - fix ui vitest 4 test options API in AiCursor spec
 
 </Update>
 
@@ -76,5 +97,8 @@ _Last regenerated 2026-06-05 (UTC)._
 ### New features
 
 - add skill export and enhance type safety in event-plane (`matrix`) ([5bfa399](https://github.com/Pascal-Lohscheidt/m4trix/commit/5bfa3996069a6441aed06cdc32f08a692d492dc0))
+
+  - Added export for the 'skill' module in the matrix index.
+  - Improved type safety by specifying types for results and error handling in event-plane functions.
 
 </Update>

@@ -247,7 +247,7 @@ function loadCommits(): ParsedCommit[] {
     if (parts.length < 4) continue;
 
     const [hash, isoDate, subject, ...bodyParts] = parts;
-    const body = bodyParts.join(FIELD_SEP).trim();
+    const body = bodyParts.join(FIELD_SEP).replaceAll(FIELD_SEP, '').trim();
 
     if (shouldSkipCommit(subject)) continue;
 
@@ -317,8 +317,24 @@ function renderCommitLine(entry: ChangelogEntry): string {
   const scopeSuffix = scopeLabel ? ` (\`${scopeLabel}\`)` : '';
   const breaking = commit.breaking ? ' **BREAKING**' : '';
   const shortHash = commit.hash.slice(0, 7);
+  const details = renderCommitBody(commit);
 
-  return `- ${desc}${scopeSuffix}${breaking} ([${shortHash}](${link}))`;
+  return `- ${desc}${scopeSuffix}${breaking} ([${shortHash}](${link}))${details}`;
+}
+
+function renderCommitBody(commit: ParsedCommit): string {
+  const lines = commit.body.split('\n');
+  if (lines[0]?.trim() === commit.subject) {
+    lines.shift();
+  }
+
+  while (lines[0]?.trim() === '') lines.shift();
+  while (lines.at(-1)?.trim() === '') lines.pop();
+
+  if (lines.length === 0) return '';
+
+  const rendered = lines.map((line) => `  ${escapeMdx(line)}`).join('\n');
+  return `\n\n${rendered}`;
 }
 
 function groupByDate(entries: ChangelogEntry[]): Map<string, ChangelogEntry[]> {
@@ -470,7 +486,8 @@ function main(): void {
     const sections = resolveSections(commit, changedPaths);
 
     for (const section of sections) {
-      const list = bySection.get(section)!;
+      const list = bySection.get(section);
+      if (!list) continue;
       if (list.some((e) => e.commit.hash === commit.hash)) continue;
       list.push({
         commit,
