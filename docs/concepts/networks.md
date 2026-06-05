@@ -10,9 +10,9 @@ The `AgentNetwork` wires everything together. You declare channels, register age
 import { AgentNetwork } from '@m4trix/core/matrix';
 
 const network = AgentNetwork.setup(
-  ({ mainChannel, createChannel, sink, registerAgent }) => {
+  ({ mainChannel, createChannel, proxy, registerAgent }) => {
     const main = mainChannel('main');
-    const client = createChannel('client').sink(sink.httpStream());
+    const client = createChannel('client').proxy(proxy.sse());
 
     registerAgent(myAgent).subscribe(main).publishTo(client);
   },
@@ -25,7 +25,7 @@ const network = AgentNetwork.setup(
 |------|-------------|
 | `mainChannel(name)` | Designates the main channel where start events are published |
 | `createChannel(name)` | Creates additional named channels |
-| `sink` | Provides sink factories (e.g. `httpStream()`, `kafka()`) |
+| `proxy` | Provides proxy factories (e.g. `sse()`, `kafka()`) |
 | `registerAgent(agent)` | Registers an agent and returns a binding builder |
 | `spawner` | Creates a spawner for dynamic agent creation (multi-tenant) |
 

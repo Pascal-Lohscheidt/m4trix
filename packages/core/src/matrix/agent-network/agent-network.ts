@@ -11,14 +11,14 @@ import {
   toLayerArray,
 } from '../dependency-layer.js';
 import { expose } from '../io/expose.js';
-import type { ExposedAPI, ExposeOptions } from '../io/types.js';
+import type { InteractiveProxyHandle, ProxyConsumer } from '../io/proxy-consumer.js';
 import {
   consoleNetworkTracer,
   type NetworkTracer,
   noopNetworkTracer,
 } from '../tracing/network-tracer.js';
 import type { AgentNetworkEventDef } from './agent-network-event.js';
-import { ChannelName, ConfiguredChannel, Sink } from './channel.js';
+import { ChannelName, ConfiguredChannel, Proxy as ChannelProxy } from './channel.js';
 import type { Envelope, EventPlane } from './event-plane.js';
 import { createEventPlane, run } from './event-plane.js';
 import type { AgentNetworkStore } from './stores/agent-network-store.js';
@@ -115,7 +115,7 @@ function resolveSetupTracing(options?: AgentNetworkSetupOptions): {
 export type AgentNetworkSetupContext = {
   mainChannel: ConfiguredChannel;
   createChannel: (name: string) => ConfiguredChannel;
-  sink: typeof Sink;
+  proxy: typeof ChannelProxy;
   registerAgent: (agent: AnyAgent) => AgentBinding;
   registerAggregator: (aggregator: AnyAgent) => AgentBinding;
   spawner: (factory: typeof AgentFactory) => SpawnerBuilder;
@@ -234,7 +234,7 @@ export class AgentNetwork<TDeps extends DepedencyLayerDef<string, unknown, S.Sch
     return {
       mainChannel,
       createChannel: (name: string) => this.addChannel(name),
-      sink: Sink,
+      proxy: ChannelProxy,
       registerAgent: (agent) => this.registerAgentInternal(agent),
       registerAggregator: (aggregator) => this.registerAggregatorInternal(aggregator),
       spawner: (factory) => this.createSpawnerInternal(factory),
@@ -367,11 +367,11 @@ export class AgentNetwork<TDeps extends DepedencyLayerDef<string, unknown, S.Sch
    * responses.
    *
    * @example
-   * const api = network.expose({ protocol: "sse", auth, select });
+   * const api = network.expose(registerSSEStream({ channel: "client", auth }));
    * export const GET = NextEndpoint.from(api, { requestToContextId, requestToRunId }).handler();
    */
-  expose(options: ExposeOptions<TDeps>): ExposedAPI {
-    return expose(this, options);
+  expose(consumer: ProxyConsumer<TDeps>): InteractiveProxyHandle {
+    return expose(this, consumer);
   }
 
   /**

@@ -4,6 +4,7 @@ import { Schema as S } from 'effect';
 import { AgentNetwork } from '../../agent-network/agent-network.js';
 import { AgentNetworkEvent } from '../../agent-network/agent-network-event.js';
 import { AgentFactory } from '../../agent-factory.js';
+import { registerSSEStream } from '../proxy-consumer.js';
 import { ExpressEndpoint } from './express-endpoint.js';
 import type { ExpressRequest } from './express-endpoint.js';
 
@@ -96,9 +97,9 @@ function setupEchoNetwork() {
   const requestEvent = AgentNetworkEvent.of('echo-request', S.Struct({ message: S.String }));
   const responseEvent = AgentNetworkEvent.of('echo-response', S.Struct({ reply: S.String }));
 
-  const network = AgentNetwork.setup(({ mainChannel, createChannel, sink, registerAgent }) => {
+  const network = AgentNetwork.setup(({ mainChannel, createChannel, proxy, registerAgent }) => {
     const main = mainChannel;
-    const client = createChannel('client').sink(sink.httpStream());
+    const client = createChannel('client').proxy(proxy.sse());
     registerAgent(
       AgentFactory.run()
         .listensTo([requestEvent])
@@ -134,18 +135,19 @@ describe('ExpressEndpoint integration', () => {
       const plane = yield* network.run();
       yield* Effect.sleep('10 millis');
 
-      const api = network.expose({
-        protocol: 'sse',
-        plane,
-        select: { channels: 'client' },
-        triggerEvents: [requestEvent],
-        onRequest: ({ emitStartEvent, req, payload }) =>
-          emitStartEvent({
-            contextId: req.contextId ?? crypto.randomUUID(),
-            runId: req.runId ?? crypto.randomUUID(),
-            event: requestEvent.make(payload as { message: string }),
-          }),
-      });
+      const api = network.expose(
+        registerSSEStream({
+          plane,
+          channel: 'client',
+          triggerEvents: [requestEvent],
+          onRequest: ({ emitStartEvent, req, payload }) =>
+            emitStartEvent({
+              contextId: req.contextId ?? crypto.randomUUID(),
+              runId: req.runId ?? crypto.randomUUID(),
+              event: requestEvent.make(payload as { message: string }),
+            }),
+        }),
+      );
 
       const handler = ExpressEndpoint.from(api, defaultIdOptions).handler();
       const req = mockExpressReq({ body: { message: 'hello-express' } });
@@ -176,15 +178,16 @@ describe('ExpressEndpoint integration', () => {
   });
 
   test('auth rejection sets status and sends error body (no SSE headers)', async () => {
-    const network = AgentNetwork.setup(({ createChannel, sink }) => {
-      createChannel('client').sink(sink.httpStream());
+    const network = AgentNetwork.setup(({ createChannel, proxy }) => {
+      createChannel('client').proxy(proxy.sse());
     });
 
-    const api = network.expose({
-      protocol: 'sse',
-      select: { channels: 'client' },
-      auth: () => ({ allowed: false, status: 403, message: 'Forbidden' }),
-    });
+    const api = network.expose(
+      registerSSEStream({
+        channel: 'client',
+        auth: () => ({ allowed: false, status: 403, message: 'Forbidden' }),
+      }),
+    );
 
     const handler = ExpressEndpoint.from(api, defaultIdOptions).handler();
     const req = mockExpressReq();
@@ -205,19 +208,20 @@ describe('ExpressEndpoint integration', () => {
       const plane = yield* network.run();
       yield* Effect.sleep('10 millis');
 
-      const api = network.expose({
-        protocol: 'sse',
-        plane,
-        select: { channels: 'client' },
-        triggerEvents: [requestEvent],
-        auth: () => ({ allowed: true }),
-        onRequest: ({ emitStartEvent, req, payload }) =>
-          emitStartEvent({
-            contextId: req.contextId ?? crypto.randomUUID(),
-            runId: req.runId ?? crypto.randomUUID(),
-            event: requestEvent.make(payload as { message: string }),
-          }),
-      });
+      const api = network.expose(
+        registerSSEStream({
+          plane,
+          channel: 'client',
+          triggerEvents: [requestEvent],
+          auth: () => ({ allowed: true }),
+          onRequest: ({ emitStartEvent, req, payload }) =>
+            emitStartEvent({
+              contextId: req.contextId ?? crypto.randomUUID(),
+              runId: req.runId ?? crypto.randomUUID(),
+              event: requestEvent.make(payload as { message: string }),
+            }),
+        }),
+      );
 
       const handler = ExpressEndpoint.from(api, defaultIdOptions).handler();
       const req = mockExpressReq({ body: { message: 'authed' } });
@@ -244,9 +248,9 @@ describe('ExpressEndpoint integration', () => {
     const requestEvent = AgentNetworkEvent.of('task', S.Struct({ task: S.String }));
     const resultEvent = AgentNetworkEvent.of('task-done', S.Struct({ result: S.String }));
 
-    const network = AgentNetwork.setup(({ mainChannel, createChannel, sink, registerAgent }) => {
+    const network = AgentNetwork.setup(({ mainChannel, createChannel, proxy, registerAgent }) => {
       const main = mainChannel;
-      const client = createChannel('client').sink(sink.httpStream());
+      const client = createChannel('client').proxy(proxy.sse());
       registerAgent(
         AgentFactory.run()
           .listensTo([requestEvent])
@@ -268,20 +272,21 @@ describe('ExpressEndpoint integration', () => {
       const plane = yield* network.run();
       yield* Effect.sleep('10 millis');
 
-      const api = network.expose({
-        protocol: 'sse',
-        plane,
-        select: { channels: 'client' },
-        triggerEvents: [requestEvent],
-        onRequest: ({ emitStartEvent, req, payload }) => {
-          const body = payload as { raw?: string };
-          emitStartEvent({
-            contextId: req.contextId ?? crypto.randomUUID(),
-            runId: req.runId ?? crypto.randomUUID(),
-            event: requestEvent.make({ task: body.raw ?? 'default' }),
-          });
-        },
-      });
+      const api = network.expose(
+        registerSSEStream({
+          plane,
+          channel: 'client',
+          triggerEvents: [requestEvent],
+          onRequest: ({ emitStartEvent, req, payload }) => {
+            const body = payload as { raw?: string };
+            emitStartEvent({
+              contextId: req.contextId ?? crypto.randomUUID(),
+              runId: req.runId ?? crypto.randomUUID(),
+              event: requestEvent.make({ task: body.raw ?? 'default' }),
+            });
+          },
+        }),
+      );
 
       const handler = ExpressEndpoint.from(api, defaultIdOptions).handler();
       const req = mockExpressReq({ body: { raw: 'my-express-task' } });
@@ -310,18 +315,19 @@ describe('ExpressEndpoint integration', () => {
       const plane = yield* network.run();
       yield* Effect.sleep('10 millis');
 
-      const api = network.expose({
-        protocol: 'sse',
-        plane,
-        select: { channels: 'client' },
-        triggerEvents: [requestEvent],
-        onRequest: ({ emitStartEvent, req, payload }) =>
-          emitStartEvent({
-            contextId: req.contextId ?? crypto.randomUUID(),
-            runId: req.runId ?? crypto.randomUUID(),
-            event: requestEvent.make(payload as { message: string }),
-          }),
-      });
+      const api = network.expose(
+        registerSSEStream({
+          plane,
+          channel: 'client',
+          triggerEvents: [requestEvent],
+          onRequest: ({ emitStartEvent, req, payload }) =>
+            emitStartEvent({
+              contextId: req.contextId ?? crypto.randomUUID(),
+              runId: req.runId ?? crypto.randomUUID(),
+              event: requestEvent.make(payload as { message: string }),
+            }),
+        }),
+      );
 
       const handler = ExpressEndpoint.from(api, defaultIdOptions).handler();
       const req = mockExpressReq({ body: { message: 'sse-test' } });

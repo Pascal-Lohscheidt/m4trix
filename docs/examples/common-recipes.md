@@ -41,17 +41,18 @@ const agent = AgentFactory.run()
 ## Auth in expose()
 
 ```ts
-const api = network.expose({
-  protocol: 'sse',
-  auth: async (req) => {
-    const token = req.request?.headers?.get?.('authorization');
-    if (!token || !isValid(token)) {
-      return { allowed: false, message: 'Invalid token', status: 401 };
-    }
-    return { allowed: true };
-  },
-  select: { channels: 'client' },
-});
+const api = network.expose(
+  registerSSEStream({
+    channel: 'client',
+    auth: async (req) => {
+      const token = req.request?.headers?.get?.('authorization');
+      if (!token || !isValid(token)) {
+        return { allowed: false, message: 'Invalid token', status: 401 };
+      }
+      return { allowed: true };
+    },
+  }),
+);
 ```
 
 ## Catch-All Logger

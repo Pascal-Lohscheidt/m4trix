@@ -20,19 +20,20 @@ describe('AgentNetwork', () => {
       expect(network.getChannels().has('client')).toBe(true);
     });
 
-    test('channels can be configured with events and sinks', () => {
+    test('channels can be configured with events and proxies', () => {
       const weatherSet = AgentNetworkEvent.of('weather-set', S.Struct({ temp: S.Number }));
 
-      const network = AgentNetwork.setup(({ mainChannel, sink }) => {
-        const main = mainChannel.events([weatherSet]).sink(sink.kafka({ topic: 'main' }));
+      const network = AgentNetwork.setup(({ mainChannel, proxy }) => {
+        const main = mainChannel.events([weatherSet]).proxy(proxy.kafka({ topic: 'main' }));
 
         expect(main.getEvents()).toHaveLength(1);
         expect(main.getEvents()[0]?.name).toBe('weather-set');
-        expect(main.getSinks()).toEqual([
+        expect(main.getProxies()).toEqual([
           {
-            _tag: 'SinkDef',
-            type: 'kafka',
+            _tag: 'ProxyDef',
+            kind: 'kafka',
             config: { topic: 'main' },
+            direction: 'outbound',
           },
         ]);
       });
@@ -40,15 +41,16 @@ describe('AgentNetwork', () => {
       expect(network.getChannels().size).toBe(1);
     });
 
-    test('httpStream sink can be assigned to a channel', () => {
-      const network = AgentNetwork.setup(({ createChannel, sink }) => {
-        const client = createChannel('client').sink(sink.httpStream());
+    test('sse proxy can be assigned to a channel', () => {
+      const network = AgentNetwork.setup(({ createChannel, proxy }) => {
+        const client = createChannel('client').proxy(proxy.sse());
 
-        expect(client.getSinks()).toEqual([
+        expect(client.getProxies()).toEqual([
           {
-            _tag: 'SinkDef',
-            type: 'http-stream',
+            _tag: 'ProxyDef',
+            kind: 'sse',
             config: {},
+            direction: 'outbound',
           },
         ]);
       });
@@ -223,15 +225,15 @@ describe('AgentNetwork', () => {
       const AirplaneControlFactory = AgentFactory.run().logic(() => Promise.resolve());
 
       const network = AgentNetwork.setup(
-        ({ mainChannel, createChannel, sink, registerAgent, spawner }) => {
+        ({ mainChannel, createChannel, proxy, registerAgent, spawner }) => {
           // 1) channels
           const main = mainChannel
             .events([daemon_spawn, weather_set, weather_forecast_created])
-            .sink(sink.kafka({ topic: 'main' }));
+            .proxy(proxy.kafka({ topic: 'main' }));
 
           const client = createChannel('client')
             .events([weather_forecast_created])
-            .sink(sink.httpStream());
+            .proxy(proxy.sse());
 
           // 2) static agents
           const weatherAgent = WeatherFactory.produce({});

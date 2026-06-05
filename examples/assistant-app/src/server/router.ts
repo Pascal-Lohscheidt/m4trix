@@ -1,5 +1,6 @@
 import { initTRPC } from '@trpc/server';
 import { z } from 'zod';
+import { CommandApprovalResolved } from '../network/events.js';
 import type { AssistantContext } from './context.js';
 import { streamAgentEvents } from './stream-bridge.js';
 
@@ -23,16 +24,11 @@ const appRouterImpl = t.router({
         const contextId = input.contextId ?? crypto.randomUUID();
         const runId = crypto.randomUUID();
 
-        ctx.registerActiveRun(runId, contextId);
-        try {
-          yield* streamAgentEvents(ctx.exposedApi, {
-            message: input.message,
-            contextId,
-            runId,
-          });
-        } finally {
-          ctx.unregisterActiveRun(runId);
-        }
+        yield* streamAgentEvents(ctx.proxyHandle, {
+          message: input.message,
+          contextId,
+          runId,
+        });
       }),
   }),
   control: t.router({
@@ -40,6 +36,7 @@ const appRouterImpl = t.router({
       .input(
         z.object({
           runId: z.string().min(1),
+          contextId: z.string().min(1),
           correlationId: z.string().min(1),
           requestId: z.string().min(1),
           approved: z.boolean(),
@@ -47,7 +44,21 @@ const appRouterImpl = t.router({
         }),
       )
       .mutation(async ({ input, ctx }) => {
-        await ctx.publishCommandApprovalResolved(input);
+        await ctx.proxyHandle.publish(
+          CommandApprovalResolved.make({
+            requestId: input.requestId,
+            approved: input.approved,
+            denialReason: input.denialReason,
+          }),
+          {
+            target: 'channel',
+            meta: {
+              runId: input.runId,
+              contextId: input.contextId,
+              correlationId: input.correlationId,
+            },
+          },
+        );
         return { ok: true as const };
       }),
   }),

@@ -30,13 +30,12 @@ Ensure the client channel streams both response and error events so the UI can s
 Stream only specific events to the client:
 
 ```ts
-const api = network.expose({
-  protocol: 'sse',
-  select: {
-    channels: 'client',
+const api = network.expose(
+  registerSSEStream({
+    channel: 'client',
     events: ['agent-response', 'agent-error'],
-  },
-});
+  }),
+);
 ```
 
 ## Observability Hooks
@@ -46,15 +45,20 @@ const api = network.expose({
 Use `onRequest` to log, trace, or enrich before the start event is published:
 
 ```ts
-const api = network.expose({
-  protocol: 'sse',
-  onRequest: async ({ emitStartEvent, req, payload }) => {
-    const traceId = crypto.randomUUID();
-    console.log('[trace]', traceId, payload);
-    emitStartEvent({ ...payload, traceId });
-  },
-  select: { channels: 'client' },
-});
+const api = network.expose(
+  registerSSEStream({
+    channel: 'client',
+    onRequest: async ({ emitStartEvent, req, payload }) => {
+      const traceId = crypto.randomUUID();
+      console.log('[trace]', traceId, payload);
+      emitStartEvent({
+        contextId: req.contextId ?? crypto.randomUUID(),
+        runId: req.runId ?? crypto.randomUUID(),
+        event: messageEvent.make({ ...payload, traceId }),
+      });
+    },
+  }),
+);
 ```
 
 ### Catch-All Logger Agent
@@ -95,10 +99,9 @@ const network = AgentNetwork.setup(
   },
 );
 
-const api = network.expose({
-  protocol: 'sse',
-  select: { channels: 'client' },
-});
+const api = network.expose(
+  registerSSEStream({ channel: 'client' }),
+);
 
 const agent = AgentFactory.run()
   .listensTo([messageEvent])

@@ -1,10 +1,10 @@
 ---
-title: "Streaming, Sinks & Adapters"
+title: "Streaming, Proxies & Adapters"
 ---
 
 ## Streaming
 
-m4trix uses **Server-Sent Events (SSE)** for streaming responses to clients. When an agent emits events to a channel with an `httpStream()` sink, those events are streamed as SSE to the browser.
+m4trix uses **Server-Sent Events (SSE)** for streaming responses to clients. When an agent emits events to a channel with an `sse()` proxy, those events are streamed as SSE to the browser.
 
 ### SSE Format
 
@@ -33,14 +33,14 @@ for await (const chunk of stream) {
 emit({ name: 'response', payload: { text: '', isFinal: true } });
 ```
 
-## Sinks
+## Proxies
 
-Sinks determine how events leave a channel:
+Proxies declare how events leave a channel:
 
-- **`sink.httpStream()`** — Streams events as SSE to HTTP clients
-- **`sink.kafka({ topic })`** — Publishes events to a Kafka topic
+- **`proxy.sse()`** — Streams events as SSE to HTTP clients
+- **`proxy.kafka({ topic })`** — Publishes events to a Kafka topic
 
-A channel can have multiple sinks.
+A channel can have multiple proxies.
 
 ## Adapters
 

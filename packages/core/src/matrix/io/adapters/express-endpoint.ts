@@ -1,6 +1,6 @@
-import type { ExposedAPI } from '../types.js';
 import { ExposeAuthError } from '../expose.js';
 import { formatSSE } from '../protocols/sse.js';
+import type { ExposedAPI } from '../types.js';
 
 /** Minimal Express-like request (compatible with express.Request) */
 export type ExpressRequest = {
@@ -32,7 +32,7 @@ export type ExpressHandler = (req: ExpressRequest, res: ExpressResponse) => void
  * that streams events as SSE.
  *
  * @example
- * const api = agentNetwork.expose({ protocol: "sse", auth, select });
+ * const api = agentNetwork.expose(registerSSEStream({ channel: 'client', auth }));
  * app.get("/events", ExpressEndpoint.from(api, {
  *   requestToContextId: (req) => req.headers?.['x-correlation-id'] ?? crypto.randomUUID(),
  *   requestToRunId: () => crypto.randomUUID(),

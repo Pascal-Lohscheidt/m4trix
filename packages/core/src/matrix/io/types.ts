@@ -1,9 +1,4 @@
-import type { Layer, Schema as S } from 'effect';
-import type { AgentNetworkEventDef } from '../agent-network/agent-network-event.js';
 import type { Envelope, EventPlane } from '../agent-network/event-plane.js';
-import type { DepedencyLayerDef, LayerInstancesFromDeps } from '../dependency-layer.js';
-import type { ChannelName } from '../identifiers/channel-name.js';
-import type { NetworkTracer } from '../tracing/network-tracer.js';
 
 export type { EventPlane };
 
@@ -24,14 +19,6 @@ export type ExposeRequest = {
 /** Auth result: allow or deny with optional status */
 export type AuthResult = { allowed: true } | { allowed: false; status?: number; message?: string };
 
-/** Channel/event selection for the exposed stream */
-export type ExposeSelect = {
-  /** Channel(s) to subscribe to. Plain strings are validated as kebab-case. Default: client channel or first channel. */
-  channels?: ChannelName | ChannelName[] | string | string[];
-  /** Event names to filter. Empty = all events. */
-  events?: string[];
-};
-
 /** Unbound event shape (name + payload, no meta) - use eventDef.make(payload) to create */
 export type UnboundEvent = { name: string; payload: unknown };
 
@@ -46,28 +33,6 @@ export type OnRequestContext<T = unknown> = {
   /** Pre-parsed request body (JSON for POST, or {} for GET) */
   payload: T;
 };
-
-/** Options for agentNetwork.expose() */
-export type ExposeOptions<TDeps extends DepedencyLayerDef<string, unknown, S.Schema.Any> = never> =
-  {
-    protocol: 'sse';
-    /** Called per-request. Return { allowed: false } to reject. */
-    auth?: (req: ExposeRequest) => AuthResult | Promise<AuthResult>;
-    /** Which channels/events to stream */
-    select?: ExposeSelect;
-    /** Optional: use existing EventPlane instead of creating one per request */
-    plane?: EventPlane;
-    /** Event definitions that can trigger a run (e.g. from AgentNetworkEvent.of). First is used for default emit. Default: "request" when omitted. */
-    triggerEvents?: ReadonlyArray<AgentNetworkEventDef<string, S.Schema.Any>>;
-    /** Called when a client connects, after plane is ready. Use setRunId/setContextId and emitStartEvent. */
-    onRequest?: <T = unknown>(ctx: OnRequestContext<T>) => void | Promise<void>;
-    /** Optional: Layer to provide when running. Defaults to the network's setup-time tracing layer. */
-    tracingLayer?: Layer.Layer<never>;
-    /** Optional: persisted / external tracing for agent network runs. Defaults to the network's setup-time tracer. */
-    networkTracer?: NetworkTracer;
-    /** Injected dependency layer values when the network declares dependsOn(...) layers. */
-    layers?: [TDeps] extends [never] ? Record<string, never> : LayerInstancesFromDeps<TDeps>;
-  };
 
 /** Protocol-agnostic stream source that adapters consume */
 export type ExposedStream = AsyncIterable<Envelope>;

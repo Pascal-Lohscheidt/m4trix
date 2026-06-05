@@ -11,7 +11,7 @@ After completing the 10-minute quick start, explore these paths:
     Learn how typed messages move through the system.
   </Card>
   <Card title="Channels" icon="route" href="/concepts/channels">
-    Understand routing, sinks, and event delivery.
+    Understand routing, proxies, and event delivery.
   </Card>
   <Card title="Agents" icon="bot" href="/concepts/agents">
     Build units of logic with lifecycle and type inference.

@@ -17,8 +17,8 @@ Ensure you have `"moduleResolution": "bundler"` or `"node16"` in your `tsconfig.
 ### SSE not streaming / connection hangs
 
 - Ensure your deployment platform supports streaming responses (Vercel, Node.js do; some edge runtimes may not)
-- Check that the client channel has `sink.httpStream()` attached
-- Verify `expose()` has `select: { channels: 'client' }` (or your output channel name)
+- Check that the client channel has `proxy.sse()` attached
+- Verify `expose()` has `channel: 'client'` (or your output channel name)
 
 ### Events not reaching the agent
 

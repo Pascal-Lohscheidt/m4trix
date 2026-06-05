@@ -7,18 +7,19 @@ title: "AuthN/Z + Multi-Tenant Selection"
 Add per-request authentication via the `auth` callback in `expose()`:
 
 ```ts
-const api = network.expose({
-  protocol: 'sse',
-  auth: async (req) => {
-    const token = req.request?.headers?.get?.('authorization');
-    if (!token || !isValid(token)) {
-      return { allowed: false, message: 'Invalid token', status: 401 };
-    }
-    return { allowed: true };
-  },
-  select: { channels: 'client' },
-  startEventName: 'user-request',
-});
+const api = network.expose(
+  registerSSEStream({
+    channel: 'client',
+    triggerEvents: [userRequestEvent],
+    auth: async (req) => {
+      const token = req.request?.headers?.get?.('authorization');
+      if (!token || !isValid(token)) {
+        return { allowed: false, message: 'Invalid token', status: 401 };
+      }
+      return { allowed: true };
+    },
+  }),
+);
 ```
 
 When auth fails, the adapter returns the appropriate HTTP status (e.g. 401) and message.
@@ -28,23 +29,27 @@ When auth fails, the adapter returns the appropriate HTTP status (e.g. 401) and 
 Pass user or tenant context into the payload using `onRequest`:
 
 ```ts
-const api = network.expose({
-  protocol: 'sse',
-  onRequest: async ({ emitStartEvent, req, payload }) => {
-    const user = await getUserFromRequest(req);
-    if (!user) {
-      return; // or throw / return error
-    }
-    const enrichedPayload = {
-      ...payload,
-      userId: user.id,
-      tenantId: user.tenantId,
-    };
-    emitStartEvent(enrichedPayload);
-  },
-  select: { channels: 'client' },
-  startEventName: 'user-request',
-});
+const api = network.expose(
+  registerSSEStream({
+    channel: 'client',
+    triggerEvents: [userRequestEvent],
+    onRequest: async ({ emitStartEvent, req, payload }) => {
+      const user = await getUserFromRequest(req);
+      if (!user) {
+        return; // or throw / return error
+      }
+      emitStartEvent({
+        contextId: req.contextId ?? crypto.randomUUID(),
+        runId: req.runId ?? crypto.randomUUID(),
+        event: userRequestEvent.make({
+          ...payload,
+          userId: user.id,
+          tenantId: user.tenantId,
+        }),
+      });
+    },
+  }),
+);
 ```
 
 Your events should include `userId` and/or `tenantId` in their schema so agents can scope work correctly.

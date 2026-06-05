@@ -140,20 +140,20 @@ const AGENT_BENTO: BentoItem[] = [
         Server-Sent Events stream, not a polling loop.
       </>
     ),
-    code: 'NextEndpoint.from(network.expose({…})).handler()',
+    code: 'NextEndpoint.from(network.expose(registerSSEStream({…}))).handler()',
     tag: 'stream',
   },
   {
     icon: '🔀',
-    title: 'Channels & Sinks',
+    title: 'Channels & Proxies',
     desc: (
       <>
         Channels are named message buses. Swap an{' '}
-        <code className="inline-code text-[11px]">httpStream</code> sink for Kafka without touching
-        a single agent. The agent doesn&apos;t know — or care — where its events go.
+        <code className="inline-code text-[11px]">sse</code> proxy for Kafka without touching a
+        single agent. The agent doesn&apos;t know — or care — where its events go.
       </>
     ),
-    code: "createChannel('client').sink(sink.httpStream())",
+    code: "createChannel('client').proxy(proxy.sse())",
     tag: 'infra',
   },
   {
@@ -183,7 +183,7 @@ function AgentsSection() {
               <p className="eyebrow">Agentic infrastructure</p>
               <AnimatedHeadline />
               <p className="mx-auto mt-4 max-w-[520px] text-[17px] leading-[1.65] text-text-2 lg:mx-0">
-                Event-driven agent orchestration. Type-safe events, channels, sinks.{' '}
+                Event-driven agent orchestration. Type-safe events, channels, proxies.{' '}
                 <code className="inline-code">@m4trix/core/matrix</code>. Build, wire, stream.
               </p>
               <div className="mx-auto mt-6 lg:mx-0">
@@ -238,7 +238,7 @@ function AgentsSection() {
                   </div>
                   <p className="text-center font-mono text-[11px] text-text-4">↓ events</p>
                   <div className="diagram-channel">channel(&apos;pipeline&apos;)</div>
-                  <p className="text-center font-mono text-[11px] text-text-4">↓ sink</p>
+                  <p className="text-center font-mono text-[11px] text-text-4">↓ proxy</p>
                   <div className="diagram-node">
                     <span className="diagram-node-dot" />
                     TransformAgent

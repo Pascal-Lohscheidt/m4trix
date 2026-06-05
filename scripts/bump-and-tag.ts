@@ -87,6 +87,8 @@ function bumpVersion(version: string, bump: BumpType): string {
   const [major, minor, patch] = version.split('.').map(Number);
   switch (bump) {
     case 'major':
+      // While packages are pre-1.0, breaking changes advance the minor version.
+      if (major === 0) return `0.${minor + 1}.0`;
       return `${major + 1}.0.0`;
     case 'minor':
       return `${major}.${minor + 1}.0`;

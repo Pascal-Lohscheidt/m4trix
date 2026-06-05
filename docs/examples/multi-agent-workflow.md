@@ -9,7 +9,7 @@ Chain multiple agents so events flow through a pipeline: request → planner →
 ```ts
 const main = mainChannel('main');
 const processing = createChannel('processing');
-const client = createChannel('client').sink(sink.httpStream());
+const client = createChannel('client').proxy(proxy.sse());
 
 registerAgent(plannerAgent).subscribe(main).publishTo(processing);
 registerAgent(executorAgent).subscribe(processing).publishTo(client);

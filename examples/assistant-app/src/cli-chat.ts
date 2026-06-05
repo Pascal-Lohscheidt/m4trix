@@ -277,6 +277,7 @@ async function handleCommandApproval(
 
   await client.control.resolveCommandApproval.mutate({
     runId: event.meta.runId,
+    contextId: event.meta.contextId,
     correlationId,
     requestId,
     approved,

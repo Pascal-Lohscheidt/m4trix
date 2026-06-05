@@ -1,6 +1,7 @@
 import { Effect, Queue, Schema as S } from 'effect';
 import { describe, expect, test, vitest } from 'vitest';
 import { AgentFactory } from '../agent-factory.js';
+import { registerSSEStream } from '../io/proxy-consumer.js';
 import { AgentNetwork } from './agent-network.js';
 import type { EventMeta } from './agent-network-event.js';
 import { AgentNetworkEvent } from './agent-network-event.js';
@@ -619,17 +620,17 @@ describe('AgentNetwork integration', () => {
     });
   });
 
-  describe('http-stream sink', () => {
-    test('events on channel with http-stream sink are exposed to stream', async () => {
+  describe('sse proxy', () => {
+    test('events on channel with sse proxy are exposed to stream', async () => {
       const weatherSet = AgentNetworkEvent.of('weather-set', S.Struct({ temp: S.Number }));
       const weatherForecast = AgentNetworkEvent.of(
         'weather-forecast-created',
         S.Struct({ forecast: S.String }),
       );
 
-      const network = AgentNetwork.setup(({ mainChannel, createChannel, sink, registerAgent }) => {
+      const network = AgentNetwork.setup(({ mainChannel, createChannel, proxy, registerAgent }) => {
         const main = mainChannel;
-        const client = createChannel('client').sink(sink.httpStream());
+        const client = createChannel('client').proxy(proxy.sse());
         registerAgent(
           AgentFactory.run()
             .listensTo([weatherSet])
@@ -654,11 +655,12 @@ describe('AgentNetwork integration', () => {
 
         yield* Effect.sleep('10 millis');
 
-        const api = network.expose({
-          protocol: 'sse',
-          plane,
-          select: { channels: ChannelName('client') },
-        });
+        const api = network.expose(
+          registerSSEStream({
+            plane,
+            channel: ChannelName('client'),
+          }),
+        );
 
         yield* plane.publish(mainCh.name, {
           name: 'weather-set',
@@ -683,10 +685,10 @@ describe('AgentNetwork integration', () => {
       });
     });
 
-    test('resolveChannels prefers channels with http-stream sink when select.channels not set', async () => {
-      const network = AgentNetwork.setup(({ createChannel, sink }) => {
+    test('resolveChannels prefers channels with sse proxy when channel is not set', async () => {
+      const network = AgentNetwork.setup(({ createChannel, proxy }) => {
         createChannel('a');
-        createChannel('client').sink(sink.httpStream());
+        createChannel('client').proxy(proxy.sse());
       });
 
       const program = Effect.gen(function* () {
@@ -695,7 +697,7 @@ describe('AgentNetwork integration', () => {
 
         yield* Effect.sleep('10 millis');
 
-        const api = network.expose({ protocol: 'sse', plane });
+        const api = network.expose(registerSSEStream({ plane }));
 
         yield* Effect.fork(
           Effect.sleep('20 millis').pipe(
@@ -727,11 +729,11 @@ describe('AgentNetwork integration', () => {
       });
     });
 
-    test('channel with multiple sinks including http-stream is exposed', async () => {
-      const network = AgentNetwork.setup(({ createChannel, sink }) => {
+    test('channel with multiple proxies including sse is exposed', async () => {
+      const network = AgentNetwork.setup(({ createChannel, proxy }) => {
         createChannel('out')
-          .sink(sink.httpStream())
-          .sink(sink.kafka({ topic: 'events' }));
+          .proxy(proxy.sse())
+          .proxy(proxy.kafka({ topic: 'events' }));
       });
 
       const program = Effect.gen(function* () {
@@ -740,7 +742,7 @@ describe('AgentNetwork integration', () => {
 
         yield* Effect.sleep('10 millis');
 
-        const api = network.expose({ protocol: 'sse', plane });
+        const api = network.expose(registerSSEStream({ plane }));
 
         yield* Effect.fork(
           Effect.sleep('20 millis').pipe(

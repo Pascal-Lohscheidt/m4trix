@@ -7,22 +7,22 @@ The IO layer turns an `AgentNetwork` into an HTTP API. Built-in adapters: **Next
 ## Exposing a Network
 
 ```ts
-const api = network.expose({
-  protocol: 'sse',
-  select: { channels: 'client' },
-  startEventName: 'user-request',
-});
+const api = network.expose(
+  registerSSEStream({
+    channel: 'client',
+    triggerEvents: [UserRequestEvent],
+  }),
+);
 ```
 
-## expose() Options
+## registerSSEStream() Options
 
 | Option | Description |
 |--------|-------------|
-| `protocol` | `'sse'` (currently the only option) |
 | `auth` | Per-request auth callback: `async (req) => { allowed, message?, status? }` |
-| `select.channels` | Channel(s) to stream from (string or string[]) |
-| `select.events` | Filter to specific event names (string[]) |
-| `startEventName` | Event name published when request arrives (default: `'request'`) |
+| `channel` | Channel to stream from |
+| `events` | Filter to specific event names (string[]) |
+| `triggerEvents` | Event definitions that can trigger a run |
 | `onRequest` | Callback before streaming; must call `emitStartEvent()` if provided |
 | `plane` | Optional: reuse existing EventPlane |
 
@@ -69,6 +69,7 @@ import {
   AgentNetwork,
   AgentNetworkEvent,
   NextEndpoint,
+  registerSSEStream,
   S,
 } from '@m4trix/core/matrix';
 
@@ -94,22 +95,60 @@ const chatAgent = AgentFactory.run()
   .produce({});
 
 const network = AgentNetwork.setup(
-  ({ mainChannel, createChannel, sink, registerAgent }) => {
+  ({ mainChannel, createChannel, proxy, registerAgent }) => {
     const main = mainChannel('main');
-    const client = createChannel('client').sink(sink.httpStream());
+    const client = createChannel('client').proxy(proxy.sse());
     registerAgent(chatAgent).subscribe(main).publishTo(client);
   },
 );
 
-const api = network.expose({
-  protocol: 'sse',
-  select: { channels: 'client' },
-  startEventName: 'chat-request',
-});
+const api = network.expose(
+  registerSSEStream({
+    channel: 'client',
+    triggerEvents: [chatRequest],
+  }),
+);
 
 const handler = NextEndpoint.from(api).handler();
 export const GET = handler;
 export const POST = handler;
+```
+
+## Migration
+
+```ts
+// Before
+createChannel('client').sink(sink.httpStream());
+network.expose({ protocol: 'sse', select: { channels: 'client' }, onRequest });
+
+// After — built-in SSE
+createChannel('client').proxy(proxy.sse());
+network.expose(registerSSEStream({ channel: 'client', onRequest }));
+```
+
+## Custom Proxies
+
+Use `defineProxyKind()` when an app needs to build its own transport around the shared event stream machinery.
+
+```ts
+const TrpcStreamProxy = defineProxyKind('trpc-stream');
+
+createChannel('client').proxy(TrpcStreamProxy.onChannel());
+
+const api = network.expose(
+  TrpcStreamProxy.register({ channel: 'client', onRequest }, ({ createInteractiveStream }) =>
+    createInteractiveStream({ onRequest }),
+  ),
+);
+```
+
+For inbound human-in-the-loop or control events on a long-lived runtime, expose with a shared `plane` and publish directly:
+
+```ts
+await api.publish(HumanApproved.make({ approved: true }), {
+  target: 'main',
+  meta: { runId, contextId },
+});
 ```
 
 ## See Also

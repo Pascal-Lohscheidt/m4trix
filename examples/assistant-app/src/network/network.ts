@@ -12,8 +12,8 @@ export const network = AgentNetwork.dependsOn([
   WithFileSystemLayer,
   WithAgentMemoryLayer,
 ]).setup(
-  ({ mainChannel, createChannel, sink, registerAgent }) => {
-    const client = createChannel('client').sink(sink.httpStream());
+  ({ mainChannel, createChannel, proxy, registerAgent }) => {
+    const client = createChannel('client').proxy(proxy.sse());
     const sub = createChannel('sub');
 
     registerAgent(assistantAgent).subscribe(mainChannel).publishTo(client).publishTo(sub);

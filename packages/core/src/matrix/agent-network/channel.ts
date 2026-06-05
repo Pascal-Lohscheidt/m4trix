@@ -1,29 +1,36 @@
 import type { Schema as S } from 'effect';
-import type { AgentNetworkEventDef } from './agent-network-event.js';
 import type { ChannelName } from '../identifiers/channel-name.js';
+import type { AgentNetworkEventDef } from './agent-network-event.js';
 
 export { ChannelName } from '../identifiers/channel-name.js';
 
-/* ─── Sink ─── */
+/* ─── Proxy ─── */
 
-export type SinkDef = {
-  readonly _tag: 'SinkDef';
-  readonly type: string;
+export type ProxyDirection = 'outbound' | 'inbound' | 'bidirectional';
+
+export type ProxyDef = {
+  readonly _tag: 'ProxyDef';
+  readonly kind: string;
   readonly config: unknown;
+  readonly direction: ProxyDirection;
 };
 
-export const Sink = {
-  kafka(config: { topic: string }): SinkDef {
-    return { _tag: 'SinkDef', type: 'kafka', config };
+const ChannelProxy = {
+  sse(): ProxyDef {
+    return { _tag: 'ProxyDef', kind: 'sse', config: {}, direction: 'outbound' };
   },
-  httpStream(): SinkDef {
-    return { _tag: 'SinkDef', type: 'http-stream', config: {} };
+  kafka(config: { topic: string }): ProxyDef {
+    return { _tag: 'ProxyDef', kind: 'kafka', config, direction: 'outbound' };
+  },
+  socketIo(config: { namespace?: string } = {}): ProxyDef {
+    return { _tag: 'ProxyDef', kind: 'socket-io', config, direction: 'bidirectional' };
+  },
+  custom(kind: string, config: unknown = {}, direction: ProxyDirection = 'outbound'): ProxyDef {
+    return { _tag: 'ProxyDef', kind, config, direction };
   },
 };
 
-export function isHttpStreamSink(sink: SinkDef): boolean {
-  return sink.type === 'http-stream';
-}
+export { ChannelProxy as Proxy };
 
 /* ─── Channel Definitions ─── */
 
@@ -36,13 +43,13 @@ export type ChannelDef = {
 
 /**
  * A channel configured via the builder pattern inside `AgentNetwork.setup()`.
- * Supports `.events()`, `.sink()`, and `.sinks()` chaining.
+ * Supports `.events()` and `.proxy()` chaining.
  */
 export class ConfiguredChannel {
   readonly _tag = 'ConfiguredChannel' as const;
   readonly name: ChannelName;
   private _events: ReadonlyArray<EventDef> = [];
-  private _sinks: ReadonlyArray<SinkDef> = [];
+  private _proxies: ReadonlyArray<ProxyDef> = [];
 
   constructor(name: ChannelName) {
     this.name = name;
@@ -53,13 +60,8 @@ export class ConfiguredChannel {
     return this;
   }
 
-  sink(sink: SinkDef): this {
-    this._sinks = [...this._sinks, sink];
-    return this;
-  }
-
-  sinks(sinks: ReadonlyArray<SinkDef>): this {
-    this._sinks = [...sinks];
+  proxy(...proxies: ProxyDef[]): this {
+    this._proxies = [...this._proxies, ...proxies];
     return this;
   }
 
@@ -67,9 +69,13 @@ export class ConfiguredChannel {
     return this._events;
   }
 
-  getSinks(): ReadonlyArray<SinkDef> {
-    return this._sinks;
+  getProxies(): ReadonlyArray<ProxyDef> {
+    return this._proxies;
   }
+}
+
+export function channelHasProxy(channel: ConfiguredChannel, kind: string): boolean {
+  return channel.getProxies().some((proxy) => proxy.kind === kind);
 }
 
 export const Channel = {

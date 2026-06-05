@@ -1,10 +1,10 @@
+import { Effect, Schema as S } from 'effect';
 import { describe, expect, test } from 'vitest';
-import { Effect } from 'effect';
-import { Schema as S } from 'effect';
+import { AgentFactory } from '../agent-factory.js';
 import { AgentNetwork } from '../agent-network/agent-network.js';
 import { AgentNetworkEvent } from '../agent-network/agent-network-event.js';
-import { AgentFactory } from '../agent-factory.js';
 import { ExposeAuthError } from './expose.js';
+import { registerSSEStream } from './proxy-consumer.js';
 
 async function takeFirst(stream: AsyncIterable<unknown>): Promise<unknown> {
   for await (const e of stream) return e;
@@ -61,9 +61,9 @@ describe('expose integration', () => {
         S.Struct({ response: S.String }),
       );
 
-      const network = AgentNetwork.setup(({ mainChannel, createChannel, sink, registerAgent }) => {
+      const network = AgentNetwork.setup(({ mainChannel, createChannel, proxy, registerAgent }) => {
         const main = mainChannel;
-        const client = createChannel('client').sink(sink.httpStream());
+        const client = createChannel('client').proxy(proxy.sse());
         registerAgent(
           AgentFactory.run()
             .listensTo([requestEvent])
@@ -85,18 +85,19 @@ describe('expose integration', () => {
         const plane = yield* network.run();
         yield* Effect.sleep('10 millis');
 
-        const api = network.expose({
-          protocol: 'sse',
-          plane,
-          select: { channels: 'client' },
-          triggerEvents: [requestEvent],
-          onRequest: ({ emitStartEvent, req, payload }) =>
-            emitStartEvent({
-              contextId: req.contextId ?? crypto.randomUUID(),
-              runId: req.runId ?? crypto.randomUUID(),
-              event: requestEvent.make(payload as { request: string }),
-            }),
-        });
+        const api = network.expose(
+          registerSSEStream({
+            plane,
+            channel: 'client',
+            triggerEvents: [requestEvent],
+            onRequest: ({ emitStartEvent, req, payload }) =>
+              emitStartEvent({
+                contextId: req.contextId ?? crypto.randomUUID(),
+                runId: req.runId ?? crypto.randomUUID(),
+                event: requestEvent.make(payload as { request: string }),
+              }),
+          }),
+        );
 
         const req = mockPostRequest({ request: 'What is 2+2?' });
         return yield* Effect.tryPromise(() =>
@@ -115,9 +116,9 @@ describe('expose integration', () => {
     test('uses default triggerEvents ["request"] when not specified', async () => {
       const requestEvt = AgentNetworkEvent.of('request', S.Struct({ foo: S.String }));
       const responseEvt = AgentNetworkEvent.of('response', S.Struct({ ok: S.Boolean }));
-      const network = AgentNetwork.setup(({ mainChannel, createChannel, sink, registerAgent }) => {
+      const network = AgentNetwork.setup(({ mainChannel, createChannel, proxy, registerAgent }) => {
         const main = mainChannel;
-        const client = createChannel('client').sink(sink.httpStream());
+        const client = createChannel('client').proxy(proxy.sse());
         registerAgent(
           AgentFactory.run()
             .listensTo([requestEvt])
@@ -138,17 +139,18 @@ describe('expose integration', () => {
         const plane = yield* network.run();
         yield* Effect.sleep('10 millis');
 
-        const api = network.expose({
-          protocol: 'sse',
-          plane,
-          select: { channels: 'client' },
-          onRequest: ({ emitStartEvent, req, payload }) =>
-            emitStartEvent({
-              contextId: req.contextId ?? crypto.randomUUID(),
-              runId: req.runId ?? crypto.randomUUID(),
-              event: requestEvt.make(payload as { foo: string }),
-            }),
-        });
+        const api = network.expose(
+          registerSSEStream({
+            plane,
+            channel: 'client',
+            onRequest: ({ emitStartEvent, req, payload }) =>
+              emitStartEvent({
+                contextId: req.contextId ?? crypto.randomUUID(),
+                runId: req.runId ?? crypto.randomUUID(),
+                event: requestEvt.make(payload as { foo: string }),
+              }),
+          }),
+        );
 
         const req = mockPostRequest({ foo: 'bar' });
         return yield* Effect.tryPromise(() =>
@@ -170,9 +172,9 @@ describe('expose integration', () => {
         'reasoning-response',
         S.Struct({ response: S.String }),
       );
-      const network = AgentNetwork.setup(({ mainChannel, createChannel, sink, registerAgent }) => {
+      const network = AgentNetwork.setup(({ mainChannel, createChannel, proxy, registerAgent }) => {
         const main = mainChannel;
-        const client = createChannel('client').sink(sink.httpStream());
+        const client = createChannel('client').proxy(proxy.sse());
         registerAgent(
           AgentFactory.run()
             .listensTo([requestEvt])
@@ -190,11 +192,12 @@ describe('expose integration', () => {
           .publishTo(client);
       });
 
-      const api = network.expose({
-        protocol: 'sse',
-        select: { channels: 'client' },
-        triggerEvents: [requestEvt],
-      });
+      const api = network.expose(
+        registerSSEStream({
+          channel: 'client',
+          triggerEvents: [requestEvt],
+        }),
+      );
 
       const req = mockPostRequest({ request: 'What is 2+2?' });
       const received = await api.createStream({ request: req }, (stream) => takeFirst(stream));
@@ -211,9 +214,9 @@ describe('expose integration', () => {
       const requestEvent = AgentNetworkEvent.of('task-request', S.Struct({ task: S.String }));
       const taskDoneEvent = AgentNetworkEvent.of('task-done', S.Struct({ result: S.String }));
 
-      const network = AgentNetwork.setup(({ mainChannel, createChannel, sink, registerAgent }) => {
+      const network = AgentNetwork.setup(({ mainChannel, createChannel, proxy, registerAgent }) => {
         const main = mainChannel;
-        const client = createChannel('client').sink(sink.httpStream());
+        const client = createChannel('client').proxy(proxy.sse());
         registerAgent(
           AgentFactory.run()
             .listensTo([requestEvent])
@@ -235,20 +238,21 @@ describe('expose integration', () => {
         const plane = yield* network.run();
         yield* Effect.sleep('10 millis');
 
-        const api = network.expose({
-          protocol: 'sse',
-          plane,
-          select: { channels: 'client' },
-          triggerEvents: [requestEvent],
-          onRequest: ({ emitStartEvent, req, payload }) => {
-            const body = payload as { raw?: string };
-            emitStartEvent({
-              contextId: req.contextId ?? crypto.randomUUID(),
-              runId: req.runId ?? crypto.randomUUID(),
-              event: requestEvent.make({ task: body.raw ?? 'default' }),
-            });
-          },
-        });
+        const api = network.expose(
+          registerSSEStream({
+            plane,
+            channel: 'client',
+            triggerEvents: [requestEvent],
+            onRequest: ({ emitStartEvent, req, payload }) => {
+              const body = payload as { raw?: string };
+              emitStartEvent({
+                contextId: req.contextId ?? crypto.randomUUID(),
+                runId: req.runId ?? crypto.randomUUID(),
+                event: requestEvent.make({ task: body.raw ?? 'default' }),
+              });
+            },
+          }),
+        );
 
         const req = mockPostRequest({ raw: 'custom-task' });
         return yield* Effect.tryPromise(() =>
@@ -268,9 +272,9 @@ describe('expose integration', () => {
       const requestEvent = AgentNetworkEvent.of('query-request', S.Struct({ q: S.String }));
       const queryResultEvent = AgentNetworkEvent.of('query-result', S.Struct({ answer: S.String }));
 
-      const network = AgentNetwork.setup(({ mainChannel, createChannel, sink, registerAgent }) => {
+      const network = AgentNetwork.setup(({ mainChannel, createChannel, proxy, registerAgent }) => {
         const main = mainChannel;
-        const client = createChannel('client').sink(sink.httpStream());
+        const client = createChannel('client').proxy(proxy.sse());
         registerAgent(
           AgentFactory.run()
             .listensTo([requestEvent])
@@ -292,23 +296,24 @@ describe('expose integration', () => {
         const plane = yield* network.run();
         yield* Effect.sleep('10 millis');
 
-        const api = network.expose({
-          protocol: 'sse',
-          plane,
-          select: { channels: 'client' },
-          triggerEvents: [requestEvent],
-          onRequest: ({ emitStartEvent, req }) => {
-            const url = req.request?.url;
-            if (url) {
-              const q = new URL(url).searchParams.get('q') ?? '';
-              emitStartEvent({
-                contextId: req.contextId ?? crypto.randomUUID(),
-                runId: req.runId ?? crypto.randomUUID(),
-                event: requestEvent.make({ q }),
-              });
-            }
-          },
-        });
+        const api = network.expose(
+          registerSSEStream({
+            plane,
+            channel: 'client',
+            triggerEvents: [requestEvent],
+            onRequest: ({ emitStartEvent, req }) => {
+              const url = req.request?.url;
+              if (url) {
+                const q = new URL(url).searchParams.get('q') ?? '';
+                emitStartEvent({
+                  contextId: req.contextId ?? crypto.randomUUID(),
+                  runId: req.runId ?? crypto.randomUUID(),
+                  event: requestEvent.make({ q }),
+                });
+              }
+            },
+          }),
+        );
 
         const req = mockGetRequest('http://test/api?q=hello');
         return yield* Effect.tryPromise(() =>
@@ -327,9 +332,9 @@ describe('expose integration', () => {
     test('onRequest can skip emitting', async () => {
       const requestEvt = AgentNetworkEvent.of('request', S.Struct({ request: S.String }));
       const responseEvt = AgentNetworkEvent.of('response', S.Struct({ ok: S.Boolean }));
-      const network = AgentNetwork.setup(({ mainChannel, createChannel, sink, registerAgent }) => {
+      const network = AgentNetwork.setup(({ mainChannel, createChannel, proxy, registerAgent }) => {
         const main = mainChannel;
-        const client = createChannel('client').sink(sink.httpStream());
+        const client = createChannel('client').proxy(proxy.sse());
         registerAgent(
           AgentFactory.run()
             .listensTo([requestEvt])
@@ -350,14 +355,15 @@ describe('expose integration', () => {
         const plane = yield* network.run();
         yield* Effect.sleep('10 millis');
 
-        const api = network.expose({
-          protocol: 'sse',
-          plane,
-          select: { channels: 'client' },
-          onRequest: () => {
-            // Intentionally not calling emitStartEvent
-          },
-        });
+        const api = network.expose(
+          registerSSEStream({
+            plane,
+            channel: 'client',
+            onRequest: () => {
+              // Intentionally not calling emitStartEvent
+            },
+          }),
+        );
 
         const controller = new AbortController();
         setTimeout(() => controller.abort(), 100);
@@ -380,15 +386,16 @@ describe('expose integration', () => {
 
   describe('auth', () => {
     test('auth rejects request with ExposeAuthError', async () => {
-      const network = AgentNetwork.setup(({ createChannel, sink }) => {
-        createChannel('client').sink(sink.httpStream());
+      const network = AgentNetwork.setup(({ createChannel, proxy }) => {
+        createChannel('client').proxy(proxy.sse());
       });
 
-      const api = network.expose({
-        protocol: 'sse',
-        select: { channels: 'client' },
-        auth: () => ({ allowed: false, status: 403, message: 'Forbidden' }),
-      });
+      const api = network.expose(
+        registerSSEStream({
+          channel: 'client',
+          auth: () => ({ allowed: false, status: 403, message: 'Forbidden' }),
+        }),
+      );
 
       const req = mockPostRequest({});
       await expect(
@@ -409,9 +416,9 @@ describe('expose integration', () => {
     test('auth allows request when returning allowed: true', async () => {
       const requestEvt = AgentNetworkEvent.of('request', S.Struct({ x: S.Number }));
       const responseEvt = AgentNetworkEvent.of('response', S.Struct({ ok: S.Boolean }));
-      const network = AgentNetwork.setup(({ mainChannel, createChannel, sink, registerAgent }) => {
+      const network = AgentNetwork.setup(({ mainChannel, createChannel, proxy, registerAgent }) => {
         const main = mainChannel;
-        const client = createChannel('client').sink(sink.httpStream());
+        const client = createChannel('client').proxy(proxy.sse());
         registerAgent(
           AgentFactory.run()
             .listensTo([requestEvt])
@@ -432,18 +439,19 @@ describe('expose integration', () => {
         const plane = yield* network.run();
         yield* Effect.sleep('10 millis');
 
-        const api = network.expose({
-          protocol: 'sse',
-          plane,
-          select: { channels: 'client' },
-          auth: () => ({ allowed: true }),
-          onRequest: ({ emitStartEvent, req, payload }) =>
-            emitStartEvent({
-              contextId: req.contextId ?? crypto.randomUUID(),
-              runId: req.runId ?? crypto.randomUUID(),
-              event: requestEvt.make(payload as { x: number }),
-            }),
-        });
+        const api = network.expose(
+          registerSSEStream({
+            plane,
+            channel: 'client',
+            auth: () => ({ allowed: true }),
+            onRequest: ({ emitStartEvent, req, payload }) =>
+              emitStartEvent({
+                contextId: req.contextId ?? crypto.randomUUID(),
+                runId: req.runId ?? crypto.randomUUID(),
+                event: requestEvt.make(payload as { x: number }),
+              }),
+          }),
+        );
 
         const req = mockPostRequest({ x: 1 });
         return yield* Effect.tryPromise(() =>
@@ -464,9 +472,9 @@ describe('expose integration', () => {
     test('extracts payload from Express req.body when present', async () => {
       const requestEvt = AgentNetworkEvent.of('request', S.Struct({ x: S.Number }));
       const responseEvt = AgentNetworkEvent.of('response', S.Struct({ doubled: S.Number }));
-      const network = AgentNetwork.setup(({ mainChannel, createChannel, sink, registerAgent }) => {
+      const network = AgentNetwork.setup(({ mainChannel, createChannel, proxy, registerAgent }) => {
         const main = mainChannel;
-        const client = createChannel('client').sink(sink.httpStream());
+        const client = createChannel('client').proxy(proxy.sse());
         registerAgent(
           AgentFactory.run()
             .listensTo([requestEvt])
@@ -488,18 +496,19 @@ describe('expose integration', () => {
         const plane = yield* network.run();
         yield* Effect.sleep('10 millis');
 
-        const api = network.expose({
-          protocol: 'sse',
-          plane,
-          select: { channels: 'client' },
-          triggerEvents: [requestEvt],
-          onRequest: ({ emitStartEvent, req, payload }) =>
-            emitStartEvent({
-              contextId: req.contextId ?? crypto.randomUUID(),
-              runId: req.runId ?? crypto.randomUUID(),
-              event: requestEvt.make(payload as { x: number }),
-            }),
-        });
+        const api = network.expose(
+          registerSSEStream({
+            plane,
+            channel: 'client',
+            triggerEvents: [requestEvt],
+            onRequest: ({ emitStartEvent, req, payload }) =>
+              emitStartEvent({
+                contextId: req.contextId ?? crypto.randomUUID(),
+                runId: req.runId ?? crypto.randomUUID(),
+                event: requestEvt.make(payload as { x: number }),
+              }),
+          }),
+        );
 
         const exposeReq = {
           request: { signal: new AbortController().signal } as Request,
@@ -526,9 +535,9 @@ describe('expose integration', () => {
     test('triggerEvents default ["request"] when not specified', async () => {
       const requestEvt = AgentNetworkEvent.of('request', S.Struct({ x: S.Number }));
       const responseEvt = AgentNetworkEvent.of('response', S.Struct({ ok: S.Boolean }));
-      const network = AgentNetwork.setup(({ mainChannel, createChannel, sink, registerAgent }) => {
+      const network = AgentNetwork.setup(({ mainChannel, createChannel, proxy, registerAgent }) => {
         const main = mainChannel;
-        const client = createChannel('client').sink(sink.httpStream());
+        const client = createChannel('client').proxy(proxy.sse());
         registerAgent(
           AgentFactory.run()
             .listensTo([requestEvt])
@@ -546,17 +555,18 @@ describe('expose integration', () => {
         const plane = yield* network.run();
         yield* Effect.sleep('10 millis');
 
-        const api = network.expose({
-          protocol: 'sse',
-          plane,
-          select: { channels: 'client' },
-          onRequest: ({ emitStartEvent, req, payload }) =>
-            emitStartEvent({
-              contextId: req.contextId ?? crypto.randomUUID(),
-              runId: req.runId ?? crypto.randomUUID(),
-              event: requestEvt.make(payload as { x: number }),
-            }),
-        });
+        const api = network.expose(
+          registerSSEStream({
+            plane,
+            channel: 'client',
+            onRequest: ({ emitStartEvent, req, payload }) =>
+              emitStartEvent({
+                contextId: req.contextId ?? crypto.randomUUID(),
+                runId: req.runId ?? crypto.randomUUID(),
+                event: requestEvt.make(payload as { x: number }),
+              }),
+          }),
+        );
 
         const req = mockPostRequest({ x: 1 });
         return yield* Effect.tryPromise(() =>
@@ -577,9 +587,9 @@ describe('expose integration', () => {
         'response',
         S.Struct({ meta: S.Struct({ runId: S.String, contextId: S.String }) }),
       );
-      const network = AgentNetwork.setup(({ mainChannel, createChannel, sink, registerAgent }) => {
+      const network = AgentNetwork.setup(({ mainChannel, createChannel, proxy, registerAgent }) => {
         const main = mainChannel;
-        const client = createChannel('client').sink(sink.httpStream());
+        const client = createChannel('client').proxy(proxy.sse());
         registerAgent(
           AgentFactory.run()
             .listensTo([requestEvt])
@@ -608,20 +618,21 @@ describe('expose integration', () => {
         const customRunId = 'custom-run-123';
         const customContextId = 'custom-context-456';
 
-        const api = network.expose({
-          protocol: 'sse',
-          plane,
-          select: { channels: 'client' },
-          onRequest: ({ setRunId, setContextId, emitStartEvent, payload }) => {
-            setRunId(customRunId);
-            setContextId(customContextId);
-            emitStartEvent({
-              contextId: customContextId,
-              runId: customRunId,
-              event: requestEvt.make(payload as { x: number }),
-            });
-          },
-        });
+        const api = network.expose(
+          registerSSEStream({
+            plane,
+            channel: 'client',
+            onRequest: ({ setRunId, setContextId, emitStartEvent, payload }) => {
+              setRunId(customRunId);
+              setContextId(customContextId);
+              emitStartEvent({
+                contextId: customContextId,
+                runId: customRunId,
+                event: requestEvt.make(payload as { x: number }),
+              });
+            },
+          }),
+        );
 
         const req = mockPostRequest({ x: 1 });
         return yield* Effect.tryPromise(() =>
@@ -644,9 +655,9 @@ describe('expose integration', () => {
         'response',
         S.Struct({ meta: S.Struct({ runId: S.String, contextId: S.String }) }),
       );
-      const network = AgentNetwork.setup(({ mainChannel, createChannel, sink, registerAgent }) => {
+      const network = AgentNetwork.setup(({ mainChannel, createChannel, proxy, registerAgent }) => {
         const main = mainChannel;
-        const client = createChannel('client').sink(sink.httpStream());
+        const client = createChannel('client').proxy(proxy.sse());
         registerAgent(
           AgentFactory.run()
             .listensTo([requestEvt])
@@ -672,17 +683,18 @@ describe('expose integration', () => {
         const plane = yield* network.run();
         yield* Effect.sleep('10 millis');
 
-        const api = network.expose({
-          protocol: 'sse',
-          plane,
-          select: { channels: 'client' },
-          onRequest: ({ emitStartEvent, payload }) =>
-            emitStartEvent({
-              contextId: 'explicit-context',
-              runId: 'explicit-run',
-              event: requestEvt.make(payload as { x: number }),
-            }),
-        });
+        const api = network.expose(
+          registerSSEStream({
+            plane,
+            channel: 'client',
+            onRequest: ({ emitStartEvent, payload }) =>
+              emitStartEvent({
+                contextId: 'explicit-context',
+                runId: 'explicit-run',
+                event: requestEvt.make(payload as { x: number }),
+              }),
+          }),
+        );
 
         const req = mockPostRequest({ x: 1 });
         return yield* Effect.tryPromise(() =>
@@ -702,9 +714,9 @@ describe('expose integration', () => {
     test('triggerEvents uses first for emit', async () => {
       const aEvt = AgentNetworkEvent.of('a', S.Struct({ v: S.Number }));
       const bEvt = AgentNetworkEvent.of('b', S.Struct({ v: S.Number }));
-      const network = AgentNetwork.setup(({ mainChannel, createChannel, sink, registerAgent }) => {
+      const network = AgentNetwork.setup(({ mainChannel, createChannel, proxy, registerAgent }) => {
         const main = mainChannel;
-        const client = createChannel('client').sink(sink.httpStream());
+        const client = createChannel('client').proxy(proxy.sse());
         registerAgent(
           AgentFactory.run()
             .listensTo([aEvt])
@@ -722,18 +734,19 @@ describe('expose integration', () => {
         const plane = yield* network.run();
         yield* Effect.sleep('10 millis');
 
-        const api = network.expose({
-          protocol: 'sse',
-          plane,
-          select: { channels: 'client' },
-          triggerEvents: [aEvt, bEvt],
-          onRequest: ({ emitStartEvent, req, payload }) =>
-            emitStartEvent({
-              contextId: req.contextId ?? crypto.randomUUID(),
-              runId: req.runId ?? crypto.randomUUID(),
-              event: aEvt.make(payload ?? { v: 1 }),
-            }),
-        });
+        const api = network.expose(
+          registerSSEStream({
+            plane,
+            channel: 'client',
+            triggerEvents: [aEvt, bEvt],
+            onRequest: ({ emitStartEvent, req, payload }) =>
+              emitStartEvent({
+                contextId: req.contextId ?? crypto.randomUUID(),
+                runId: req.runId ?? crypto.randomUUID(),
+                event: aEvt.make(payload ?? { v: 1 }),
+              }),
+          }),
+        );
 
         const req = mockPostRequest({ v: 1 });
         return yield* Effect.tryPromise(() =>
@@ -751,9 +764,9 @@ describe('expose integration', () => {
       const requestEvt = AgentNetworkEvent.of('request', S.Struct({ x: S.Number }));
       const aEvt = AgentNetworkEvent.of('a', S.Struct({ v: S.Number }));
       const bEvt = AgentNetworkEvent.of('b', S.Struct({ v: S.Number }));
-      const network = AgentNetwork.setup(({ mainChannel, createChannel, sink, registerAgent }) => {
+      const network = AgentNetwork.setup(({ mainChannel, createChannel, proxy, registerAgent }) => {
         const main = mainChannel;
-        const client = createChannel('client').sink(sink.httpStream());
+        const client = createChannel('client').proxy(proxy.sse());
         registerAgent(
           AgentFactory.run()
             .listensTo([requestEvt])
@@ -778,17 +791,19 @@ describe('expose integration', () => {
         const plane = yield* network.run();
         yield* Effect.sleep('10 millis');
 
-        const api = network.expose({
-          protocol: 'sse',
-          plane,
-          select: { channels: 'client', events: ['b'] },
-          onRequest: ({ emitStartEvent, req, payload }) =>
-            emitStartEvent({
-              contextId: req.contextId ?? crypto.randomUUID(),
-              runId: req.runId ?? crypto.randomUUID(),
-              event: requestEvt.make(payload as { x: number }),
-            }),
-        });
+        const api = network.expose(
+          registerSSEStream({
+            plane,
+            channel: 'client',
+            events: ['b'],
+            onRequest: ({ emitStartEvent, req, payload }) =>
+              emitStartEvent({
+                contextId: req.contextId ?? crypto.randomUUID(),
+                runId: req.runId ?? crypto.randomUUID(),
+                event: requestEvt.make(payload as { x: number }),
+              }),
+          }),
+        );
 
         const req = mockPostRequest({ x: 0 });
         return yield* Effect.tryPromise(() =>

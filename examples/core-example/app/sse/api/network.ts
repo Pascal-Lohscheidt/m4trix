@@ -19,8 +19,8 @@ const eventAggregator = EventAggregator.listensTo([MessageStreamChunkEvent])
   });
 
 export const network = AgentNetwork.setup(
-  ({ mainChannel, createChannel, sink, registerAgent, registerAggregator }) => {
-    const client = createChannel('client').sink(sink.httpStream());
+  ({ mainChannel, createChannel, proxy, registerAgent, registerAggregator }) => {
+    const client = createChannel('client').proxy(proxy.sse());
 
     registerAgent(exampleAgent).subscribe(mainChannel).publishTo(client);
     registerAgent(reasoningAgent).subscribe(client).publishTo(client);

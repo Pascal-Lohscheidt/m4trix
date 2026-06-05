@@ -2,7 +2,7 @@
 title: "Channel API"
 ---
 
-Channels are named conduits for events. They route events between agents and connect to external systems via sinks.
+Channels are named conduits for events. They route events between agents and connect to external systems via proxies.
 
 ## Creating Channels
 
@@ -34,26 +34,28 @@ const client = createChannel('client')
   .events([responseEvent, errorEvent]);
 ```
 
-### `.sink(sinkFactory)`
+### `.proxy(...proxies)`
 
-Attach a sink. Can be called multiple times for multiple sinks.
+Attach one or more proxy declarations. A channel can declare multiple proxies.
 
 ```ts
-const client = createChannel('client').sink(sink.httpStream());
+const client = createChannel('client').proxy(proxy.sse());
 const output = createChannel('output')
-  .sink(sink.httpStream())
-  .sink(sink.kafka({ topic: 'output-events' }));
+  .proxy(proxy.sse())
+  .proxy(proxy.kafka({ topic: 'output-events' }));
 ```
 
-## Sink Factories
+## Proxy Factories
 
-| Sink | Description |
+| Proxy | Description |
 |------|-------------|
-| `sink.httpStream()` | Streams events as SSE to HTTP clients |
-| `sink.kafka({ topic })` | Publishes events to a Kafka topic |
+| `proxy.sse()` | Streams events as SSE to HTTP clients |
+| `proxy.kafka({ topic })` | Declares Kafka egress metadata |
+| `proxy.socketIo({ namespace })` | Declares a future bidirectional Socket.IO proxy |
+| `proxy.custom(kind, config, direction)` | Declares a user-defined proxy kind |
 
 ## See Also
 
 - [Channels (Concepts)](../concepts/channels.md)
-- [Streaming, Sinks & Adapters](../concepts/streaming-sinks-adapters.md)
+- [Streaming, Proxies & Adapters](../concepts/streaming-sinks-adapters.md)
 - [AgentNetwork](agent-network.md)

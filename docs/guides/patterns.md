@@ -31,7 +31,7 @@ Events flow through a series of agents. Each agent transforms and forwards to th
 ```ts
 const main = mainChannel('main');
 const processing = createChannel('processing');
-const client = createChannel('client').sink(sink.httpStream());
+const client = createChannel('client').proxy(proxy.sse());
 
 registerAgent(plannerAgent).subscribe(main).publishTo(processing);
 registerAgent(executorAgent).subscribe(processing).publishTo(client);

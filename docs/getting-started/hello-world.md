@@ -42,19 +42,20 @@ const myAgent = AgentFactory.run()
 
 // 3. Wire the network
 const network = AgentNetwork.setup(
-  ({ mainChannel, createChannel, sink, registerAgent }) => {
+  ({ mainChannel, createChannel, proxy, registerAgent }) => {
     const main = mainChannel('main');
-    const client = createChannel('client').sink(sink.httpStream());
+    const client = createChannel('client').proxy(proxy.sse());
     registerAgent(myAgent).subscribe(main).publishTo(client);
   },
 );
 
 // 4. Expose as an API
-const api = network.expose({
-  protocol: 'sse',
-  select: { channels: 'client' },
-  startEventName: 'user-request',
-});
+const api = network.expose(
+  registerSSEStream({
+    channel: 'client',
+    triggerEvents: [requestEvent],
+  }),
+);
 
 export const GET = NextEndpoint.from(api).handler();
 export const POST = NextEndpoint.from(api).handler();

@@ -4,7 +4,7 @@ title: "Streaming: SSE/WebSocket, Backpressure, Chunking"
 
 ## SSE (Server-Sent Events)
 
-m4trix uses **SSE** for streaming agent responses to HTTP clients. When agents emit events to a channel with `sink.httpStream()`, those events are streamed as SSE.
+m4trix uses **SSE** for streaming agent responses to HTTP clients. When agents emit events to a channel with `proxy.sse()`, those events are streamed as SSE.
 
 ### How It Works
 
@@ -50,7 +50,7 @@ m4trix focuses on **SSE** (request → stream response). For bidirectional WebSo
 
 ## Backpressure
 
-The HTTP stream sink respects backpressure: if the client is slow to consume, the underlying stream will backpressure. For LLM streams, emitting chunk-by-chunk naturally paces the flow.
+The SSE proxy respects backpressure: if the client is slow to consume, the underlying stream will backpressure. For LLM streams, emitting chunk-by-chunk naturally paces the flow.
 
 ## Chunking
 
@@ -66,4 +66,4 @@ for await (const chunk of stream) {
 emit({ name: 'response', payload: { text: '', isFinal: true } });
 ```
 
-For lower-level stream processing (rechunking, batching), use the `Pump` from `@m4trix/stream` — see [Streaming, Sinks & Adapters](../concepts/streaming-sinks-adapters.md).
+For lower-level stream processing (rechunking, batching), use the `Pump` from `@m4trix/stream` — see [Streaming, Proxies & Adapters](../concepts/streaming-sinks-adapters.md).

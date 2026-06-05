@@ -2,12 +2,12 @@
 title: "Channels (Routing)"
 ---
 
-Channels are named conduits for events. They route events between agents and connect to external systems via **sinks**.
+Channels are named conduits for events. They route events between agents and connect to external systems via **proxies**.
 
 ## Creating Channels
 
 ```ts
-const network = AgentNetwork.setup(({ mainChannel, createChannel, sink }) => {
+const network = AgentNetwork.setup(({ mainChannel, createChannel, proxy }) => {
   // The main channel — where start events are published
   const main = mainChannel('main');
 
@@ -28,34 +28,34 @@ const client = createChannel('client')
   .events([responseEvent, errorEvent]);
 ```
 
-## Sinks
+## Proxies
 
-Sinks determine how events leave a channel. They are the bridge between the internal event plane and external systems.
+Proxies declare how events can cross the boundary between the internal event plane and external systems.
 
-### HTTP Stream Sink
+### SSE Proxy
 
 Routes events to HTTP SSE streams. Required for `expose()` to work.
 
 ```ts
-const client = createChannel('client').sink(sink.httpStream());
+const client = createChannel('client').proxy(proxy.sse());
 ```
 
-### Kafka Sink
+### Kafka Proxy
 
-Routes events to a Kafka topic.
+Declares that events can be routed to a Kafka topic. Runtime Kafka activation is implemented separately.
 
 ```ts
-const events = createChannel('events').sink(sink.kafka({ topic: 'agent-events' }));
+const events = createChannel('events').proxy(proxy.kafka({ topic: 'agent-events' }));
 ```
 
-### Multiple Sinks
+### Multiple Proxies
 
-A single channel can have multiple sinks:
+A single channel can have multiple proxies:
 
 ```ts
 const output = createChannel('output')
-  .sink(sink.httpStream())
-  .sink(sink.kafka({ topic: 'output-events' }));
+  .proxy(proxy.sse())
+  .proxy(proxy.kafka({ topic: 'output-events' }));
 ```
 
 ## Event Flow
@@ -65,7 +65,7 @@ const output = createChannel('output')
 3. Agent logic runs and **emits new events**
 4. Emitted events are published to the agent's **publishTo channels**
 5. Other agents on those channels pick up the events, continuing the chain
-6. Events on channels with an **HTTP stream sink** are streamed to the client
+6. Events on channels with an **SSE proxy** are streamed to the client
 
 ```text
 Start Event → Main Channel → Agent A → Processing Channel → Agent B → Client Channel → SSE

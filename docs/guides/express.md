@@ -39,18 +39,19 @@ const agent = AgentFactory.run()
   .produce({});
 
 const network = AgentNetwork.setup(
-  ({ mainChannel, createChannel, sink, registerAgent }) => {
+  ({ mainChannel, createChannel, proxy, registerAgent }) => {
     const main = mainChannel('main');
-    const client = createChannel('client').sink(sink.httpStream());
+    const client = createChannel('client').proxy(proxy.sse());
     registerAgent(agent).subscribe(main).publishTo(client);
   },
 );
 
-const api = network.expose({
-  protocol: 'sse',
-  select: { channels: 'client' },
-  startEventName: 'chat-request',
-});
+const api = network.expose(
+  registerSSEStream({
+    channel: 'client',
+    triggerEvents: [chatRequest],
+  }),
+);
 
 const app = express();
 app.use(express.json());

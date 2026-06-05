@@ -1,6 +1,11 @@
 import { describe, expect, test } from 'vitest';
 import { Schema as S } from 'effect';
-import { Channel, ChannelName, ConfiguredChannel, Sink } from './agent-network/channel.js';
+import {
+  Channel,
+  ChannelName,
+  ConfiguredChannel,
+  Proxy as ChannelProxy,
+} from './agent-network/channel.js';
 import { AgentNetworkEvent } from './agent-network/agent-network-event.js';
 
 describe('Channel', () => {
@@ -45,64 +50,80 @@ describe('Channel', () => {
       expect(ch.getEvents()[0]?.name).toBe('some-event');
     });
 
-    test('.sink() attaches a sink definition', () => {
-      const ch = new ConfiguredChannel(ChannelName('main')).sink(Sink.kafka({ topic: 'my-topic' }));
+    test('.proxy() attaches a proxy definition', () => {
+      const ch = new ConfiguredChannel(ChannelName('main')).proxy(
+        ChannelProxy.kafka({ topic: 'my-topic' }),
+      );
 
-      expect(ch.getSinks()).toEqual([
+      expect(ch.getProxies()).toEqual([
         {
-          _tag: 'SinkDef',
-          type: 'kafka',
+          _tag: 'ProxyDef',
+          kind: 'kafka',
           config: { topic: 'my-topic' },
+          direction: 'outbound',
         },
       ]);
     });
 
-    test('.sinks() sets multiple sinks', () => {
-      const ch = new ConfiguredChannel(ChannelName('main')).sinks([
-        Sink.httpStream(),
-        Sink.kafka({ topic: 'events' }),
-      ]);
+    test('.proxy() sets multiple proxies', () => {
+      const ch = new ConfiguredChannel(ChannelName('main')).proxy(
+        ChannelProxy.sse(),
+        ChannelProxy.kafka({ topic: 'events' }),
+      );
 
-      expect(ch.getSinks()).toHaveLength(2);
-      expect(ch.getSinks()[0]?.type).toBe('http-stream');
-      expect(ch.getSinks()[1]?.type).toBe('kafka');
+      expect(ch.getProxies()).toHaveLength(2);
+      expect(ch.getProxies()[0]?.kind).toBe('sse');
+      expect(ch.getProxies()[1]?.kind).toBe('kafka');
     });
 
     test('builder methods are chainable', () => {
       const evt = AgentNetworkEvent.of('evt', S.String);
 
-      const ch = new ConfiguredChannel(ChannelName('main')).events([evt]).sink(Sink.httpStream());
+      const ch = new ConfiguredChannel(ChannelName('main')).events([evt]).proxy(ChannelProxy.sse());
 
       expect(ch.getEvents()).toHaveLength(1);
-      expect(ch.getSinks()[0]?.type).toBe('http-stream');
+      expect(ch.getProxies()[0]?.kind).toBe('sse');
     });
 
-    test('defaults to no events and no sinks', () => {
+    test('defaults to no events and no proxies', () => {
       const ch = new ConfiguredChannel(ChannelName('empty'));
 
       expect(ch.getEvents()).toHaveLength(0);
-      expect(ch.getSinks()).toHaveLength(0);
+      expect(ch.getProxies()).toHaveLength(0);
     });
   });
 
-  describe('Sink', () => {
-    test('Sink.kafka creates a kafka sink definition', () => {
-      const s = Sink.kafka({ topic: 'orders' });
+  describe('Proxy', () => {
+    test('Proxy.kafka creates a kafka proxy definition', () => {
+      const s = ChannelProxy.kafka({ topic: 'orders' });
 
       expect(s).toEqual({
-        _tag: 'SinkDef',
-        type: 'kafka',
+        _tag: 'ProxyDef',
+        kind: 'kafka',
         config: { topic: 'orders' },
+        direction: 'outbound',
       });
     });
 
-    test('Sink.httpStream creates an http-stream sink definition', () => {
-      const s = Sink.httpStream();
+    test('Proxy.sse creates an sse proxy definition', () => {
+      const s = ChannelProxy.sse();
 
       expect(s).toEqual({
-        _tag: 'SinkDef',
-        type: 'http-stream',
+        _tag: 'ProxyDef',
+        kind: 'sse',
         config: {},
+        direction: 'outbound',
+      });
+    });
+
+    test('Proxy.socketIo creates a bidirectional proxy definition', () => {
+      const s = ChannelProxy.socketIo({ namespace: '/agent' });
+
+      expect(s).toEqual({
+        _tag: 'ProxyDef',
+        kind: 'socket-io',
+        config: { namespace: '/agent' },
+        direction: 'bidirectional',
       });
     });
   });

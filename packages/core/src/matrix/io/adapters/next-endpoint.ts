@@ -1,6 +1,6 @@
-import type { ExposedAPI } from '../types.js';
 import { ExposeAuthError } from '../expose.js';
 import { formatSSE } from '../protocols/sse.js';
+import type { ExposedAPI } from '../types.js';
 
 /** Next.js App Router GET/POST handler signature */
 export type NextGetHandler = (request: Request) => Promise<Response>;
@@ -17,7 +17,7 @@ export type NextEndpointOptions = {
  * is recommended for passing the start event payload.
  *
  * @example
- * const api = agentNetwork.expose({ protocol: "sse", auth, select });
+ * const api = agentNetwork.expose(registerSSEStream({ channel: 'client', auth }));
  * const handler = NextEndpoint.from(api, {
  *   requestToContextId: (req) => req.headers.get('x-correlation-id') ?? crypto.randomUUID(),
  *   requestToRunId: () => crypto.randomUUID(),

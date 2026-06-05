@@ -4,6 +4,7 @@ import { Schema as S } from 'effect';
 import { AgentNetwork } from '../../agent-network/agent-network.js';
 import { AgentNetworkEvent } from '../../agent-network/agent-network-event.js';
 import { AgentFactory } from '../../agent-factory.js';
+import { registerSSEStream } from '../proxy-consumer.js';
 import { NextEndpoint } from './next-endpoint.js';
 
 /** Consume a ReadableStream<Uint8Array> collecting at most `maxEvents` SSE data payloads */
@@ -41,9 +42,9 @@ function setupEchoNetwork() {
   const requestEvent = AgentNetworkEvent.of('echo-request', S.Struct({ message: S.String }));
   const responseEvent = AgentNetworkEvent.of('echo-response', S.Struct({ reply: S.String }));
 
-  const network = AgentNetwork.setup(({ mainChannel, createChannel, sink, registerAgent }) => {
+  const network = AgentNetwork.setup(({ mainChannel, createChannel, proxy, registerAgent }) => {
     const main = mainChannel;
-    const client = createChannel('client').sink(sink.httpStream());
+    const client = createChannel('client').proxy(proxy.sse());
     registerAgent(
       AgentFactory.run()
         .listensTo([requestEvent])
@@ -77,18 +78,19 @@ describe('NextEndpoint integration', () => {
       const plane = yield* network.run();
       yield* Effect.sleep('10 millis');
 
-      const api = network.expose({
-        protocol: 'sse',
-        plane,
-        select: { channels: 'client' },
-        triggerEvents: [requestEvent],
-        onRequest: ({ emitStartEvent, req, payload }) =>
-          emitStartEvent({
-            contextId: req.contextId ?? crypto.randomUUID(),
-            runId: req.runId ?? crypto.randomUUID(),
-            event: requestEvent.make(payload as { message: string }),
-          }),
-      });
+      const api = network.expose(
+        registerSSEStream({
+          plane,
+          channel: 'client',
+          triggerEvents: [requestEvent],
+          onRequest: ({ emitStartEvent, req, payload }) =>
+            emitStartEvent({
+              contextId: req.contextId ?? crypto.randomUUID(),
+              runId: req.runId ?? crypto.randomUUID(),
+              event: requestEvent.make(payload as { message: string }),
+            }),
+        }),
+      );
 
       const handler = NextEndpoint.from(api, defaultIdOptions).handler();
       const request = new Request('http://test/api', {
@@ -124,23 +126,24 @@ describe('NextEndpoint integration', () => {
       const plane = yield* network.run();
       yield* Effect.sleep('10 millis');
 
-      const api = network.expose({
-        protocol: 'sse',
-        plane,
-        select: { channels: 'client' },
-        triggerEvents: [requestEvent],
-        onRequest: ({ emitStartEvent, req }) => {
-          const url = req.request?.url;
-          if (url) {
-            const msg = new URL(url).searchParams.get('message') ?? '';
-            emitStartEvent({
-              contextId: req.contextId ?? crypto.randomUUID(),
-              runId: req.runId ?? crypto.randomUUID(),
-              event: requestEvent.make({ message: msg }),
-            });
-          }
-        },
-      });
+      const api = network.expose(
+        registerSSEStream({
+          plane,
+          channel: 'client',
+          triggerEvents: [requestEvent],
+          onRequest: ({ emitStartEvent, req }) => {
+            const url = req.request?.url;
+            if (url) {
+              const msg = new URL(url).searchParams.get('message') ?? '';
+              emitStartEvent({
+                contextId: req.contextId ?? crypto.randomUUID(),
+                runId: req.runId ?? crypto.randomUUID(),
+                event: requestEvent.make({ message: msg }),
+              });
+            }
+          },
+        }),
+      );
 
       const handler = NextEndpoint.from(api, defaultIdOptions).handler();
       const request = new Request('http://test/api?message=from-get', {
@@ -164,15 +167,16 @@ describe('NextEndpoint integration', () => {
   });
 
   test('auth rejection returns error Response with correct status', async () => {
-    const network = AgentNetwork.setup(({ createChannel, sink }) => {
-      createChannel('client').sink(sink.httpStream());
+    const network = AgentNetwork.setup(({ createChannel, proxy }) => {
+      createChannel('client').proxy(proxy.sse());
     });
 
-    const api = network.expose({
-      protocol: 'sse',
-      select: { channels: 'client' },
-      auth: () => ({ allowed: false, status: 401, message: 'Unauthorized' }),
-    });
+    const api = network.expose(
+      registerSSEStream({
+        channel: 'client',
+        auth: () => ({ allowed: false, status: 401, message: 'Unauthorized' }),
+      }),
+    );
 
     const handler = NextEndpoint.from(api, defaultIdOptions).handler();
     const request = new Request('http://test/api', { method: 'POST' });
@@ -184,15 +188,16 @@ describe('NextEndpoint integration', () => {
   });
 
   test('auth with 403 Forbidden', async () => {
-    const network = AgentNetwork.setup(({ createChannel, sink }) => {
-      createChannel('client').sink(sink.httpStream());
+    const network = AgentNetwork.setup(({ createChannel, proxy }) => {
+      createChannel('client').proxy(proxy.sse());
     });
 
-    const api = network.expose({
-      protocol: 'sse',
-      select: { channels: 'client' },
-      auth: () => ({ allowed: false, status: 403, message: 'Forbidden' }),
-    });
+    const api = network.expose(
+      registerSSEStream({
+        channel: 'client',
+        auth: () => ({ allowed: false, status: 403, message: 'Forbidden' }),
+      }),
+    );
 
     const handler = NextEndpoint.from(api, defaultIdOptions).handler();
     const request = new Request('http://test/api', { method: 'POST' });
@@ -210,18 +215,19 @@ describe('NextEndpoint integration', () => {
       const plane = yield* network.run();
       yield* Effect.sleep('10 millis');
 
-      const api = network.expose({
-        protocol: 'sse',
-        plane,
-        select: { channels: 'client' },
-        triggerEvents: [requestEvent],
-        onRequest: ({ emitStartEvent, req, payload }) =>
-          emitStartEvent({
-            contextId: req.contextId ?? crypto.randomUUID(),
-            runId: req.runId ?? crypto.randomUUID(),
-            event: requestEvent.make(payload as { message: string }),
-          }),
-      });
+      const api = network.expose(
+        registerSSEStream({
+          plane,
+          channel: 'client',
+          triggerEvents: [requestEvent],
+          onRequest: ({ emitStartEvent, req, payload }) =>
+            emitStartEvent({
+              contextId: req.contextId ?? crypto.randomUUID(),
+              runId: req.runId ?? crypto.randomUUID(),
+              event: requestEvent.make(payload as { message: string }),
+            }),
+        }),
+      );
 
       const handler = NextEndpoint.from(api, defaultIdOptions).handler();
       const request = new Request('http://test/api', {
@@ -250,9 +256,9 @@ describe('NextEndpoint integration', () => {
     const requestEvent = AgentNetworkEvent.of('task', S.Struct({ task: S.String }));
     const resultEvent = AgentNetworkEvent.of('task-done', S.Struct({ result: S.String }));
 
-    const network = AgentNetwork.setup(({ mainChannel, createChannel, sink, registerAgent }) => {
+    const network = AgentNetwork.setup(({ mainChannel, createChannel, proxy, registerAgent }) => {
       const main = mainChannel;
-      const client = createChannel('client').sink(sink.httpStream());
+      const client = createChannel('client').proxy(proxy.sse());
       registerAgent(
         AgentFactory.run()
           .listensTo([requestEvent])
@@ -274,20 +280,21 @@ describe('NextEndpoint integration', () => {
       const plane = yield* network.run();
       yield* Effect.sleep('10 millis');
 
-      const api = network.expose({
-        protocol: 'sse',
-        plane,
-        select: { channels: 'client' },
-        triggerEvents: [requestEvent],
-        onRequest: ({ emitStartEvent, req, payload }) => {
-          const body = payload as { raw?: string };
-          emitStartEvent({
-            contextId: req.contextId ?? crypto.randomUUID(),
-            runId: req.runId ?? crypto.randomUUID(),
-            event: requestEvent.make({ task: body.raw ?? 'default' }),
-          });
-        },
-      });
+      const api = network.expose(
+        registerSSEStream({
+          plane,
+          channel: 'client',
+          triggerEvents: [requestEvent],
+          onRequest: ({ emitStartEvent, req, payload }) => {
+            const body = payload as { raw?: string };
+            emitStartEvent({
+              contextId: req.contextId ?? crypto.randomUUID(),
+              runId: req.runId ?? crypto.randomUUID(),
+              event: requestEvent.make({ task: body.raw ?? 'default' }),
+            });
+          },
+        }),
+      );
 
       const handler = NextEndpoint.from(api, defaultIdOptions).handler();
       const request = new Request('http://test/api', {
@@ -319,9 +326,9 @@ describe('NextEndpoint integration', () => {
       }),
     );
 
-    const network = AgentNetwork.setup(({ mainChannel, createChannel, sink, registerAgent }) => {
+    const network = AgentNetwork.setup(({ mainChannel, createChannel, proxy, registerAgent }) => {
       const main = mainChannel;
-      const client = createChannel('client').sink(sink.httpStream());
+      const client = createChannel('client').proxy(proxy.sse());
       registerAgent(
         AgentFactory.run()
           .listensTo([requestEvent])
@@ -347,17 +354,18 @@ describe('NextEndpoint integration', () => {
       const plane = yield* network.run();
       yield* Effect.sleep('10 millis');
 
-      const api = network.expose({
-        protocol: 'sse',
-        plane,
-        select: { channels: 'client' },
-        onRequest: ({ emitStartEvent, req, payload }) =>
-          emitStartEvent({
-            contextId: req.contextId!,
-            runId: req.runId!,
-            event: requestEvent.make(payload as { x: number }),
-          }),
-      });
+      const api = network.expose(
+        registerSSEStream({
+          plane,
+          channel: 'client',
+          onRequest: ({ emitStartEvent, req, payload }) =>
+            emitStartEvent({
+              contextId: req.contextId!,
+              runId: req.runId!,
+              event: requestEvent.make(payload as { x: number }),
+            }),
+        }),
+      );
 
       const handler = NextEndpoint.from(api, {
         requestToContextId: (r) => r.headers.get('x-correlation-id') ?? 'fallback-context',

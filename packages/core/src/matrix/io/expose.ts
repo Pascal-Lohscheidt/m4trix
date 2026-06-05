@@ -1,18 +1,19 @@
 import { Effect, Queue, type Schema as S } from 'effect';
 import type { AgentNetwork } from '../agent-network/agent-network.js';
 import type { ConfiguredChannel } from '../agent-network/channel.js';
-import { ChannelName, isHttpStreamSink } from '../agent-network/channel.js';
 import type { Envelope } from '../agent-network/event-plane.js';
 import { createEventPlane, run } from '../agent-network/event-plane.js';
 import { assertLayersProvided, type DepedencyLayerDef } from '../dependency-layer.js';
 import { noopNetworkTracer } from '../tracing/network-tracer.js';
-import type {
-  ExposedAPI,
-  ExposedStream,
-  ExposeOptions,
-  ExposeRequest,
-  StreamFactory,
-} from './types.js';
+import {
+  createInboundPublisher,
+  createProxyExposeContext,
+  type InteractiveProxyHandle,
+  type ProxyConsumer,
+  resolveChannelsForProxyKind,
+  type SseProxyConsumerOptions,
+} from './proxy-consumer.js';
+import type { ExposedStream, ExposeRequest, StreamFactory } from './types.js';
 
 /** Extract JSON payload from ExposeRequest. POST with JSON body, or Express req.body, else {}. */
 async function extractPayload(req: ExposeRequest): Promise<unknown> {
@@ -32,26 +33,6 @@ async function extractPayload(req: ExposeRequest): Promise<unknown> {
     return expressReq.body;
   }
   return {};
-}
-
-/** Resolve which channel(s) to subscribe to from select options */
-function resolveChannels(network: AgentNetwork, select?: ExposeOptions['select']): ChannelName[] {
-  const channels = network.getChannels();
-  if (select?.channels) {
-    const ch = select.channels;
-    const arr = Array.isArray(ch) ? ch : [ch];
-    return arr.map((c) => ChannelName(c as string));
-  }
-  // Prefer channels with http-stream sink (explicitly marked for frontend)
-  const httpStreamChannels = [...channels.values()]
-    .filter((ch) => ch.getSinks().some(isHttpStreamSink))
-    .map((ch) => ch.name);
-  if (httpStreamChannels.length > 0) return httpStreamChannels;
-  // Fallback: prefer "client", else first channel
-  const client = channels.get('client' as ChannelName);
-  if (client) return [client.name];
-  const first = channels.values().next().value;
-  return first ? [first.name] : [];
 }
 
 /** Create async iterable from Queue.Dequeue, respecting AbortSignal */
@@ -91,21 +72,15 @@ function streamFromDequeue(
   };
 }
 
-/**
- * Expose the agent network as a streamable API. Returns an ExposedAPI that
- * adapters (NextEndpoint, ExpressEndpoint) consume to produce SSE responses.
- *
- * @example
- * const api = agentNetwork.expose({ protocol: "sse", auth, select });
- * export const GET = NextEndpoint.from(api, { requestToContextId, requestToRunId }).handler();
- */
-export function expose<TDeps extends DepedencyLayerDef<string, unknown, S.Schema.Any>>(
+export function createInteractiveStream<
+  TDeps extends DepedencyLayerDef<string, unknown, S.Schema.Any>,
+>(
   network: AgentNetwork<TDeps>,
-  options: ExposeOptions<TDeps>,
-): ExposedAPI {
+  channels: readonly ConfiguredChannel['name'][],
+  options: SseProxyConsumerOptions<TDeps>,
+): InteractiveProxyHandle {
   const {
     auth,
-    select,
     plane: providedPlane,
     onRequest,
     triggerEvents,
@@ -119,8 +94,7 @@ export function expose<TDeps extends DepedencyLayerDef<string, unknown, S.Schema
   );
   const triggerEventDef = triggerEvents?.[0];
   const triggerEventName = triggerEventDef?.name ?? 'request';
-  const channels = resolveChannels(network, select);
-  const eventFilter = select?.events;
+  const eventFilter = options.events;
   const mainChannel = network.getMainChannel();
 
   if (channels.length === 0) {
@@ -264,7 +238,7 @@ export function expose<TDeps extends DepedencyLayerDef<string, unknown, S.Schema
     return Effect.runPromise(runnable);
   }) as StreamFactory;
 
-  return {
+  const api = {
     protocol: 'sse',
     createStream: (async (
       req: ExposeRequest,
@@ -278,7 +252,43 @@ export function expose<TDeps extends DepedencyLayerDef<string, unknown, S.Schema
       }
       return consumer ? createStream(req, consumer) : createStream(req);
     }) as StreamFactory,
-  };
+    ...createInboundPublisher({ plane: providedPlane, network, channels: [...channels] }),
+    ...(providedPlane ? { plane: providedPlane } : {}),
+  } satisfies InteractiveProxyHandle;
+
+  return api;
+}
+
+/**
+ * Expose the agent network as a streamable API. Returns an InteractiveProxyHandle that
+ * adapters (NextEndpoint, ExpressEndpoint) consume to produce streamed responses.
+ *
+ * @example
+ * const api = network.expose(registerSSEStream({ channel: "client", auth }));
+ * export const GET = NextEndpoint.from(api, { requestToContextId, requestToRunId }).handler();
+ */
+export function expose<TDeps extends DepedencyLayerDef<string, unknown, S.Schema.Any>>(
+  network: AgentNetwork<TDeps>,
+  consumer: ProxyConsumer<TDeps>,
+): InteractiveProxyHandle {
+  if (consumer._tag === 'BuiltinProxyConsumer' && consumer.kind === 'sse') {
+    const channels = resolveChannelsForProxyKind(network, 'sse', consumer.options.channel);
+    return createInteractiveStream(network, channels, consumer.options);
+  }
+
+  if (consumer._tag === 'CustomProxyConsumer') {
+    const channels = resolveChannelsForProxyKind(network, consumer.kind, consumer.options.channel);
+    return consumer.expose(
+      createProxyExposeContext({
+        network,
+        channels,
+        options: consumer.options,
+        createInteractiveStream: (opts) => createInteractiveStream(network, channels, opts),
+      }),
+    );
+  }
+
+  throw new Error('expose: unsupported proxy consumer');
 }
 
 /** Thrown when auth denies the request */

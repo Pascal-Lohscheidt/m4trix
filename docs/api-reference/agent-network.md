@@ -8,7 +8,7 @@ The `AgentNetwork` orchestrates agents, channels, and the event plane. Use `Agen
 
 ```ts
 const network = AgentNetwork.setup(
-  ({ mainChannel, createChannel, sink, registerAgent, spawner }) => {
+  ({ mainChannel, createChannel, proxy, registerAgent, spawner }) => {
     // ...
   },
 );
@@ -33,13 +33,13 @@ const client = createChannel('client');
 const analytics = createChannel('analytics');
 ```
 
-### `sink`
+### `proxy`
 
-Provides sink factories:
+Provides proxy factories:
 
 ```ts
-const client = createChannel('client').sink(sink.httpStream());
-const events = createChannel('events').sink(sink.kafka({ topic: 'events' }));
+const client = createChannel('client').proxy(proxy.sse());
+const events = createChannel('events').proxy(proxy.kafka({ topic: 'events' }));
 ```
 
 ### `registerAgent(agent)`
@@ -83,11 +83,12 @@ spawner(AgentFactory)
 ### HTTP API (recommended)
 
 ```ts
-const api = network.expose({
-  protocol: 'sse',
-  select: { channels: 'client' },
-  startEventName: 'user-request',
-});
+const api = network.expose(
+  registerSSEStream({
+    channel: 'client',
+    triggerEvents: [requestEvent],
+  }),
+);
 ```
 
 See [IO + Adapters](io-adapters.md).

@@ -8,7 +8,7 @@ type Params = {
 
 // TODO: implement the agent swarm
 export const createAgentSwarm = ({ networkContext }: Params): ConfiguredChannel => {
-  const { createChannel, sink, registerAgent, spawner } = networkContext;
+  const { createChannel } = networkContext;
 
   const internalComs = createChannel('swarm-internal-com');
 
