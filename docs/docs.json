@@ -241,21 +241,16 @@
     "indexing": "all"
   },
   "contextual": {
-    "options": [
-      "cursor",
-      "add-mcp",
-      "copy",
-      "mcp"
-    ],
+    "options": ["cursor", "add-mcp", "copy", "mcp"],
     "display": "header"
   },
   "logo": {
-    "light": "/images/m4trix_logo_letter_dark.png",
-    "dark": "/images/m4trix_logo_letter_light.png",
+    "light": "/images/m4trix_logo_letter_light.png",
+    "dark": "/images/m4trix_logo_letter_dark.png",
     "href": "https://m4trix.dev"
   },
   "favicon": {
-    "light": "/images/m4trix_logo_letter_dark.png",
-    "dark": "/images/m4trix_logo_letter_light.png"
+    "light": "/images/m4trix_logo_tr.png",
+    "dark": "/images/m4trix_logo_tr.png"
   }
 }
