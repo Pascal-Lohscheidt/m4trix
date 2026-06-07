@@ -250,12 +250,12 @@
     "display": "header"
   },
   "logo": {
-    "light": "/docs/images/m4trix_logo_letter_dark.png",
-    "dark": "/docs/images/m4trix_logo_letter_light.png",
+    "light": "/images/m4trix_logo_letter_dark.png",
+    "dark": "/images/m4trix_logo_letter_light.png",
     "href": "https://m4trix.dev"
   },
   "favicon": {
-    "light": "/docs/images/m4trix_logo_letter_dark.png",
-    "dark": "/docs/images/m4trix_logo_letter_light.png"
+    "light": "/images/m4trix_logo_letter_dark.png",
+    "dark": "/images/m4trix_logo_letter_light.png"
   }
 }
