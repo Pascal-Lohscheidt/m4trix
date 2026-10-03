@@ -1,6 +1,9 @@
+import { type CoverageReport, formatCoveragePercent } from '../lib/payload-mapper/coverage';
 import type { ProfileAggregates } from '../lib/trace-profiles/types';
 import { cx, getTraceEnv, statusTextClass } from '../lib/viewer';
+import { useMapperDialog } from '../state/mapper-dialog-context';
 import { useViewerSettings } from '../state/viewer-settings-context';
+import { CoverageBar, coverageCounts, coverageTone } from './mapper/CoverageSummary';
 import type { TraceRow } from '../types';
 
 type TraceHeaderProps = {
@@ -11,6 +14,8 @@ type TraceHeaderProps = {
   onLoadTracePayloads: () => void;
   /** When false (e.g. Raw profile), trace-wide payload CTA / aggregate strip is hidden. */
   showTracePayloadControls: boolean;
+  /** Custom profile coverage over this trace's loaded payloads. */
+  customCoverage?: { profileId: string; report: CoverageReport } | null;
 };
 
 export function TraceHeader({
@@ -20,8 +25,10 @@ export function TraceHeader({
   tracePayloadBatchLoading,
   onLoadTracePayloads,
   showTracePayloadControls,
+  customCoverage,
 }: TraceHeaderProps): React.ReactNode {
   const { profileTabs, settings, setActiveProfileId, autoLoad } = useViewerSettings();
+  const mapper = useMapperDialog();
   const activeProfileId = settings.activeTraceProfileId;
   const env = getTraceEnv(trace);
   const showAggregateRow =
@@ -58,6 +65,7 @@ export function TraceHeader({
                 <button
                   key={tab.id}
                   type="button"
+                  title={tab.kind === 'custom' ? 'Custom mapped profile' : undefined}
                   onClick={() => setActiveProfileId(tab.id)}
                   className={cx(
                     'rounded-md px-2.5 py-1 text-xs font-medium transition-colors',
@@ -66,11 +74,55 @@ export function TraceHeader({
                       : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200',
                   )}
                 >
+                  {tab.kind === 'custom' && (
+                    <span aria-hidden="true" className="mr-1 text-violet-300">
+                      ✦
+                    </span>
+                  )}
                   {tab.label}
                 </button>
               );
             })}
           </fieldset>
+          {mapper && (
+            <div className="flex items-center gap-1.5">
+              {customCoverage && customCoverage.report.total > 0 && (
+                <span
+                  className="flex items-center gap-1.5 rounded-md border border-zinc-800 bg-zinc-900 px-2 py-0.5 text-[11px] text-zinc-400"
+                  title={[
+                    `Coverage on ${customCoverage.report.total} loaded payloads: ${coverageCounts(customCoverage.report)}`,
+                    ...customCoverage.report.groups
+                      .filter((g) => g.mapped < g.total)
+                      .slice(0, 8)
+                      .map((g) => `• ${g.key}: ${coverageCounts(g)}`),
+                  ].join('\n')}
+                >
+                  <span className={cx('font-mono', coverageTone(customCoverage.report.score))}>
+                    {formatCoveragePercent(customCoverage.report.score)}
+                  </span>
+                  <CoverageBar report={customCoverage.report} className="w-12" />
+                </span>
+              )}
+              {customCoverage && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    mapper.openMapper({ mode: 'improve', profileId: customCoverage.profileId })
+                  }
+                  className="rounded-md border border-violet-500/40 bg-violet-500/10 px-2 py-0.5 text-[11px] text-violet-200 hover:bg-violet-500/20"
+                >
+                  ✦ Improve
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => mapper.openMapper({ mode: 'create' })}
+                className="rounded-md border border-zinc-700 bg-zinc-900 px-2 py-0.5 text-[11px] text-zinc-300 hover:border-violet-500/40 hover:text-violet-200"
+              >
+                ✦ New AI profile
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

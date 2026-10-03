@@ -1,4 +1,10 @@
-export type { ExtractedUsage, MetadataUsage, RunSubtreeRollup, TokenRollup } from './types';
+export type {
+  DirectUsageFn,
+  ExtractedUsage,
+  MetadataUsage,
+  RunSubtreeRollup,
+  TokenRollup,
+} from './types';
 export { addUsageToRollup } from './rollup';
 export { extractUsageFromUnknown } from './extract-usage';
 export { extractMetadataUsage } from './extract-metadata';
@@ -23,3 +29,10 @@ export {
 export { resolveModelNameForRun } from './resolve-model';
 export { applyEstimatedCostForRun } from './estimate-cost';
 export { rollupTraceForLanggraph } from './trace-rollup';
+export { buildUsageAggregateCards } from './usage-cards';
+export {
+  emptySubtreeRollup,
+  finalizeTokenRollup,
+  readFiniteNumber,
+  syncRollupCostTotal,
+} from './utils';

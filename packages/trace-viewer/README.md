@@ -23,6 +23,35 @@ pnpm --filter @m4trix/trace-viewer exec m4trix-trace-viewer --adapter fs --path 
 
 Then open **http://127.0.0.1:4319** in a browser.
 
+## Trace profiles and the AI payload mapper
+
+Profiles control how the run detail panel renders payloads. **Raw** and **LangGraph** are built in;
+**custom profiles** (✦) are JSON mappings stored in the browser's localStorage. Each custom profile
+can be enabled, selected, edited, exported/imported, duplicated and restored from its version
+history (Settings → Custom profiles).
+
+A mapping is a list of rules (first match wins) that turn payloads into messages, tool calls, tool
+results, key/value lists, markdown, code and tables, plus optional metadata keys and `usage` rules
+that feed the trace-wide token/cost aggregates.
+
+**✦ New AI profile** samples input/output payloads from the current trace or the last N traces
+(grouped by run type, name and side), lets you review exactly what will be sent (with optional
+redaction), and asks a model to write the mapping. The result is validated, dry-run against the
+full payloads and repaired automatically before you preview it side by side and save it.
+**✦ Improve** re-samples (prioritising unmatched or broken payload groups, or a run you pick via
+"Improve with this run"), checks stored samples for regressions, and saves the result as a new
+version with a rule diff and before/after coverage.
+
+Bring your own key — requests go directly from the browser to the provider; the trace-viewer
+server never sees the key. Keys stay in memory unless "Remember keys on this device" is enabled.
+
+| Provider | Endpoint | Auth |
+| --- | --- | --- |
+| Claude API | `api.anthropic.com` (Messages API via `@anthropic-ai/sdk`) | Anthropic API key |
+| OpenAI | `api.openai.com/v1/responses` (JSON mode) | OpenAI API key |
+| Amazon Bedrock | `bedrock-runtime.<region>.amazonaws.com` (Converse API, any text model) | Bedrock API key or access keys (SigV4) |
+| Amazon Bedrock Mantle | `bedrock-mantle.<region>.api.aws` (Claude Messages API, `anthropic.*` model ids) | Bedrock API key or access keys (SigV4) |
+
 ## Programmatic usage
 
 ```ts

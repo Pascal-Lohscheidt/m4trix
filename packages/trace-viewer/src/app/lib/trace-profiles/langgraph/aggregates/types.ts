@@ -1,3 +1,5 @@
+import type { RunNode } from '../../../../types';
+
 export type TokenRollup = {
   promptTokens: number;
   completionTokens: number;
@@ -22,3 +24,9 @@ export type MetadataUsage = {
   tokens?: Partial<TokenRollup>;
   costUsd?: number;
 };
+
+/** Usage reported on a single run (not descendants). */
+export type DirectUsageFn = (
+  node: RunNode,
+  payloadCache: Record<string, unknown>,
+) => RunSubtreeRollup;

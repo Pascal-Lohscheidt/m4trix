@@ -4,6 +4,7 @@ import { renderRawInput, renderRawMetadata, renderRawOutput } from './render';
 
 export const rawProfile: TraceProfile = {
   id: 'raw',
+  kind: 'builtin',
   label: 'Raw',
   description: 'Unprocessed metadata and JSON payloads.',
   requiresFullPayloads: false,

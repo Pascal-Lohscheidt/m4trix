@@ -1,7 +1,7 @@
 import type { RunNode } from '../../../../types';
 import { directUsageForRun } from './direct-usage';
 import { addUsageToRollup } from './rollup';
-import type { RunSubtreeRollup } from './types';
+import type { DirectUsageFn, RunSubtreeRollup } from './types';
 import { finalizeTokenRollup, syncRollupCostTotal } from './utils';
 
 /**
@@ -11,11 +11,12 @@ import { finalizeTokenRollup, syncRollupCostTotal } from './utils';
 export function buildSubtreeRollupsByRunId(
   root: RunNode,
   payloadCache: Record<string, unknown>,
+  directUsage: DirectUsageFn = directUsageForRun,
 ): Map<string, RunSubtreeRollup> {
   const byRunId = new Map<string, RunSubtreeRollup>();
 
   const visit = (node: RunNode): RunSubtreeRollup => {
-    const subtree = directUsageForRun(node, payloadCache);
+    const subtree = directUsage(node, payloadCache);
 
     for (const child of node.children) {
       const childSubtree = visit(child);

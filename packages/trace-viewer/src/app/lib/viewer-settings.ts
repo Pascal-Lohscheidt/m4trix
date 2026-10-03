@@ -1,4 +1,4 @@
-import type { TraceProfileId } from './trace-profiles/types';
+import { isBuiltinTraceProfileId, type TraceProfileId } from './trace-profiles/types';
 
 export const VIEWER_SETTINGS_STORAGE_KEY = 'm4trix.traceViewer.settings.v1';
 
@@ -34,10 +34,28 @@ const defaultSettings: ViewerSettings = {
   activeTraceProfileId: 'raw',
 };
 
-const KNOWN_PROFILE_IDS = new Set<TraceProfileId>(['raw', 'langgraph']);
+/** Predicate for custom (`custom:<id>`) profile ids that should be kept. */
+export type CustomProfileIdFilter = (id: string) => boolean;
 
-export function normalizeViewerSettings(partial: Partial<ViewerSettings>): ViewerSettings {
-  const autoLoad = typeof partial.autoLoad === 'boolean' ? partial.autoLoad : defaultSettings.autoLoad;
+const NO_CUSTOM_PROFILES: CustomProfileIdFilter = () => false;
+
+/** Keeps every syntactically valid custom id (used for raw state before profiles resolve). */
+export const ANY_CUSTOM_PROFILE: CustomProfileIdFilter = (id) =>
+  id.startsWith('custom:') && id.length > 'custom:'.length;
+
+/**
+ * @param isKnownCustomProfileId Custom ids rejected by this predicate are dropped
+ *   (e.g. after the profile was deleted). Defaults to rejecting all custom ids.
+ */
+export function normalizeViewerSettings(
+  partial: Partial<ViewerSettings>,
+  isKnownCustomProfileId: CustomProfileIdFilter = NO_CUSTOM_PROFILES,
+): ViewerSettings {
+  const isKnown = (id: unknown): id is TraceProfileId =>
+    typeof id === 'string' && (isBuiltinTraceProfileId(id) || isKnownCustomProfileId(id));
+
+  const autoLoad =
+    typeof partial.autoLoad === 'boolean' ? partial.autoLoad : defaultSettings.autoLoad;
   const preset = partial.autoUpdatePreset;
   const autoUpdatePreset =
     preset === 'off' ||
@@ -51,17 +69,16 @@ export function normalizeViewerSettings(partial: Partial<ViewerSettings>): Viewe
       : defaultSettings.autoUpdatePreset;
 
   let enabledTraceProfileIds: TraceProfileId[] = Array.isArray(partial.enabledTraceProfileIds)
-    ? partial.enabledTraceProfileIds.filter((id): id is TraceProfileId => KNOWN_PROFILE_IDS.has(id))
+    ? partial.enabledTraceProfileIds.filter(isKnown)
     : [...defaultSettings.enabledTraceProfileIds];
   if (!enabledTraceProfileIds.includes('raw')) {
     enabledTraceProfileIds = ['raw', ...enabledTraceProfileIds.filter((id) => id !== 'raw')];
   }
   enabledTraceProfileIds = [...new Set(enabledTraceProfileIds)];
 
-  let activeTraceProfileId: TraceProfileId =
-    partial.activeTraceProfileId && KNOWN_PROFILE_IDS.has(partial.activeTraceProfileId)
-      ? partial.activeTraceProfileId
-      : defaultSettings.activeTraceProfileId;
+  let activeTraceProfileId: TraceProfileId = isKnown(partial.activeTraceProfileId)
+    ? partial.activeTraceProfileId
+    : defaultSettings.activeTraceProfileId;
   if (!enabledTraceProfileIds.includes(activeTraceProfileId)) {
     activeTraceProfileId = 'raw';
   }
@@ -90,7 +107,9 @@ export function presetToIntervalMs(preset: AutoUpdatePreset): number | null {
   }
 }
 
-export function loadViewerSettings(): ViewerSettings {
+export function loadViewerSettings(
+  isKnownCustomProfileId: CustomProfileIdFilter = NO_CUSTOM_PROFILES,
+): ViewerSettings {
   if (typeof window === 'undefined') return { ...defaultSettings };
   try {
     const raw = window.localStorage.getItem(VIEWER_SETTINGS_STORAGE_KEY);
@@ -103,12 +122,15 @@ export function loadViewerSettings(): ViewerSettings {
       : undefined;
     const activeTraceProfileId =
       typeof o.activeTraceProfileId === 'string' ? o.activeTraceProfileId : undefined;
-    return normalizeViewerSettings({
-      autoLoad: typeof o.autoLoad === 'boolean' ? o.autoLoad : undefined,
-      autoUpdatePreset: o.autoUpdatePreset as AutoUpdatePreset | undefined,
-      enabledTraceProfileIds: enabledTraceProfileIds as TraceProfileId[] | undefined,
-      activeTraceProfileId: activeTraceProfileId as TraceProfileId | undefined,
-    });
+    return normalizeViewerSettings(
+      {
+        autoLoad: typeof o.autoLoad === 'boolean' ? o.autoLoad : undefined,
+        autoUpdatePreset: o.autoUpdatePreset as AutoUpdatePreset | undefined,
+        enabledTraceProfileIds: enabledTraceProfileIds as TraceProfileId[] | undefined,
+        activeTraceProfileId: activeTraceProfileId as TraceProfileId | undefined,
+      },
+      isKnownCustomProfileId,
+    );
   } catch {
     return { ...defaultSettings };
   }

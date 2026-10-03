@@ -1,10 +1,6 @@
 import { type ReactNode, useCallback, useEffect, useMemo } from 'react';
-import {
-  collectPayloadRefsFromTree,
-  getTraceProfile,
-  isFullTracePayloadsLoaded,
-} from '../lib/trace-profiles';
-import { buildSubtreeRollupsByRunId } from '../lib/trace-profiles/langgraph/aggregates';
+import { collectPayloadRefsFromTree, isFullTracePayloadsLoaded } from '../lib/trace-profiles';
+import { coverageForTree } from '../lib/payload-mapper/coverage';
 import { applyRunTreeDisplayFilter } from '../lib/run-tree-display-filter';
 import { findRun } from '../lib/viewer';
 import { useFilterGroups } from '../state/filter-groups-context';
@@ -39,7 +35,7 @@ export function TraceMainPanel({
   loadManyPayloads,
 }: TraceMainPanelProps): ReactNode {
   const { filterGroups } = useFilterGroups();
-  const { settings, activeProfile: selectedProfile, autoLoad } = useViewerSettings();
+  const { activeProfile: selectedProfile, autoLoad } = useViewerSettings();
 
   const selectedRun = useMemo(() => {
     if (!tree || !runId) return null;
@@ -84,21 +80,29 @@ export function TraceMainPanel({
     return selectedProfile.buildAggregates(aggregateContext);
   }, [aggregateContext, selectedProfile]);
 
-  const langgraphSubtreeRollups = useMemo(() => {
-    if (selectedProfile.id !== 'langgraph') return null;
-    return buildSubtreeRollupsByRunId(tree.root, payloadCache);
-  }, [selectedProfile.id, tree.root, payloadCache]);
+  const customCoverage = useMemo(() => {
+    const custom = selectedProfile.custom;
+    if (!custom) return null;
+    return {
+      profileId: custom.profileId,
+      report: coverageForTree(custom.mapping, tree.root, payloadCache),
+    };
+  }, [selectedProfile, tree.root, payloadCache]);
+
+  const subtreeRollups = useMemo(
+    () => selectedProfile.buildSubtreeRollups?.(tree.root, payloadCache) ?? null,
+    [selectedProfile, tree.root, payloadCache],
+  );
 
   useEffect(() => {
     if (!autoLoad || !tree) return;
-    const profile = getTraceProfile(settings.activeTraceProfileId);
-    if (!profile.requiresFullPayloads) return;
+    if (!selectedProfile.requiresFullPayloads) return;
     const missing = collectPayloadRefsFromTree(tree.root).filter(
       (ref) => payloadCache[ref] === undefined,
     );
     if (missing.length === 0) return;
     void loadManyPayloads(missing);
-  }, [autoLoad, loadManyPayloads, payloadCache, tree, settings.activeTraceProfileId]);
+  }, [autoLoad, loadManyPayloads, payloadCache, tree, selectedProfile.requiresFullPayloads]);
 
   const handleLoadTracePayloads = useCallback(() => {
     void loadManyPayloads(missingTracePayloadRefs);
@@ -114,6 +118,7 @@ export function TraceMainPanel({
           tracePayloadBatchLoading={tracePayloadBatchLoading}
           onLoadTracePayloads={handleLoadTracePayloads}
           showTracePayloadControls={selectedProfile.requiresFullPayloads}
+          customCoverage={customCoverage}
         />
       </div>
       <section className="col-start-2 row-start-3 h-full min-h-0 min-w-0 overflow-auto border-r border-zinc-800 bg-zinc-900 p-4">
@@ -127,11 +132,13 @@ export function TraceMainPanel({
             onSelect={setRunId}
             depthByRunId={runTreeDisplay.depthByRunId}
             hideBypassRunIds={runTreeDisplay.hideBypassRunIds}
-            subtreeRollupsByRunId={langgraphSubtreeRollups ?? undefined}
+            subtreeRollupsByRunId={subtreeRollups ?? undefined}
             subtreeRollupsComplete={fullTracePayloadsLoaded}
           />
         ) : (
-          <div className="text-sm text-zinc-500">No runs visible with the current hide filters.</div>
+          <div className="text-sm text-zinc-500">
+            No runs visible with the current hide filters.
+          </div>
         )}
       </section>
       <RunDetail

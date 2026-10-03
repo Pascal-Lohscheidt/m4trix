@@ -1,6 +1,15 @@
 import type { RunNode, TraceRow } from '../../types';
 
-export type TraceProfileId = 'raw' | 'langgraph';
+export type BuiltinTraceProfileId = 'raw' | 'langgraph';
+
+/** Built-in profile id, or `custom:<id>` for a user-saved mapped profile. */
+export type TraceProfileId = BuiltinTraceProfileId | `custom:${string}`;
+
+export const BUILTIN_TRACE_PROFILE_IDS: readonly BuiltinTraceProfileId[] = ['raw', 'langgraph'];
+
+export function isBuiltinTraceProfileId(id: string): id is BuiltinTraceProfileId {
+  return (BUILTIN_TRACE_PROFILE_IDS as readonly string[]).includes(id);
+}
 
 export type ProfileRenderProps = {
   run: RunNode;

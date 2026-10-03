@@ -9,10 +9,12 @@ import {
 } from '@headlessui/react';
 import { GearIcon } from '@phosphor-icons/react';
 import type { ReactNode } from 'react';
-import { TRACE_PROFILES } from '../lib/trace-profiles';
+import { BUILTIN_TRACE_PROFILES, type BuiltinTraceProfileId } from '../lib/trace-profiles';
 import { cx } from '../lib/viewer';
 import { AUTO_UPDATE_PRESETS, type AutoUpdatePreset } from '../lib/viewer-settings';
 import { useViewerSettings } from '../state/viewer-settings-context';
+import { CustomProfilesSection } from './CustomProfilesSection';
+import { ProviderSettingsPanel } from './mapper/ProviderSettingsPanel';
 
 type SettingsModalProps = {
   open: boolean;
@@ -40,11 +42,8 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): ReactNode 
 
   const autoUpdateOn = settings.autoUpdatePreset !== 'off';
 
-  const setProfileEnabled = (
-    profileId: (typeof TRACE_PROFILES)[number]['id'],
-    enabled: boolean,
-  ) => {
-    const profile = TRACE_PROFILES.find((p) => p.id === profileId);
+  const setProfileEnabled = (profileId: BuiltinTraceProfileId, enabled: boolean) => {
+    const profile = BUILTIN_TRACE_PROFILES.find((p) => p.id === profileId);
     if (!profile?.removable) return;
     const set = new Set(settings.enabledTraceProfileIds);
     if (enabled) set.add(profileId);
@@ -63,7 +62,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): ReactNode 
       <div className="fixed inset-0 flex w-screen items-center justify-center p-4">
         <DialogPanel
           transition
-          className="w-full max-w-md rounded-xl border border-zinc-800 bg-zinc-950 p-5 shadow-2xl transition duration-150 ease-out data-closed:scale-95 data-closed:opacity-0"
+          className="max-h-[90vh] w-full max-w-lg overflow-auto rounded-xl border border-zinc-800 bg-zinc-950 p-5 shadow-2xl transition duration-150 ease-out data-closed:scale-95 data-closed:opacity-0"
         >
           <DialogTitle className="text-base font-semibold text-zinc-50">Settings</DialogTitle>
           <p className="mt-1 text-xs text-zinc-500">
@@ -122,7 +121,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): ReactNode 
               &quot;Load trace payloads&quot; action in the header.
             </p>
             <div className="mt-3 space-y-3">
-              {TRACE_PROFILES.map((profile) => {
+              {BUILTIN_TRACE_PROFILES.map((profile) => {
                 if (!profile.removable) {
                   return (
                     <div
@@ -151,7 +150,9 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): ReactNode 
                     </div>
                     <Switch
                       checked={enabled}
-                      onChange={(checked) => setProfileEnabled(profile.id, checked)}
+                      onChange={(checked) =>
+                        setProfileEnabled(profile.id as BuiltinTraceProfileId, checked)
+                      }
                       className="group relative mt-0.5 inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border border-zinc-700 bg-zinc-800 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/80 data-checked:border-violet-500/50 data-checked:bg-violet-500/20"
                     >
                       <span
@@ -163,6 +164,17 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): ReactNode 
                 );
               })}
             </div>
+            <CustomProfilesSection />
+          </div>
+
+          <div className="mt-6 border-t border-zinc-800 pt-4">
+            <div className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">
+              AI mapper provider
+            </div>
+            <p className="mt-1 mb-3 text-xs text-zinc-500">
+              Bring your own key to generate and improve custom profiles from sampled payloads.
+            </p>
+            <ProviderSettingsPanel />
           </div>
 
           <div className="mt-4">
