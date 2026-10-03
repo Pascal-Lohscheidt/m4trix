@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 /**
- * Compute next version from conventional commits, update package.json, create and push git tag.
+ * Compute next version from conventional commits, update package.json and create the git tag
+ * locally. The tag is pushed by scripts/push-release-tag.ts only after `npm publish` succeeded,
+ * so a failed publish never leaves a release tag behind (which would make the next run skip it).
  * Version is not committed — tags are the source of truth.
  *
  * Usage: jiti scripts/bump-and-tag.ts <scope>
@@ -167,13 +169,10 @@ function main(): void {
   pkg.version = newVersion;
   writeFileSync(packageJsonPath, JSON.stringify(pkg, null, 2) + '\n');
 
-  // Create tag
+  // Create tag locally; pushed after a successful publish (scripts/push-release-tag.ts).
   execSync(`git tag ${newTag}`, { cwd: ROOT });
 
-  // Push tag
-  execSync(`git push origin ${newTag}`, { cwd: ROOT });
-
-  console.log(`Bumped to ${newVersion}, created and pushed tag ${newTag}`);
+  console.log(`Bumped to ${newVersion}, created local tag ${newTag}`);
 }
 
 main();

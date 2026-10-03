@@ -6,6 +6,32 @@ version: 2.1
 # 3. Add private key to CircleCI: Project > Settings > SSH Keys > Add (paste circleci_deploy_key contents)
 # CircleCI automatically adds project SSH keys to the agent; no add_ssh_keys step needed.
 
+commands:
+  npm-auth:
+    description: Write the npm token and fail fast (before any version bump or tag) if it is invalid.
+    steps:
+      - run:
+          name: Authenticate with npm
+          command: |
+            echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
+            if ! npm whoami; then
+              echo ""
+              echo "ERROR: npm rejected NPM_TOKEN (CircleCI context: NPM)."
+              echo "Create a granular access token with Read and Write on the @m4trix packages"
+              echo "and update NPM_TOKEN in the NPM context. Nothing was bumped or tagged."
+              exit 1
+            fi
+
+  push-release-tag:
+    description: Push the release tag after a successful publish.
+    parameters:
+      scope:
+        type: string
+    steps:
+      - run:
+          name: Push release tag
+          command: pnpm exec jiti scripts/push-release-tag.ts << parameters.scope >>
+
 jobs:
   test:
     docker:
@@ -71,18 +97,18 @@ jobs:
       - run:
           name: Check if core package should be published
           command: pnpm exec jiti scripts/check-package-scope.ts core || circleci step halt
+      - npm-auth
       - run:
-          name: Bump version and create tag
+          name: Bump version and create local tag
           command: pnpm exec jiti scripts/bump-and-tag.ts core
       - run:
           name: Build core package
           command: pnpm run package:build
       - run:
-          name: Authenticate with npm
-          command: echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
-      - run:
           name: Publish core package
           command: pnpm run package:publish
+      - push-release-tag:
+          scope: core
 
   publish-evals:
     docker:
@@ -95,18 +121,18 @@ jobs:
       - run:
           name: Check if evals package should be published
           command: pnpm exec jiti scripts/check-package-scope.ts evals || circleci step halt
+      - npm-auth
       - run:
-          name: Bump version and create tag
+          name: Bump version and create local tag
           command: pnpm exec jiti scripts/bump-and-tag.ts evals
       - run:
           name: Build evals package
           command: pnpm run evals:build
       - run:
-          name: Authenticate with npm
-          command: echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
-      - run:
           name: Publish evals package
           command: pnpm run evals:publish
+      - push-release-tag:
+          scope: evals
 
   publish-stream:
     docker:
@@ -119,18 +145,18 @@ jobs:
       - run:
           name: Check if stream package should be published
           command: pnpm exec jiti scripts/check-package-scope.ts stream || circleci step halt
+      - npm-auth
       - run:
-          name: Bump version and create tag
+          name: Bump version and create local tag
           command: pnpm exec jiti scripts/bump-and-tag.ts stream
       - run:
           name: Build stream package
           command: pnpm run stream:build
       - run:
-          name: Authenticate with npm
-          command: echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
-      - run:
           name: Publish stream package
           command: pnpm run stream:publish
+      - push-release-tag:
+          scope: stream
 
   publish-react:
     docker:
@@ -143,18 +169,18 @@ jobs:
       - run:
           name: Check if react package should be published
           command: pnpm exec jiti scripts/check-package-scope.ts react || circleci step halt
+      - npm-auth
       - run:
-          name: Bump version and create tag
+          name: Bump version and create local tag
           command: pnpm exec jiti scripts/bump-and-tag.ts react
       - run:
           name: Build react package
           command: pnpm run react:build
       - run:
-          name: Authenticate with npm
-          command: echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
-      - run:
           name: Publish react package
           command: pnpm run react:publish
+      - push-release-tag:
+          scope: react
 
   publish-tracing:
     docker:
@@ -167,15 +193,13 @@ jobs:
       - run:
           name: Check if tracing package should be published
           command: pnpm exec jiti scripts/check-package-scope.ts tracing || circleci step halt
+      - npm-auth
       - run:
-          name: Bump version and create tag
+          name: Bump version and create local tag
           command: pnpm exec jiti scripts/bump-and-tag.ts tracing
       - run:
           name: Build tracing package
           command: pnpm run tracing:build
-      - run:
-          name: Authenticate with npm
-          command: echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
       - run:
           name: Verify npm auth before publish (tracing)
           command: |
@@ -196,6 +220,8 @@ jobs:
       - run:
           name: Publish tracing package
           command: pnpm run tracing:publish
+      - push-release-tag:
+          scope: tracing
 
   publish-tracing-sidecar:
     docker:
@@ -241,18 +267,18 @@ jobs:
       - run:
           name: Check if trace-viewer package should be published
           command: pnpm exec jiti scripts/check-package-scope.ts trace-viewer || circleci step halt
+      - npm-auth
       - run:
-          name: Bump version and create tag
+          name: Bump version and create local tag
           command: pnpm exec jiti scripts/bump-and-tag.ts trace-viewer
       - run:
           name: Build trace-viewer package
           command: pnpm run trace-viewer:build
       - run:
-          name: Authenticate with npm
-          command: echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
-      - run:
           name: Publish trace-viewer package
           command: pnpm run trace-viewer:publish
+      - push-release-tag:
+          scope: trace-viewer
 
   publish-ui:
     docker:
@@ -265,18 +291,18 @@ jobs:
       - run:
           name: Check if ui package should be published
           command: pnpm exec jiti scripts/check-package-scope.ts ui || circleci step halt
+      - npm-auth
       - run:
-          name: Bump version and create tag
+          name: Bump version and create local tag
           command: pnpm exec jiti scripts/bump-and-tag.ts ui
       - run:
           name: Build ui package
           command: pnpm run ui:build
       - run:
-          name: Authenticate with npm
-          command: echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
-      - run:
           name: Publish ui package
           command: pnpm run ui:publish
+      - push-release-tag:
+          scope: ui
 
 workflows:
   version: 2
