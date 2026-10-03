@@ -5,43 +5,57 @@
       "dependsOn": ["^build"]
     },
     "@m4trix/core#publish-package": {
-      "dependsOn": ["^build"]
+      "dependsOn": ["^build"],
+      "cache": false,
+      "passThroughEnv": ["NPM_ID_TOKEN"]
     },
     "@m4trix/evals#build": {
       "dependsOn": ["^build"]
     },
     "@m4trix/evals#publish-package": {
-      "dependsOn": ["^build"]
+      "dependsOn": ["^build"],
+      "cache": false,
+      "passThroughEnv": ["NPM_ID_TOKEN"]
     },
     "@m4trix/stream#build": {
       "dependsOn": ["^build"]
     },
     "@m4trix/stream#publish-package": {
-      "dependsOn": ["^build"]
+      "dependsOn": ["^build"],
+      "cache": false,
+      "passThroughEnv": ["NPM_ID_TOKEN"]
     },
     "@m4trix/react#build": {
       "dependsOn": ["^build"]
     },
     "@m4trix/react#publish-package": {
-      "dependsOn": ["^build"]
+      "dependsOn": ["^build"],
+      "cache": false,
+      "passThroughEnv": ["NPM_ID_TOKEN"]
     },
     "@m4trix/tracing#build": {
       "dependsOn": ["^build"]
     },
     "@m4trix/tracing#publish-package": {
-      "dependsOn": ["^build"]
+      "dependsOn": ["^build"],
+      "cache": false,
+      "passThroughEnv": ["NPM_ID_TOKEN"]
     },
     "@m4trix/trace-viewer#build": {
       "dependsOn": ["^build"]
     },
     "@m4trix/trace-viewer#publish-package": {
-      "dependsOn": ["^build"]
+      "dependsOn": ["^build"],
+      "cache": false,
+      "passThroughEnv": ["NPM_ID_TOKEN"]
     },
     "@m4trix/ui#build": {
       "dependsOn": ["^build"]
     },
     "@m4trix/ui#publish-package": {
-      "dependsOn": ["^build"]
+      "dependsOn": ["^build"],
+      "cache": false,
+      "passThroughEnv": ["NPM_ID_TOKEN"]
     },
     "website#build": {
       "dependsOn": ["^build"],

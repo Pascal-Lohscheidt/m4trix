@@ -7,20 +7,24 @@ version: 2.1
 # CircleCI automatically adds project SSH keys to the agent; no add_ssh_keys step needed.
 
 commands:
-  npm-auth:
-    description: Write the npm token and fail fast (before any version bump or tag) if it is invalid.
+  npm-trusted-publishing:
+    description: >
+      Authenticate `npm publish` via npm trusted publishing (CircleCI OIDC) instead of a stored
+      token. Requires a CircleCI trusted publisher configured for the package on npmjs.com.
     steps:
       - run:
-          name: Authenticate with npm
+          name: Set up npm trusted publishing (OIDC)
           command: |
-            echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
-            if ! npm whoami; then
-              echo ""
-              echo "ERROR: npm rejected NPM_TOKEN (CircleCI context: NPM)."
-              echo "Create a granular access token with Read and Write on the @m4trix packages"
-              echo "and update NPM_TOKEN in the NPM context. Nothing was bumped or tagged."
+            # Trusted publishing needs npm >= 11.5.1 (and Node >= 22.14, see the job image).
+            sudo npm install -g npm@^11.5.1
+            echo "node $(node --version), npm $(npm --version)"
+            NPM_ID_TOKEN=$(circleci run oidc get --claims '{"aud": "npm:registry.npmjs.org"}')
+            if [ -z "${NPM_ID_TOKEN}" ]; then
+              echo "ERROR: could not obtain a CircleCI OIDC token."
               exit 1
             fi
+            # npm exchanges this for a short-lived publish token during `npm publish`.
+            echo "export NPM_ID_TOKEN=${NPM_ID_TOKEN}" >> "$BASH_ENV"
 
   push-release-tag:
     description: Push the release tag after a successful publish.
@@ -88,7 +92,7 @@ jobs:
 
   publish-core:
     docker:
-      - image: cimg/node:20.0
+      - image: cimg/node:22.23.3
     steps:
       - checkout
       - run:
@@ -97,13 +101,13 @@ jobs:
       - run:
           name: Check if core package should be published
           command: pnpm exec jiti scripts/check-package-scope.ts core || circleci step halt
-      - npm-auth
       - run:
           name: Bump version and create local tag
           command: pnpm exec jiti scripts/bump-and-tag.ts core
       - run:
           name: Build core package
           command: pnpm run package:build
+      - npm-trusted-publishing
       - run:
           name: Publish core package
           command: pnpm run package:publish
@@ -112,7 +116,7 @@ jobs:
 
   publish-evals:
     docker:
-      - image: cimg/node:20.0
+      - image: cimg/node:22.23.3
     steps:
       - checkout
       - run:
@@ -121,13 +125,13 @@ jobs:
       - run:
           name: Check if evals package should be published
           command: pnpm exec jiti scripts/check-package-scope.ts evals || circleci step halt
-      - npm-auth
       - run:
           name: Bump version and create local tag
           command: pnpm exec jiti scripts/bump-and-tag.ts evals
       - run:
           name: Build evals package
           command: pnpm run evals:build
+      - npm-trusted-publishing
       - run:
           name: Publish evals package
           command: pnpm run evals:publish
@@ -136,7 +140,7 @@ jobs:
 
   publish-stream:
     docker:
-      - image: cimg/node:20.0
+      - image: cimg/node:22.23.3
     steps:
       - checkout
       - run:
@@ -145,13 +149,13 @@ jobs:
       - run:
           name: Check if stream package should be published
           command: pnpm exec jiti scripts/check-package-scope.ts stream || circleci step halt
-      - npm-auth
       - run:
           name: Bump version and create local tag
           command: pnpm exec jiti scripts/bump-and-tag.ts stream
       - run:
           name: Build stream package
           command: pnpm run stream:build
+      - npm-trusted-publishing
       - run:
           name: Publish stream package
           command: pnpm run stream:publish
@@ -160,7 +164,7 @@ jobs:
 
   publish-react:
     docker:
-      - image: cimg/node:20.0
+      - image: cimg/node:22.23.3
     steps:
       - checkout
       - run:
@@ -169,13 +173,13 @@ jobs:
       - run:
           name: Check if react package should be published
           command: pnpm exec jiti scripts/check-package-scope.ts react || circleci step halt
-      - npm-auth
       - run:
           name: Bump version and create local tag
           command: pnpm exec jiti scripts/bump-and-tag.ts react
       - run:
           name: Build react package
           command: pnpm run react:build
+      - npm-trusted-publishing
       - run:
           name: Publish react package
           command: pnpm run react:publish
@@ -184,7 +188,7 @@ jobs:
 
   publish-tracing:
     docker:
-      - image: cimg/node:20.0
+      - image: cimg/node:22.23.3
     steps:
       - checkout
       - run:
@@ -193,30 +197,13 @@ jobs:
       - run:
           name: Check if tracing package should be published
           command: pnpm exec jiti scripts/check-package-scope.ts tracing || circleci step halt
-      - npm-auth
       - run:
           name: Bump version and create local tag
           command: pnpm exec jiti scripts/bump-and-tag.ts tracing
       - run:
           name: Build tracing package
           command: pnpm run tracing:build
-      - run:
-          name: Verify npm auth before publish (tracing)
-          command: |
-            set -euo pipefail
-            echo "=== npm whoami ==="
-            npm whoami
-            echo "=== @m4trix packages for this account (informational) ==="
-            npm access ls-packages "$(npm whoami)" 2>/dev/null | grep '@m4trix/' || echo "(none listed)"
-            echo "=== npm publish dry-run (packages/tracing) ==="
-            cd packages/tracing
-            if ! npm publish --dry-run --no-git-checks --access public; then
-              echo ""
-              echo "ERROR: npm publish dry-run failed."
-              echo "A 404 here usually means NPM_TOKEN lacks publish access to @m4trix/tracing."
-              echo "Use an Automation or granular token with Read and Write on @m4trix/tracing."
-              exit 1
-            fi
+      - npm-trusted-publishing
       - run:
           name: Publish tracing package
           command: pnpm run tracing:publish
@@ -258,7 +245,7 @@ jobs:
 
   publish-trace-viewer:
     docker:
-      - image: cimg/node:20.0
+      - image: cimg/node:22.23.3
     steps:
       - checkout
       - run:
@@ -267,13 +254,13 @@ jobs:
       - run:
           name: Check if trace-viewer package should be published
           command: pnpm exec jiti scripts/check-package-scope.ts trace-viewer || circleci step halt
-      - npm-auth
       - run:
           name: Bump version and create local tag
           command: pnpm exec jiti scripts/bump-and-tag.ts trace-viewer
       - run:
           name: Build trace-viewer package
           command: pnpm run trace-viewer:build
+      - npm-trusted-publishing
       - run:
           name: Publish trace-viewer package
           command: pnpm run trace-viewer:publish
@@ -282,7 +269,7 @@ jobs:
 
   publish-ui:
     docker:
-      - image: cimg/node:20.0
+      - image: cimg/node:22.23.3
     steps:
       - checkout
       - run:
@@ -291,13 +278,13 @@ jobs:
       - run:
           name: Check if ui package should be published
           command: pnpm exec jiti scripts/check-package-scope.ts ui || circleci step halt
-      - npm-auth
       - run:
           name: Bump version and create local tag
           command: pnpm exec jiti scripts/bump-and-tag.ts ui
       - run:
           name: Build ui package
           command: pnpm run ui:build
+      - npm-trusted-publishing
       - run:
           name: Publish ui package
           command: pnpm run ui:publish
