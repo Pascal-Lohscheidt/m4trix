@@ -7,7 +7,7 @@ const BADGE: Record<string, string> = {
   added: 'bg-emerald-500/15 text-emerald-300',
   changed: 'bg-amber-500/15 text-amber-300',
   removed: 'bg-red-500/15 text-red-300',
-  unchanged: 'bg-zinc-800 text-zinc-500',
+  unchanged: 'bg-white/[0.07] text-zinc-500',
 };
 
 export function RuleDiffList({ diff }: { diff: MappingDiff }): ReactNode {
@@ -20,10 +20,12 @@ export function RuleDiffList({ diff }: { diff: MappingDiff }): ReactNode {
       {changed.map((change) => (
         <details
           key={`${change.type}-${change.id}`}
-          className="rounded-md border border-zinc-800 bg-zinc-900/50 px-2 py-1"
+          className="rounded-lg border border-white/[0.07] bg-white/[0.04] px-2 py-1"
         >
           <summary className="flex cursor-pointer items-center gap-2 text-xs">
-            <span className={cx('rounded px-1.5 py-0.5 text-[10px] uppercase', BADGE[change.type])}>
+            <span
+              className={cx('rounded-md px-1.5 py-0.5 text-[10px] uppercase', BADGE[change.type])}
+            >
               {change.type}
             </span>
             <span className="font-mono text-zinc-200">{change.id}</span>

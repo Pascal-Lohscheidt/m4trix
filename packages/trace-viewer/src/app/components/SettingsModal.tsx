@@ -27,7 +27,7 @@ export function SettingsModalTrigger({ onClick }: { onClick: () => void }): Reac
       type="button"
       onClick={onClick}
       aria-label="Open settings"
-      className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-zinc-700 bg-zinc-900 text-zinc-400 transition-colors hover:border-zinc-600 hover:bg-zinc-800 hover:text-zinc-100"
+      className="glass inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-zinc-300 transition-[color,transform] duration-200 hover:text-violet-200 active:scale-95"
     >
       <GearIcon aria-hidden="true" className="h-4 w-4" weight="bold" />
     </button>
@@ -57,12 +57,12 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): ReactNode 
     <Dialog open={open} onClose={onClose} className="relative z-[100]">
       <DialogBackdrop
         transition
-        className="fixed inset-0 bg-black/50 transition duration-150 ease-out data-closed:opacity-0"
+        className="fixed inset-0 bg-[#07060f]/55 backdrop-blur-[6px] transition duration-150 ease-out data-closed:opacity-0"
       />
       <div className="fixed inset-0 flex w-screen items-center justify-center p-4">
         <DialogPanel
           transition
-          className="max-h-[90vh] w-full max-w-lg overflow-auto rounded-xl border border-zinc-800 bg-zinc-950 p-5 shadow-2xl transition duration-150 ease-out data-closed:scale-95 data-closed:opacity-0"
+          className="max-h-[90vh] w-full max-w-lg overflow-auto glass glass-strong rounded-[28px] p-6 transition duration-150 ease-out data-closed:scale-95 data-closed:opacity-0"
         >
           <DialogTitle className="text-base font-semibold text-zinc-50">Settings</DialogTitle>
           <p className="mt-1 text-xs text-zinc-500">
@@ -80,11 +80,11 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): ReactNode 
               <Switch
                 checked={settings.autoLoad}
                 onChange={setAutoLoad}
-                className="group relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border border-zinc-700 bg-zinc-800 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/80 data-checked:border-amber-500/50 data-checked:bg-amber-500/25"
+                className="group relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border border-white/10 bg-white/[0.07] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/80 data-checked:border-violet-400/50 data-checked:bg-violet-500/30"
               >
                 <span
                   aria-hidden="true"
-                  className="pointer-events-none inline-block h-5 w-5 translate-x-0.5 rounded-full bg-zinc-300 shadow transition group-data-checked:translate-x-5 group-data-checked:bg-amber-400"
+                  className="pointer-events-none inline-block h-5 w-5 translate-x-0.5 rounded-full bg-zinc-300 shadow transition group-data-checked:translate-x-5 group-data-checked:bg-violet-200"
                 />
               </Switch>
             </div>
@@ -100,17 +100,17 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): ReactNode 
                     );
                   else setPreset('off');
                 }}
-                className="group relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border border-zinc-700 bg-zinc-800 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/80 data-checked:border-amber-500/50 data-checked:bg-amber-500/25"
+                className="group relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border border-white/10 bg-white/[0.07] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/80 data-checked:border-violet-400/50 data-checked:bg-violet-500/30"
               >
                 <span
                   aria-hidden="true"
-                  className="pointer-events-none inline-block h-5 w-5 translate-x-0.5 rounded-full bg-zinc-300 shadow transition group-data-checked:translate-x-5 group-data-checked:bg-amber-400"
+                  className="pointer-events-none inline-block h-5 w-5 translate-x-0.5 rounded-full bg-zinc-300 shadow transition group-data-checked:translate-x-5 group-data-checked:bg-violet-200"
                 />
               </Switch>
             </div>
           </SwitchGroup>
 
-          <div className="mt-6 border-t border-zinc-800 pt-4">
+          <div className="mt-6 border-t border-white/[0.07] pt-4">
             <div className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">
               Trace profiles
             </div>
@@ -126,7 +126,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): ReactNode 
                   return (
                     <div
                       key={profile.id}
-                      className="flex items-start justify-between gap-3 rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-2"
+                      className="flex items-start justify-between gap-3 rounded-xl border border-white/[0.07] bg-white/[0.04] px-3 py-2"
                     >
                       <div>
                         <div className="text-sm font-medium text-zinc-200">{profile.label}</div>
@@ -142,7 +142,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): ReactNode 
                 return (
                   <div
                     key={profile.id}
-                    className="flex items-start justify-between gap-3 rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-2"
+                    className="flex items-start justify-between gap-3 rounded-xl border border-white/[0.07] bg-white/[0.04] px-3 py-2"
                   >
                     <div className="min-w-0 flex-1">
                       <div className="text-sm font-medium text-zinc-200">{profile.label}</div>
@@ -153,7 +153,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): ReactNode 
                       onChange={(checked) =>
                         setProfileEnabled(profile.id as BuiltinTraceProfileId, checked)
                       }
-                      className="group relative mt-0.5 inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border border-zinc-700 bg-zinc-800 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/80 data-checked:border-violet-500/50 data-checked:bg-violet-500/20"
+                      className="group relative mt-0.5 inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border border-white/10 bg-white/[0.07] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/80 data-checked:border-violet-500/50 data-checked:bg-violet-500/20"
                     >
                       <span
                         aria-hidden="true"
@@ -167,7 +167,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): ReactNode 
             <CustomProfilesSection />
           </div>
 
-          <div className="mt-6 border-t border-zinc-800 pt-4">
+          <div className="mt-6 border-t border-white/[0.07] pt-4">
             <div className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">
               AI mapper provider
             </div>
@@ -192,10 +192,10 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): ReactNode 
                       type="button"
                       onClick={() => setPreset(value)}
                       className={cx(
-                        'rounded-md border px-2.5 py-1 text-xs font-medium transition-colors',
+                        'rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors',
                         selected
-                          ? 'border-amber-500/60 bg-amber-500/15 text-amber-200'
-                          : 'border-zinc-700 bg-zinc-900 text-zinc-400 hover:border-zinc-600 hover:text-zinc-200',
+                          ? 'border-violet-400/50 bg-violet-400/15 text-violet-100'
+                          : 'border-white/10 bg-white/[0.04] text-zinc-400 hover:border-white/20 hover:text-zinc-200',
                       )}
                     >
                       {label}
@@ -215,7 +215,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): ReactNode 
             <button
               type="button"
               onClick={onClose}
-              className="rounded-md border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-sm text-zinc-200 hover:bg-zinc-800"
+              className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-1.5 text-sm text-zinc-200 hover:bg-white/[0.08]"
             >
               Done
             </button>

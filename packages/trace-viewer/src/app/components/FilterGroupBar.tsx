@@ -58,13 +58,17 @@ function FilterGroupForm({
 }: FilterGroupFormProps): ReactNode {
   const nameFieldId = `${formInstanceId}-name`;
   const [draftName, setDraftName] = useState(initialName);
-  const [draftRows, setDraftRows] = useState<DraftRow[]>(() => conditionsToDraftRows(initialConditions));
+  const [draftRows, setDraftRows] = useState<DraftRow[]>(() =>
+    conditionsToDraftRows(initialConditions),
+  );
   const [formError, setFormError] = useState<string | null>(null);
 
   const conditionsFromRows = useMemo(() => draftRows.map((r) => r.condition), [draftRows]);
 
   const updateRowCondition = useCallback((rowId: string, next: FilterCondition) => {
-    setDraftRows((prev) => prev.map((row) => (row.id === rowId ? { ...row, condition: next } : row)));
+    setDraftRows((prev) =>
+      prev.map((row) => (row.id === rowId ? { ...row, condition: next } : row)),
+    );
   }, []);
 
   const handleSave = () => {
@@ -104,7 +108,7 @@ function FilterGroupForm({
           value={draftName}
           onChange={(e) => setDraftName(e.target.value)}
           placeholder="e.g. Hide tools"
-          className="w-full rounded-md border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-sm text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-amber-400"
+          className="w-full rounded-lg border border-white/[0.07] bg-white/[0.04] px-2.5 py-1.5 text-sm text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-violet-400/60"
         />
       </div>
       <div>
@@ -117,18 +121,19 @@ function FilterGroupForm({
             return (
               <div
                 key={row.id}
-                className="rounded-lg border border-zinc-800 bg-zinc-900/80 p-2 text-xs"
+                className="rounded-xl border border-white/[0.07] bg-white/[0.04] p-2 text-xs"
               >
                 <select
                   value={cond.kind}
                   onChange={(e) => {
                     const kind = e.target.value as FilterCondition['kind'];
-                    if (kind === 'regex') updateRowCondition(row.id, { kind: 'regex', pattern: '' });
+                    if (kind === 'regex')
+                      updateRowCondition(row.id, { kind: 'regex', pattern: '' });
                     else if (kind === 'spanType')
                       updateRowCondition(row.id, { kind: 'spanType', value: '' });
                     else updateRowCondition(row.id, { kind: 'depth', operator: 'eq', value: 0 });
                   }}
-                  className="mb-2 w-full rounded border border-zinc-700 bg-zinc-950 px-2 py-1 text-zinc-200"
+                  className="mb-2 w-full rounded-md border border-white/10 bg-black/25 px-2 py-1 text-zinc-200"
                 >
                   <option value="regex">Regex (name or run id)</option>
                   <option value="spanType">Span type contains</option>
@@ -141,7 +146,7 @@ function FilterGroupForm({
                       updateRowCondition(row.id, { kind: 'regex', pattern: e.target.value })
                     }
                     placeholder="Pattern (JS regex)"
-                    className="w-full rounded border border-zinc-700 bg-zinc-950 px-2 py-1 font-mono text-zinc-100"
+                    className="w-full rounded-md border border-white/10 bg-black/25 px-2 py-1 font-mono text-zinc-100"
                   />
                 )}
                 {cond.kind === 'spanType' && (
@@ -151,7 +156,7 @@ function FilterGroupForm({
                       updateRowCondition(row.id, { kind: 'spanType', value: e.target.value })
                     }
                     placeholder="e.g. tool, chain"
-                    className="w-full rounded border border-zinc-700 bg-zinc-950 px-2 py-1 text-zinc-100"
+                    className="w-full rounded-md border border-white/10 bg-black/25 px-2 py-1 text-zinc-100"
                   />
                 )}
                 {cond.kind === 'depth' && (
@@ -165,7 +170,7 @@ function FilterGroupForm({
                           value: cond.value,
                         })
                       }
-                      className="rounded border border-zinc-700 bg-zinc-950 px-2 py-1 text-zinc-200"
+                      className="rounded-md border border-white/10 bg-black/25 px-2 py-1 text-zinc-200"
                     >
                       {depthOperators.map((op) => (
                         <option key={op.value} value={op.value}>
@@ -184,7 +189,7 @@ function FilterGroupForm({
                           value: Number.isFinite(v) ? v : 0,
                         });
                       }}
-                      className="min-w-0 flex-1 rounded border border-zinc-700 bg-zinc-950 px-2 py-1 text-zinc-100"
+                      className="min-w-0 flex-1 rounded-md border border-white/10 bg-black/25 px-2 py-1 text-zinc-100"
                     />
                   </div>
                 )}
@@ -204,16 +209,16 @@ function FilterGroupForm({
         <button
           type="button"
           onClick={() => setDraftRows((prev) => [...prev, makeDraftRow()])}
-          className="mt-2 text-xs text-amber-400 hover:underline"
+          className="mt-2 text-xs text-violet-300 hover:underline"
         >
           + Add condition
         </button>
       </div>
       {formError && <div className="text-[13px] text-red-400">{formError}</div>}
-      <div className="flex justify-end gap-2 border-t border-zinc-800 pt-2">
+      <div className="flex justify-end gap-2 border-t border-white/[0.07] pt-2">
         <button
           type="button"
-          className="rounded-md border border-zinc-700 px-3 py-1.5 text-sm text-zinc-300 hover:bg-zinc-800"
+          className="rounded-lg border border-white/10 px-3 py-1.5 text-sm text-zinc-300 hover:bg-white/[0.08]"
           onClick={resetAndClose}
         >
           Cancel
@@ -221,7 +226,7 @@ function FilterGroupForm({
         <button
           type="button"
           onClick={handleSave}
-          className="rounded-md border border-amber-500/50 bg-amber-500/15 px-3 py-1.5 text-sm font-medium text-amber-200 hover:bg-amber-500/25"
+          className="btn-primary rounded-full px-4 py-1.5 text-sm font-medium"
         >
           {submitLabel}
         </button>
@@ -271,21 +276,17 @@ export function FilterGroupBar(): ReactNode {
 
   const handleEditSubmit = useCallback(
     (groupId: string, name: string, conditions: FilterCondition[]) => {
-      persist(
-        groups.map((g) =>
-          g.id === groupId ? { ...g, name, conditions } : g,
-        ),
-      );
+      persist(groups.map((g) => (g.id === groupId ? { ...g, name, conditions } : g)));
     },
     [groups, persist],
   );
 
   return (
-    <div className="mb-3 flex flex-wrap items-center gap-2 border-b border-zinc-800 pb-3">
+    <div className="mb-3 flex flex-wrap items-center gap-2 border-b border-white/[0.07] pb-3">
       <Popover className="relative">
         <PopoverButton
           type="button"
-          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-zinc-700 bg-zinc-900 text-zinc-300 transition-colors hover:border-zinc-600 hover:bg-zinc-800 hover:text-zinc-100"
+          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] text-zinc-300 transition-colors hover:border-white/20 hover:bg-white/[0.08] hover:text-zinc-100"
           aria-label="Add filter group"
         >
           <PlusIcon aria-hidden="true" className="h-4 w-4" weight="bold" />
@@ -293,7 +294,7 @@ export function FilterGroupBar(): ReactNode {
         <PopoverPanel
           anchor="bottom start"
           transition
-          className="z-50 mt-1 w-[min(100vw-2rem,22rem)] rounded-xl border border-zinc-800 bg-zinc-950 p-3 shadow-xl [--anchor-gap:6px] data-closed:scale-95 data-closed:opacity-0 data-enter:duration-150 data-enter:ease-out data-leave:duration-100 data-leave:ease-in"
+          className="z-50 mt-1 w-[min(100vw-2rem,22rem)] glass glass-strong rounded-2xl p-3 [--anchor-gap:6px] data-closed:scale-95 data-closed:opacity-0 data-enter:duration-150 data-enter:ease-out data-leave:duration-100 data-leave:ease-in"
         >
           {({ close }) => (
             <FilterGroupForm
@@ -312,7 +313,7 @@ export function FilterGroupBar(): ReactNode {
       {groups.map((group) => (
         <div
           key={group.id}
-          className="flex max-w-full items-center gap-1 rounded-full border border-zinc-700 bg-zinc-900/90 py-0.5 pl-2.5 pr-1 text-xs text-zinc-200"
+          className="flex max-w-full items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] py-0.5 pl-2.5 pr-1 text-xs text-zinc-200"
         >
           <span className="max-w-[10rem] truncate font-medium" title={group.name}>
             {group.name}
@@ -320,7 +321,7 @@ export function FilterGroupBar(): ReactNode {
           <Popover className="relative inline-flex">
             <PopoverButton
               type="button"
-              className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-100"
+              className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-zinc-400 transition-colors hover:bg-white/[0.08] hover:text-zinc-100"
               aria-label={`Edit filter group ${group.name}`}
             >
               <PencilSimpleIcon aria-hidden="true" className="h-4 w-4" weight="bold" />
@@ -328,7 +329,7 @@ export function FilterGroupBar(): ReactNode {
             <PopoverPanel
               anchor="bottom start"
               transition
-              className="z-50 mt-1 w-[min(100vw-2rem,22rem)] rounded-xl border border-zinc-800 bg-zinc-950 p-3 shadow-xl [--anchor-gap:6px] data-closed:scale-95 data-closed:opacity-0 data-enter:duration-150 data-enter:ease-out data-leave:duration-100 data-leave:ease-in"
+              className="z-50 mt-1 w-[min(100vw-2rem,22rem)] glass glass-strong rounded-2xl p-3 [--anchor-gap:6px] data-closed:scale-95 data-closed:opacity-0 data-enter:duration-150 data-enter:ease-out data-leave:duration-100 data-leave:ease-in"
             >
               {({ close }) => (
                 <FilterGroupForm
@@ -349,7 +350,7 @@ export function FilterGroupBar(): ReactNode {
             aria-pressed={group.hideEnabled}
             onClick={() => updateGroup(group.id, { hideEnabled: !group.hideEnabled })}
             className={cx(
-              'inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-100',
+              'inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-zinc-400 transition-colors hover:bg-white/[0.08] hover:text-zinc-100',
               group.hideEnabled && 'text-amber-300',
             )}
           >
@@ -367,7 +368,7 @@ export function FilterGroupBar(): ReactNode {
             aria-pressed={group.collapseEnabled}
             onClick={() => updateGroup(group.id, { collapseEnabled: !group.collapseEnabled })}
             className={cx(
-              'inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-100',
+              'inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-zinc-400 transition-colors hover:bg-white/[0.08] hover:text-zinc-100',
               group.collapseEnabled && 'text-violet-300',
             )}
           >
@@ -381,7 +382,7 @@ export function FilterGroupBar(): ReactNode {
             type="button"
             aria-label={`Remove group ${group.name}`}
             onClick={() => removeGroup(group.id)}
-            className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-zinc-500 hover:bg-zinc-800 hover:text-red-400"
+            className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-zinc-500 hover:bg-white/[0.08] hover:text-red-400"
           >
             ×
           </button>

@@ -5,7 +5,7 @@ import type { ProfileRenderProps } from '../types';
 
 function JsonBlock({ value }: { value: unknown }): ReactNode {
   return (
-    <pre className="m-0 max-h-80 overflow-auto rounded-lg border border-zinc-800 bg-zinc-950 p-2.5 text-xs">
+    <pre className="m-0 max-h-80 overflow-auto rounded-xl border border-white/[0.07] bg-black/25 p-2.5 text-xs">
       {JSON.stringify(value, null, 2)}
     </pre>
   );
@@ -45,7 +45,7 @@ export function renderLanggraphMetadata({ run }: ProfileRenderProps): ReactNode 
   return (
     <div className="mt-3">
       <div className="mb-1.5 font-semibold">Metadata</div>
-      <dl className="mb-2 grid gap-1 rounded-lg border border-violet-500/20 bg-violet-500/5 p-2 text-xs">
+      <dl className="mb-2 grid gap-1 rounded-xl border border-violet-500/20 bg-violet-500/5 p-2 text-xs">
         {picked.map(([k, v]) => (
           <div key={k} className="grid grid-cols-[minmax(0,7rem)_1fr] gap-2">
             <dt className="truncate font-mono text-violet-300/90">{k}</dt>
@@ -97,7 +97,7 @@ function renderMessagesSummary(messages: unknown[]): ReactNode {
         return (
           <li
             key={messageRowKey(msg, i)}
-            className="rounded-md border border-zinc-800 bg-zinc-950/80 px-2 py-1.5 font-mono text-[11px] text-zinc-300"
+            className="rounded-lg border border-white/[0.07] bg-black/25 px-2 py-1.5 font-mono text-[11px] text-zinc-300"
           >
             <span className="text-amber-300/90">{type}</span>
             {preview ? (

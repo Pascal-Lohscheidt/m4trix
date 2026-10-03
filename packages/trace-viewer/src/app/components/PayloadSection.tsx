@@ -14,7 +14,7 @@ export function PayloadSection(props: PayloadSectionProps): ReactNode {
   const { label, refId, payloadCache, loadingRef, onLoad, renderLoaded } = props;
   if (!refId) {
     return (
-      <div className="mt-4 text-zinc-500">
+      <div className="mt-5 text-xs text-zinc-500">
         {label}: <em>no ref</em>
       </div>
     );
@@ -24,16 +24,16 @@ export function PayloadSection(props: PayloadSectionProps): ReactNode {
   const data = loaded ? payloadCache[refId] : undefined;
 
   return (
-    <div className="mt-4">
+    <div className="mt-5">
       <div className="mb-2 flex items-center gap-2">
-        <span className="font-semibold">{label}</span>
-        <code className="truncate text-[11px] text-zinc-400">{refId}</code>
+        <span className="text-sm font-semibold text-zinc-100">{label}</span>
+        <code className="truncate font-mono text-[11px] text-zinc-500">{refId}</code>
         {!loaded && (
           <button
             type="button"
             onClick={() => onLoad(refId)}
             disabled={loadingRef === refId}
-            className="ml-auto rounded-md border border-zinc-700 bg-zinc-800 px-2.5 py-1 text-zinc-50 transition-colors hover:border-zinc-600 hover:bg-zinc-700 disabled:cursor-wait disabled:opacity-70"
+            className="glass-chip ml-auto shrink-0 rounded-full px-3 py-1 text-xs font-medium text-zinc-100 transition-colors hover:text-violet-100 disabled:cursor-wait disabled:opacity-70"
           >
             {loadingRef === refId ? 'Loading...' : 'Load JSON'}
           </button>
@@ -43,7 +43,7 @@ export function PayloadSection(props: PayloadSectionProps): ReactNode {
         (renderLoaded ? (
           renderLoaded(data)
         ) : (
-          <pre className="m-0 max-h-80 overflow-auto rounded-lg border border-zinc-800 bg-zinc-950 p-2.5 text-xs">
+          <pre className="glass-well m-0 max-h-80 overflow-auto rounded-2xl p-3 font-mono text-xs leading-relaxed text-zinc-300">
             {JSON.stringify(data, null, 2)}
           </pre>
         ))}

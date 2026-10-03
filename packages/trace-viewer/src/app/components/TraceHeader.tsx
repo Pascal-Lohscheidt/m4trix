@@ -1,9 +1,12 @@
 import { type CoverageReport, formatCoveragePercent } from '../lib/payload-mapper/coverage';
 import type { ProfileAggregates } from '../lib/trace-profiles/types';
-import { cx, getTraceEnv, statusTextClass } from '../lib/viewer';
+import { useRef } from 'react';
+import { useReveal } from '../lib/motion';
+import { cx, formatTimestamp, getTraceEnv, statusDotClass, statusTextClass } from '../lib/viewer';
 import { useMapperDialog } from '../state/mapper-dialog-context';
 import { useViewerSettings } from '../state/viewer-settings-context';
 import { CoverageBar, coverageCounts, coverageTone } from './mapper/CoverageSummary';
+import { Segmented } from './ui/Segmented';
 import type { TraceRow } from '../types';
 
 type TraceHeaderProps = {
@@ -31,6 +34,8 @@ export function TraceHeader({
   const mapper = useMapperDialog();
   const activeProfileId = settings.activeTraceProfileId;
   const env = getTraceEnv(trace);
+  const headerRef = useRef<HTMLElement>(null);
+  useReveal(headerRef, trace.traceId, { distance: 12, staggerMs: 60 });
   const showAggregateRow =
     showTracePayloadControls &&
     (aggregates.pendingReason != null ||
@@ -38,57 +43,76 @@ export function TraceHeader({
       missingTracePayloadCount > 0);
 
   return (
-    <header className="min-h-20 border-b border-zinc-800 bg-zinc-950 px-5 py-3">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+    <header ref={headerRef} className="shrink-0 px-2 pt-1">
+      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
         <div className="min-w-0 flex-1">
-          <div className="truncate text-lg font-semibold text-zinc-50">{trace.name}</div>
-          <div className="mt-1.5 text-[13px] text-zinc-400">
-            <span className={statusTextClass(trace.status)}>{trace.status}</span>
-            {' · '}
-            {trace.runCount} runs
-            {trace.projectId ? ` · project ${trace.projectId}` : ''}
-            {' · '}
-            {trace.startTime}
+          <div
+            data-reveal
+            className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-zinc-400"
+          >
+            <span className="inline-flex items-center gap-1.5">
+              <span
+                aria-hidden="true"
+                className={cx('h-1.5 w-1.5 rounded-full', statusDotClass(trace.status))}
+              />
+              <span className={statusTextClass(trace.status)}>{trace.status}</span>
+            </span>
+            <span aria-hidden="true" className="text-zinc-600">
+              ·
+            </span>
+            <span className="tabular-nums">{trace.runCount} runs</span>
+            {trace.projectId && (
+              <>
+                <span aria-hidden="true" className="text-zinc-600">
+                  ·
+                </span>
+                <span>project {trace.projectId}</span>
+              </>
+            )}
+            <span aria-hidden="true" className="text-zinc-600">
+              ·
+            </span>
+            <span className="tabular-nums" title={trace.startTime}>
+              {formatTimestamp(trace.startTime)}
+            </span>
+            {env && (
+              <span className="ml-1 rounded-full bg-violet-400/10 px-2.5 py-0.5 text-xs text-violet-200 ring-1 ring-violet-300/20">
+                {env}
+              </span>
+            )}
           </div>
+          <h1
+            data-reveal
+            className="mt-1.5 truncate text-[clamp(1.6rem,2.6vw,2.4rem)] leading-tight font-semibold tracking-[-0.025em] text-zinc-50"
+          >
+            {trace.name || trace.traceId}
+          </h1>
         </div>
         <div className="flex shrink-0 flex-col items-end gap-2">
-          {env && (
-            <span className="rounded-full border border-amber-400/30 bg-amber-400/10 px-2 py-0.5 text-xs text-amber-300">
-              {env}
-            </span>
-          )}
-          <fieldset className="m-0 flex rounded-lg border border-zinc-800 bg-zinc-900 p-0.5">
-            <legend className="sr-only">Trace profile</legend>
-            {profileTabs.map((tab) => {
-              const selected = tab.id === activeProfileId;
-              return (
-                <button
-                  key={tab.id}
-                  type="button"
-                  title={tab.kind === 'custom' ? 'Custom mapped profile' : undefined}
-                  onClick={() => setActiveProfileId(tab.id)}
-                  className={cx(
-                    'rounded-md px-2.5 py-1 text-xs font-medium transition-colors',
-                    selected
-                      ? 'bg-amber-500/20 text-amber-200'
-                      : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200',
-                  )}
-                >
+          <Segmented
+            legend="Trace profile"
+            value={activeProfileId}
+            onChange={setActiveProfileId}
+            items={profileTabs.map((tab) => ({
+              key: tab.id,
+              title: tab.kind === 'custom' ? 'Custom mapped profile' : undefined,
+              label: (
+                <>
                   {tab.kind === 'custom' && (
-                    <span aria-hidden="true" className="mr-1 text-violet-300">
+                    <span aria-hidden="true" className="text-violet-300">
                       ✦
                     </span>
                   )}
                   {tab.label}
-                </button>
-              );
-            })}
-          </fieldset>
+                </>
+              ),
+            }))}
+          />
           {mapper && (
             <div className="flex items-center gap-1.5">
               {customCoverage && customCoverage.report.total > 0 && (
                 <span
-                  className="flex items-center gap-1.5 rounded-md border border-zinc-800 bg-zinc-900 px-2 py-0.5 text-[11px] text-zinc-400"
+                  className="glass-well flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] text-zinc-400"
                   title={[
                     `Coverage on ${customCoverage.report.total} loaded payloads: ${coverageCounts(customCoverage.report)}`,
                     ...customCoverage.report.groups
@@ -109,7 +133,7 @@ export function TraceHeader({
                   onClick={() =>
                     mapper.openMapper({ mode: 'improve', profileId: customCoverage.profileId })
                   }
-                  className="rounded-md border border-violet-500/40 bg-violet-500/10 px-2 py-0.5 text-[11px] text-violet-200 hover:bg-violet-500/20"
+                  className="rounded-full bg-violet-400/15 px-3 py-1 text-xs text-violet-100 ring-1 ring-violet-300/25 transition-colors hover:bg-violet-400/25"
                 >
                   ✦ Improve
                 </button>
@@ -117,7 +141,7 @@ export function TraceHeader({
               <button
                 type="button"
                 onClick={() => mapper.openMapper({ mode: 'create' })}
-                className="rounded-md border border-zinc-700 bg-zinc-900 px-2 py-0.5 text-[11px] text-zinc-300 hover:border-violet-500/40 hover:text-violet-200"
+                className="glass-chip rounded-full px-3 py-1 text-xs text-zinc-300 transition-colors hover:text-violet-100"
               >
                 ✦ New AI profile
               </button>
@@ -127,11 +151,11 @@ export function TraceHeader({
       </div>
 
       {showAggregateRow && (
-        <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-zinc-800/80 pt-3">
+        <div className="mt-4 flex flex-wrap items-stretch gap-2">
           {aggregates.pendingReason === 'missing_trace_payloads' &&
             missingTracePayloadCount > 0 && (
-              <>
-                <span className="text-xs text-zinc-500">
+              <div className="glass flex items-center gap-3 rounded-2xl px-4 py-2.5">
+                <span className="text-xs text-zinc-400">
                   {autoLoad && tracePayloadBatchLoading
                     ? 'Loading trace payloads for aggregates…'
                     : autoLoad
@@ -143,20 +167,19 @@ export function TraceHeader({
                     type="button"
                     disabled={tracePayloadBatchLoading}
                     onClick={onLoadTracePayloads}
-                    className="rounded-md border border-violet-500/40 bg-violet-500/15 px-2.5 py-1 text-xs font-medium text-violet-200 hover:bg-violet-500/25 disabled:cursor-wait disabled:opacity-60"
+                    className="btn-primary rounded-full px-3.5 py-1.5 text-xs font-medium disabled:cursor-wait disabled:opacity-60"
                   >
                     {tracePayloadBatchLoading ? 'Loading…' : 'Load trace payloads'}
                   </button>
                 )}
-              </>
+              </div>
             )}
           {aggregates.cards.map((card) => (
-            <div
-              key={card.id}
-              className="rounded-md border border-zinc-700 bg-zinc-900 px-2.5 py-1 text-xs text-zinc-300"
-            >
-              <span className="text-zinc-500">{card.label}: </span>
-              <span className="font-mono text-zinc-100">{card.value}</span>
+            <div key={card.id} data-reveal className="glass min-w-[7.5rem] rounded-2xl px-4 py-2.5">
+              <div className="text-[11px] text-zinc-400">{card.label}</div>
+              <div className="mt-0.5 font-mono text-lg leading-tight font-medium tracking-tight text-zinc-50 tabular-nums">
+                {card.value}
+              </div>
             </div>
           ))}
         </div>

@@ -26,7 +26,7 @@ export function CoverageBar({
       <span className={color} style={{ width: `${(n / total) * 100}%` }} title={`${n} ${label}`} />
     ) : null;
   return (
-    <span className={cx('flex h-1.5 overflow-hidden rounded-full bg-zinc-800', className)}>
+    <span className={cx('flex h-1.5 overflow-hidden rounded-full bg-white/[0.07]', className)}>
       {seg(report.mapped, 'bg-emerald-400/80', 'mapped')}
       {seg(report.partial, 'bg-amber-400/80', 'partial')}
       {seg(report.fallback, 'bg-red-400/80', 'broken')}
@@ -47,7 +47,7 @@ export function CoverageSummary({
   before?: CoverageReport;
 }): ReactNode {
   return (
-    <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-3">
+    <div className="rounded-xl border border-white/[0.07] bg-white/[0.04] p-3">
       <div className="flex items-baseline gap-2">
         <span className="text-[11px] uppercase tracking-wide text-zinc-500">
           Coverage on samples
@@ -88,10 +88,10 @@ export function GroupStatus({ group }: { group: GroupCoverage | undefined }): Re
         ? 'bg-amber-500/15 text-amber-300'
         : label === 'broken'
           ? 'bg-red-500/15 text-red-300'
-          : 'bg-zinc-800 text-zinc-400';
+          : 'bg-white/[0.07] text-zinc-400';
   return (
     <span
-      className={cx('rounded px-1.5 py-0.5 text-[10px]', tone)}
+      className={cx('rounded-md px-1.5 py-0.5 text-[10px]', tone)}
       title={[coverageCounts(group), ...group.issues].join('\n')}
     >
       {label}

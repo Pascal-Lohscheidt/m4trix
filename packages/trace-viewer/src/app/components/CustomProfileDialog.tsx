@@ -48,10 +48,10 @@ function validateText(text: string): Validation {
 
 const tabClass = ({ selected }: { selected: boolean }) =>
   cx(
-    'rounded-md px-2.5 py-1 text-xs font-medium transition-colors focus:outline-none',
+    'rounded-lg px-2.5 py-1 text-xs font-medium transition-colors focus:outline-none',
     selected
       ? 'bg-violet-500/20 text-violet-200'
-      : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200',
+      : 'text-zinc-400 hover:bg-white/[0.08] hover:text-zinc-200',
   );
 
 export function CustomProfileDialog({ profile, onClose }: CustomProfileDialogProps): ReactNode {
@@ -99,19 +99,19 @@ export function CustomProfileDialog({ profile, onClose }: CustomProfileDialogPro
     <Dialog open={profile != null} onClose={onClose} className="relative z-[110]">
       <DialogBackdrop
         transition
-        className="fixed inset-0 bg-black/60 transition duration-150 ease-out data-closed:opacity-0"
+        className="fixed inset-0 bg-[#07060f]/55 backdrop-blur-[6px] transition duration-150 ease-out data-closed:opacity-0"
       />
       <div className="fixed inset-0 flex w-screen items-center justify-center p-4">
         <DialogPanel
           transition
-          className="flex max-h-[90vh] w-full max-w-3xl flex-col rounded-xl border border-zinc-800 bg-zinc-950 p-5 shadow-2xl transition duration-150 ease-out data-closed:scale-95 data-closed:opacity-0"
+          className="flex max-h-[90vh] w-full max-w-3xl flex-col glass glass-strong rounded-[28px] p-6 transition duration-150 ease-out data-closed:scale-95 data-closed:opacity-0"
         >
           {profile && (
             <>
               <DialogTitle className="flex items-center gap-2 text-base font-semibold text-zinc-50">
                 <span className="text-violet-300">✦</span>
                 {profile.name}
-                <span className="rounded bg-zinc-800 px-1.5 py-0.5 text-[11px] font-normal text-zinc-400">
+                <span className="rounded-md bg-white/[0.07] px-1.5 py-0.5 text-[11px] font-normal text-zinc-400">
                   v{profile.currentVersion}
                 </span>
               </DialogTitle>
@@ -122,7 +122,7 @@ export function CustomProfileDialog({ profile, onClose }: CustomProfileDialogPro
                   <input
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="mt-1 w-full rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-sm text-zinc-100 focus:border-violet-500/60 focus:outline-none"
+                    className="mt-1 w-full rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1.5 text-sm text-zinc-100 focus:border-violet-500/60 focus:outline-none"
                   />
                 </label>
                 <label className="text-xs text-zinc-400">
@@ -131,13 +131,13 @@ export function CustomProfileDialog({ profile, onClose }: CustomProfileDialogPro
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                     placeholder="Shown in settings"
-                    className="mt-1 w-full rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-violet-500/60 focus:outline-none"
+                    className="mt-1 w-full rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1.5 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-violet-500/60 focus:outline-none"
                   />
                 </label>
               </div>
 
               <TabGroup className="mt-4 flex min-h-0 flex-1 flex-col">
-                <TabList className="flex gap-1 rounded-lg border border-zinc-800 bg-zinc-900 p-0.5 self-start">
+                <TabList className="flex gap-1 rounded-xl border border-white/[0.07] bg-white/[0.04] p-0.5 self-start">
                   <Tab className={tabClass}>Mapping</Tab>
                   <Tab className={tabClass}>History ({profile.versions.length})</Tab>
                 </TabList>
@@ -148,7 +148,7 @@ export function CustomProfileDialog({ profile, onClose }: CustomProfileDialogPro
                       onChange={(e) => setText(e.target.value)}
                       spellCheck={false}
                       aria-label="Mapping JSON"
-                      className="h-[45vh] w-full resize-y rounded-lg border border-zinc-800 bg-zinc-900 p-2.5 font-mono text-xs text-zinc-200 focus:border-violet-500/60 focus:outline-none"
+                      className="h-[45vh] w-full resize-y rounded-xl border border-white/[0.07] bg-white/[0.04] p-2.5 font-mono text-xs text-zinc-200 focus:border-violet-500/60 focus:outline-none"
                     />
                     {validation.ok ? (
                       <div className="text-[11px] text-emerald-400/80">Valid mapping.</div>
@@ -164,7 +164,7 @@ export function CustomProfileDialog({ profile, onClose }: CustomProfileDialogPro
                         value={note}
                         onChange={(e) => setNote(e.target.value)}
                         placeholder="Version note (optional)"
-                        className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-xs text-zinc-100 placeholder:text-zinc-600 focus:border-violet-500/60 focus:outline-none"
+                        className="w-full rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1.5 text-xs text-zinc-100 placeholder:text-zinc-600 focus:border-violet-500/60 focus:outline-none"
                       />
                     )}
                   </TabPanel>
@@ -176,10 +176,10 @@ export function CustomProfileDialog({ profile, onClose }: CustomProfileDialogPro
                           <li
                             key={v.version}
                             className={cx(
-                              'rounded-lg border px-3 py-2',
+                              'rounded-xl border px-3 py-2',
                               isCurrent
                                 ? 'border-violet-500/40 bg-violet-500/5'
-                                : 'border-zinc-800 bg-zinc-900/50',
+                                : 'border-white/[0.07] bg-white/[0.04]',
                             )}
                           >
                             <div className="flex flex-wrap items-center gap-2 text-xs">
@@ -197,14 +197,14 @@ export function CustomProfileDialog({ profile, onClose }: CustomProfileDialogPro
                                 · {v.mapping.rules.length} rules
                               </span>
                               {isCurrent ? (
-                                <span className="ml-auto rounded bg-violet-500/20 px-1.5 py-0.5 text-[10px] uppercase text-violet-200">
+                                <span className="ml-auto rounded-md bg-violet-500/20 px-1.5 py-0.5 text-[10px] uppercase text-violet-200">
                                   current
                                 </span>
                               ) : (
                                 <button
                                   type="button"
                                   onClick={() => restoreVersion(profile.id, v.version)}
-                                  className="ml-auto rounded-md border border-zinc-700 px-2 py-0.5 text-[11px] text-zinc-300 hover:bg-zinc-800"
+                                  className="ml-auto rounded-lg border border-white/10 px-2 py-0.5 text-[11px] text-zinc-300 hover:bg-white/[0.08]"
                                 >
                                   Restore
                                 </button>
@@ -231,7 +231,7 @@ export function CustomProfileDialog({ profile, onClose }: CustomProfileDialogPro
                 <button
                   type="button"
                   onClick={onClose}
-                  className="rounded-md border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-sm text-zinc-200 hover:bg-zinc-800"
+                  className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-1.5 text-sm text-zinc-200 hover:bg-white/[0.08]"
                 >
                   Close
                 </button>
@@ -239,7 +239,7 @@ export function CustomProfileDialog({ profile, onClose }: CustomProfileDialogPro
                   type="button"
                   disabled={!(detailsDirty || (mappingDirty && validation.ok))}
                   onClick={handleSave}
-                  className="rounded-md border border-violet-500/50 bg-violet-500/20 px-3 py-1.5 text-sm font-medium text-violet-100 hover:bg-violet-500/30 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="rounded-lg border border-violet-500/50 bg-violet-500/20 px-3 py-1.5 text-sm font-medium text-violet-100 hover:bg-violet-500/30 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   {mappingDirty
                     ? `Save as v${Math.max(...profile.versions.map((v) => v.version)) + 1}`

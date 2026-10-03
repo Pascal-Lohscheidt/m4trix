@@ -32,7 +32,7 @@ function ImproveWithRunButton({ improve }: { improve: MappedPayloadProps['improv
           pinnedRefs: [improve.refId],
         })
       }
-      className="rounded border border-violet-500/30 px-1.5 py-0.5 text-violet-300 transition-colors hover:bg-violet-500/15"
+      className="rounded-md border border-violet-500/30 px-1.5 py-0.5 text-violet-300 transition-colors hover:bg-violet-500/15"
       title="Re-sample including this payload and ask the AI mapper to improve the profile"
     >
       ✦ Improve with this run
@@ -72,7 +72,7 @@ export function MappedPayload({
     <div className="space-y-2">
       <div className="flex items-center gap-2 text-[11px]">
         <span
-          className="rounded border border-violet-500/30 bg-violet-500/10 px-1.5 py-0.5 font-mono text-violet-300"
+          className="rounded-md border border-violet-500/30 bg-violet-500/10 px-1.5 py-0.5 font-mono text-violet-300"
           title={rule.description ?? `Matched rule "${rule.id}"`}
         >
           {rule.id}
@@ -89,10 +89,10 @@ export function MappedPayload({
           type="button"
           onClick={() => setShowRaw((v) => !v)}
           className={cx(
-            'ml-auto rounded px-1.5 py-0.5 transition-colors',
+            'ml-auto rounded-md px-1.5 py-0.5 transition-colors',
             showRaw
               ? 'bg-zinc-700 text-zinc-100'
-              : 'text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300',
+              : 'text-zinc-500 hover:bg-white/[0.08] hover:text-zinc-300',
           )}
         >
           Raw JSON
@@ -124,7 +124,7 @@ export function renderMappedMetadata(
   return (
     <div className="mt-3">
       <div className="mb-1.5 font-semibold">Metadata</div>
-      <dl className="mb-2 grid gap-1 rounded-lg border border-violet-500/20 bg-violet-500/5 p-2 text-xs">
+      <dl className="mb-2 grid gap-1 rounded-xl border border-violet-500/20 bg-violet-500/5 p-2 text-xs">
         {picked.map(([label, value]) => (
           <div key={label} className="grid grid-cols-[minmax(0,7rem)_1fr] gap-2">
             <dt className="truncate font-mono text-violet-300/90">{label}</dt>

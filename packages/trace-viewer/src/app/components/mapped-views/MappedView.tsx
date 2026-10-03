@@ -17,9 +17,9 @@ const ROLE_STYLES: Record<RoleClass, { card: string; badge: string }> = {
     card: 'border-emerald-500/25 bg-emerald-500/5',
     badge: 'bg-emerald-500/15 text-emerald-200',
   },
-  system: { card: 'border-zinc-700 bg-zinc-900/60', badge: 'bg-zinc-700/60 text-zinc-300' },
+  system: { card: 'border-white/10 bg-white/[0.04]', badge: 'bg-zinc-700/60 text-zinc-300' },
   tool: { card: 'border-violet-500/25 bg-violet-500/5', badge: 'bg-violet-500/15 text-violet-200' },
-  other: { card: 'border-zinc-800 bg-zinc-950/60', badge: 'bg-zinc-800 text-zinc-300' },
+  other: { card: 'border-white/[0.07] bg-black/25', badge: 'bg-white/[0.07] text-zinc-300' },
 };
 
 function Section({ title, children }: { title?: string; children: ReactNode }): ReactNode {
@@ -49,7 +49,7 @@ function ScalarValue({ value }: { value: unknown }): ReactNode {
 
 function KeyValueGrid({ entries }: { entries: { label: string; value: unknown }[] }): ReactNode {
   return (
-    <dl className="m-0 grid gap-1 rounded-lg border border-zinc-800 bg-zinc-950/60 p-2 text-xs">
+    <dl className="m-0 grid gap-1 rounded-xl border border-white/[0.07] bg-black/25 p-2 text-xs">
       {entries.map((entry) => (
         <div key={entry.label} className="grid grid-cols-[minmax(0,8rem)_1fr] gap-2">
           <dt className="truncate font-mono text-zinc-500" title={entry.label}>
@@ -80,7 +80,7 @@ function ToolArgs({ args }: { args: unknown }): ReactNode {
 
 export function ToolCallCard({ call }: { call: ResolvedToolCall }): ReactNode {
   return (
-    <div className="space-y-1.5 rounded-lg border border-violet-500/30 bg-violet-500/5 p-2">
+    <div className="space-y-1.5 rounded-xl border border-violet-500/30 bg-violet-500/5 p-2">
       <div className="flex items-center gap-1.5 text-xs">
         <WrenchIcon aria-hidden="true" className="h-3.5 w-3.5 text-violet-300" weight="bold" />
         <span className="font-mono font-semibold text-violet-200">{call.name ?? 'tool call'}</span>
@@ -104,7 +104,7 @@ export function ContentParts({ parts }: { parts: ResolvedContentPart[] }): React
             return (
               <details
                 key={key}
-                className="rounded-md border border-zinc-800 bg-zinc-950/60 px-2 py-1 text-xs"
+                className="rounded-lg border border-white/[0.07] bg-black/25 px-2 py-1 text-xs"
               >
                 <summary className="cursor-pointer text-zinc-400">Reasoning</summary>
                 <div className="mt-1 whitespace-pre-wrap italic text-zinc-400">{part.text}</div>
@@ -117,10 +117,10 @@ export function ContentParts({ parts }: { parts: ResolvedContentPart[] }): React
               <div
                 key={key}
                 className={cx(
-                  'space-y-1.5 rounded-lg border p-2',
+                  'space-y-1.5 rounded-xl border p-2',
                   part.isError
                     ? 'border-red-500/30 bg-red-500/5'
-                    : 'border-zinc-800 bg-zinc-950/60',
+                    : 'border-white/[0.07] bg-black/25',
                 )}
               >
                 <div className="text-[11px] text-zinc-500">
@@ -134,7 +134,7 @@ export function ContentParts({ parts }: { parts: ResolvedContentPart[] }): React
             return (
               <span
                 key={key}
-                className="inline-block rounded border border-zinc-700 px-1.5 py-0.5 text-[11px] text-zinc-500"
+                className="inline-block rounded-md border border-white/10 px-1.5 py-0.5 text-[11px] text-zinc-500"
               >
                 [{part.label}]
               </span>
@@ -158,7 +158,9 @@ function MessageCard({ message }: { message: ResolvedMessage }): ReactNode {
   const style = ROLE_STYLES[message.roleClass];
   const header = (
     <span className="flex min-w-0 items-center gap-2 text-xs">
-      <span className={cx('rounded px-1.5 py-0.5 font-medium', style.badge)}>{message.role}</span>
+      <span className={cx('rounded-md px-1.5 py-0.5 font-medium', style.badge)}>
+        {message.role}
+      </span>
       {message.name && <span className="truncate font-mono text-zinc-400">{message.name}</span>}
       {message.toolCallId && (
         <code className="truncate text-[10px] text-zinc-500">↳ {message.toolCallId}</code>
@@ -176,7 +178,7 @@ function MessageCard({ message }: { message: ResolvedMessage }): ReactNode {
   const isEmpty = message.parts.length === 0 && message.toolCalls.length === 0;
 
   return (
-    <li className={cx('rounded-lg border p-2', style.card)}>
+    <li className={cx('rounded-xl border p-2', style.card)}>
       {message.collapsed ? (
         <details>
           <summary className="flex cursor-pointer items-center gap-2">
@@ -229,7 +231,7 @@ export function MappedView({ view }: { view: ResolvedView }): ReactNode {
         <Section title={view.title}>
           <div
             className={cx(
-              'space-y-2 rounded-lg border p-2',
+              'space-y-2 rounded-xl border p-2',
               isError ? 'border-red-500/30 bg-red-500/5' : 'border-violet-500/25 bg-violet-500/5',
             )}
           >
@@ -241,7 +243,7 @@ export function MappedView({ view }: { view: ResolvedView }): ReactNode {
                 {view.status && (
                   <span
                     className={cx(
-                      'rounded px-1.5 py-0.5',
+                      'rounded-md px-1.5 py-0.5',
                       isError ? 'bg-red-500/15 text-red-300' : 'bg-emerald-500/15 text-emerald-300',
                     )}
                   >
@@ -292,14 +294,14 @@ export function MappedView({ view }: { view: ResolvedView }): ReactNode {
     case 'table':
       return (
         <Section title={view.title}>
-          <div className="max-h-96 overflow-auto rounded-lg border border-zinc-800">
+          <div className="max-h-96 overflow-auto rounded-xl border border-white/[0.07]">
             <table className="w-full border-collapse text-left text-xs">
-              <thead className="sticky top-0 bg-zinc-900">
+              <thead className="sticky top-0 bg-white/[0.04]">
                 <tr>
                   {view.columns.map((col) => (
                     <th
                       key={col}
-                      className="border-b border-zinc-800 px-2 py-1 font-medium text-zinc-400"
+                      className="border-b border-white/[0.07] px-2 py-1 font-medium text-zinc-400"
                     >
                       {col}
                     </th>
@@ -309,10 +311,10 @@ export function MappedView({ view }: { view: ResolvedView }): ReactNode {
               <tbody>
                 {view.rows.map((row, i) => (
                   // biome-ignore lint/suspicious/noArrayIndexKey: rows are positional
-                  <tr key={i} className="odd:bg-zinc-950/40">
+                  <tr key={i} className="odd:bg-white/[0.025]">
                     {row.map((cell, j) => (
                       // biome-ignore lint/suspicious/noArrayIndexKey: columns are positional
-                      <td key={j} className="border-b border-zinc-900 px-2 py-1 align-top">
+                      <td key={j} className="border-b border-white/[0.05] px-2 py-1 align-top">
                         <ScalarValue value={cell} />
                       </td>
                     ))}

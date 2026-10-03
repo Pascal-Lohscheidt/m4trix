@@ -9,7 +9,7 @@ function Inlines({ inlines }: { inlines: MarkdownInline[] }): ReactNode {
         return (
           <code
             key={key}
-            className="rounded bg-zinc-800 px-1 py-0.5 font-mono text-[11px] text-amber-200"
+            className="rounded-md bg-white/[0.07] px-1 py-0.5 font-mono text-[11px] text-amber-200"
           >
             {node.text}
           </code>
@@ -62,7 +62,7 @@ export function Markdown({ source }: { source: string }): ReactNode {
             return (
               <pre
                 key={key}
-                className="m-0 max-h-80 overflow-auto rounded-md border border-zinc-800 bg-zinc-950 p-2 font-mono text-[11px] text-zinc-200"
+                className="m-0 max-h-80 overflow-auto rounded-lg border border-white/[0.07] bg-black/25 p-2 font-mono text-[11px] text-zinc-200"
               >
                 {block.text}
               </pre>
@@ -87,13 +87,13 @@ export function Markdown({ source }: { source: string }): ReactNode {
             return (
               <blockquote
                 key={key}
-                className="m-0 whitespace-pre-wrap border-l-2 border-zinc-700 pl-3 text-zinc-400"
+                className="m-0 whitespace-pre-wrap border-l-2 border-white/10 pl-3 text-zinc-400"
               >
                 <Inlines inlines={block.inlines} />
               </blockquote>
             );
           case 'rule':
-            return <hr key={key} className="border-zinc-800" />;
+            return <hr key={key} className="border-white/[0.07]" />;
           default:
             return (
               <p key={key} className="m-0 whitespace-pre-wrap break-words">

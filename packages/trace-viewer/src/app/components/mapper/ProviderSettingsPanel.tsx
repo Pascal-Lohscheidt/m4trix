@@ -11,7 +11,7 @@ import { useMapperProvider } from '../../state/mapper-provider-context';
 import { RouteDiagram } from './RouteDiagram';
 
 const inputClass =
-  'mt-1 w-full rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-xs text-zinc-100 placeholder:text-zinc-600 focus:border-violet-500/60 focus:outline-none';
+  'mt-1 w-full rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1.5 text-xs text-zinc-100 placeholder:text-zinc-600 focus:border-violet-500/60 focus:outline-none';
 
 type TestState =
   | { status: 'idle' }
@@ -47,7 +47,7 @@ export function ProviderSettingsPanel({ compact }: { compact?: boolean }): React
 
   return (
     <div className="space-y-3">
-      <fieldset className="m-0 grid grid-cols-4 gap-1 rounded-lg border border-zinc-800 bg-zinc-900 p-0.5">
+      <fieldset className="m-0 grid grid-cols-4 gap-1 rounded-xl border border-white/[0.07] bg-white/[0.04] p-0.5">
         <legend className="sr-only">Provider</legend>
         {PROVIDER_ORDER.map((id) => (
           <button
@@ -58,10 +58,10 @@ export function ProviderSettingsPanel({ compact }: { compact?: boolean }): React
               setTest({ status: 'idle' });
             }}
             className={cx(
-              'truncate rounded-md px-1.5 py-1 text-[11px] font-medium transition-colors',
+              'truncate rounded-lg px-1.5 py-1 text-[11px] font-medium transition-colors',
               settings.provider === id
                 ? 'bg-violet-500/20 text-violet-200'
-                : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200',
+                : 'text-zinc-400 hover:bg-white/[0.08] hover:text-zinc-200',
             )}
           >
             {PROVIDERS[id].label}
@@ -194,7 +194,7 @@ export function ProviderSettingsPanel({ compact }: { compact?: boolean }): React
           disabled={problems.length > 0 || test.status === 'running'}
           onClick={runTest}
           title={problems.join('\n') || 'Send a tiny request to check credentials'}
-          className="rounded-md border border-zinc-700 bg-zinc-900 px-2.5 py-1 text-[11px] text-zinc-200 hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-40"
+          className="rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[11px] text-zinc-200 hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-40"
         >
           {test.status === 'running' ? 'Testing…' : 'Test connection'}
         </button>

@@ -65,8 +65,10 @@ export function SamplePreview({
                 setSampleIndex(0);
               }}
               className={cx(
-                'flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left text-[11px]',
-                i === groupIndex ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:bg-zinc-900',
+                'flex w-full items-center gap-1.5 rounded-lg px-2 py-1 text-left text-[11px]',
+                i === groupIndex
+                  ? 'bg-white/[0.07] text-zinc-100'
+                  : 'text-zinc-400 hover:bg-zinc-900',
               )}
             >
               <span className="min-w-0 flex-1 truncate" title={g.key}>
@@ -87,10 +89,10 @@ export function SamplePreview({
               type="button"
               onClick={() => setSampleIndex(i)}
               className={cx(
-                'rounded px-2 py-0.5 text-[11px]',
+                'rounded-md px-2 py-0.5 text-[11px]',
                 i === sampleIndex
                   ? 'bg-violet-500/20 text-violet-200'
-                  : 'text-zinc-500 hover:bg-zinc-800',
+                  : 'text-zinc-500 hover:bg-white/[0.08]',
               )}
             >
               Sample {i + 1}
@@ -103,7 +105,7 @@ export function SamplePreview({
             <div className="mb-1 text-[10px] uppercase tracking-wide text-zinc-500">
               {before ? 'Current version' : 'Raw (today)'}
             </div>
-            <div className="max-h-[45vh] overflow-auto rounded-lg border border-zinc-800 bg-zinc-950/40 p-2">
+            <div className="max-h-[45vh] overflow-auto rounded-xl border border-white/[0.07] bg-black/25 p-2">
               {before ? (
                 <MappedPayload
                   mapping={before}
@@ -120,7 +122,7 @@ export function SamplePreview({
             <div className="mb-1 text-[10px] uppercase tracking-wide text-violet-300/80">
               New mapping
             </div>
-            <div className="max-h-[45vh] overflow-auto rounded-lg border border-violet-500/30 bg-zinc-950/40 p-2">
+            <div className="max-h-[45vh] overflow-auto rounded-xl border border-violet-500/30 bg-black/25 p-2">
               <MappedPayload mapping={after} run={run} side={group.side} data={sample.original} />
             </div>
           </div>

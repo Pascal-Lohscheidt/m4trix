@@ -55,11 +55,11 @@ export type MapperDialogProps = {
 };
 
 const button =
-  'rounded-md border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-sm text-zinc-200 hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-40';
+  'rounded-lg border border-white/10 bg-white/[0.04] px-3 py-1.5 text-sm text-zinc-200 hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-40';
 const primary =
-  'rounded-md border border-violet-500/50 bg-violet-500/20 px-3 py-1.5 text-sm font-medium text-violet-100 hover:bg-violet-500/30 disabled:cursor-not-allowed disabled:opacity-40';
+  'rounded-lg border border-violet-500/50 bg-violet-500/20 px-3 py-1.5 text-sm font-medium text-violet-100 hover:bg-violet-500/30 disabled:cursor-not-allowed disabled:opacity-40';
 const inputClass =
-  'w-full rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-xs text-zinc-100 placeholder:text-zinc-600 focus:border-violet-500/60 focus:outline-none';
+  'w-full rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1.5 text-xs text-zinc-100 placeholder:text-zinc-600 focus:border-violet-500/60 focus:outline-none';
 
 function snapshot(report: CoverageReport): CoverageSnapshot {
   const { score, total, mapped, partial, fallback, unmatched } = report;
@@ -299,9 +299,9 @@ export function MapperDialog({
       onClose={step === 'generating' || step === 'collecting' ? () => undefined : onClose}
       className="relative z-[120]"
     >
-      <DialogBackdrop className="fixed inset-0 bg-black/60" />
+      <DialogBackdrop className="fixed inset-0 bg-[#07060f]/55 backdrop-blur-[6px]" />
       <div className="fixed inset-0 flex w-screen items-center justify-center p-4">
-        <DialogPanel className="flex max-h-[92vh] w-full max-w-5xl flex-col rounded-xl border border-zinc-800 bg-zinc-950 p-5 shadow-2xl">
+        <DialogPanel className="flex max-h-[92vh] w-full max-w-5xl flex-col glass glass-strong rounded-[28px] p-6">
           <DialogTitle className="flex items-center gap-2 text-base font-semibold text-zinc-50">
             <span className="text-violet-300">✦</span>
             {title}
@@ -319,7 +319,7 @@ export function MapperDialog({
                   <span
                     key={s}
                     className={cx(
-                      'rounded px-1.5 py-0.5',
+                      'rounded-md px-1.5 py-0.5',
                       order === i ? 'bg-violet-500/20 text-violet-200' : 'text-zinc-600',
                     )}
                   >
@@ -365,7 +365,7 @@ export function MapperDialog({
                       <select
                         value={recentCount}
                         onChange={(e) => setRecentCount(Number(e.target.value))}
-                        className="rounded border border-zinc-700 bg-zinc-900 px-1 py-0.5 text-xs"
+                        className="rounded-md border border-white/10 bg-white/[0.04] px-1 py-0.5 text-xs"
                       >
                         {RECENT_OPTIONS.map((n) => (
                           <option key={n} value={n}>
@@ -384,7 +384,7 @@ export function MapperDialog({
                     <select
                       value={perGroup}
                       onChange={(e) => setPerGroup(Number(e.target.value))}
-                      className="rounded border border-zinc-700 bg-zinc-900 px-1 py-0.5 text-xs"
+                      className="rounded-md border border-white/10 bg-white/[0.04] px-1 py-0.5 text-xs"
                     >
                       {[1, 2, 3, 4, 5].map((n) => (
                         <option key={n} value={n}>
@@ -394,7 +394,7 @@ export function MapperDialog({
                     </select>
                   </label>
                   {pinnedRefs.length > 0 && (
-                    <div className="rounded-md border border-violet-500/30 bg-violet-500/5 px-2 py-1.5 text-[11px] text-violet-200">
+                    <div className="rounded-lg border border-violet-500/30 bg-violet-500/5 px-2 py-1.5 text-[11px] text-violet-200">
                       Includes the run you picked ({pinnedRefs.length} payload).
                     </div>
                   )}
@@ -436,7 +436,7 @@ export function MapperDialog({
                   {showProvider || providerProblems.length > 0 ? (
                     <ProviderSettingsPanel compact />
                   ) : (
-                    <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-2 text-xs text-zinc-300">
+                    <div className="rounded-xl border border-white/[0.07] bg-white/[0.04] px-3 py-2 text-xs text-zinc-300">
                       {providerInfo.label} · <span className="font-mono">{config.model}</span>
                     </div>
                   )}
@@ -483,9 +483,9 @@ export function MapperDialog({
                     Redact strings longer than 40 chars
                   </label>
                 </div>
-                <div className="overflow-hidden rounded-lg border border-zinc-800">
+                <div className="overflow-hidden rounded-xl border border-white/[0.07]">
                   <table className="w-full border-collapse text-left text-xs">
-                    <thead className="bg-zinc-900 text-[11px] text-zinc-500">
+                    <thead className="bg-white/[0.04] text-[11px] text-zinc-500">
                       <tr>
                         <th className="w-8 px-2 py-1.5" />
                         <th className="px-2 py-1.5 font-medium">Payload group</th>
@@ -498,7 +498,7 @@ export function MapperDialog({
                     </thead>
                     <tbody>
                       {limitedGroups.map((g) => (
-                        <tr key={g.key} className="border-t border-zinc-900 align-top">
+                        <tr key={g.key} className="border-t border-white/[0.05] align-top">
                           <td className="px-2 py-1.5">
                             <input
                               type="checkbox"
@@ -600,7 +600,7 @@ export function MapperDialog({
 
             {step === 'error' && error && (
               <div className="space-y-3">
-                <div className="rounded-lg border border-red-500/30 bg-red-500/5 p-3 text-sm text-red-300">
+                <div className="rounded-xl border border-red-500/30 bg-red-500/5 p-3 text-sm text-red-300">
                   {error.message}
                 </div>
                 {error.problems && error.problems.length > 0 && (
@@ -625,7 +625,7 @@ export function MapperDialog({
                   <div className="space-y-3">
                     <CoverageSummary after={result.coverage} before={result.before} />
                     {result.unresolved.length > 0 && (
-                      <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-2 text-[11px] text-amber-200">
+                      <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-2 text-[11px] text-amber-200">
                         <div className="mb-1 font-medium">
                           Still unresolved after repairs — you can save and fix them later:
                         </div>
@@ -684,7 +684,7 @@ export function MapperDialog({
             )}
           </div>
 
-          <div className="mt-4 flex items-center justify-end gap-2 border-t border-zinc-900 pt-3">
+          <div className="mt-4 flex items-center justify-end gap-2 border-t border-white/[0.05] pt-3">
             {(step === 'collecting' || step === 'generating') && (
               <button type="button" className={button} onClick={cancel}>
                 Cancel

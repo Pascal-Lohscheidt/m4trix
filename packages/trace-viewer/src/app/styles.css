@@ -1,4 +1,29 @@
+@import "@fontsource-variable/geist";
+@import "@fontsource-variable/geist-mono";
 @import "tailwindcss";
+
+/*
+ * Neutral scale retuned to a cool, slightly violet-tinted dark so every existing `zinc-*`
+ * utility sits naturally on the aurora backdrop. Accent is Tailwind's violet.
+ */
+@theme {
+  --font-sans: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono Variable", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --color-zinc-50: #f7f6fc;
+  --color-zinc-100: #eceaf6;
+  --color-zinc-200: #d9d6ea;
+  --color-zinc-300: #bbb7d2;
+  --color-zinc-400: #918cad;
+  --color-zinc-500: #6e698b;
+  --color-zinc-600: #504b6b;
+  --color-zinc-700: #39354f;
+  --color-zinc-800: #27243b;
+  --color-zinc-900: #1a1829;
+  --color-zinc-950: #0e0d18;
+
+  --ease-glass: cubic-bezier(0.16, 1, 0.3, 1);
+}
 
 :root {
   color-scheme: dark;
@@ -14,12 +39,173 @@
     height: 100%;
     margin: 0;
     overflow: hidden;
-    background: #09090b;
-    color: #e4e4e7;
-    font-family: ui-sans-serif, system-ui, sans-serif;
+    background: #0b0a14;
+    color: var(--color-zinc-200);
+    font-family: var(--font-sans);
+    font-feature-settings: "ss01", "cv11";
+    -webkit-font-smoothing: antialiased;
   }
 
   #root {
     height: 100%;
+  }
+
+  ::selection {
+    background: rgb(167 139 250 / 0.35);
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(255 255 255 / 0.12) transparent;
+  }
+}
+
+@layer components {
+  /* Aurora wash behind the whole app (the Kolhorn-style gradient, taken to night mode). */
+  .aurora {
+    position: relative;
+    isolation: isolate;
+    background:
+      radial-gradient(56rem 38rem at 6% -8%, rgb(139 92 246 / 0.55), transparent 62%),
+      radial-gradient(48rem 34rem at 96% -4%, rgb(99 102 241 / 0.42), transparent 64%),
+      radial-gradient(44rem 36rem at 68% 108%, rgb(192 38 211 / 0.28), transparent 62%),
+      radial-gradient(38rem 30rem at -6% 96%, rgb(56 189 248 / 0.16), transparent 62%),
+      radial-gradient(30rem 24rem at 45% 40%, rgb(124 58 237 / 0.1), transparent 70%), #0b0a14;
+  }
+
+  /* Grain on a fixed, non-scrolling layer only. */
+  .aurora::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    opacity: 0.06;
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  }
+
+  /*
+   * Liquid-glass approximation (web glassmorphism, not Apple's official material):
+   * translucent fill + backdrop blur/saturation + specular rim + inner light.
+   * Scroll content must live in a child element so the rim does not scroll away.
+   */
+  .glass {
+    position: relative;
+    background: linear-gradient(
+      165deg,
+      rgb(255 255 255 / 0.075) 0%,
+      rgb(255 255 255 / 0.025) 45%,
+      rgb(255 255 255 / 0.04) 100%
+    );
+    backdrop-filter: blur(28px) saturate(170%);
+    -webkit-backdrop-filter: blur(28px) saturate(170%);
+    box-shadow:
+      inset 0 1px 0 0 rgb(255 255 255 / 0.12),
+      inset 0 -18px 36px -28px rgb(196 181 253 / 0.18),
+      0 30px 60px -32px rgb(0 0 0 / 0.75),
+      0 2px 8px -2px rgb(0 0 0 / 0.35);
+  }
+
+  .glass::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    pointer-events: none;
+    background: linear-gradient(
+      140deg,
+      rgb(255 255 255 / 0.32),
+      rgb(255 255 255 / 0.06) 28%,
+      rgb(255 255 255 / 0.02) 62%,
+      rgb(196 181 253 / 0.2)
+    );
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    mask-composite: exclude;
+  }
+
+  /* Opaque-leaning glass for dialogs and popovers that sit over busy content. */
+  .glass-strong {
+    background: linear-gradient(165deg, rgb(38 35 60 / 0.82), rgb(20 18 34 / 0.9));
+  }
+
+  /* Recessed well inside a glass surface (inputs, code, stat tiles). No extra blur. */
+  .glass-well {
+    background: rgb(5 4 14 / 0.35);
+    box-shadow:
+      inset 0 1px 2px 0 rgb(0 0 0 / 0.35),
+      inset 0 0 0 1px rgb(255 255 255 / 0.05);
+  }
+
+  /* Raised chip inside a glass surface. */
+  .glass-chip {
+    background: linear-gradient(180deg, rgb(255 255 255 / 0.08), rgb(255 255 255 / 0.03));
+    box-shadow:
+      inset 0 1px 0 0 rgb(255 255 255 / 0.1),
+      inset 0 0 0 1px rgb(255 255 255 / 0.06);
+  }
+
+  /* Primary pill, the "Join call" button. */
+  .btn-primary {
+    background: linear-gradient(180deg, #a78bfa, #7c3aed);
+    color: white;
+    box-shadow:
+      inset 0 1px 0 0 rgb(255 255 255 / 0.35),
+      0 8px 20px -8px rgb(124 58 237 / 0.7);
+    transition:
+      filter 200ms var(--ease-glass),
+      transform 200ms var(--ease-glass);
+  }
+  .btn-primary:hover {
+    filter: brightness(1.08);
+  }
+  .btn-primary:active {
+    transform: scale(0.97);
+  }
+
+  .live-dot {
+    position: relative;
+  }
+  .live-dot::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 9999px;
+    background: inherit;
+    animation: live-ping 2.4s var(--ease-glass) infinite;
+  }
+}
+
+@keyframes live-ping {
+  0% {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+  70%,
+  100% {
+    transform: scale(2.6);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .live-dot::after {
+    animation: none;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .glass,
+  .glass-strong {
+    background: #1a1829;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
   }
 }

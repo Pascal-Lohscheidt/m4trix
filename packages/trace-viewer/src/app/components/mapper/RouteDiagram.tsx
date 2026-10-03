@@ -32,10 +32,10 @@ function Node({
   return (
     <div
       className={cx(
-        'flex min-w-0 flex-1 items-center gap-2 rounded-lg border px-2.5 py-2',
+        'flex min-w-0 flex-1 items-center gap-2 rounded-xl border px-2.5 py-2',
         tone === 'local' && 'border-sky-500/30 bg-sky-500/5',
         tone === 'remote' && 'border-violet-500/30 bg-violet-500/5',
-        tone === 'muted' && 'border-dashed border-zinc-800 bg-transparent opacity-60',
+        tone === 'muted' && 'border-dashed border-white/[0.07] bg-transparent opacity-60',
       )}
     >
       <span className="shrink-0 text-zinc-300">{icon}</span>

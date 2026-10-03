@@ -1,3 +1,4 @@
+import { TreeStructureIcon } from '@phosphor-icons/react';
 import { type ReactNode, useCallback, useEffect, useState } from 'react';
 import { MapperDialog } from './components/mapper/MapperDialog';
 import { SettingsModal } from './components/SettingsModal';
@@ -47,21 +48,7 @@ export function TraceViewerPage(): ReactNode {
 
   return (
     <MapperDialogContextProvider openMapper={openMapper}>
-      <div
-        className={cx(
-          'grid h-screen grid-rows-[3rem_minmax(5rem,auto)_minmax(0,1fr)] overflow-hidden bg-zinc-950 text-zinc-200',
-          layoutFocus === 'run-tree'
-            ? 'grid-cols-[320px_minmax(0,1.35fr)_minmax(280px,0.65fr)]'
-            : 'grid-cols-[320px_minmax(280px,0.65fr)_minmax(0,1.35fr)]',
-        )}
-      >
-        <div className="col-span-3 col-start-1 row-start-1">
-          <Toolbar
-            layoutFocus={layoutFocus}
-            onLayoutFocusChange={setLayoutFocus}
-            onOpenSettings={() => setSettingsOpen(true)}
-          />
-        </div>
+      <div className="aurora flex h-screen gap-3 overflow-hidden p-3 text-zinc-200">
         <TraceSidebar
           traces={filteredTraces}
           allTraceCount={traces.length}
@@ -74,24 +61,31 @@ export function TraceViewerPage(): ReactNode {
           onFiltersChange={setFilters}
           onSelectTrace={setTraceId}
         />
-        {(!traceId || !tree) && (
-          <div className="col-span-2 col-start-2 row-span-2 row-start-2 h-[calc(100vh-3rem)] overflow-auto bg-zinc-900 p-6 text-zinc-400">
-            {treeErr ?? 'Select a trace to inspect runs and payloads.'}
-          </div>
-        )}
-        {traceId && tree && (
-          <TraceMainPanel
-            tree={tree}
-            treeErr={treeErr}
-            runId={runId}
-            setRunId={setRunId}
-            payloadCache={payload.payloadCache}
-            payloadLoading={payload.payloadLoading}
-            tracePayloadBatchLoading={payload.tracePayloadBatchLoading}
-            loadPayload={payload.loadPayload}
-            loadManyPayloads={payload.loadManyPayloads}
+        <main className="flex min-w-0 flex-1 flex-col gap-3 pr-1">
+          <Toolbar
+            query={filters.query}
+            onQueryChange={(query) => setFilters({ ...filters, query })}
+            layoutFocus={layoutFocus}
+            onLayoutFocusChange={setLayoutFocus}
+            onOpenSettings={() => setSettingsOpen(true)}
           />
-        )}
+          {traceId && tree ? (
+            <TraceMainPanel
+              tree={tree}
+              treeErr={treeErr}
+              runId={runId}
+              setRunId={setRunId}
+              layoutFocus={layoutFocus}
+              payloadCache={payload.payloadCache}
+              payloadLoading={payload.payloadLoading}
+              tracePayloadBatchLoading={payload.tracePayloadBatchLoading}
+              loadPayload={payload.loadPayload}
+              loadManyPayloads={payload.loadManyPayloads}
+            />
+          ) : (
+            <EmptyState message={treeErr} loading={Boolean(traceId) && !treeErr} />
+          )}
+        </main>
         <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
         {mapper && (
           <MapperDialog
@@ -106,5 +100,23 @@ export function TraceViewerPage(): ReactNode {
         )}
       </div>
     </MapperDialogContextProvider>
+  );
+}
+
+function EmptyState({ message, loading }: { message: string | null; loading: boolean }): ReactNode {
+  return (
+    <div className="flex min-h-0 flex-1 items-center justify-center pb-16">
+      <div className="max-w-sm text-center">
+        <div className="glass mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl text-violet-300">
+          <TreeStructureIcon aria-hidden="true" weight="duotone" className="h-7 w-7" />
+        </div>
+        <h1 className="text-2xl font-semibold tracking-tight text-zinc-50">
+          {message ? 'Could not load trace' : loading ? 'Loading trace…' : 'Pick a trace'}
+        </h1>
+        <p className={cx('mt-2 text-sm', message ? 'text-rose-300' : 'text-zinc-500')}>
+          {message ?? 'Select a trace on the left to inspect its runs, metadata and payloads.'}
+        </p>
+      </div>
+    </div>
   );
 }

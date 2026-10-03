@@ -9,7 +9,7 @@ export function JsonBlock({ value, className }: { value: unknown; className?: st
   }
   return (
     <pre
-      className={`m-0 max-h-80 overflow-auto rounded-lg border border-zinc-800 bg-zinc-950 p-2.5 text-xs ${className ?? ''}`}
+      className={`glass-well m-0 max-h-80 overflow-auto rounded-2xl p-3 font-mono text-xs leading-relaxed text-zinc-300 ${className ?? ''}`}
     >
       {text}
     </pre>

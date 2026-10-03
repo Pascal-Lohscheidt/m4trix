@@ -39,7 +39,7 @@ function slug(name: string): string {
 }
 
 const iconButton =
-  'inline-flex h-7 w-7 items-center justify-center rounded-md text-zinc-500 transition-colors hover:bg-zinc-800 hover:text-zinc-200';
+  'inline-flex h-7 w-7 items-center justify-center rounded-lg text-zinc-500 transition-colors hover:bg-white/[0.08] hover:text-zinc-200';
 
 export function CustomProfilesSection(): ReactNode {
   const { profiles, warnings, createProfile, duplicateProfile, removeProfile, importProfileJson } =
@@ -129,7 +129,7 @@ export function CustomProfilesSection(): ReactNode {
               setImportOpen((v) => !v);
               setImportErrors([]);
             }}
-            className="rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-[11px] text-zinc-300 hover:bg-zinc-800"
+            className="rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1 text-[11px] text-zinc-300 hover:bg-white/[0.08]"
           >
             Import
           </button>
@@ -137,7 +137,7 @@ export function CustomProfilesSection(): ReactNode {
             type="button"
             onClick={handleNew}
             title="Start from a hand-editable starter mapping"
-            className="rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-[11px] text-zinc-300 hover:bg-zinc-800"
+            className="rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1 text-[11px] text-zinc-300 hover:bg-white/[0.08]"
           >
             New blank
           </button>
@@ -145,7 +145,7 @@ export function CustomProfilesSection(): ReactNode {
             <button
               type="button"
               onClick={() => mapper.openMapper({ mode: 'create' })}
-              className="rounded-md border border-violet-500/40 bg-violet-500/15 px-2 py-1 text-[11px] font-medium text-violet-200 hover:bg-violet-500/25"
+              className="rounded-lg border border-violet-500/40 bg-violet-500/15 px-2 py-1 text-[11px] font-medium text-violet-200 hover:bg-violet-500/25"
             >
               ✦ Generate with AI
             </button>
@@ -158,7 +158,7 @@ export function CustomProfilesSection(): ReactNode {
       </p>
 
       {warnings.length > 0 && (
-        <ul className="mt-2 list-none space-y-0.5 rounded-md border border-amber-500/30 bg-amber-500/5 p-2 text-[11px] text-amber-300">
+        <ul className="mt-2 list-none space-y-0.5 rounded-lg border border-amber-500/30 bg-amber-500/5 p-2 text-[11px] text-amber-300">
           {warnings.map((w) => (
             <li key={w}>{w}</li>
           ))}
@@ -166,14 +166,14 @@ export function CustomProfilesSection(): ReactNode {
       )}
 
       {importOpen && (
-        <div className="mt-3 space-y-2 rounded-lg border border-zinc-800 bg-zinc-900/50 p-3">
+        <div className="mt-3 space-y-2 rounded-xl border border-white/[0.07] bg-white/[0.04] p-3">
           <textarea
             value={importText}
             onChange={(e) => setImportText(e.target.value)}
             placeholder="Paste an exported profile or a mapping JSON…"
             spellCheck={false}
             aria-label="Profile JSON"
-            className="h-28 w-full resize-y rounded-md border border-zinc-800 bg-zinc-950 p-2 font-mono text-[11px] text-zinc-200 placeholder:text-zinc-600 focus:border-violet-500/60 focus:outline-none"
+            className="h-28 w-full resize-y rounded-lg border border-white/[0.07] bg-black/25 p-2 font-mono text-[11px] text-zinc-200 placeholder:text-zinc-600 focus:border-violet-500/60 focus:outline-none"
           />
           {importErrors.length > 0 && (
             <ul className="m-0 max-h-24 list-none space-y-0.5 overflow-auto p-0 text-[11px] text-red-400">
@@ -196,7 +196,7 @@ export function CustomProfilesSection(): ReactNode {
               type="button"
               disabled={!importText.trim()}
               onClick={() => handleImport(importText)}
-              className="rounded-md border border-violet-500/40 bg-violet-500/15 px-2.5 py-1 text-[11px] font-medium text-violet-200 hover:bg-violet-500/25 disabled:opacity-40"
+              className="rounded-lg border border-violet-500/40 bg-violet-500/15 px-2.5 py-1 text-[11px] font-medium text-violet-200 hover:bg-violet-500/25 disabled:opacity-40"
             >
               Import JSON
             </button>
@@ -206,7 +206,7 @@ export function CustomProfilesSection(): ReactNode {
 
       <div className="mt-3 space-y-2">
         {profiles.length === 0 && !importOpen && (
-          <div className="rounded-lg border border-dashed border-zinc-800 px-3 py-3 text-center text-[11px] text-zinc-600">
+          <div className="rounded-xl border border-dashed border-white/[0.07] px-3 py-3 text-center text-[11px] text-zinc-600">
             No custom profiles yet.
           </div>
         )}
@@ -218,7 +218,7 @@ export function CustomProfilesSection(): ReactNode {
           return (
             <div
               key={profile.id}
-              className="rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-2"
+              className="rounded-xl border border-white/[0.07] bg-white/[0.04] px-3 py-2"
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
@@ -235,7 +235,7 @@ export function CustomProfilesSection(): ReactNode {
                   checked={enabled}
                   onChange={(checked) => setEnabled(traceId, checked)}
                   aria-label={`Show ${profile.name} profile`}
-                  className="group relative mt-0.5 inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border border-zinc-700 bg-zinc-800 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/80 data-checked:border-violet-500/50 data-checked:bg-violet-500/20"
+                  className="group relative mt-0.5 inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border border-white/10 bg-white/[0.07] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/80 data-checked:border-violet-500/50 data-checked:bg-violet-500/20"
                 >
                   <span
                     aria-hidden="true"
@@ -293,14 +293,14 @@ export function CustomProfilesSection(): ReactNode {
                     <button
                       type="button"
                       onClick={() => handleDelete(profile.id)}
-                      className="rounded px-1.5 py-0.5 text-red-300 hover:bg-red-500/15"
+                      className="rounded-md px-1.5 py-0.5 text-red-300 hover:bg-red-500/15"
                     >
                       Delete
                     </button>
                     <button
                       type="button"
                       onClick={() => setConfirmDeleteId(null)}
-                      className="rounded px-1.5 py-0.5 text-zinc-400 hover:bg-zinc-800"
+                      className="rounded-md px-1.5 py-0.5 text-zinc-400 hover:bg-white/[0.08]"
                     >
                       Cancel
                     </button>

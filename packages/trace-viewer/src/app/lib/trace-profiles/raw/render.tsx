@@ -4,7 +4,7 @@ import type { ProfileRenderProps } from '../types';
 
 function JsonBlock({ value }: { value: unknown }): ReactNode {
   return (
-    <pre className="m-0 overflow-auto rounded-lg border border-zinc-800 bg-zinc-950 p-2.5 text-xs">
+    <pre className="m-0 overflow-auto rounded-xl border border-white/[0.07] bg-black/25 p-2.5 text-xs">
       {JSON.stringify(value, null, 2)}
     </pre>
   );

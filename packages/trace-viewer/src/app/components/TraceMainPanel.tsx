@@ -9,13 +9,16 @@ import type { TraceTree } from '../types';
 import { FilterGroupBar } from './FilterGroupBar';
 import { RunDetail } from './RunDetail';
 import { RunTree } from './RunTree';
+import type { LayoutFocus } from './Toolbar';
 import { TraceHeader } from './TraceHeader';
+import { GlassCard } from './ui/GlassCard';
 
 export type TraceMainPanelProps = {
   tree: TraceTree;
   treeErr: string | null;
   runId: string | null;
   setRunId: (id: string | null) => void;
+  layoutFocus: LayoutFocus;
   payloadCache: Record<string, unknown>;
   payloadLoading: string | null;
   tracePayloadBatchLoading: boolean;
@@ -28,6 +31,7 @@ export function TraceMainPanel({
   treeErr,
   runId,
   setRunId,
+  layoutFocus,
   payloadCache,
   payloadLoading,
   tracePayloadBatchLoading,
@@ -108,45 +112,55 @@ export function TraceMainPanel({
     void loadManyPayloads(missingTracePayloadRefs);
   }, [loadManyPayloads, missingTracePayloadRefs]);
 
-  return (
-    <>
-      <div className="col-span-2 col-start-2 row-start-2 min-h-0 min-w-0">
-        <TraceHeader
-          trace={tree.trace}
-          aggregates={aggregates}
-          missingTracePayloadCount={missingTracePayloadRefs.length}
-          tracePayloadBatchLoading={tracePayloadBatchLoading}
-          onLoadTracePayloads={handleLoadTracePayloads}
-          showTracePayloadControls={selectedProfile.requiresFullPayloads}
-          customCoverage={customCoverage}
+  const runTreeCard = (
+    <GlassCard key="tree" title="Run tree" className="min-w-[300px]">
+      <FilterGroupBar />
+      {treeErr && <div className="mb-2 text-sm text-rose-300">{treeErr}</div>}
+      {runTreeDisplay.root ? (
+        <RunTree
+          node={runTreeDisplay.root}
+          selectedId={runId}
+          onSelect={setRunId}
+          depthByRunId={runTreeDisplay.depthByRunId}
+          hideBypassRunIds={runTreeDisplay.hideBypassRunIds}
+          subtreeRollupsByRunId={subtreeRollups ?? undefined}
+          subtreeRollupsComplete={fullTracePayloadsLoaded}
         />
-      </div>
-      <section className="col-start-2 row-start-3 h-full min-h-0 min-w-0 overflow-auto border-r border-zinc-800 bg-zinc-900 p-4">
-        <FilterGroupBar />
-        <div className="mb-3 font-semibold text-zinc-200">Run tree</div>
-        {treeErr && <div className="text-red-400">{treeErr}</div>}
-        {runTreeDisplay.root ? (
-          <RunTree
-            node={runTreeDisplay.root}
-            selectedId={runId}
-            onSelect={setRunId}
-            depthByRunId={runTreeDisplay.depthByRunId}
-            hideBypassRunIds={runTreeDisplay.hideBypassRunIds}
-            subtreeRollupsByRunId={subtreeRollups ?? undefined}
-            subtreeRollupsComplete={fullTracePayloadsLoaded}
-          />
-        ) : (
-          <div className="text-sm text-zinc-500">
-            No runs visible with the current hide filters.
-          </div>
-        )}
-      </section>
-      <RunDetail
-        run={selectedRun}
-        payloadCache={payloadCache}
-        payloadLoading={payloadLoading}
-        onLoadPayload={loadPayload}
+      ) : (
+        <div className="text-sm text-zinc-500">No runs visible with the current hide filters.</div>
+      )}
+    </GlassCard>
+  );
+  const runDetailCard = (
+    <RunDetail
+      key="detail"
+      run={selectedRun}
+      payloadCache={payloadCache}
+      payloadLoading={payloadLoading}
+      onLoadPayload={loadPayload}
+    />
+  );
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col gap-3">
+      <TraceHeader
+        trace={tree.trace}
+        aggregates={aggregates}
+        missingTracePayloadCount={missingTracePayloadRefs.length}
+        tracePayloadBatchLoading={tracePayloadBatchLoading}
+        onLoadTracePayloads={handleLoadTracePayloads}
+        showTracePayloadControls={selectedProfile.requiresFullPayloads}
+        customCoverage={customCoverage}
       />
-    </>
+      <div
+        className="grid min-h-0 flex-1 gap-3 transition-[grid-template-columns] duration-500 ease-[var(--ease-glass)] motion-reduce:transition-none"
+        style={{
+          gridTemplateColumns: layoutFocus === 'run-tree' ? '1.35fr 0.65fr' : '0.65fr 1.35fr',
+        }}
+      >
+        {runTreeCard}
+        {runDetailCard}
+      </div>
+    </div>
   );
 }

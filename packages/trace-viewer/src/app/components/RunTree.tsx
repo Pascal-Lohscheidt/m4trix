@@ -1,11 +1,12 @@
 import {
   BrainIcon,
+  CaretRightIcon,
   CoinsIcon,
   CurrencyCircleDollarIcon,
   LinkSimpleIcon,
   WrenchIcon,
 } from '@phosphor-icons/react';
-import { type ReactNode, useState } from 'react';
+import { type ReactNode, useRef, useState } from 'react';
 import { buildMatchContext, nodeDisplayEffect } from '../lib/filter-groups';
 import {
   formatSubtreeCostSuffix,
@@ -14,7 +15,8 @@ import {
   subtreeRollupTotalTokens,
   type RunSubtreeRollup,
 } from '../lib/trace-profiles/langgraph/aggregates';
-import { cx, statusTextClass } from '../lib/viewer';
+import { useReveal } from '../lib/motion';
+import { cx, statusDotClass, statusTextClass } from '../lib/viewer';
 import { useFilterGroups } from '../state/filter-groups-context';
 import type { RunNode } from '../types';
 
@@ -48,8 +50,8 @@ function SubtreeRollupBadge({
   const badgeClass = cx(
     'ml-2 inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 font-mono text-[11px]',
     complete
-      ? 'border-violet-400/30 bg-violet-400/10 text-violet-200'
-      : 'border-violet-400/20 bg-violet-400/5 text-violet-300/80',
+      ? 'border-violet-300/20 bg-violet-400/10 text-violet-200'
+      : 'border-violet-300/10 bg-violet-400/5 text-violet-300/80',
   );
   const iconClass = 'h-3 w-3 shrink-0';
 
@@ -82,7 +84,7 @@ function runTypeBadge(type: string): ReactNode {
 
   if (normalizedType.includes('tool')) {
     return (
-      <span className="mr-2 inline-flex items-center gap-1 rounded-full border border-sky-400/30 bg-sky-400/10 px-2 py-0.5 text-xs text-sky-300">
+      <span className="mr-2 inline-flex items-center gap-1 rounded-full bg-sky-400/10 px-2 py-0.5 text-[11px] font-medium text-sky-200 ring-1 ring-sky-300/20 ring-inset">
         <WrenchIcon aria-hidden="true" weight="bold" className={iconClassName} />
         {type}
       </span>
@@ -91,7 +93,7 @@ function runTypeBadge(type: string): ReactNode {
 
   if (normalizedType.includes('chain')) {
     return (
-      <span className="mr-2 inline-flex items-center gap-1 rounded-full border border-violet-400/30 bg-violet-400/10 px-2 py-0.5 text-xs text-violet-300">
+      <span className="mr-2 inline-flex items-center gap-1 rounded-full bg-violet-400/10 px-2 py-0.5 text-[11px] font-medium text-violet-200 ring-1 ring-violet-300/20 ring-inset">
         <LinkSimpleIcon aria-hidden="true" weight="bold" className={iconClassName} />
         {type}
       </span>
@@ -104,14 +106,14 @@ function runTypeBadge(type: string): ReactNode {
     normalizedType.includes('model')
   ) {
     return (
-      <span className="mr-2 inline-flex items-center gap-1 rounded-full border border-amber-400/30 bg-amber-400/10 px-2 py-0.5 text-xs text-amber-300">
+      <span className="mr-2 inline-flex items-center gap-1 rounded-full bg-amber-400/10 px-2 py-0.5 text-[11px] font-medium text-amber-200 ring-1 ring-amber-300/20 ring-inset">
         <BrainIcon aria-hidden="true" weight="bold" className={iconClassName} />
         {type}
       </span>
     );
   }
 
-  return <span className="mr-2 text-zinc-400">{type}</span>;
+  return <span className="mr-2 text-[11px] text-zinc-500">{type}</span>;
 }
 
 export function RunTree(props: RunTreeProps): ReactNode {
@@ -137,6 +139,15 @@ export function RunTree(props: RunTreeProps): ReactNode {
   const [expanded, setExpanded] = useState(true);
   const showChildren = hasChildren && expanded && !forceCollapse;
   const chevronExpanded = expanded && !forceCollapse;
+  const childrenRef = useRef<HTMLDivElement>(null);
+  const expandedByUser = useRef(false);
+  // Only animate children the user just expanded, not the initial render of the whole tree.
+  useReveal(childrenRef, showChildren, {
+    distance: 6,
+    staggerMs: 18,
+    selector: ':scope > *',
+    enabled: expandedByUser.current,
+  });
 
   if (hidden && !bypassHide) return null;
 
@@ -144,10 +155,10 @@ export function RunTree(props: RunTreeProps): ReactNode {
     <div key={node.runId} className="w-max min-w-full">
       <div
         className={cx(
-          'mb-1 flex w-full items-center whitespace-nowrap rounded-md border text-[13px] text-zinc-200 transition-colors hover:border-zinc-600 hover:bg-zinc-800',
+          'mb-0.5 flex w-full items-center rounded-xl text-[13px] whitespace-nowrap transition-[background-color,box-shadow] duration-200',
           selected
-            ? 'border-amber-400 bg-zinc-800 shadow-[0_0_0_1px_rgba(251,191,36,0.15)]'
-            : 'border-zinc-700 bg-zinc-900',
+            ? 'bg-violet-400/[0.14] text-violet-50 shadow-[inset_0_1px_0_rgb(255_255_255_/_0.08),inset_0_0_0_1px_rgb(196_181_253_/_0.16)]'
+            : 'text-zinc-200 hover:bg-white/[0.05]',
         )}
       >
         {hasChildren ? (
@@ -159,14 +170,22 @@ export function RunTree(props: RunTreeProps): ReactNode {
             aria-expanded={chevronExpanded}
             onClick={() => {
               if (forceCollapse) return;
+              expandedByUser.current = true;
               setExpanded((current) => !current);
             }}
             className={cx(
-              'ml-1 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-zinc-400 transition-colors hover:bg-zinc-700 hover:text-zinc-100',
+              'ml-1 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-lg text-zinc-500 transition-colors hover:bg-white/10 hover:text-zinc-100',
               forceCollapse && 'cursor-not-allowed opacity-50',
             )}
           >
-            {chevronExpanded ? '▾' : '▸'}
+            <CaretRightIcon
+              aria-hidden="true"
+              weight="bold"
+              className={cx(
+                'h-3 w-3 transition-transform duration-300 ease-[var(--ease-glass)]',
+                chevronExpanded && 'rotate-90',
+              )}
+            />
           </button>
         ) : (
           <span className="ml-1 inline-block h-6 w-6 shrink-0" />
@@ -178,7 +197,16 @@ export function RunTree(props: RunTreeProps): ReactNode {
         >
           {runTypeBadge(node.type)}
           <span>{node.name}</span>
-          <span className={cx('ml-2 text-xs', statusTextClass(node.status))}>{node.status}</span>
+          <span
+            title={node.status}
+            className={cx('ml-2 h-1.5 w-1.5 shrink-0 rounded-full', statusDotClass(node.status))}
+          />
+          <span className="sr-only">{node.status}</span>
+          {node.status !== 'success' && (
+            <span className={cx('ml-1.5 text-xs', statusTextClass(node.status))}>
+              {node.status}
+            </span>
+          )}
           {subtreeRollup?.hasUsage ? (
             <SubtreeRollupBadge rollup={subtreeRollup} complete={subtreeRollupsComplete} />
           ) : null}
@@ -192,7 +220,7 @@ export function RunTree(props: RunTreeProps): ReactNode {
         </button>
       </div>
       {showChildren && (
-        <div className="ml-4 border-l border-zinc-800 pl-3">
+        <div ref={childrenRef} className="ml-[18px] border-l border-white/[0.07] pl-2.5">
           {node.children.map((child) => (
             <RunTree
               key={child.runId}
