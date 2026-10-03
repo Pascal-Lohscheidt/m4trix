@@ -54,7 +54,10 @@ jobs:
           name: Install dependencies
           command: pnpm install
       - run:
-          name: Audit deployed packages
+          # Fails only on high/critical advisories in production dependencies of published
+          # packages; devDependencies, website and examples are ignored. Transient registry
+          # errors are retried inside the script.
+          name: Audit production dependencies of published packages
           command: pnpm exec jiti scripts/audit-deployed-packages.ts
 
   publish-core:

@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 /**
  * Audit dependency vulnerabilities for published packages only.
- * Ignores website, examples, and root devDependencies that are not shipped.
+ * Only production dependencies (`dependencies` / `optionalDependencies`) are audited —
+ * devDependencies (build/test tooling) are never shipped to consumers. Website and
+ * examples are ignored as well.
  *
  * Usage: jiti scripts/audit-deployed-packages.ts
  */
@@ -44,25 +46,60 @@ function pathTouchesDeployedPackage(path: string): boolean {
   return false;
 }
 
-function runAudit(): AuditReport {
+const AUDIT_ATTEMPTS = 3;
+const RETRY_DELAY_MS = 5_000;
+
+function sleep(ms: number): void {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+/** One `pnpm audit` call; returns `null` when no usable report came back (registry/network issue). */
+function tryAudit(): AuditReport | null {
   let output = '';
 
   try {
-    output = execSync('pnpm audit --json --ignore-registry-errors 2>/dev/null', {
+    output = execSync('pnpm audit --prod --json --ignore-registry-errors 2>/dev/null', {
       encoding: 'utf-8',
       maxBuffer: 50 * 1024 * 1024,
     });
   } catch (error) {
+    // pnpm exits non-zero when advisories exist; the report is still on stdout.
     const execError = error as { stdout?: string };
     output = execError.stdout ?? '';
   }
 
-  if (!output.trim()) {
-    console.error('pnpm audit did not return a report');
-    process.exit(2);
-  }
+  if (!output.trim()) return null;
 
-  return JSON.parse(output) as AuditReport;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(output);
+  } catch {
+    return null;
+  }
+  // An error payload (e.g. registry 5xx) has no advisories key and must not count as "clean".
+  if (!parsed || typeof parsed !== 'object' || !('advisories' in parsed)) return null;
+  return parsed as AuditReport;
+}
+
+/**
+ * Retries transient registry failures so CI is only blocked by real findings. If no report can
+ * be obtained at all, exit 2 — an unverified audit must not pass silently.
+ */
+function runAudit(): AuditReport {
+  for (let attempt = 1; attempt <= AUDIT_ATTEMPTS; attempt++) {
+    const report = tryAudit();
+    if (report) return report;
+    if (attempt < AUDIT_ATTEMPTS) {
+      console.warn(
+        `pnpm audit returned no report (attempt ${attempt}/${AUDIT_ATTEMPTS}); retrying in ${(RETRY_DELAY_MS * attempt) / 1000}s…`,
+      );
+      sleep(RETRY_DELAY_MS * attempt);
+    }
+  }
+  console.error(
+    `pnpm audit did not return a report after ${AUDIT_ATTEMPTS} attempts (registry unavailable?). Re-run the job.`,
+  );
+  process.exit(2);
 }
 
 function main(): void {
@@ -90,13 +127,13 @@ function main(): void {
 
   if (findings.length === 0) {
     console.log(
-      `No ${AUDIT_LEVEL} or critical vulnerabilities in deployed packages (${DEPLOYED_PREFIXES.join(', ')}).`,
+      `No ${AUDIT_LEVEL} or critical vulnerabilities in production dependencies of deployed packages (${DEPLOYED_PREFIXES.join(', ')}).`,
     );
     process.exit(0);
   }
 
   console.error(
-    `Found ${findings.length} ${AUDIT_LEVEL}+ vulnerabilit${findings.length === 1 ? 'y' : 'ies'} in deployed packages:\n`,
+    `Found ${findings.length} ${AUDIT_LEVEL}+ vulnerabilit${findings.length === 1 ? 'y' : 'ies'} in production dependencies of deployed packages:\n`,
   );
 
   for (const finding of findings) {
