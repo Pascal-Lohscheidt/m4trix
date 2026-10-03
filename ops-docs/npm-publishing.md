@@ -46,9 +46,11 @@ There is **no npm token** in CI. Publish jobs authenticate with
   `circleci run oidc get --claims '{"aud": "npm:registry.npmjs.org"}'` and exports the result as
   `NPM_ID_TOKEN`. During `npm publish`, npm exchanges it for a short-lived publish token.
 - Publish jobs run on `cimg/node:22.23.3` (trusted publishing needs Node ≥ 22.14).
-- `turbo.json` lists `NPM_ID_TOKEN` in `passThroughEnv` for every `*#publish-package` task —
-  turbo runs in strict env mode and would otherwise drop it. Publish tasks also set
-  `"cache": false` so a cache hit can never skip a real publish.
+- `turbo.json` lists `NPM_ID_TOKEN` **and `CIRCLECI`** in `passThroughEnv` for every
+  `*#publish-package` task. Turbo runs in strict env mode and would otherwise drop both: npm only
+  attempts the OIDC exchange when it detects CircleCI via the `CIRCLECI` variable (`ci-info`);
+  without it `npm publish` fails with `ENEEDAUTH`. Publish tasks also set `"cache": false` so a
+  cache hit can never skip a real publish.
 - npm does not generate provenance attestations for CircleCI publishes (only for GitHub Actions).
 
 ### CircleCI identifiers
@@ -103,7 +105,7 @@ After the first successful OIDC release:
    `scripts/check-package-scope.ts`, plus `release:*` / `<scope>:build` / `<scope>:publish`
    scripts in the root `package.json`.
 2. Add `<pkg>#build` and `<pkg>#publish-package` tasks to `turbo.json`; the publish task needs
-   `"cache": false` and `"passThroughEnv": ["NPM_ID_TOKEN"]`.
+   `"cache": false` and `"passThroughEnv": ["NPM_ID_TOKEN", "CIRCLECI"]`.
 3. Add a `publish-<scope>` job (copy an existing one, including `npm-trusted-publishing` and
    `push-release-tag`) and wire it into the workflow.
 4. Trusted publishers can only be configured for packages that already exist on npm. Publish the
@@ -113,7 +115,13 @@ After the first successful OIDC release:
 
 ## Troubleshooting
 
-### `npm publish` fails with E404 / ENEEDAUTH / E401
+### `npm publish` fails with ENEEDAUTH ("requires you to be logged in")
+
+npm did not attempt trusted publishing. Either `CIRCLECI` or `NPM_ID_TOKEN` did not reach the
+`npm publish` process (check `passThroughEnv` in `turbo.json` — turbo's strict env mode drops
+undeclared variables), or the job's npm is older than 11.5.1.
+
+### `npm publish` fails with E404 / E401
 
 npm reports missing publish rights as **404** for scoped packages. Check that the package has a
 CircleCI trusted publisher with the IDs above (a wrong pipeline definition ID or VCS origin is the
