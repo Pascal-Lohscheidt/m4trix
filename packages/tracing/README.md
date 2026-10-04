@@ -33,6 +33,15 @@ StructureStoreAdapter    PayloadStoreAdapter
 pnpm add @m4trix/tracing
 ```
 
+The root entry has no runtime dependencies. The DynamoDB / S3 adapters live in the
+`@m4trix/tracing/aws` entry and need the AWS SDK, which is an optional peer dependency:
+
+```sh
+pnpm add @aws-sdk/client-dynamodb @aws-sdk/lib-dynamodb @aws-sdk/client-s3
+```
+
+The sidecar CLI (`m4trix-tracing-sidecar`) bundles the AWS SDK and needs no extra install.
+
 ## Core Types
 
 ```ts
@@ -207,13 +216,13 @@ returns traces newest-first. It is suitable for local development and small data
 For hosted storage, compose DynamoDB (structure) + S3 (payloads):
 
 ```ts
+import { TraceStore } from "@m4trix/tracing";
 import {
   DynamoStructureStoreAdapter,
   S3PayloadStoreAdapter,
-  TraceStore,
   resolveDynamoStructureStoreOptionsFromEnv,
   resolveS3PayloadStoreOptionsFromEnv,
-} from "@m4trix/tracing";
+} from "@m4trix/tracing/aws";
 
 const traceStore = TraceStore.of({
   structureStoreAdapter: new DynamoStructureStoreAdapter(
@@ -352,6 +361,10 @@ docker run --rm \
 
 Mount the same volume in your application container at `/traces` and point both processes at
 that path (`FsStructureStoreAdapter` / `FsPayloadStoreAdapter` with `path: "/traces"`).
+
+The image runs Node 24 as the non-root `node` user (uid 1000) and contains only the bundled CLI.
+The sidecar deletes shipped files, so it needs write access to what the app writes: run both
+containers with the same user / group, or set a shared `fsGroup` in Kubernetes.
 
 ## Adapter Interfaces
 

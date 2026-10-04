@@ -1,11 +1,10 @@
+import { TraceStore, TraceViewerApi } from '@m4trix/tracing';
 import {
   DynamoStructureStoreAdapter,
   resolveDynamoStructureStoreOptionsFromEnv,
   resolveS3PayloadStoreOptionsFromEnv,
   S3PayloadStoreAdapter,
-  TraceStore,
-  TraceViewerApi,
-} from '@m4trix/tracing';
+} from '@m4trix/tracing/aws';
 
 export type AwsStackTraceViewerOptions = {
   dynamoTable?: string;

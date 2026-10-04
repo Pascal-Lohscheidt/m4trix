@@ -1,0 +1,10 @@
+# Allowlist for `docker build -f packages/tracing/Dockerfile .` (repository root as context).
+*
+!package.json
+!pnpm-lock.yaml
+!pnpm-workspace.yaml
+!packages/core/package.json
+!packages/tracing/
+packages/tracing/node_modules
+packages/tracing/dist
+packages/tracing/.turbo

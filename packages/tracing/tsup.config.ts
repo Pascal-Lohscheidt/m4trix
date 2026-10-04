@@ -1,8 +1,9 @@
 import { defineConfig } from 'tsup';
+import { sidecarConfig } from './tsup.sidecar.config.js';
 
 export default defineConfig([
   {
-    entry: { index: 'src/index.ts' },
+    entry: { index: 'src/index.ts', aws: 'src/aws.ts' },
     format: ['esm', 'cjs'],
     dts: true,
     splitting: false,
@@ -12,19 +13,12 @@ export default defineConfig([
     minify: false,
     target: ['node20', 'es2020'],
     platform: 'node',
-    external: ['@aws-sdk/client-dynamodb', '@aws-sdk/client-s3', '@aws-sdk/lib-dynamodb', '@m4trix/core'],
+    external: [
+      '@aws-sdk/client-dynamodb',
+      '@aws-sdk/client-s3',
+      '@aws-sdk/lib-dynamodb',
+      '@m4trix/core',
+    ],
   },
-  {
-    entry: { 'trace-shipper-cli': 'src/trace-shipper-cli.ts' },
-    format: ['esm'],
-    dts: false,
-    splitting: false,
-    sourcemap: true,
-    clean: false,
-    treeshake: true,
-    minify: false,
-    target: 'node20',
-    platform: 'node',
-    external: ['@aws-sdk/client-dynamodb', '@aws-sdk/client-s3', '@aws-sdk/lib-dynamodb', '@m4trix/core'],
-  },
+  sidecarConfig,
 ]);

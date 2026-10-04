@@ -3,12 +3,6 @@ export { toLangGraph } from './adapters/langgraph.js';
 export { toM4trixTracer } from './adapters/m4trix-tracer.js';
 export * from './annotation-merge.js';
 export { mergeTraceAnnotation } from './annotation-merge.js';
-export * from './storage-adapter/dynamo-structure-store-adapter.js';
-export {
-  DynamoStructureStoreAdapter,
-  type DynamoStructureStoreAdapterOptions,
-  resolveDynamoStructureStoreOptionsFromEnv,
-} from './storage-adapter/dynamo-structure-store-adapter.js';
 export * from './storage-adapter/fs-payload-store-adapter.js';
 export {
   FsPayloadStoreAdapter,
@@ -19,12 +13,6 @@ export {
   FsStructureStoreAdapter,
   type FsStructureStoreAdapterOptions,
 } from './storage-adapter/fs-structure-store-adapter.js';
-export * from './storage-adapter/s3-payload-store-adapter.js';
-export {
-  resolveS3PayloadStoreOptionsFromEnv,
-  S3PayloadStoreAdapter,
-  type S3PayloadStoreAdapterOptions,
-} from './storage-adapter/s3-payload-store-adapter.js';
 export * from './trace-store.js';
 export { TraceStore, type TraceStoreOptions } from './trace-store.js';
 export * from './trace-viewer-api.js';
