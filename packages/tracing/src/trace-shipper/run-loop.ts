@@ -12,28 +12,30 @@ export type RunLoopOptions = {
   signal?: AbortSignal;
 };
 
+const UNIT_MS: Record<string, number> = { ms: 1, s: 1000, m: 60_000, h: 3_600_000 };
+
+/** Parses a poll interval such as `500ms`, `2s`, `1m` or `1h` (seconds when no unit); must be > 0. */
 export function parseIntervalMs(value: string): number {
-  const match = /^(\d+(?:\.\d+)?)(ms|s|m)?$/i.exec(value.trim());
-  if (!match) {
+  const ms = parseDuration(value);
+  if (ms === undefined || ms <= 0) {
     throw new Error(`Invalid interval "${value}" (expected e.g. 500ms, 2s, 1m)`);
   }
+  return ms;
+}
 
-  const amount = Number(match[1]);
-  if (!Number.isFinite(amount) || amount <= 0) {
-    throw new Error(`Invalid interval "${value}"`);
+/** Like `parseIntervalMs`, but `0` is allowed (for "right away"). */
+export function parseDurationMs(value: string): number {
+  const ms = parseDuration(value);
+  if (ms === undefined) {
+    throw new Error(`Invalid duration "${value}" (expected e.g. 0, 30s, 5m, 24h)`);
   }
+  return ms;
+}
 
-  const unit = (match[2] ?? 's').toLowerCase();
-  switch (unit) {
-    case 'ms':
-      return amount;
-    case 's':
-      return amount * 1000;
-    case 'm':
-      return amount * 60_000;
-    default:
-      return amount * 1000;
-  }
+function parseDuration(value: string): number | undefined {
+  const match = /^(\d+(?:\.\d+)?)(ms|s|m|h)?$/i.exec(value.trim());
+  if (!match) return undefined;
+  return Number(match[1]) * UNIT_MS[(match[2] ?? 's').toLowerCase()];
 }
 
 export async function runShipperLoop(

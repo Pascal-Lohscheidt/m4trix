@@ -280,6 +280,10 @@ Failure handling:
   never blocks other traces, and an interrupted pass never strands a trace.
 - Annotations are not shipped. They belong to the hosted store, so review edits made there survive
   re-shipping.
+- Fully shipped traces are deleted from local disk once idle for `--retain` (default `5m`), so the
+  shared volume does not fill up. Traces still marked running (e.g. the app crashed mid-trace) wait
+  for `--retain-running` (default `24h`). Folders mid-write, with payloads left, or with files the
+  sidecar does not know are kept. Use `--keep-shipped` to keep everything.
 - On `SIGTERM` / `SIGINT` the sidecar stops polling, makes one final pass, then exits. Make sure it
   outlives the app container (for example a Kubernetes native sidecar: an init container with
   `restartPolicy: Always`) so traces flushed during app shutdown are still shipped.
@@ -302,6 +306,9 @@ Flags:
 | `--root <dir>` | `TRACE_ROOT` or `/traces` | Local trace root |
 | `--interval <dur>` | `2s` | Poll interval (`500ms`, `2s`, `1m`) |
 | `--once` | off | Single replication pass, then exit (non-zero exit if any item failed) |
+| `--retain <dur>` | `5m` | Delete finished, fully shipped traces locally once idle this long (`0` = right away) |
+| `--retain-running <dur>` | `24h` | Same for traces never marked finished |
+| `--keep-shipped` | off | Never delete shipped traces from local disk |
 
 Uses the same env vars as the AWS adapters (`TRACE_DYNAMO_TABLE`, `TRACE_S3_BUCKET`, etc.).
 

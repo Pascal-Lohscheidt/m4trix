@@ -36,10 +36,19 @@ export type ShipperState = {
   structure: Record<string, number>;
 };
 
+export type RetentionOptions = {
+  /** Remove a finished, fully shipped trace from local disk once idle this long. */
+  finishedMs: number;
+  /** Same for traces still marked running (e.g. the app crashed mid-trace). */
+  runningMs: number;
+};
+
 export type TraceShipperDeps = {
   root: string;
   payloadDest: PayloadStoreAdapter;
   structureDest: StructureStoreAdapter;
+  /** When set, fully shipped traces are removed from local disk. Omit to keep them. */
+  retention?: RetentionOptions;
 };
 
 export type ShipFailure = {
@@ -53,6 +62,8 @@ export type ReplicateOnceResult = {
   pendingPayloads: number;
   pendingStructure: number;
   oldestPendingMs: number | null;
+  /** Fully shipped trace folders removed from local disk this tick. */
+  removedTraces: number;
   /** Items that failed this tick; they stay pending and are retried on the next tick. */
   failures: ShipFailure[];
 };

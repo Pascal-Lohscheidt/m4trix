@@ -2,6 +2,7 @@ import { createReadStream } from 'node:fs';
 import { readFile, stat, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { PayloadStoreAdapter, Trace, TraceRun } from '../types.js';
+import { removeShippedTraces } from './cleanup.js';
 import { collectPayloadRefs, payloadRefsReplicated, readRunsFile } from './collect-refs.js';
 import { listPending } from './list-pending.js';
 import { toRef } from './paths.js';
@@ -36,6 +37,7 @@ export async function replicateOnce(deps: TraceShipperDeps): Promise<ReplicateOn
 
   let uploadedPayloads = 0;
   let uploadedStructure = 0;
+  let removedTraces = 0;
 
   try {
     for (const item of pending.payloads) {
@@ -55,6 +57,12 @@ export async function replicateOnce(deps: TraceShipperDeps): Promise<ReplicateOn
         uploadedStructure += 1;
       }
     }
+
+    if (deps.retention) {
+      const cleanup = await removeShippedTraces(deps.root, state, deps.retention);
+      removedTraces = cleanup.removed.length;
+      failures.push(...cleanup.failures);
+    }
   } finally {
     await saveShipperState(deps.root, state);
   }
@@ -67,6 +75,7 @@ export async function replicateOnce(deps: TraceShipperDeps): Promise<ReplicateOn
     pendingPayloads: after.payloads.length,
     pendingStructure: after.structure.length,
     oldestPendingMs: after.oldestPendingMs,
+    removedTraces,
     failures,
   };
 }

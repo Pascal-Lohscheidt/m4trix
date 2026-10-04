@@ -7,7 +7,8 @@ import {
   resolveS3PayloadStoreOptionsFromEnv,
   S3PayloadStoreAdapter,
 } from './storage-adapter/s3-payload-store-adapter.js';
-import { parseIntervalMs, runShipperLoop } from './trace-shipper/run-loop.js';
+import { parseDurationMs, parseIntervalMs, runShipperLoop } from './trace-shipper/run-loop.js';
+import type { RetentionOptions } from './trace-shipper/types.js';
 import {
   type ParsedTraceShipperCli,
   parseTraceShipperCliArgs,
@@ -34,8 +35,12 @@ function main(): void {
   }
 
   let intervalMs: number;
+  let retention: RetentionOptions | undefined;
   try {
     intervalMs = parseIntervalMs(cfg.interval);
+    retention = cfg.keepShipped
+      ? undefined
+      : { finishedMs: parseDurationMs(cfg.retain), runningMs: parseDurationMs(cfg.retainRunning) };
   } catch (error) {
     console.error(`${program}: ${error instanceof Error ? error.message : String(error)}`);
     process.exit(2);
@@ -67,6 +72,7 @@ function main(): void {
       root: cfg.root,
       payloadDest,
       structureDest,
+      retention,
     },
     {
       intervalMs,
@@ -78,7 +84,7 @@ function main(): void {
             ? 'none'
             : `${Math.max(0, Date.now() - result.oldestPendingMs)}ms`;
         console.log(
-          `[trace-shipper] uploaded payloads=${result.uploadedPayloads} structure=${result.uploadedStructure} pending payloads=${result.pendingPayloads} structure=${result.pendingStructure} failed=${result.failures.length} oldest=${lag}`,
+          `[trace-shipper] uploaded payloads=${result.uploadedPayloads} structure=${result.uploadedStructure} pending payloads=${result.pendingPayloads} structure=${result.pendingStructure} removed=${result.removedTraces} failed=${result.failures.length} oldest=${lag}`,
         );
         for (const failure of result.failures) {
           console.error(`[trace-shipper] failed ${failure.ref}: ${failure.message}`);

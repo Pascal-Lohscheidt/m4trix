@@ -166,6 +166,37 @@ describe('trace-shipper', () => {
     expect(result.pendingStructure).toBe(2);
   });
 
+  it('removes a finished trace from local disk once it is fully shipped and retention allows', async () => {
+    const inputRef = 'traces/trace-1/payloads/run-1/input.json';
+    await writePayload(root, 'trace-1', 'run-1', 'input.json', '{"q":"hi"}');
+    await writeStructure(root, 'trace-1', makeTrace({ status: 'success' }), [
+      makeRun({ inputRef, status: 'success' }),
+    ]);
+    const destinations = createDestinations();
+
+    const result = await replicateOnce({
+      root,
+      ...destinations,
+      retention: { finishedMs: 0, runningMs: 60_000 },
+    });
+
+    expect(result).toMatchObject({ uploadedStructure: 2, removedTraces: 1, failures: [] });
+    await expect(access(join(root, 'traces', 'trace-1'))).rejects.toMatchObject({
+      code: 'ENOENT',
+    });
+    expect(JSON.parse(await readFile(shipperStatePath(root), 'utf-8'))).toEqual({ structure: {} });
+  });
+
+  it('keeps shipped traces on local disk when no retention is configured', async () => {
+    await writeStructure(root, 'trace-1', makeTrace({ status: 'success' }), [makeRun()]);
+    const destinations = createDestinations();
+
+    const result = await replicateOnce({ root, ...destinations });
+
+    expect(result).toMatchObject({ uploadedStructure: 2, removedTraces: 0 });
+    await access(join(root, 'traces', 'trace-1', 'trace.json'));
+  });
+
   it('never ships annotations, so hosted review edits are not overwritten', async () => {
     await writeStructure(root, 'trace-1', makeTrace({ annotation: { local: true } }), [
       makeRun({ annotation: { local: 'run' } }),

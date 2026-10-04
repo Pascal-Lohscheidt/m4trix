@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { parseTraceShipperCliArgs, TraceShipperCliParseError } from '../trace-shipper-args.js';
 import type { PayloadStoreAdapter, StructureStoreAdapter } from '../types.js';
-import { parseIntervalMs, runShipperLoop } from './run-loop.js';
+import { parseDurationMs, parseIntervalMs, runShipperLoop } from './run-loop.js';
 import type { ReplicateOnceResult, TraceShipperDeps } from './types.js';
 
 describe('runShipperLoop', () => {
@@ -111,10 +111,23 @@ describe('parseIntervalMs', () => {
     expect(parseIntervalMs('500ms')).toBe(500);
     expect(parseIntervalMs('2s')).toBe(2000);
     expect(parseIntervalMs('1m')).toBe(60_000);
+    expect(parseIntervalMs('24h')).toBe(86_400_000);
   });
 
   it('rejects invalid intervals', () => {
     expect(() => parseIntervalMs('nope')).toThrow('Invalid interval');
+    expect(() => parseIntervalMs('0s')).toThrow('Invalid interval');
+  });
+});
+
+describe('parseDurationMs', () => {
+  it('accepts zero for "right away"', () => {
+    expect(parseDurationMs('0')).toBe(0);
+    expect(parseDurationMs('5m')).toBe(300_000);
+  });
+
+  it('rejects invalid durations', () => {
+    expect(() => parseDurationMs('-1s')).toThrow('Invalid duration');
   });
 });
 
@@ -127,6 +140,9 @@ describe('parseTraceShipperCliArgs', () => {
         root: '/traces',
         interval: '2s',
         once: false,
+        retain: '5m',
+        retainRunning: '24h',
+        keepShipped: false,
       });
     } finally {
       if (prev === undefined) delete process.env.TRACE_ROOT;
@@ -139,7 +155,27 @@ describe('parseTraceShipperCliArgs', () => {
       root: './.traces',
       interval: '2s',
       once: true,
+      retain: '5m',
+      retainRunning: '24h',
+      keepShipped: false,
     });
+  });
+
+  it('parses retention flags', () => {
+    expect(
+      parseTraceShipperCliArgs([
+        'node',
+        'cli',
+        '--retain',
+        '0',
+        '--retain-running',
+        '2h',
+        '--keep-shipped',
+      ]),
+    ).toMatchObject({ retain: '0', retainRunning: '2h', keepShipped: true });
+    expect(() => parseTraceShipperCliArgs(['node', 'cli', '--retain'])).toThrow(
+      '--retain requires a value',
+    );
   });
 
   it('throws help', () => {
