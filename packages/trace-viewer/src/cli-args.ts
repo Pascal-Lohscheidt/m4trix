@@ -1,6 +1,10 @@
 export type AdapterKind = 'fs' | 'aws-stack';
 
+/** `serve` starts the HTTP viewer; `mcp` serves the trace MCP over stdio. */
+export type CliCommand = 'serve' | 'mcp';
+
 export type ParsedCli = {
+  command: CliCommand;
   adapter: AdapterKind;
   /** Resolved absolute or cwd-relative path for fs adapter */
   path: string | undefined;
@@ -19,6 +23,7 @@ export class CliParseError extends Error {
 
 export function parseCliArgs(argv: string[]): ParsedCli {
   const args = argv.slice(2);
+  let command: CliCommand = 'serve';
   let adapter: AdapterKind = 'fs';
   let path: string | undefined = DEFAULT_FS_RELATIVE_PATH;
   let port = DEFAULT_PORT;
@@ -56,6 +61,11 @@ export function parseCliArgs(argv: string[]): ParsedCli {
     if (a.startsWith('-')) {
       throw new CliParseError(`Unknown flag "${a}"`);
     }
+    if (a === 'mcp' || a === 'serve') {
+      command = a;
+      continue;
+    }
+    throw new CliParseError(`Unknown command "${a}" (expected serve | mcp)`);
   }
 
   if (adapter === 'aws-stack') {
@@ -64,7 +74,7 @@ export function parseCliArgs(argv: string[]): ParsedCli {
     path = DEFAULT_FS_RELATIVE_PATH;
   }
 
-  return { adapter, path, port };
+  return { command, adapter, path, port };
 }
 
 export function cliHelpText(program: string): string {
@@ -72,15 +82,21 @@ export function cliHelpText(program: string): string {
 ${program} — local trace viewer (filesystem traces)
 
 Usage:
-  ${program} [--adapter fs|aws-stack] [--path <dir>] [--port <n>]
+  ${program} [serve] [--adapter fs|aws-stack] [--path <dir>] [--port <n>]
+  ${program} mcp [--adapter fs|aws-stack] [--path <dir>]
+
+Commands:
+  serve                    Start the web viewer (default)
+  mcp                      Serve an MCP server over stdio for coding agents
 
 Options:
   --adapter fs|aws-stack   Storage backend (default: fs)
   --path <dir>             Trace root for fs adapter (default: ${DEFAULT_FS_RELATIVE_PATH})
-  --port <n>               HTTP port (default: ${DEFAULT_PORT})
+  --port <n>               HTTP port for serve (default: ${DEFAULT_PORT})
   -h, --help               Show this help
 
 Examples:
   ${program} --adapter fs --path ./tmp/tracing-example --port ${DEFAULT_PORT}
+  claude mcp add m4trix-traces -- npx ${program} mcp --path "$PWD/tmp/tracing-example"
 `.trim();
 }

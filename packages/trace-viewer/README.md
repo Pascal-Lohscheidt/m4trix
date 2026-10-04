@@ -23,6 +23,33 @@ pnpm --filter @m4trix/trace-viewer exec m4trix-trace-viewer --adapter fs --path 
 
 Then open **http://127.0.0.1:4319** in a browser.
 
+## MCP server for coding agents
+
+`m4trix-trace-viewer mcp` serves the same trace store as a local [MCP](https://modelcontextprotocol.io)
+server over stdio, so coding agents can inspect, search and compare traces. It accepts the same
+`--adapter` / `--path` flags. Pass an absolute `--path`, because agents may launch it from another directory.
+
+```bash
+claude mcp add m4trix-traces -- npx m4trix-trace-viewer mcp --path "$PWD/tmp/tracing-example"
+```
+
+| Tool | Purpose |
+| --- | --- |
+| `list_traces` | Newest-first traces filtered by status, project, name, metadata, time range, latency |
+| `get_trace` | Run tree outline (LangGraph plumbing hidden by default, errors never hidden) |
+| `find_runs` | Runs by type, name, status, error text, latency, tokens, metadata across traces |
+| `get_run` | One run: ancestry, timing, full error, children, payload previews |
+| `get_payload` | Payload as outline or JSON, narrowed by JSONPath, paged with `offset` |
+| `load_trace_payloads` | Load trace payloads into the in-memory search index |
+| `search_payloads` | Text/regex search; identical values grouped at the run where they first appeared |
+| `analyze_trace` | Root-cause errors, unfinished/orphan runs, critical path, token hotspots, loops, swallowed errors |
+| `get_conversation` | Chat transcript (OpenAI, Anthropic, LangChain shapes) of a run |
+| `compare` | Diff two runs' payloads, or align two traces run by run |
+| `annotate` | Write a trace/run annotation (the tool tells agents to ask the user first) |
+
+Trace ids accept `latest` or a unique prefix; run ids accept a unique prefix. Payload strings that
+contain JSON are decoded, so paths and search reach into serialized tool arguments.
+
 ## Trace profiles and the AI payload mapper
 
 Profiles control how the run detail panel renders payloads. **Raw** and **LangGraph** are built in;
@@ -60,6 +87,9 @@ import { createFsTraceViewerApi, startTraceViewerServer } from '@m4trix/trace-vi
 const traceViewerApi = createFsTraceViewerApi('./tmp/tracing-example');
 startTraceViewerServer({ traceViewerApi, port: 4319 });
 ```
+
+`createTraceMcpServer({ traceViewerApi })` returns an `McpServer` you can connect to any MCP
+transport; `startTraceMcpStdioServer` does that for stdio.
 
 ## tRPC procedures
 
