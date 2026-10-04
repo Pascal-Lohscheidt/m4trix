@@ -364,6 +364,96 @@ describe('Tracer.flush', () => {
   });
 });
 
+describe('Tracer trace lifecycle', () => {
+  it('adds up token usage from every run into the trace', async () => {
+    const structureStoreAdapter = new RecordingStructureStoreAdapter();
+    const payloadStoreAdapter = new RecordingPayloadStoreAdapter();
+    const tracer = Tracer.from(TraceStore.of({ payloadStoreAdapter, structureStoreAdapter }));
+    const usage = (promptTokens: number, completionTokens: number) => ({
+      llmOutput: { tokenUsage: { promptTokens, completionTokens } },
+    });
+
+    await tracer.handleChainStart({}, {}, 'root-run');
+    await tracer.handleChatModelStart({}, [], 'llm-1', 'root-run');
+    await tracer.handleLLMEnd(usage(100, 20), 'llm-1');
+    await tracer.handleChainStart({}, {}, 'agent-run', 'root-run');
+    await tracer.handleChatModelStart({}, [], 'llm-2', 'agent-run');
+    await tracer.handleLLMEnd(usage(30, 5), 'llm-2');
+    await tracer.handleChainEnd({}, 'agent-run');
+    await tracer.handleChainEnd({}, 'root-run');
+    await tracer.flush();
+
+    expect(structureStoreAdapter.traces.at(-1)).toMatchObject({
+      traceId: 'root-run',
+      runCount: 4,
+      tokens: { input: 130, output: 25 },
+    });
+  });
+
+  it('releases a trace from memory once it has finished and been flushed', async () => {
+    const structureStoreAdapter = new RecordingStructureStoreAdapter();
+    const payloadStoreAdapter = new RecordingPayloadStoreAdapter();
+    const tracer = Tracer.from(TraceStore.of({ payloadStoreAdapter, structureStoreAdapter }));
+
+    for (let i = 0; i < 20; i++) {
+      await tracer.handleChainStart({}, {}, `root-${i}`);
+      await tracer.handleChainStart({}, {}, `child-${i}`, `root-${i}`);
+      await tracer.handleChainEnd({}, `child-${i}`);
+      await tracer.handleChainEnd({}, `root-${i}`);
+    }
+    expect(tracer.activeTraceCount).toBe(20);
+
+    await tracer.flush();
+
+    expect(tracer.activeTraceCount).toBe(0);
+    expect(structureStoreAdapter.traces).toHaveLength(20);
+  });
+
+  it('keeps a trace in memory until its last child run ends', async () => {
+    const structureStoreAdapter = new RecordingStructureStoreAdapter();
+    const payloadStoreAdapter = new RecordingPayloadStoreAdapter();
+    const tracer = Tracer.from(TraceStore.of({ payloadStoreAdapter, structureStoreAdapter }));
+
+    await tracer.handleChainStart({}, {}, 'root-run');
+    await tracer.handleToolStart({}, 'query', 'background-tool', 'root-run');
+    await tracer.handleChainEnd({}, 'root-run');
+    await tracer.flush();
+    expect(tracer.activeTraceCount).toBe(1);
+
+    await tracer.handleToolEnd({ result: 'late' }, 'background-tool');
+    await tracer.flush();
+
+    expect(tracer.activeTraceCount).toBe(0);
+    expect(structureStoreAdapter.batches.at(-1)).toEqual([
+      expect.objectContaining({ runId: 'background-tool', status: 'success' }),
+    ]);
+    expect(structureStoreAdapter.traces.at(-1)).toMatchObject({
+      traceId: 'root-run',
+      status: 'success',
+      runCount: 2,
+    });
+  });
+
+  it('keeps a finished trace in memory until a flush succeeds', async () => {
+    const structureStoreAdapter = new RecordingStructureStoreAdapter();
+    structureStoreAdapter.failNextWrites = 1;
+    const payloadStoreAdapter = new RecordingPayloadStoreAdapter();
+    const tracer = Tracer.from(TraceStore.of({ payloadStoreAdapter, structureStoreAdapter }));
+
+    await tracer.handleChainStart({}, {}, 'root-run', undefined, [], { projectId: 'demo' });
+    await tracer.handleChainEnd({}, 'root-run');
+    await expect(tracer.flush()).rejects.toThrow('structure store unavailable');
+    expect(tracer.activeTraceCount).toBe(1);
+
+    await tracer.flush();
+
+    expect(tracer.activeTraceCount).toBe(0);
+    expect(structureStoreAdapter.traces).toEqual([
+      expect.objectContaining({ traceId: 'root-run', projectId: 'demo', status: 'success' }),
+    ]);
+  });
+});
+
 function fsTraceStore(root: string): TraceStore {
   return TraceStore.of({
     structureStoreAdapter: new FsStructureStoreAdapter({ path: root }),

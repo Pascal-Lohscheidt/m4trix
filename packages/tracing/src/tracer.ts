@@ -21,13 +21,24 @@ type RunStartOptions = {
 /** Maps a `Tracer` instance to a framework-specific callback surface (e.g. LangGraph). */
 export type TracerAdapter<TAdapted> = (tracer: Tracer) => TAdapted;
 
+type TraceState = {
+  runs: Map<string, TraceRun>;
+  projectId?: string;
+};
+
+/**
+ * Collects callback events into runs and traces. A trace stays in memory until none of its runs is
+ * still running and a flush has written it; after that it is released, so a long-lived tracer does
+ * not grow with every trace it has seen.
+ */
 export class Tracer {
   name = 'm4trix_tracer';
   awaitHandlers = true;
 
-  private readonly runs = new Map<string, TraceRun>();
+  private readonly traces = new Map<string, TraceState>();
+  private readonly runTraceIds = new Map<string, string>();
   private readonly pendingRuns = new Map<string, TraceRun>();
-  private readonly pendingTraces = new Map<string, Trace>();
+  private readonly dirtyTraceIds = new Set<string>();
   private readonly inFlight = new Set<Promise<void>>();
   private flushQueue: Promise<void> = Promise.resolve();
 
@@ -39,6 +50,11 @@ export class Tracer {
 
   adapt<TAdapted>(adapter: TracerAdapter<TAdapted>): TAdapted {
     return adapter(this);
+  }
+
+  /** Number of traces still held in memory (running, or finished but not yet flushed). */
+  get activeTraceCount(): number {
+    return this.traces.size;
   }
 
   async handleChainStart(
@@ -205,9 +221,10 @@ export class Tracer {
     }
 
     const runs = [...this.pendingRuns.values()];
-    const traces = [...this.pendingTraces.values()];
+    const traceIds = [...this.dirtyTraceIds];
     this.pendingRuns.clear();
-    this.pendingTraces.clear();
+    this.dirtyTraceIds.clear();
+    const traces = traceIds.flatMap((traceId) => this.buildTrace(traceId) ?? []);
 
     try {
       await this.traceStore.upsertRunBatch(runs);
@@ -215,18 +232,34 @@ export class Tracer {
         await this.traceStore.upsertTrace(trace);
       }
     } catch (error) {
-      this.requeue(runs, traces);
+      this.requeue(runs, traceIds);
       throw error;
     }
+
+    this.releaseFinished(traceIds);
   }
 
   /** Puts records back unless a newer version was queued while the failed write was in flight. */
-  private requeue(runs: TraceRun[], traces: Trace[]): void {
+  private requeue(runs: TraceRun[], traceIds: string[]): void {
     for (const run of runs) {
       if (!this.pendingRuns.has(run.runId)) this.pendingRuns.set(run.runId, run);
     }
-    for (const trace of traces) {
-      if (!this.pendingTraces.has(trace.traceId)) this.pendingTraces.set(trace.traceId, trace);
+    for (const traceId of traceIds) {
+      this.dirtyTraceIds.add(traceId);
+    }
+  }
+
+  /** Drops written traces that have no running runs and no changes since they were written. */
+  private releaseFinished(traceIds: string[]): void {
+    for (const traceId of traceIds) {
+      const state = this.traces.get(traceId);
+      if (!state || this.dirtyTraceIds.has(traceId)) continue;
+      if ([...state.runs.values()].some((run) => run.status === 'running')) continue;
+
+      this.traces.delete(traceId);
+      for (const runId of state.runs.keys()) {
+        this.runTraceIds.delete(runId);
+      }
     }
   }
 
@@ -238,8 +271,10 @@ export class Tracer {
   }
 
   private async startRun(options: RunStartOptions): Promise<void> {
-    const parentRun = options.parentRunId ? this.runs.get(options.parentRunId) : undefined;
-    const traceId = parentRun?.traceId ?? options.parentRunId ?? options.runId;
+    const parentTraceId = options.parentRunId
+      ? this.runTraceIds.get(options.parentRunId)
+      : undefined;
+    const traceId = parentTraceId ?? options.parentRunId ?? options.runId;
     const inputRef = await this.traceStore.putJsonPayload(
       payloadPath(traceId, options.runId, 'input.json'),
       options.input,
@@ -259,9 +294,17 @@ export class Tracer {
       ...(options.extra && Object.keys(options.extra).length > 0 ? { extra: options.extra } : {}),
     };
 
-    this.runs.set(options.runId, run);
-    this.pendingRuns.set(options.runId, run);
-    this.updateTrace(run, options.metadata);
+    let state = this.traces.get(traceId);
+    if (!state) {
+      state = { runs: new Map() };
+      this.traces.set(traceId, state);
+    }
+    const projectId = options.metadata?.projectId;
+    if (!options.parentRunId && typeof projectId === 'string' && projectId) {
+      state.projectId = projectId;
+    }
+
+    this.recordRun(state, run);
   }
 
   private async endRun(
@@ -271,8 +314,10 @@ export class Tracer {
     error?: Error,
     tokens?: TraceTokens,
   ): Promise<void> {
-    const currentRun = this.runs.get(runId);
-    if (!currentRun) return;
+    const traceId = this.runTraceIds.get(runId);
+    const state = traceId === undefined ? undefined : this.traces.get(traceId);
+    const currentRun = state?.runs.get(runId);
+    if (!state || !currentRun) return;
 
     const endTime = nowIso();
     const outputRef =
@@ -292,50 +337,53 @@ export class Tracer {
       ...(error ? { error: { message: error.message, type: error.name || undefined } } : {}),
     };
 
-    this.runs.set(runId, run);
-    this.pendingRuns.set(runId, run);
-    this.updateTrace(run);
+    this.recordRun(state, run);
   }
 
-  private updateTrace(run: TraceRun, metadata?: Record<string, unknown>): void {
-    if (run.parentRunId) {
-      this.updateRootTrace(run.traceId);
-      return;
-    }
+  private recordRun(state: TraceState, run: TraceRun): void {
+    state.runs.set(run.runId, run);
+    this.runTraceIds.set(run.runId, run.traceId);
+    this.pendingRuns.set(run.runId, run);
+    this.dirtyTraceIds.add(run.traceId);
+  }
 
-    const existingTrace = this.pendingTraces.get(run.traceId);
-    const traceMetadata = toTraceMetadata(metadata) ?? run.metadata ?? existingTrace?.metadata;
-    const traceRuns = [...this.runs.values()].filter(
-      (candidate) => candidate.traceId === run.traceId,
-    );
-    const trace: Trace = {
+  /** Summarizes a trace from its root run, adding up token usage across all runs. */
+  private buildTrace(traceId: string): Trace | undefined {
+    const state = this.traces.get(traceId);
+    if (!state) return undefined;
+
+    const runs = [...state.runs.values()];
+    const root = runs.find((run) => !run.parentRunId);
+    if (!root) return undefined;
+
+    const tokens = sumTokens(runs);
+    return {
       schemaVersion: 1,
-      traceId: run.traceId,
-      rootRunId: run.runId,
-      ...(metadata?.projectId && typeof metadata.projectId === 'string'
-        ? { projectId: metadata.projectId }
-        : existingTrace?.projectId
-          ? { projectId: existingTrace.projectId }
-          : {}),
-      name: run.name,
-      status: traceRuns.some((candidate) => candidate.status === 'error') ? 'error' : run.status,
-      startTime: run.startTime,
-      ...(run.endTime ? { endTime: run.endTime } : {}),
-      ...(run.latencyMs !== undefined ? { latencyMs: run.latencyMs } : {}),
-      ...(run.tokens ? { tokens: { input: run.tokens.input, output: run.tokens.output } } : {}),
-      runCount: traceRuns.length,
-      ...(traceMetadata ? { metadata: traceMetadata } : {}),
+      traceId,
+      rootRunId: root.runId,
+      ...(state.projectId ? { projectId: state.projectId } : {}),
+      name: root.name,
+      status: runs.some((run) => run.status === 'error') ? 'error' : root.status,
+      startTime: root.startTime,
+      ...(root.endTime ? { endTime: root.endTime } : {}),
+      ...(root.latencyMs !== undefined ? { latencyMs: root.latencyMs } : {}),
+      ...(tokens ? { tokens } : {}),
+      runCount: runs.length,
+      ...(root.metadata ? { metadata: root.metadata } : {}),
     };
-
-    this.pendingTraces.set(run.traceId, trace);
   }
+}
 
-  private updateRootTrace(traceId: string): void {
-    const rootRun = [...this.runs.values()].find(
-      (run) => run.traceId === traceId && !run.parentRunId,
-    );
-    if (rootRun) this.updateTrace(rootRun);
+function sumTokens(runs: TraceRun[]): Trace['tokens'] {
+  let total: Trace['tokens'];
+  for (const run of runs) {
+    if (!run.tokens) continue;
+    total = {
+      input: (total?.input ?? 0) + run.tokens.input,
+      output: (total?.output ?? 0) + run.tokens.output,
+    };
   }
+  return total;
 }
 
 function payloadPath(traceId: string, runId: string, fileName: string): string {
