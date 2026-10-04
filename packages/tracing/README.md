@@ -234,6 +234,8 @@ Environment variables:
 | `TRACE_S3_PREFIX` | Optional key prefix (default: none) |
 | `AWS_REGION` | AWS region |
 | `AWS_ENDPOINT_URL` | Optional (LocalStack) |
+| `TRACE_DYNAMO_LIST_SHARDS` | Optional; spread trace list writes over N partitions (default `1`) |
+| `TRACE_DYNAMO_PROJECT_INDEX` | Optional; name of the per-project GSI (see below) |
 
 DynamoDB table schema (single-table):
 
@@ -241,13 +243,27 @@ DynamoDB table schema (single-table):
 |-----------|-----|-------|
 | `pk` | partition | `traceId` |
 | `sk` | sort | `TRACE` or `RUN#<runId>` |
-| `listPk` | GSI `byStartTime` PK | `PROJECT#_all` on trace items |
-| `listSk` | GSI `byStartTime` SK | trace `startTime` (ISO) |
+| `listPk` | GSI `byStartTime` PK | `PROJECT#_all`, or `PROJECT#_all#<n>` with list shards |
+| `listSk` | GSI `byStartTime` SK (and optional project GSI SK) | trace `startTime` (ISO) |
+| `projectPk` | optional project GSI PK | `PROJECT#<projectId>` on trace items with a project |
 | `trace` / `run` | — | trace / run documents, without `annotation` |
 | `annotation` | — | review annotation, written only by the patch APIs |
 | `annotationVersion` | — | optimistic-concurrency counter for annotation patches |
 
-Required IAM actions on the table and its index: `dynamodb:UpdateItem` (all writes, including
+Listing reads the `byStartTime` index newest first and narrows `startAfter` / `startBefore` with a
+key condition on `listSk`. Two opt-in settings help at higher volume:
+
+- **List shards** (`listShards` / `TRACE_DYNAMO_LIST_SHARDS`): every trace write lands on the
+  single `PROJECT#_all` key by default, which becomes a hot partition at high trace rates. With N
+  shards, writes spread over `PROJECT#_all#0..N-1`, and listing queries each shard (plus the
+  unsharded key, so older traces stay listed) and merges them. Writers (app or sidecar) and readers
+  (viewer) must use the same value.
+- **Project index** (`projectIndexName` / `TRACE_DYNAMO_PROJECT_INDEX`): without it, a `projectId`
+  query filters the global list. Add a GSI with partition key `projectPk` and sort key `listSk`
+  and set its name to query one project directly. `projectPk` is written on every trace upsert, so
+  traces written before upgrading only appear in it once they are written again.
+
+Required IAM actions on the table and its indexes: `dynamodb:UpdateItem` (all writes, including
 ingest), `dynamodb:GetItem` and `dynamodb:Query` (reads and annotation patches).
 
 `getTrace` follows query pagination, so traces larger than one 1 MB query page come back complete.

@@ -1,8 +1,45 @@
 import { ConditionalCheckFailedException } from '@aws-sdk/client-dynamodb';
 import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Trace, TraceRun } from '../types.js';
-import { DynamoStructureStoreAdapter } from './dynamo-structure-store-adapter.js';
+import {
+  DynamoStructureStoreAdapter,
+  resolveDynamoStructureStoreOptionsFromEnv,
+} from './dynamo-structure-store-adapter.js';
+
+describe('resolveDynamoStructureStoreOptionsFromEnv', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it('reads list sharding and the project index from the environment', () => {
+    vi.stubEnv('TRACE_DYNAMO_TABLE', 'traces');
+    vi.stubEnv('TRACE_DYNAMO_LIST_SHARDS', '8');
+    vi.stubEnv('TRACE_DYNAMO_PROJECT_INDEX', 'byProject');
+
+    expect(resolveDynamoStructureStoreOptionsFromEnv()).toMatchObject({
+      tableName: 'traces',
+      listShards: 8,
+      projectIndexName: 'byProject',
+    });
+  });
+
+  it('prefers explicit overrides and keeps options the environment does not cover', () => {
+    vi.stubEnv('TRACE_DYNAMO_TABLE', 'traces');
+    vi.stubEnv('TRACE_DYNAMO_LIST_SHARDS', '8');
+
+    expect(
+      resolveDynamoStructureStoreOptionsFromEnv({ listShards: 2, maxConcurrentWrites: 4 }),
+    ).toMatchObject({ listShards: 2, maxConcurrentWrites: 4 });
+  });
+
+  it('rejects a list shard count that is not a positive integer', () => {
+    vi.stubEnv('TRACE_DYNAMO_TABLE', 'traces');
+    vi.stubEnv('TRACE_DYNAMO_LIST_SHARDS', '0');
+
+    expect(() => resolveDynamoStructureStoreOptionsFromEnv()).toThrow('TRACE_DYNAMO_LIST_SHARDS');
+  });
+});
 
 describe('DynamoStructureStoreAdapter', () => {
   it('upserts and reads traces with runs', async () => {
@@ -31,6 +68,128 @@ describe('DynamoStructureStoreAdapter', () => {
     await expect(adapter.listTraces({ status: 'success', limit: 10 })).resolves.toEqual({
       traces: [expect.objectContaining({ traceId: 'newer' })],
     });
+  });
+
+  it('pages through traces newest first with a cursor', async () => {
+    const table = createFakeTable();
+    const adapter = new DynamoStructureStoreAdapter({ tableName: 'traces', client: table.client });
+    const traceIds = await upsertTracesAtDays(adapter, 5);
+
+    const pages = await collectPages(adapter, { limit: 2 });
+
+    expect(pages.map((page) => page.length)).toEqual([2, 2, 1]);
+    expect(pages.flat()).toEqual(traceIds.toReversed());
+  });
+
+  it('fills a page even when the filter skips most evaluated items', async () => {
+    const table = createFakeTable();
+    const adapter = new DynamoStructureStoreAdapter({ tableName: 'traces', client: table.client });
+    for (let day = 1; day <= 9; day++) {
+      await adapter.upsertTrace(
+        makeTrace({
+          traceId: `t${day}`,
+          startTime: dayIso(day),
+          status: day % 3 === 0 ? 'error' : 'success',
+        }),
+      );
+    }
+
+    const page = await adapter.listTraces({ status: 'error', limit: 2 });
+
+    expect(page.traces.map((trace) => trace.traceId)).toEqual(['t9', 't6']);
+    const rest = await adapter.listTraces({ status: 'error', limit: 2, cursor: page.nextCursor });
+    expect(rest.traces.map((trace) => trace.traceId)).toEqual(['t3']);
+  });
+
+  it('narrows time ranges with a key condition on the start time', async () => {
+    const table = createFakeTable();
+    const adapter = new DynamoStructureStoreAdapter({ tableName: 'traces', client: table.client });
+    await upsertTracesAtDays(adapter, 6);
+
+    const between = await adapter.listTraces({ startAfter: dayIso(2), startBefore: dayIso(5) });
+    const after = await adapter.listTraces({ startAfter: dayIso(4) });
+    const before = await adapter.listTraces({ startBefore: dayIso(3) });
+
+    expect(between.traces.map((trace) => trace.traceId)).toEqual(['t4', 't3']);
+    expect(after.traces.map((trace) => trace.traceId)).toEqual(['t6', 't5']);
+    expect(before.traces.map((trace) => trace.traceId)).toEqual(['t2', 't1']);
+    for (const input of table.sent('QueryCommand').filter((query) => query.IndexName)) {
+      expect(input.KeyConditionExpression).toMatch(/#listSk (>|<|BETWEEN)/);
+    }
+  });
+
+  it('spreads traces over list shards and merges them newest first', async () => {
+    const table = createFakeTable();
+    const adapter = new DynamoStructureStoreAdapter({
+      tableName: 'traces',
+      client: table.client,
+      listShards: 4,
+    });
+    // Written before sharding was enabled, under the original list key.
+    table.put({
+      pk: 'legacy',
+      sk: 'TRACE',
+      listPk: 'PROJECT#_all',
+      listSk: dayIso(5, 30),
+      trace: makeTrace({ traceId: 'legacy', startTime: dayIso(5, 30) }),
+    });
+    const traceIds = await upsertTracesAtDays(adapter, 12);
+
+    const pages = await collectPages(adapter, { limit: 5 });
+
+    const expected = [...traceIds, 'legacy'].sort((left, right) =>
+      startOf(table, right).localeCompare(startOf(table, left)),
+    );
+    expect(pages.flat()).toEqual(expected);
+    expect(pages.map((page) => page.length)).toEqual([5, 5, 3]);
+    const listKeys = new Set(table.items().map((item) => item.listPk));
+    expect(listKeys.size).toBeGreaterThan(2);
+    expect([...listKeys].every((key) => /^PROJECT#_all(#\d)?$/.test(String(key)))).toBe(true);
+  });
+
+  it('queries the project index when one is configured', async () => {
+    const table = createFakeTable();
+    const adapter = new DynamoStructureStoreAdapter({
+      tableName: 'traces',
+      client: table.client,
+      projectIndexName: 'byProject',
+    });
+    await adapter.upsertTrace(makeTrace({ traceId: 'a1', projectId: 'a', startTime: dayIso(1) }));
+    await adapter.upsertTrace(makeTrace({ traceId: 'b1', projectId: 'b', startTime: dayIso(2) }));
+    await adapter.upsertTrace(makeTrace({ traceId: 'a2', projectId: 'a', startTime: dayIso(3) }));
+
+    const result = await adapter.listTraces({ projectId: 'a' });
+
+    expect(result.traces.map((trace) => trace.traceId)).toEqual(['a2', 'a1']);
+    expect(table.sent('QueryCommand').at(-1)).toMatchObject({ IndexName: 'byProject' });
+    expect(table.sent('QueryCommand').at(-1)?.FilterExpression).toBeUndefined();
+  });
+
+  it('filters the global list by project when no project index is configured', async () => {
+    const table = createFakeTable();
+    const adapter = new DynamoStructureStoreAdapter({ tableName: 'traces', client: table.client });
+    await adapter.upsertTrace(makeTrace({ traceId: 'a1', projectId: 'a', startTime: dayIso(1) }));
+    await adapter.upsertTrace(makeTrace({ traceId: 'b1', projectId: 'b', startTime: dayIso(2) }));
+
+    const result = await adapter.listTraces({ projectId: 'a' });
+
+    expect(result.traces.map((trace) => trace.traceId)).toEqual(['a1']);
+    expect(table.sent('QueryCommand').every((query) => query.IndexName === 'byStartTime')).toBe(
+      true,
+    );
+  });
+
+  it('continues from a cursor issued before list shards existed', async () => {
+    const table = createFakeTable();
+    const adapter = new DynamoStructureStoreAdapter({ tableName: 'traces', client: table.client });
+    await upsertTracesAtDays(adapter, 4);
+    const legacyCursor = Buffer.from(
+      JSON.stringify({ pk: 't3', sk: 'TRACE', listPk: 'PROJECT#_all', listSk: dayIso(3) }),
+    ).toString('base64url');
+
+    const result = await adapter.listTraces({ cursor: legacyCursor });
+
+    expect(result.traces.map((trace) => trace.traceId)).toEqual(['t2', 't1']);
   });
 
   it('patches trace and run annotations', async () => {
@@ -189,6 +348,44 @@ describe('DynamoStructureStoreAdapter', () => {
 
 type Item = Record<string, unknown>;
 
+function dayIso(day: number, minute = 0): string {
+  return new Date(Date.UTC(2026, 0, day, 0, minute)).toISOString();
+}
+
+/** Upserts traces `t1..tN` starting on consecutive days and returns their ids, oldest first. */
+async function upsertTracesAtDays(
+  adapter: DynamoStructureStoreAdapter,
+  count: number,
+): Promise<string[]> {
+  const traceIds = Array.from({ length: count }, (_, i) => `t${i + 1}`);
+  for (const [i, traceId] of traceIds.entries()) {
+    await adapter.upsertTrace(makeTrace({ traceId, startTime: dayIso(i + 1) }));
+  }
+  return traceIds;
+}
+
+async function collectPages(
+  adapter: DynamoStructureStoreAdapter,
+  query: { limit: number },
+): Promise<string[][]> {
+  const pages: string[][] = [];
+  let cursor: string | undefined;
+  do {
+    const page = await adapter.listTraces({ ...query, cursor });
+    pages.push(page.traces.map((trace) => trace.traceId));
+    cursor = page.nextCursor;
+    if (pages.length > 20) throw new Error('cursor never ended');
+  } while (cursor);
+  return pages;
+}
+
+function startOf(table: { items: () => Item[] }, traceId: string): string {
+  const item = table
+    .items()
+    .find((candidate) => candidate.pk === traceId && candidate.sk === 'TRACE');
+  return String(item?.listSk);
+}
+
 type FakeTableOptions = {
   /** Max items per Query page, standing in for DynamoDB's 1 MB page limit. */
   pageSize?: number;
@@ -198,6 +395,35 @@ type FakeTableOptions = {
 };
 
 type Command = { constructor: { name: string }; input: Record<string, unknown> };
+
+const INDEX_KEYS: Record<string, readonly [string, string]> = {
+  byStartTime: ['listPk', 'listSk'],
+  byProject: ['projectPk', 'listSk'],
+};
+
+/** Like DynamoDB, rejects placeholders that are missing or never referenced. */
+function assertPlaceholders(
+  expressions: (string | undefined)[],
+  names: Record<string, string> = {},
+  values: Item = {},
+): void {
+  const text = expressions.filter(Boolean).join(' ');
+  const usedNames = new Set(text.match(/#\w+/g));
+  const usedValues = new Set(text.match(/:\w+/g));
+  for (const name of usedNames) {
+    if (!(name in names)) throw new Error(`ValidationException: unknown name ${name}`);
+  }
+  for (const value of usedValues) {
+    if (!(value in values)) throw new Error(`ValidationException: unknown value ${value}`);
+  }
+  const unused = [
+    ...Object.keys(names).filter((name) => !usedNames.has(name)),
+    ...Object.keys(values).filter((value) => !usedValues.has(value)),
+  ];
+  if (unused.length > 0) {
+    throw new Error(`ValidationException: unused expression attributes ${unused.join(', ')}`);
+  }
+}
 
 /**
  * In-memory stand-in for the DynamoDB document client. It evaluates the SET/REMOVE update and
@@ -265,22 +491,25 @@ function createFakeTable(options: FakeTableOptions = {}) {
     return input.ReturnValues === 'ALL_NEW' ? { Attributes: clone(next) } : {};
   }
 
+  /** Mirrors DynamoDB: `Limit` caps evaluated items before the filter; indexes are sparse. */
   function query(input: Item): Item {
-    const values = (input.ExpressionAttributeValues ?? {}) as Record<string, string>;
-    const filter = input.FilterExpression as string | undefined;
-    const onIndex = Boolean(input.IndexName);
+    const indexName = input.IndexName as string | undefined;
+    const keys = indexName ? INDEX_KEYS[indexName] : (['pk', 'sk'] as const);
+    if (!keys) throw new Error(`ResourceNotFoundException: no index ${indexName}`);
+    const [partitionAttr, sortAttr] = keys;
 
-    let matches = [...items.values()].filter((item) =>
-      onIndex ? item.listPk === values[':listPk'] : item.pk === values[':pk'],
-    );
-    if (filter?.includes('trace.projectId')) {
-      matches = matches.filter((item) => (item.trace as Trace).projectId === values[':projectId']);
-    }
-    if (filter?.includes('trace.#status')) {
-      matches = matches.filter((item) => (item.trace as Trace).status === values[':status']);
-    }
-    const sortKey = onIndex ? 'listSk' : 'sk';
-    matches.sort((left, right) => String(left[sortKey]).localeCompare(String(right[sortKey])));
+    const names = input.ExpressionAttributeNames as Record<string, string> | undefined;
+    const values = input.ExpressionAttributeValues as Item | undefined;
+    const keyCondition = String(input.KeyConditionExpression);
+    const filter = input.FilterExpression as string | undefined;
+    assertPlaceholders([keyCondition, filter], names, values);
+    const expressions = new Expressions(names, values);
+
+    const matches = [...items.values()]
+      .filter(
+        (item) => item[partitionAttr] !== undefined && expressions.evaluate(keyCondition, item),
+      )
+      .sort((left, right) => String(left[sortAttr]).localeCompare(String(right[sortAttr])));
     if (input.ScanIndexForward === false) matches.reverse();
 
     const startKey = input.ExclusiveStartKey as Item | undefined;
@@ -289,18 +518,23 @@ function createFakeTable(options: FakeTableOptions = {}) {
       (input.Limit as number | undefined) ?? Number.POSITIVE_INFINITY,
       options.pageSize ?? Number.POSITIVE_INFINITY,
     );
-    const page = matches.slice(start, start + pageLimit);
-    const last = page.at(-1);
-    const hasMore = start + page.length < matches.length;
+    const evaluated = matches.slice(start, start + pageLimit);
+    const returned = filter
+      ? evaluated.filter((item) => expressions.evaluate(filter, item))
+      : evaluated;
+    const last = evaluated.at(-1);
+    const hasMore = start + evaluated.length < matches.length;
 
     return {
-      Items: page.map((item) => clone(item)),
+      Items: returned.map((item) => clone(item)),
       ...(hasMore && last
         ? {
             LastEvaluatedKey: {
               pk: last.pk,
               sk: last.sk,
-              ...(onIndex ? { listPk: last.listPk, listSk: last.listSk } : {}),
+              ...(indexName
+                ? { [partitionAttr]: last[partitionAttr], [sortAttr]: last[sortAttr] }
+                : {}),
             },
           }
         : {}),
@@ -310,7 +544,14 @@ function createFakeTable(options: FakeTableOptions = {}) {
   return {
     client: { send } as unknown as DynamoDBDocumentClient,
     put: (item: Item) => items.set(keyOf(item), clone(item)),
+    items: () => [...items.values()],
     size: () => items.size,
+    /** Inputs of every command of the given type sent so far. */
+    sent: (commandName: string) =>
+      send.mock.calls
+        .map(([command]) => command)
+        .filter((command) => command.constructor.name === commandName)
+        .map((command) => command.input),
     get conflicts() {
       return state.conflicts;
     },
@@ -351,7 +592,7 @@ class Expressions {
 
   evaluate(expression: string, item: Item): boolean {
     const tokens = expression
-      .replace(/([()=])/g, ' $1 ')
+      .replace(/(<=|>=|<>|[()=<>])/g, ' $1 ')
       .split(/\s+/)
       .filter(Boolean);
     let index = 0;
@@ -373,8 +614,15 @@ class Expressions {
         expect(')');
         return token === 'attribute_exists' ? exists : !exists;
       }
-      expect('=');
-      return this.readPath(item, this.path(token)) === this.value(next());
+      const actual = this.readPath(item, this.path(token));
+      const operator = next();
+      if (operator === 'BETWEEN') {
+        const low = this.value(next()) as string;
+        expect('AND');
+        const high = this.value(next()) as string;
+        return actual !== undefined && (actual as string) >= low && (actual as string) <= high;
+      }
+      return compare(actual, operator, this.value(next()));
     };
     const and = (): boolean => {
       let result = primary();
@@ -448,6 +696,27 @@ class Expressions {
 
   private removePath(item: Item, path: string[]): void {
     delete this.parent(item, path)[path.at(-1) as string];
+  }
+}
+
+function compare(actual: unknown, operator: string, expected: unknown): boolean {
+  if (actual === undefined) return operator === '<>';
+  const [left, right] = [actual as string, expected as string];
+  switch (operator) {
+    case '=':
+      return left === right;
+    case '<>':
+      return left !== right;
+    case '<':
+      return left < right;
+    case '<=':
+      return left <= right;
+    case '>':
+      return left > right;
+    case '>=':
+      return left >= right;
+    default:
+      throw new Error(`Unsupported operator ${operator}`);
   }
 }
 
