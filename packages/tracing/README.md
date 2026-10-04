@@ -170,6 +170,13 @@ after a trace completes.
 - `patchRunAnnotation({ traceId, runId, annotation, merge? })` — deep-merge by default
 - `merge: false` replaces the whole annotation; `{}` with `merge: false` clears it
 
+Annotations are owned by the patch APIs. `upsertTrace` / `upsertRun` / `upsertRunBatch` calls that
+omit `annotation` keep the stored one, so the tracer flushing a still-running trace (or the sidecar
+re-shipping it) never wipes a review. Passing `annotation` to an upsert explicitly replaces it.
+
+Concurrent edits do not overwrite each other: the filesystem adapter serializes writes per trace
+within a process, and the DynamoDB adapter uses version-checked conditional updates with retries.
+
 ## Filesystem Adapters
 
 The bundled filesystem adapters write under one configurable directory:

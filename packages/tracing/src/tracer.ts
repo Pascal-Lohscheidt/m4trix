@@ -29,6 +29,7 @@ export class Tracer {
   private readonly pendingRuns = new Map<string, TraceRun>();
   private readonly pendingTraces = new Map<string, Trace>();
   private readonly inFlight = new Set<Promise<void>>();
+  private flushQueue: Promise<void> = Promise.resolve();
 
   private constructor(private readonly traceStore: TraceStore) {}
 
@@ -188,7 +189,17 @@ export class Tracer {
     return this.track(this.endRun(runId, 'error', undefined, error));
   }
 
-  async flush(): Promise<void> {
+  /**
+   * Writes pending runs and traces to the store. Flushes run one at a time so an older snapshot can
+   * never land after a newer one; records from a failed flush are queued again for the next one.
+   */
+  flush(): Promise<void> {
+    const flushed = this.flushQueue.then(() => this.flushPending());
+    this.flushQueue = flushed.catch(() => {});
+    return flushed;
+  }
+
+  private async flushPending(): Promise<void> {
     while (this.inFlight.size > 0) {
       await Promise.all([...this.inFlight]);
     }
@@ -198,9 +209,24 @@ export class Tracer {
     this.pendingRuns.clear();
     this.pendingTraces.clear();
 
-    await this.traceStore.upsertRunBatch(runs);
+    try {
+      await this.traceStore.upsertRunBatch(runs);
+      for (const trace of traces) {
+        await this.traceStore.upsertTrace(trace);
+      }
+    } catch (error) {
+      this.requeue(runs, traces);
+      throw error;
+    }
+  }
+
+  /** Puts records back unless a newer version was queued while the failed write was in flight. */
+  private requeue(runs: TraceRun[], traces: Trace[]): void {
+    for (const run of runs) {
+      if (!this.pendingRuns.has(run.runId)) this.pendingRuns.set(run.runId, run);
+    }
     for (const trace of traces) {
-      await this.traceStore.upsertTrace(trace);
+      if (!this.pendingTraces.has(trace.traceId)) this.pendingTraces.set(trace.traceId, trace);
     }
   }
 

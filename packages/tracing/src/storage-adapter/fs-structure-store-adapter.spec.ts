@@ -63,9 +63,11 @@ describe('FsStructureStoreAdapter', () => {
       nextCursor: '2',
     });
 
-    await expect(adapter.listTraces({ projectId: 'demo', cursor: '2', limit: 2 })).resolves.toEqual({
-      traces: [expect.objectContaining({ traceId: 'older' })],
-    });
+    await expect(adapter.listTraces({ projectId: 'demo', cursor: '2', limit: 2 })).resolves.toEqual(
+      {
+        traces: [expect.objectContaining({ traceId: 'older' })],
+      },
+    );
 
     await expect(adapter.listTraces({ projectId: 'demo', status: 'success' })).resolves.toEqual({
       traces: [expect.objectContaining({ traceId: 'newer-success' })],
@@ -141,6 +143,80 @@ describe('FsStructureStoreAdapter', () => {
     await expect(
       adapter.patchRunAnnotation({ traceId: 'trace-1', runId: 'missing', annotation: { a: 1 } }),
     ).resolves.toBeNull();
+  });
+
+  it('keeps stored annotations when an upsert omits them', async () => {
+    const adapter = new FsStructureStoreAdapter({ path: root });
+    await adapter.upsertTrace(makeTrace());
+    await adapter.upsertRun(makeRun());
+    await adapter.patchTraceAnnotation({ traceId: 'trace-1', annotation: { verdict: 'bad' } });
+    await adapter.patchRunAnnotation({
+      traceId: 'trace-1',
+      runId: 'run-1',
+      annotation: { note: 'slow' },
+    });
+
+    await adapter.upsertTrace(makeTrace({ status: 'success' }));
+    await adapter.upsertRunBatch([
+      makeRun({ status: 'success' }),
+      makeRun({ runId: 'run-2', parentRunId: 'run-1' }),
+    ]);
+
+    const record = await adapter.getTrace('trace-1');
+    expect(record?.trace).toEqual(makeTrace({ status: 'success', annotation: { verdict: 'bad' } }));
+    expect(record?.runs).toEqual([
+      makeRun({ status: 'success', annotation: { note: 'slow' } }),
+      makeRun({ runId: 'run-2', parentRunId: 'run-1' }),
+    ]);
+  });
+
+  it('replaces stored annotations when an upsert carries one explicitly', async () => {
+    const adapter = new FsStructureStoreAdapter({ path: root });
+    await adapter.upsertTrace(makeTrace({ annotation: { verdict: 'bad' } }));
+    await adapter.upsertRun(makeRun({ annotation: { note: 'slow' } }));
+
+    await adapter.upsertTrace(makeTrace({ annotation: { verdict: 'good' } }));
+    await adapter.upsertRun(makeRun({ annotation: { note: 'fine' } }));
+
+    await expect(adapter.getTrace('trace-1')).resolves.toEqual({
+      trace: makeTrace({ annotation: { verdict: 'good' } }),
+      runs: [makeRun({ annotation: { note: 'fine' } })],
+    });
+  });
+
+  it('does not lose runs when batches for one trace are written concurrently', async () => {
+    const adapter = new FsStructureStoreAdapter({ path: root });
+    await adapter.upsertTrace(makeTrace());
+
+    await Promise.all(
+      Array.from({ length: 10 }, (_, i) =>
+        adapter.upsertRunBatch([makeRun({ runId: `run-${i}` })]),
+      ),
+    );
+
+    const record = await adapter.getTrace('trace-1');
+    expect(record?.runs.map((run) => run.runId).sort()).toEqual(
+      Array.from({ length: 10 }, (_, i) => `run-${i}`).sort(),
+    );
+  });
+
+  it('does not lose annotation edits applied concurrently', async () => {
+    const adapter = new FsStructureStoreAdapter({ path: root });
+    await adapter.upsertTrace(makeTrace());
+    await adapter.upsertRun(makeRun());
+
+    await Promise.all([
+      adapter.patchTraceAnnotation({ traceId: 'trace-1', annotation: { reviewer1: 'bad' } }),
+      adapter.patchTraceAnnotation({ traceId: 'trace-1', annotation: { reviewer2: 'ok' } }),
+      adapter.patchRunAnnotation({ traceId: 'trace-1', runId: 'run-1', annotation: { a: 1 } }),
+      adapter.patchRunAnnotation({ traceId: 'trace-1', runId: 'run-1', annotation: { b: 2 } }),
+      adapter.upsertRunBatch([makeRun({ status: 'success' })]),
+    ]);
+
+    await expect(adapter.getTrace('trace-1')).resolves.toEqual({
+      trace: makeTrace({ annotation: { reviewer1: 'bad', reviewer2: 'ok' } }),
+      runs: [makeRun({ status: 'success', annotation: { a: 1, b: 2 } })],
+    });
   });
 });
 
