@@ -56,6 +56,7 @@ function main(): void {
     process.exit(1);
   }
 
+  // Stop polling on shutdown; the loop makes one final pass before resolving.
   const controller = new AbortController();
   for (const signal of ['SIGINT', 'SIGTERM'] as const) {
     process.on(signal, () => controller.abort());
@@ -77,17 +78,25 @@ function main(): void {
             ? 'none'
             : `${Math.max(0, Date.now() - result.oldestPendingMs)}ms`;
         console.log(
-          `[trace-shipper] uploaded payloads=${result.uploadedPayloads} structure=${result.uploadedStructure} pending payloads=${result.pendingPayloads} structure=${result.pendingStructure} oldest=${lag}`,
+          `[trace-shipper] uploaded payloads=${result.uploadedPayloads} structure=${result.uploadedStructure} pending payloads=${result.pendingPayloads} structure=${result.pendingStructure} failed=${result.failures.length} oldest=${lag}`,
         );
+        for (const failure of result.failures) {
+          console.error(`[trace-shipper] failed ${failure.ref}: ${failure.message}`);
+        }
+        if (cfg.once && result.failures.length > 0) process.exitCode = 1;
+      },
+      onError(error) {
+        console.error(`[trace-shipper] pass failed: ${errorMessage(error)}`);
       },
     },
   ).catch((error) => {
-    if (error instanceof Error && error.message === 'Aborted') {
-      process.exit(0);
-    }
-    console.error(`${program}: ${error instanceof Error ? error.message : String(error)}`);
+    console.error(`${program}: ${errorMessage(error)}`);
     process.exit(1);
   });
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 main();

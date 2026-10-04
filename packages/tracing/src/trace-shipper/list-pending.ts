@@ -32,7 +32,7 @@ export async function listPending(root: string, state: ShipperState): Promise<Li
     const traceJsonPath = join(traceDir, 'trace.json');
     const runsPath = join(traceDir, 'runs.ndjson');
 
-    await collectPayloads(root, join(traceDir, 'payloads'), payloads, state);
+    await collectPayloads(root, join(traceDir, 'payloads'), payloads);
 
     await maybeAddStructureItem(root, traceId, traceJsonPath, 'structure-trace', structure, state);
     await maybeAddStructureItem(root, traceId, runsPath, 'structure-runs', structure, state);
@@ -47,12 +47,7 @@ export async function listPending(root: string, state: ShipperState): Promise<Li
   return { payloads, structure, oldestPendingMs };
 }
 
-async function collectPayloads(
-  root: string,
-  dir: string,
-  out: ShipWorkItem[],
-  state: ShipperState,
-): Promise<void> {
+async function collectPayloads(root: string, dir: string, out: ShipWorkItem[]): Promise<void> {
   let entries: Dirent[];
   try {
     entries = await readdir(dir, { withFileTypes: true });
@@ -64,14 +59,13 @@ async function collectPayloads(
   for (const entry of entries) {
     const absolutePath = join(dir, entry.name);
     if (entry.isDirectory()) {
-      await collectPayloads(root, absolutePath, out, state);
+      await collectPayloads(root, absolutePath, out);
       continue;
     }
     if (!entry.isFile() || isTmpFile(entry.name)) continue;
 
     const ref = toRef(root, absolutePath);
     if (isShipperPath(ref)) continue;
-    if (state.payloads[ref]) continue;
 
     const fileStat = await stat(absolutePath);
     out.push({

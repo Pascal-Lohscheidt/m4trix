@@ -268,9 +268,21 @@ App (FsStructure + FsPayload)  →  shared volume (/traces)
 Sidecar (m4trix-tracing-sidecar)  →  S3 + DynamoDB
 ```
 
-Replication order: **payloads first**, then **structure** (`trace.json`, `runs.ndjson`) once all
-referenced payload refs are uploaded. Local payload files are deleted after a successful S3 put.
-Progress is tracked in `{root}/.shipper/state.json` (sidecar-owned).
+Replication order: **payloads first**, then **structure** (`trace.json`, `runs.ndjson`) once none
+of the referenced payloads is still waiting on local disk. Local payload files are deleted after a
+successful S3 put, so a payload is pending exactly while its file exists. Structure progress (last
+shipped mtime per file) is tracked in `{root}/.shipper/state.json` (sidecar-owned, written
+atomically); an unreadable state file just causes a safe re-ship.
+
+Failure handling:
+
+- A failing item (S3/DynamoDB error, malformed file) is logged and retried on the next pass; it
+  never blocks other traces, and an interrupted pass never strands a trace.
+- Annotations are not shipped. They belong to the hosted store, so review edits made there survive
+  re-shipping.
+- On `SIGTERM` / `SIGINT` the sidecar stops polling, makes one final pass, then exits. Make sure it
+  outlives the app container (for example a Kubernetes native sidecar: an init container with
+  `restartPolicy: Always`) so traces flushed during app shutdown are still shipped.
 
 ### CLI
 
@@ -289,7 +301,7 @@ Flags:
 |------|---------|---------|
 | `--root <dir>` | `TRACE_ROOT` or `/traces` | Local trace root |
 | `--interval <dur>` | `2s` | Poll interval (`500ms`, `2s`, `1m`) |
-| `--once` | off | Single replication pass, then exit |
+| `--once` | off | Single replication pass, then exit (non-zero exit if any item failed) |
 
 Uses the same env vars as the AWS adapters (`TRACE_DYNAMO_TABLE`, `TRACE_S3_BUCKET`, etc.).
 

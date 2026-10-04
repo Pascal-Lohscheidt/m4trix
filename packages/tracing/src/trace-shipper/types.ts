@@ -28,8 +28,11 @@ export type ShipWorkItem =
   | StructureTraceShipWorkItem
   | StructureRunsShipWorkItem;
 
+/**
+ * Structure files shipped so far, keyed by ref, with the mtime that was uploaded. Payloads need no
+ * state: a payload is pending exactly while its local file exists, since it is deleted after upload.
+ */
 export type ShipperState = {
-  payloads: Record<string, true>;
   structure: Record<string, number>;
 };
 
@@ -39,10 +42,17 @@ export type TraceShipperDeps = {
   structureDest: StructureStoreAdapter;
 };
 
+export type ShipFailure = {
+  ref: string;
+  message: string;
+};
+
 export type ReplicateOnceResult = {
   uploadedPayloads: number;
   uploadedStructure: number;
   pendingPayloads: number;
   pendingStructure: number;
   oldestPendingMs: number | null;
+  /** Items that failed this tick; they stay pending and are retried on the next tick. */
+  failures: ShipFailure[];
 };

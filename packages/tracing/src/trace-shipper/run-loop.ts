@@ -3,8 +3,12 @@ import type { ReplicateOnceResult, TraceShipperDeps } from './types.js';
 
 export type RunLoopOptions = {
   intervalMs: number;
+  /** Run a single pass; a failing pass rejects instead of being reported to `onError`. */
   once?: boolean;
   onTick?: (result: ReplicateOnceResult) => void;
+  /** Called when a whole pass fails (e.g. the root is unreadable); the loop keeps polling. */
+  onError?: (error: unknown) => void;
+  /** Stops polling; one final pass then ships whatever was written during shutdown. */
   signal?: AbortSignal;
 };
 
@@ -36,39 +40,49 @@ export async function runShipperLoop(
   deps: TraceShipperDeps,
   options: RunLoopOptions,
 ): Promise<void> {
-  const tick = async (): Promise<ReplicateOnceResult> => {
+  const tick = async (): Promise<void> => {
     const result = await replicateOnce(deps);
     options.onTick?.(result);
-    return result;
   };
 
-  await tick();
+  if (options.once) {
+    await tick();
+    return;
+  }
 
-  if (options.once) return;
+  const tickReportingErrors = async (): Promise<void> => {
+    try {
+      await tick();
+    } catch (error) {
+      options.onError?.(error);
+    }
+  };
 
+  await tickReportingErrors();
   while (!options.signal?.aborted) {
     await sleep(options.intervalMs, options.signal);
     if (options.signal?.aborted) break;
-    await tick();
+    await tickReportingErrors();
   }
+  await tickReportingErrors();
 }
 
+/** Resolves after `ms`, or as soon as `signal` aborts. */
 function sleep(ms: number, signal?: AbortSignal): Promise<void> {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     if (signal?.aborted) {
-      reject(new Error('Aborted'));
+      resolve();
       return;
     }
 
+    const onAbort = (): void => {
+      clearTimeout(timer);
+      resolve();
+    };
     const timer = setTimeout(() => {
       signal?.removeEventListener('abort', onAbort);
       resolve();
     }, ms);
-
-    const onAbort = (): void => {
-      clearTimeout(timer);
-      reject(new Error('Aborted'));
-    };
 
     signal?.addEventListener('abort', onAbort, { once: true });
   });
