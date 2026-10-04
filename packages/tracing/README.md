@@ -243,7 +243,16 @@ DynamoDB table schema (single-table):
 | `sk` | sort | `TRACE` or `RUN#<runId>` |
 | `listPk` | GSI `byStartTime` PK | `PROJECT#_all` on trace items |
 | `listSk` | GSI `byStartTime` SK | trace `startTime` (ISO) |
-| `trace` / `run` | — | full documents |
+| `trace` / `run` | — | trace / run documents, without `annotation` |
+| `annotation` | — | review annotation, written only by the patch APIs |
+| `annotationVersion` | — | optimistic-concurrency counter for annotation patches |
+
+Required IAM actions on the table and its index: `dynamodb:UpdateItem` (all writes, including
+ingest), `dynamodb:GetItem` and `dynamodb:Query` (reads and annotation patches).
+
+`getTrace` follows query pagination, so traces larger than one 1 MB query page come back complete.
+Items written by 0.8.0 kept `annotation` inside `trace` / `run`; they are still read, and the next
+patch moves the annotation to the top-level attribute.
 
 Payload refs remain logical paths like `traces/{traceId}/payloads/{runId}/input.json`.
 
