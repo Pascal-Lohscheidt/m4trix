@@ -12,6 +12,11 @@ export type S3PayloadStoreAdapterOptions = {
   prefix?: string;
   region?: string;
   endpoint?: string;
+  /**
+   * Address buckets as `<endpoint>/<bucket>` instead of `<bucket>.<endpoint>`. Defaults to true
+   * when a custom endpoint is set (LocalStack, MinIO, ...), false against AWS itself.
+   */
+  forcePathStyle?: boolean;
   client?: S3Client;
 };
 
@@ -23,11 +28,17 @@ export class S3PayloadStoreAdapter implements PayloadStoreAdapter {
   constructor(options: S3PayloadStoreAdapterOptions) {
     this.bucket = options.bucket;
     this.prefix = normalizePrefix(options.prefix ?? process.env.TRACE_S3_PREFIX ?? '');
+    const endpoint =
+      options.endpoint ||
+      process.env.AWS_ENDPOINT_URL_S3 ||
+      process.env.AWS_ENDPOINT_URL ||
+      undefined;
     this.client =
       options.client ??
       new S3Client({
         region: options.region ?? process.env.AWS_REGION,
-        endpoint: options.endpoint ?? process.env.AWS_ENDPOINT_URL,
+        endpoint,
+        forcePathStyle: options.forcePathStyle ?? endpoint !== undefined,
       } satisfies S3ClientConfig);
   }
 
@@ -135,6 +146,14 @@ export function resolveS3PayloadStoreOptionsFromEnv(
     prefix: overrides.prefix ?? process.env.TRACE_S3_PREFIX,
     region: overrides.region ?? process.env.AWS_REGION,
     endpoint: overrides.endpoint ?? process.env.AWS_ENDPOINT_URL,
+    forcePathStyle: overrides.forcePathStyle ?? parseBoolean(process.env.TRACE_S3_FORCE_PATH_STYLE),
     client: overrides.client,
   };
+}
+
+function parseBoolean(value: string | undefined): boolean | undefined {
+  if (!value) return undefined;
+  if (value === 'true') return true;
+  if (value === 'false') return false;
+  throw new Error(`TRACE_S3_FORCE_PATH_STYLE must be "true" or "false", got "${value}"`);
 }

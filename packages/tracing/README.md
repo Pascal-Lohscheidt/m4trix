@@ -234,6 +234,7 @@ Environment variables:
 | `TRACE_S3_PREFIX` | Optional key prefix (default: none) |
 | `AWS_REGION` | AWS region |
 | `AWS_ENDPOINT_URL` | Optional (LocalStack) |
+| `TRACE_S3_FORCE_PATH_STYLE` | Optional `true` / `false`; defaults to `true` when a custom endpoint is set |
 | `TRACE_DYNAMO_LIST_SHARDS` | Optional; spread trace list writes over N partitions (default `1`) |
 | `TRACE_DYNAMO_PROJECT_INDEX` | Optional; name of the per-project GSI (see below) |
 
