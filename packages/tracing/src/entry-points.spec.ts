@@ -42,6 +42,8 @@ describe('package entry points', () => {
       require: './dist/aws.cjs',
       default: './dist/aws.js',
     });
+    // TypeScript's legacy `moduleResolution: "node"` ignores `exports`; typesVersions covers it.
+    expect(pkg.typesVersions).toEqual({ '*': { aws: ['./dist/aws.d.ts'] } });
     for (const sdk of ['@aws-sdk/client-dynamodb', '@aws-sdk/client-s3', '@aws-sdk/lib-dynamodb']) {
       expect(pkg.dependencies?.[sdk]).toBeUndefined();
       expect(pkg.peerDependencies[sdk]).toBeDefined();

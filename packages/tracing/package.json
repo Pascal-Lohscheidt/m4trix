@@ -28,6 +28,13 @@
       "default": "./dist/index.js"
     }
   },
+  "typesVersions": {
+    "*": {
+      "aws": [
+        "./dist/aws.d.ts"
+      ]
+    }
+  },
   "files": [
     "dist",
     "README.md"
