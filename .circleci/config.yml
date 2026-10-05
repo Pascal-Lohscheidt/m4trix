@@ -215,23 +215,22 @@ jobs:
       - image: cimg/node:20.0
     steps:
       - checkout
-      - run:
-          name: Install dependencies
-          command: pnpm install
       - setup_remote_docker
       - run:
-          name: Check if tracing sidecar should be published
-          command: pnpm exec jiti scripts/check-package-scope.ts tracing || circleci step halt
-      - run:
-          name: Resolve tracing version from latest tag
+          name: Check if publish-tracing released this commit
+          # publish-tracing tags the commit it released before this job starts, so a tracing tag on
+          # HEAD means "build the image for that version". (Diffing against the latest tag, as the
+          # package jobs do, is always empty at this point and used to skip every image build.)
           command: |
-            VERSION=$(git tag -l '@m4trix/tracing@*' --sort=-version:refname | head -1 | sed 's/@m4trix\/tracing@//')
-            if [ -z "$VERSION" ]; then
-              echo "No @m4trix/tracing tag found"
-              exit 1
+            git fetch --quiet --force --tags origin
+            TAG=$(git tag --points-at HEAD --list '@m4trix/tracing@*' --sort=-version:refname | head -1)
+            if [ -z "$TAG" ]; then
+              echo "No @m4trix/tracing release tag on this commit; skipping the sidecar image."
+              circleci step halt
+              exit 0
             fi
-            echo "export TRACING_VERSION=${VERSION}" >> "$BASH_ENV"
-            echo "Tracing sidecar version: ${VERSION}"
+            echo "export TRACING_VERSION=${TAG#@m4trix/tracing@}" >> "$BASH_ENV"
+            echo "Tracing sidecar version: ${TAG#@m4trix/tracing@}"
       - run:
           name: Log in to GHCR
           command: echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USERNAME" --password-stdin
@@ -239,7 +238,8 @@ jobs:
           name: Build and push sidecar image
           command: |
             IMAGE=ghcr.io/pascal-lohscheidt/m4trix-tracing-sidecar
-            docker build -f packages/tracing/Dockerfile -t "${IMAGE}:${TRACING_VERSION}" -t "${IMAGE}:latest" .
+            # BuildKit honours packages/tracing/Dockerfile.dockerignore (keeps the context small).
+            DOCKER_BUILDKIT=1 docker build -f packages/tracing/Dockerfile -t "${IMAGE}:${TRACING_VERSION}" -t "${IMAGE}:latest" .
             docker push "${IMAGE}:${TRACING_VERSION}"
             docker push "${IMAGE}:latest"
 
