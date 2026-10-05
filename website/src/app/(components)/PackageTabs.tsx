@@ -1,24 +1,19 @@
 'use client';
 
 import {
-  ArrowsClockwiseIcon,
   ArrowsLeftRightIcon,
   CloudCheckIcon,
   CodeIcon,
-  DatabaseIcon,
-  HardDrivesIcon,
-  PlugsConnectedIcon,
   ShieldCheckIcon,
   TerminalWindowIcon,
 } from '@phosphor-icons/react';
-import { TABS, type PackageId } from '@/lib/packages';
+import type { PackageId } from '@/lib/packages';
 import AnimatedHeadline from './AnimatedHeadline';
 import { BentoIcon } from './BentoIcon';
 import CodeBlock from './CodeBlock';
 import EvalsPrimitivesExplorer from './EvalsPrimitivesExplorer';
 import EvalsRunVisual from './EvalsRunVisual';
-import TracingPrimitivesExplorer from './TracingPrimitivesExplorer';
-import TracingRunVisual from './TracingRunVisual';
+import TracingLanding from './TracingLanding';
 
 interface BentoItem {
   icon: React.ReactNode | string;
@@ -337,7 +332,7 @@ function CodeComparison() {
   return (
     <AgentsPanelSection
       title="No graphs. Just events."
-      description="Same outcome — query in, LLM out. Far less ceremony."
+      description="Same outcome: query in, LLM out. Far less ceremony."
       className="hidden sm:block"
     >
       <div className="grid gap-6 lg:grid-cols-2">
@@ -495,7 +490,7 @@ function AgentsSection() {
     <>
       <section className="relative z-[2] overflow-hidden py-12 pb-12 sm:py-20 sm:pb-24 lg:py-[80px] lg:pb-24">
         <HeroGlow />
-        <div className="relative z-[2] mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="relative z-[2] mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col items-center gap-8 sm:gap-12 lg:flex-row lg:items-center">
             <div className="flex-1 text-center lg:text-left">
               <p className="eyebrow">Agentic infrastructure</p>
@@ -578,13 +573,13 @@ const EVALS_HIGHLIGHTS: BentoItem[] = [
   {
     icon: <BentoIcon icon={ShieldCheckIcon} />,
     title: 'Typesafe schemas',
-    desc: 'Effect Schema validates datasets, evaluators, test cases, and scores at every boundary. Mismatches fail in CI — not silently in production.',
+    desc: 'Effect Schema validates datasets, evaluators, test cases, and scores at every boundary. Mismatches fail in CI, not silently in production.',
     tag: 'typesafe',
   },
   {
     icon: <BentoIcon icon={CodeIcon} />,
     title: 'Datasets in code, no lock-in',
-    desc: 'Define datasets as TypeScript — filter by tag, path, or expression. No YAML ceremony, no proprietary format, no vendor cage.',
+    desc: 'Define datasets as TypeScript. Filter by tag, path, or expression. No YAML ceremony, no proprietary format, no vendor cage.',
     tag: 'define',
   },
   {
@@ -596,13 +591,13 @@ const EVALS_HIGHLIGHTS: BentoItem[] = [
   {
     icon: <BentoIcon icon={TerminalWindowIcon} />,
     title: 'CLI-first observability',
-    desc: 'Run from the terminal in CI. Dump scores to Postgres, SQLite, or any sink adapter — visualize with Grafana or Metabase.',
+    desc: 'Run from the terminal in CI. Dump scores to Postgres, SQLite, or any sink adapter, then visualize with Grafana or Metabase.',
     tag: 'cli',
   },
   {
     icon: <BentoIcon icon={CloudCheckIcon} />,
     title: 'Free & self-hosted',
-    desc: 'MIT licensed, no seat fees. Deploy on any cloud or run in CI/CD — your eval data stays in infrastructure you control.',
+    desc: 'MIT licensed, no seat fees. Deploy on any cloud or run in CI/CD. Your eval data stays in infrastructure you control.',
     tag: 'infra',
   },
 ];
@@ -612,7 +607,7 @@ function EvalsSection() {
     <>
       <section className="relative z-[2] overflow-hidden py-12 pb-12 sm:py-20 sm:pb-24 lg:py-[80px] lg:pb-24">
         <HeroGlow />
-        <div className="relative z-[2] mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="relative z-[2] mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col items-center gap-8 sm:gap-12 lg:flex-row lg:items-center">
             <div className="flex-1 text-center lg:text-left">
               <p className="eyebrow">@m4trix/evals</p>
@@ -622,7 +617,7 @@ function EvalsSection() {
               </h1>
               <p className="mx-auto mt-4 max-w-[580px] text-[15px] leading-[1.65] text-text-2 sm:text-[17px] lg:mx-0">
                 Define datasets, evaluators, and test cases as TypeScript files. The CLI discovers
-                and runs them by convention — like Vitest, but for your AI outputs.
+                and runs them by convention, like Vitest, but for your AI outputs.
               </p>
               <div className="mt-[18px] flex flex-wrap justify-center gap-[7px] lg:justify-start">
                 {['*.dataset.ts', '*.evaluator.ts', '*.run-config.ts', '*.test-case.ts'].map(
@@ -653,13 +648,13 @@ function EvalsSection() {
         </div>
       </section>
       <section className="relative z-[2] px-6 pb-16 lg:px-8">
-        <div className="mx-auto max-w-7xl">
+        <div className="mx-auto max-w-6xl">
           <div className="mb-10 text-center">
             <h2 className="font-display text-[clamp(1.5rem,4vw,2.25rem)] font-bold tracking-[-0.02em] text-text-1">
               Built different from cloud eval platforms
             </h2>
             <p className="mx-auto mt-2.5 max-w-2xl text-[15px] text-text-2">
-              Typesafe by default, defined in code, portable across tools — and free to run anywhere
+              Typesafe by default, defined in code, portable across tools, and free to run anywhere
               you deploy.
             </p>
           </div>
@@ -667,7 +662,7 @@ function EvalsSection() {
         </div>
       </section>
       <section className="relative z-[2] px-6 pb-24 lg:px-8">
-        <div className="mx-auto max-w-7xl">
+        <div className="mx-auto max-w-6xl">
           <div className="mb-12 text-center">
             <h2 className="font-display text-[clamp(1.5rem,4vw,2.25rem)] font-bold tracking-[-0.02em] text-text-1">
               Name your cases. Score every change.
@@ -675,7 +670,7 @@ function EvalsSection() {
             <p className="mx-auto mt-2.5 max-w-2xl text-[15px] leading-relaxed text-text-2">
               Hand-rolled evals don&apos;t survive the next model swap or the next engineer. Put
               inputs, scorers, and run configs in TypeScript so every iteration gets a number you
-              can compare—and a command you can rerun tomorrow.
+              can compare, and a command you can rerun tomorrow.
             </p>
           </div>
           <EvalsPrimitivesExplorer />
@@ -685,160 +680,17 @@ function EvalsSection() {
   );
 }
 
-const TRACING_HIGHLIGHTS: BentoItem[] = [
-  {
-    icon: <BentoIcon icon={PlugsConnectedIcon} />,
-    title: 'Drop-in adapter',
-    desc: 'Already on LangGraph or LangChain? Pass the tracer to callbacks — one line to capture every model call, tool invocation, and chain step.',
-    tag: 'adapter',
-  },
-  {
-    icon: <BentoIcon icon={DatabaseIcon} />,
-    title: 'Split storage',
-    desc: 'Structure rows hold metadata, timing, and status. Payload blobs store prompts and completions by ref — query the small stuff fast, fetch the large stuff only when you need it.',
-    tag: 'storage',
-  },
-  {
-    icon: <BentoIcon icon={HardDrivesIcon} />,
-    title: 'Local-first',
-    desc: 'Traces land in ./.traces on your machine by default. No sign-up, no API key, no upload queue — grep them, mount them, or open them in the trace viewer.',
-    tag: 'local',
-  },
-  {
-    icon: <BentoIcon icon={ArrowsClockwiseIcon} />,
-    title: 'Same store reads back',
-    desc: 'The adapter that writes traces serves them back through TraceViewerApi. Reconstruct span trees and resolve payloads — no read replica or sync lag.',
-    tag: 'api',
-  },
-  {
-    icon: <BentoIcon icon={CloudCheckIcon} />,
-    title: 'Pluggable backends',
-    desc: 'Filesystem out of the box. Swap in S3 payload and DynamoDB structure adapters for production — same Tracer and TraceViewerApi surface.',
-    tag: 'infra',
-  },
-];
-
-function TracingSection() {
-  return (
-    <>
-      <section className="relative z-[2] overflow-hidden py-12 pb-12 sm:py-20 sm:pb-24 lg:py-[80px] lg:pb-24">
-        <HeroGlow />
-        <div className="relative z-[2] mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col items-center gap-8 sm:gap-12 lg:flex-row lg:items-center">
-            <div className="flex-1 text-center lg:text-left">
-              <p className="eyebrow">@m4trix/tracing</p>
-              <h1 className="font-display text-[clamp(2.25rem,6vw,4rem)] font-bold tracking-[-0.025em] leading-[1.1] text-text-1">
-                Trace your agents.
-                <br />
-                <span className="text-(--accent) transition-[color] duration-300">
-                  No cloud needed.
-                </span>
-              </h1>
-              <p className="mx-auto mt-4 max-w-[520px] text-[15px] leading-[1.65] text-text-2 sm:text-[17px] lg:mx-0">
-                A lightweight LangGraph/LangChain-compatible tracer. Structure stored separately
-                from payloads. Works locally, on Docker, or with custom storage adapters.
-              </p>
-              <div className="mx-auto mt-6 max-w-[400px] lg:mx-0">
-                <InstallBlock pkg="@m4trix/tracing" />
-              </div>
-              <div className="mt-7 flex flex-wrap justify-center gap-3 lg:justify-start">
-                <a href="https://docs.m4trix.dev/tracing" className="btn-primary group">
-                  Get Started
-                  <span className="opacity-0 transition group-hover:opacity-100">→</span>
-                </a>
-                <a href="https://github.com/Pascal-Lohscheidt/m4trix" className="btn-secondary">
-                  View on GitHub
-                </a>
-              </div>
-            </div>
-            <div className="w-full max-w-[280px] shrink-0">
-              <TracingRunVisual />
-            </div>
-          </div>
-        </div>
-      </section>
-      <section className="relative z-[2] px-6 pb-16 lg:px-8">
-        <div className="mx-auto max-w-7xl">
-          <div className="mb-10 text-center">
-            <h2 className="font-display text-[clamp(1.5rem,4vw,2.25rem)] font-bold tracking-[-0.02em] text-text-1">
-              Built different from cloud trace platforms
-            </h2>
-            <p className="mx-auto mt-2.5 max-w-2xl text-[15px] text-text-2">
-              Split storage, local by default, and adapters you own — no seat fees, no per-token
-              upload tax, no vendor lock-in.
-            </p>
-          </div>
-          <BentoGrid items={TRACING_HIGHLIGHTS} />
-        </div>
-      </section>
-      <section className="relative z-[2] px-6 pb-24 lg:px-8">
-        <div className="mx-auto max-w-7xl">
-          <div className="mb-12 text-center">
-            <h2 className="font-display text-[clamp(1.5rem,4vw,2.25rem)] font-bold tracking-[-0.02em] text-text-1">
-              Wire callbacks once. Read traces anywhere.
-            </h2>
-            <p className="mx-auto mt-2.5 max-w-2xl text-[15px] leading-relaxed text-text-2">
-              Capture LangGraph and LangChain spans to a folder you control. Query structure rows
-              for lists and filters; resolve payload refs only when you open a run — locally, in
-              Docker, or against S3 and DynamoDB adapters.
-            </p>
-          </div>
-          <TracingPrimitivesExplorer />
-        </div>
-      </section>
-    </>
-  );
-}
-
-interface PackageTabsProps {
+interface PackagePanelProps {
   active: PackageId;
-  onChange: (pkg: PackageId) => void;
+  onSelectPackage: (pkg: PackageId) => void;
 }
 
-export default function PackageTabs({ active, onChange }: PackageTabsProps) {
+export default function PackagePanel({ active, onSelectPackage }: PackagePanelProps) {
   return (
-    <>
-      <div
-        className="sticky top-14 z-40 border-b backdrop-blur-md transition-[border-color,background] duration-300"
-        style={{
-          borderColor: 'var(--border)',
-          background: 'color-mix(in srgb, var(--bg) 88%, transparent)',
-        }}
-        role="tablist"
-      >
-        <div className="mx-auto flex max-w-7xl overflow-x-auto px-4 sm:px-6 lg:px-8">
-          {TABS.map((tab) => {
-            const isActive = active === tab.id;
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                role="tab"
-                aria-selected={isActive}
-                onClick={() => onChange(tab.id)}
-                className={`flex shrink-0 items-center gap-2 border-b-2 px-3 py-3.5 font-mono text-[12px] font-medium whitespace-nowrap transition-[color,border-color] duration-300 sm:px-[18px] sm:text-[13px] ${
-                  isActive
-                    ? 'border-(--accent) text-text-1'
-                    : 'border-transparent text-text-4 hover:text-text-2'
-                }`}
-              >
-                {tab.label}
-                {tab.badge && (
-                  <span className={`tab-pill ${isActive ? 'tab-pill-active' : ''}`}>
-                    {tab.badge}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      <div role="tabpanel">
-        {active === 'agents' && <AgentsSection />}
-        {active === 'evals' && <EvalsSection />}
-        {active === 'tracing' && <TracingSection />}
-      </div>
-    </>
+    <div role="tabpanel" id={`panel-${active}`}>
+      {active === 'tracing' && <TracingLanding onSelectPackage={onSelectPackage} />}
+      {active === 'evals' && <EvalsSection />}
+      {active === 'agents' && <AgentsSection />}
+    </div>
   );
 }

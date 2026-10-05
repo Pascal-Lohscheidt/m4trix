@@ -176,7 +176,7 @@ export default function EvalsRunVisual() {
                 : 'text-text-4'
             }
           >
-            {resolvedCount > 0 ? average : '—'}
+            {resolvedCount > 0 ? average : '-'}
           </span>
         </div>
         <div className="h-1.5 overflow-hidden rounded-full border border-(--border) bg-bg/80">

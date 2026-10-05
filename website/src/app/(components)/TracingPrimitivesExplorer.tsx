@@ -21,7 +21,7 @@ const TRACING_PRIMITIVES: ConceptItem[] = [
         <code className="inline-code text-[11px]">Tracer.from(traceStore)</code> implements the
         callback surface LangGraph expects. Pass{' '}
         <code className="inline-code text-[11px]">tracer.adapt(toLangGraph)</code> to{' '}
-        <code className="inline-code text-[11px]">callbacks</code> — every chain, LLM, tool, and
+        <code className="inline-code text-[11px]">callbacks</code>. Every chain, LLM, tool, and
         retriever span lands in your store without rewriting agent code.
       </>
     ),
@@ -81,7 +81,7 @@ const traceStore = TraceStore.of({
     headline: 'Small, queryable rows for trace metadata',
     body: (
       <>
-        Structure adapters persist trace summaries and run records — IDs, timing, status, token
+        Structure adapters persist trace summaries and run records: IDs, timing, status, token
         counts, and payload refs. List and filter traces without loading full prompt/completion
         bodies into memory.
       </>
@@ -112,7 +112,7 @@ const structureStore = new FsStructureStoreAdapter({
     headline: 'Blob refs for prompts, outputs, and events',
     body: (
       <>
-        Payload adapters store the heavy JSON — model inputs, completions, tool arguments, and event
+        Payload adapters store the heavy JSON: model inputs, completions, tool arguments, and event
         streams. Runs keep lightweight <code className="inline-code text-[11px]">inputRef</code> /{' '}
         <code className="inline-code text-[11px]">outputRef</code> pointers so you fetch payloads
         only when reviewing a specific span.
@@ -121,7 +121,7 @@ const structureStore = new FsStructureStoreAdapter({
     bullets: [
       'Filesystem and S3 adapters ship with the package',
       'Optional stream support for large or chunked payloads',
-      'Refs are path-safe — no parent-directory escapes',
+      'Refs are path-safe, with no parent-directory escapes',
     ],
     code: {
       filename: 'payload-adapter.ts',
@@ -140,11 +140,11 @@ const inputRef = await payloadStore.putJson(
     id: 'trace-viewer-api',
     icon: TreeStructureIcon,
     label: 'TraceViewerApi',
-    headline: 'Read back what you wrote — same store, no replica',
+    headline: 'Read back what you wrote from the same store',
     body: (
       <>
         TraceViewerApi wraps TraceStore for UI and HTTP layers. List traces with cursors,
-        reconstruct full span trees with nested children, and resolve payload refs on demand — the
+        reconstruct full span trees with nested children, and resolve payload refs on demand. The
         same adapter pair that captured the run serves it back.
       </>
     ),
@@ -172,7 +172,7 @@ const input = await api.getPayload(tree.root.inputRef!);`,
     headline: 'Human review labels on traces and runs',
     body: (
       <>
-        Annotations are post-hoc JSON on traces and runs — separate from execution metadata. Patch
+        Annotations are post-hoc JSON on traces and runs, separate from execution metadata. Patch
         review status, notes, or workflow labels after a run completes. Deep-merge by default; set{' '}
         <code className="inline-code text-[11px]">merge: false</code> to replace the whole object.
       </>
@@ -180,7 +180,7 @@ const input = await api.getPayload(tree.root.inputRef!);`,
     bullets: [
       'patchTraceAnnotation for run-level review state',
       'patchRunAnnotation for per-span notes and labels',
-      'Stored alongside structure rows — no third-party review tool required',
+      'Stored alongside structure rows, so no third-party review tool is needed',
     ],
     code: {
       filename: 'review.ts',

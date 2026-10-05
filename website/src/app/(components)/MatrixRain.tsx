@@ -80,8 +80,15 @@ export default function MatrixRain({
       }
     }
 
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)')
+
     const startDrawing = () => {
       resize()
+      if (reduceMotion.matches) {
+        if (interval) clearInterval(interval)
+        interval = null
+        return
+      }
       if (interval) clearInterval(interval)
       if (columns.length > 0) {
         interval = setInterval(draw, speed)

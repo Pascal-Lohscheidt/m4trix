@@ -34,6 +34,7 @@
     "react-dom": "^18.2.0",
     "react-highlight-words": "^0.20.0",
     "simple-functional-loader": "^1.2.1",
+    "simple-icons": "^16.34.0",
     "tailwindcss": "^4.1.4",
     "typescript": "^5.3.3"
   },

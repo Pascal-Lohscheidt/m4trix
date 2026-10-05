@@ -107,7 +107,7 @@
 }
 
 /* ─── Package accent tokens ───────────────────────────────────────────── */
-[data-pkg='agents'] {
+[data-pkg='tracing'] {
   --accent: #a78bfa;
   --accent-solid: #7c3aed;
   --accent-dim: rgba(167, 139, 250, 0.12);
@@ -117,7 +117,7 @@
   --glow-2: rgba(103, 232, 249, 0.07);
 }
 
-[data-mode='light'][data-pkg='agents'] {
+[data-mode='light'][data-pkg='tracing'] {
   --accent: #7c3aed;
   --accent-solid: #6d28d9;
   --accent-dim: rgba(124, 58, 237, 0.08);
@@ -143,7 +143,7 @@
   --accent-text: #065f46;
 }
 
-[data-pkg='tracing'] {
+[data-pkg='agents'] {
   --accent: #38bdf8;
   --accent-solid: #0369a1;
   --accent-dim: rgba(56, 189, 248, 0.1);
@@ -153,7 +153,7 @@
   --glow-2: rgba(7, 89, 133, 0.08);
 }
 
-[data-mode='light'][data-pkg='tracing'] {
+[data-mode='light'][data-pkg='agents'] {
   --accent: #0284c7;
   --accent-solid: #0369a1;
   --accent-dim: rgba(2, 132, 199, 0.08);
@@ -521,6 +521,149 @@
 
   .agent-graphic-placeholder p {
     @apply max-w-sm text-sm leading-relaxed;
+  }
+}
+
+@layer components {
+  /* ─── Product landing (tracing-first) ─────────────────────────────── */
+  .lp-h2 {
+    @apply font-display text-[clamp(1.75rem,3.6vw,2.6rem)] leading-[1.12] font-bold tracking-[-0.025em] text-balance text-text-1;
+  }
+
+  .lp-lead {
+    @apply mt-4 max-w-[60ch] text-base leading-relaxed text-pretty text-text-2;
+  }
+
+  .nav-switch {
+    @apply flex items-center gap-0.5 rounded-lg border p-[3px];
+    border-color: var(--border-md);
+    background: color-mix(in srgb, var(--bg-raised) 70%, transparent);
+  }
+
+  .nav-switch-btn {
+    @apply inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-transparent px-3 py-1 font-mono text-[12px] font-medium whitespace-nowrap transition-[color,background,border-color] duration-200;
+    color: var(--text-3);
+  }
+
+  .nav-switch-btn:hover {
+    color: var(--text-1);
+  }
+
+  .nav-switch-btn-active {
+    border-color: var(--accent-border);
+    background: var(--accent-dim);
+    color: var(--accent-text);
+  }
+
+  .nav-switch-btn-active:hover {
+    color: var(--accent-text);
+  }
+
+  .btn-command {
+    @apply inline-flex cursor-pointer items-center gap-2.5 rounded-md border px-4 py-[11px] font-mono text-sm transition active:scale-[0.98];
+    border-color: var(--border-md);
+    background: color-mix(in srgb, var(--bg-raised) 80%, transparent);
+    color: var(--text-1);
+  }
+
+  .btn-command:hover {
+    border-color: var(--accent-border);
+  }
+
+  .btn-primary:active,
+  .btn-secondary:active {
+    transform: scale(0.98);
+  }
+
+  .shot-frame {
+    @apply relative overflow-hidden rounded-xl border;
+    border-color: var(--border-md);
+    background: var(--bg-raised);
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--accent) 10%, transparent),
+      0 40px 120px -40px color-mix(in srgb, var(--accent-solid) 55%, transparent);
+  }
+
+  .bento-cell {
+    @apply flex flex-col overflow-hidden rounded-xl border p-6;
+    border-color: var(--border);
+    background: color-mix(in srgb, var(--bg-raised) 55%, transparent);
+  }
+
+  .bento-cell-accent {
+    border-color: var(--accent-border);
+    background:
+      radial-gradient(circle at 100% 0%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 55%),
+      color-mix(in srgb, var(--bg-raised) 60%, transparent);
+  }
+
+  .bento-title {
+    @apply font-display text-lg font-semibold tracking-tight text-text-1;
+  }
+
+  .bento-body {
+    @apply mt-2 text-[15px] leading-relaxed text-text-2;
+  }
+
+  .mono-panel {
+    @apply rounded-lg border px-4 py-3 font-mono text-[12.5px] leading-[1.8];
+    border-color: var(--border);
+    background: color-mix(in srgb, var(--bg) 85%, transparent);
+    color: var(--text-2);
+  }
+
+  .tool-chip {
+    @apply rounded-full border px-3 py-1 font-mono text-[12px];
+    border-color: var(--border-md);
+    background: color-mix(in srgb, var(--bg-raised) 70%, transparent);
+    color: var(--text-2);
+  }
+
+  .faq-item {
+    @apply border-b py-5;
+    border-color: var(--border);
+  }
+
+  .faq-item summary {
+    @apply flex cursor-pointer list-none items-center justify-between gap-6 font-display text-[17px] font-semibold text-text-1;
+  }
+
+  .faq-item summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .faq-item[open] .faq-icon {
+    transform: rotate(45deg);
+  }
+
+  .faq-icon {
+    @apply shrink-0 transition-transform duration-200;
+    color: var(--text-3);
+  }
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .rise-in {
+    animation: rise-in 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation-delay: var(--rise-delay, 0ms);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .headline-slide,
+  .badge-accent-dot {
+    animation: none;
   }
 }
 

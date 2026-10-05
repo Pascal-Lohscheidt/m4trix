@@ -25,11 +25,11 @@ const lexend = localFont({
 
 export const metadata: Metadata = {
   title: {
-    template: '%s — m4trix',
-    default: 'm4trix — Type-safe agent infrastructure',
+    template: '%s | m4trix',
+    default: 'm4trix tracing: open-source tracing for AI agents',
   },
   description:
-    'Event-driven agent orchestration, evals, and tracing for TypeScript. @m4trix/core, @m4trix/evals, @m4trix/tracing.',
+    'Open-source tracing for LangGraph and LangChain. Traces stay in your files or your AWS account, with a local viewer and an MCP server for coding agents.',
   icons: {
     icon: '/m4trix_logo_tr.png',
     apple: '/m4trix_logo_tr.png',
@@ -41,7 +41,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html
       lang="en"
       data-mode="dark"
-      data-pkg="agents"
+      data-pkg="tracing"
       className={clsx('h-full', inter.variable, lexend.variable, jetbrainsMono.variable)}
       suppressHydrationWarning
     >

@@ -1,28 +1,28 @@
-export type PackageId = 'agents' | 'evals' | 'tracing';
+export type PackageId = 'tracing' | 'evals' | 'agents';
 
-export const PKG_NAV_META: Record<
-  PackageId,
-  { badge: string; docsLabel: string; docsHref: string }
-> = {
-  agents: {
-    badge: 'Pre-Alpha',
-    docsLabel: 'read docs',
-    docsHref: 'https://docs.m4trix.dev',
+export const DEFAULT_PACKAGE: PackageId = 'tracing';
+
+export const PKG_NAV_META: Record<PackageId, { docsLabel: string; docsHref: string }> = {
+  tracing: {
+    docsLabel: 'Docs',
+    docsHref: 'https://docs.m4trix.dev/tracing',
   },
   evals: {
-    badge: 'Beta',
-    docsLabel: 'evals docs',
+    docsLabel: 'Docs',
     docsHref: 'https://docs.m4trix.dev/evals',
   },
-  tracing: {
-    badge: 'Stable',
-    docsLabel: 'tracing docs',
-    docsHref: 'https://docs.m4trix.dev/tracing',
+  agents: {
+    docsLabel: 'Docs',
+    docsHref: 'https://docs.m4trix.dev',
   },
 };
 
 export const TABS: { id: PackageId; label: string; badge?: string }[] = [
-  { id: 'agents', label: 'Agent Orchestrator', badge: 'Pre-Alpha' },
-  { id: 'evals', label: 'Evals' },
   { id: 'tracing', label: 'Tracing' },
+  { id: 'evals', label: 'Evals' },
+  { id: 'agents', label: 'Agents', badge: 'Pre-Alpha' },
 ];
+
+export function isPackageId(value: string): value is PackageId {
+  return TABS.some((tab) => tab.id === value);
+}

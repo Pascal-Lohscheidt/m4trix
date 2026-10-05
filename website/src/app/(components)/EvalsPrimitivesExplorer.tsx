@@ -18,9 +18,9 @@ const EVALS_PRIMITIVES: ConceptItem[] = [
     headline: 'Named slices of your test cases',
     body: (
       <>
-        A Dataset is a tagged collection of test cases — filter by tag, path, or structured
+        A Dataset is a tagged collection of test cases. Filter by tag, path, or structured
         expression. Run only the <code className="inline-code text-[11px]">&apos;edge&apos;</code>{' '}
-        tag before a hotfix. Run the full suite before a release. Same eval files, different scope —
+        tag before a hotfix. Run the full suite before a release. Same eval files, different scope:
         no duplication.
       </>
     ),
@@ -53,14 +53,14 @@ export const edgeCasesDataset = Dataset.define({
     body: (
       <>
         An Evaluator is a typed async function that scores agent output. It receives the current run
-        ID, repetition index, and timing in <code className="inline-code text-[11px]">meta</code> —
+        ID, repetition index, and timing in <code className="inline-code text-[11px]">meta</code>,
         no global state, no thread locals.
       </>
     ),
     bullets: [
       'Typed input, output, and score schemas on every evaluator',
       'Middleware injects dependencies like LLM clients or loggers',
-      'Returns scores and metrics — diff logging built in',
+      'Returns scores and metrics, with diff logging built in',
     ],
     code: {
       filename: 'score.evaluator.ts',
@@ -218,7 +218,7 @@ export const modelLatencyMetric = Metric.of<{ ms: number }>({
   }),
 });
 
-// Built-ins — return from any evaluator:
+// Built-ins: return from any evaluator
 latencyMetric.make({ ms: 142 });
 tokenCountMetric.make({ input: 120, output: 48 });`,
     },
@@ -227,7 +227,7 @@ tokenCountMetric.make({ input: 120, output: 48 });`,
     id: 'cli',
     icon: TerminalWindowIcon,
     label: 'CLI Runner',
-    headline: 'File-based discovery — zero registration boilerplate',
+    headline: 'File-based discovery with zero registration boilerplate',
     body: (
       <>
         Drop files under <code className="inline-code text-[11px]">src/evals/</code>. The runner
