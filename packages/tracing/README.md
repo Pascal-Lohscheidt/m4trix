@@ -42,6 +42,33 @@ pnpm add @aws-sdk/client-dynamodb @aws-sdk/lib-dynamodb @aws-sdk/client-s3
 
 The sidecar CLI (`m4trix-tracing-sidecar`) bundles the AWS SDK and needs no extra install.
 
+## Upgrading to 0.11
+
+0.11 changes import paths and the DynamoDB item layout. Read this before upgrading anything that
+writes to or reads from a shared trace table.
+
+- **AWS adapters moved.** Import `DynamoStructureStoreAdapter`, `S3PayloadStoreAdapter` and the
+  `resolve*OptionsFromEnv` helpers from `@m4trix/tracing/aws`. The AWS SDK is now an optional peer
+  dependency: install `@aws-sdk/client-dynamodb`, `@aws-sdk/lib-dynamodb` and `@aws-sdk/client-s3`
+  yourself if you use that entry.
+- **Upgrade every writer and reader of a table together.** That means sidecars, trace viewers
+  (`@m4trix/trace-viewer` 0.18 or later) and apps writing with the DynamoDB adapter directly.
+  Annotations now live in their own attribute. Older versions replace whole items on write, which
+  wipes annotations stored by 0.11, and they don't show annotations made with 0.11.
+- **IAM.** DynamoDB writes now use `dynamodb:UpdateItem` instead of `dynamodb:PutItem`.
+- **List shards (opt-in).** Enable `listShards` / `TRACE_DYNAMO_LIST_SHARDS` only once every reader
+  runs 0.11, use the same value everywhere, and never lower it afterwards: traces in dropped shards
+  stop appearing in lists.
+- **Sidecar.**
+  - It now deletes fully shipped traces from local disk after 5 minutes. Pass `--keep-shipped` to
+    keep them.
+  - The CLI file is now `dist/trace-shipper-cli.mjs`; the `m4trix-tracing-sidecar` command is
+    unchanged.
+  - The image runs as uid 1000, so it needs write access to the shared volume.
+- **Rolling a sidecar back to 0.10 or earlier.** Traces in the middle of shipping can get stuck,
+  because older sidecars expect a payload list in `.shipper/state.json` that 0.11 no longer writes.
+  Drain first: stop the app, run the 0.11 sidecar once with `--once`, then roll back.
+
 ## Core Types
 
 ```ts
