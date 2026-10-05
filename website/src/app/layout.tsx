@@ -30,6 +30,10 @@ export const metadata: Metadata = {
   },
   description:
     'Event-driven agent orchestration, evals, and tracing for TypeScript. @m4trix/core, @m4trix/evals, @m4trix/tracing.',
+  icons: {
+    icon: '/m4trix_logo_tr.png',
+    apple: '/m4trix_logo_tr.png',
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

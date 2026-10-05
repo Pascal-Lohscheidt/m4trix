@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Wordmark } from '@/components/Logo';
-import { PKG_NAV_META, type PackageId } from '@/lib/packages';
+import { Brand } from '@/components/Logo';
+import { type PackageId, PKG_NAV_META } from '@/lib/packages';
 import MatrixRain from './MatrixRain';
 import PackageTabs from './PackageTabs';
 
@@ -48,6 +48,11 @@ function ModeToggle() {
 
 function SiteNav({ activePkg }: { activePkg: PackageId }) {
   const meta = PKG_NAV_META[activePkg];
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  useEffect(() => {
+    setMenuOpen((open) => (activePkg && open ? false : open));
+  }, [activePkg]);
 
   return (
     <nav
@@ -57,15 +62,15 @@ function SiteNav({ activePkg }: { activePkg: PackageId }) {
         background: 'color-mix(in srgb, var(--bg) 94%, transparent)',
       }}
     >
-      <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-6 lg:px-8">
-        <div className="flex items-center gap-2.5">
-          <Wordmark />
-          <span className="badge-accent">
+      <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <Brand />
+          <span className="badge-accent hidden sm:inline-flex">
             <span className="badge-accent-dot" />
             {meta.badge}
           </span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="hidden shrink-0 items-center gap-2 sm:flex">
           <ModeToggle />
           <a href="https://github.com/Pascal-Lohscheidt/m4trix" className="btn-nav-ghost">
             <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -83,7 +88,86 @@ function SiteNav({ activePkg }: { activePkg: PackageId }) {
             <span className="opacity-0 transition-opacity group-hover:opacity-100">→</span>
           </a>
         </div>
+        <button
+          type="button"
+          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border transition sm:hidden"
+          style={{
+            borderColor: menuOpen ? 'var(--accent-border)' : 'var(--border-md)',
+            background: menuOpen ? 'var(--accent-dim)' : 'var(--bg-raised)',
+            color: menuOpen ? 'var(--accent)' : 'var(--text-2)',
+          }}
+          aria-label={menuOpen ? 'Close navigation menu' : 'Open navigation menu'}
+          aria-expanded={menuOpen}
+          aria-controls="mobile-nav-menu"
+          onClick={() => setMenuOpen((open) => !open)}
+        >
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+            {menuOpen ? (
+              <path
+                d="M5 5L13 13M13 5L5 13"
+                stroke="currentColor"
+                strokeWidth="1.7"
+                strokeLinecap="round"
+              />
+            ) : (
+              <path
+                d="M4 5.5H14M4 9H14M4 12.5H14"
+                stroke="currentColor"
+                strokeWidth="1.7"
+                strokeLinecap="round"
+              />
+            )}
+          </svg>
+        </button>
       </div>
+      {menuOpen ? (
+        <div
+          id="mobile-nav-menu"
+          className="border-t px-4 py-4 sm:hidden"
+          style={{ borderColor: 'var(--border)', background: 'var(--bg)' }}
+        >
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center justify-between gap-3">
+              <span className="badge-accent">
+                <span className="badge-accent-dot" />
+                {meta.badge}
+              </span>
+              <ModeToggle />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <a
+                href="https://github.com/Pascal-Lohscheidt/m4trix"
+                className="btn-nav-ghost justify-center"
+                onClick={() => setMenuOpen(false)}
+              >
+                <span className="sr-only">GitHub</span>
+                <svg
+                  width="14"
+                  height="14"
+                  fill="currentColor"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+                GitHub
+              </a>
+              <a
+                href={meta.docsHref}
+                className="btn-nav-docs justify-center"
+                onClick={() => setMenuOpen(false)}
+              >
+                <span className="opacity-60">$</span>
+                <span>{meta.docsLabel}</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </nav>
   );
 }
@@ -97,8 +181,8 @@ function SiteFooter() {
         background: 'var(--bg)',
       }}
     >
-      <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-2 font-mono text-[11px] lg:px-8">
-        <div className="flex items-center gap-3.5" style={{ color: 'var(--text-4)' }}>
+      <div className="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-3 font-mono text-[11px] sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
+        <div className="flex flex-wrap items-center gap-3.5" style={{ color: 'var(--text-4)' }}>
           <span className="flex items-center gap-1.5">
             <span
               className="h-1.5 w-1.5 rounded-full transition-[background] duration-300"
@@ -109,7 +193,7 @@ function SiteFooter() {
           <span>MIT</span>
           <span>Pascal Lohscheidt</span>
         </div>
-        <div className="flex items-center gap-3.5" style={{ color: 'var(--text-4)' }}>
+        <div className="flex flex-wrap items-center gap-3.5" style={{ color: 'var(--text-4)' }}>
           <a
             href="https://github.com/Pascal-Lohscheidt/m4trix"
             aria-label="GitHub"
@@ -127,6 +211,7 @@ function SiteFooter() {
                 clipRule="evenodd"
               />
             </svg>
+            <span className="sr-only">GitHub</span>
           </a>
           <span>© {new Date().getFullYear()}</span>
           <span>TypeScript</span>
@@ -150,7 +235,7 @@ export default function LandingPage() {
   };
 
   return (
-    <div className="relative min-h-screen w-full">
+    <div className="relative min-h-screen w-full overflow-x-hidden">
       <MatrixRain opacity={0.055} color="#00ff41" fontSize={14} speed={45} />
 
       <div

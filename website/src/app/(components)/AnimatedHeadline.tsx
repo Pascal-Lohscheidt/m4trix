@@ -15,7 +15,7 @@ export default function AnimatedHeadline() {
   }, []);
 
   return (
-    <h1 className="font-display text-[clamp(2.25rem,6vw,4rem)] font-bold tracking-[-0.025em] leading-[1.1] text-text-1">
+    <h1 className="font-display text-[clamp(2rem,6vw,4rem)] font-bold tracking-[-0.025em] leading-[1.1] text-text-1">
       Orchestrate agents{' '}
       <span className="relative inline-block min-w-[200px] align-bottom sm:min-w-[320px]">
         <span
@@ -24,7 +24,9 @@ export default function AnimatedHeadline() {
         >
           {ARGUMENTS[index]}
         </span>
-        <span className="invisible">{ARGUMENTS[index]}</span>
+        <span className="invisible" aria-hidden>
+          {ARGUMENTS[index]}
+        </span>
       </span>
     </h1>
   );

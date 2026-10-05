@@ -76,6 +76,7 @@
   --green: #4ade80;
   --cyan: #67e8f9;
   --amber: #fbbf24;
+  --red: #f87171;
 }
 
 [data-mode='light'] {
@@ -91,6 +92,7 @@
   --green: #16a34a;
   --cyan: #0891b2;
   --amber: #d97706;
+  --red: #dc2626;
 
   --color-bg: #f8f8fb;
   --color-bg-raised: #ffffff;
@@ -328,6 +330,7 @@
 
   .code-block {
     @apply overflow-hidden rounded-lg border font-mono text-xs;
+    min-width: 0;
     border-color: var(--border-md);
     background: color-mix(in srgb, var(--bg) 88%, transparent);
   }
@@ -443,6 +446,81 @@
     border-color: var(--border-md);
     background: rgba(255, 255, 255, 0.04);
     color: var(--cyan);
+  }
+
+  .agent-section-title {
+    @apply font-display text-[clamp(1.5rem,3.5vw,2.25rem)] font-bold tracking-[-0.02em] text-text-1;
+  }
+
+  .agent-section-desc {
+    @apply mx-auto mt-3 max-w-2xl text-[15px] leading-relaxed text-text-2;
+  }
+
+  .agent-stat-card {
+    @apply rounded-xl border p-5 transition;
+    border-color: var(--border);
+    background:
+      linear-gradient(180deg, color-mix(in srgb, var(--bg-raised) 82%, transparent), transparent),
+      color-mix(in srgb, var(--bg-raised) 54%, transparent);
+  }
+
+  .agent-stat-card:hover {
+    border-color: var(--accent-border);
+  }
+
+  .agent-feature-card {
+    @apply flex flex-col gap-4 rounded-xl border p-6 transition;
+    border-color: var(--border);
+    background:
+      radial-gradient(circle at 20% 0%, color-mix(in srgb, var(--accent) 8%, transparent), transparent 32%),
+      color-mix(in srgb, var(--bg-raised) 54%, transparent);
+  }
+
+  .agent-feature-card:hover {
+    border-color: var(--accent-border);
+    background: color-mix(in srgb, var(--bg-raised) 80%, transparent);
+  }
+
+  .agent-code-block .code-block-hdr {
+    @apply px-4 py-2 text-[11px];
+  }
+
+  .agent-code-block .code-block-body {
+    @apply px-3 py-4 text-[12px] leading-[1.75] sm:px-4 sm:text-[13px];
+  }
+
+  .agent-comparison-card {
+    @apply rounded-xl border p-3;
+    min-width: 0;
+    border-color: var(--border);
+    background: color-mix(in srgb, var(--bg-raised) 42%, transparent);
+  }
+
+  .agent-comparison-card-accent {
+    border-color: var(--accent-border);
+    background:
+      radial-gradient(circle at 80% 0%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 35%),
+      color-mix(in srgb, var(--bg-raised) 58%, transparent);
+  }
+
+  .agent-graphic-placeholder {
+    @apply flex min-h-[180px] flex-col items-center justify-center rounded-xl border border-dashed px-6 py-8 text-center;
+    border-color: var(--accent-border);
+    background:
+      linear-gradient(135deg, color-mix(in srgb, var(--accent) 8%, transparent), transparent 42%),
+      color-mix(in srgb, var(--bg-subtle) 55%, transparent);
+    color: var(--text-3);
+  }
+
+  .agent-placeholder-label {
+    @apply mb-3 rounded-full border px-3 py-1 font-mono text-[10px] font-semibold tracking-widest uppercase;
+    border-color: var(--accent-border);
+    background: var(--accent-dim);
+    color: var(--accent);
+  }
+
+  .agent-graphic-placeholder p {
+    @apply max-w-sm text-sm leading-relaxed;
   }
 }
 

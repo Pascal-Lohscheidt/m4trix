@@ -14,6 +14,7 @@ import {
 import { TABS, type PackageId } from '@/lib/packages';
 import AnimatedHeadline from './AnimatedHeadline';
 import { BentoIcon } from './BentoIcon';
+import CodeBlock from './CodeBlock';
 import EvalsPrimitivesExplorer from './EvalsPrimitivesExplorer';
 import EvalsRunVisual from './EvalsRunVisual';
 import TracingPrimitivesExplorer from './TracingPrimitivesExplorer';
@@ -40,19 +41,19 @@ function BentoItemIcon({ icon }: { icon: React.ReactNode | string }) {
 
 function InstallBlock({ pkg }: { pkg: string }) {
   return (
-    <div className="install-block max-w-[400px]">
+    <div className="install-block w-full max-w-[400px]">
       <div className="install-block-hdr">
         <span>Terminal</span>
         <span>bash</span>
       </div>
       <div className="install-block-body">
-        <div className="flex items-center gap-2">
+        <div className="flex min-w-0 items-center gap-2">
           <span className="font-mono text-(--accent) transition-[color] duration-300">$</span>
-          <span className="font-mono text-text-1">
+          <span className="min-w-0 font-mono text-text-1">
             pnpm add <span className="text-(--accent) transition-[color] duration-300">{pkg}</span>
           </span>
         </div>
-        <div className="flex items-center gap-2 pl-5">
+        <div className="flex flex-wrap items-center gap-2 pl-5">
           <span className="font-mono text-success">✓</span>
           <span className="font-mono text-success/85">Done in 0.4s</span>
           {pkg === '@m4trix/core' && <span className="font-mono text-text-4">Packages: +1</span>}
@@ -95,101 +96,418 @@ function HeroGlow() {
   );
 }
 
-const AGENT_BENTO: BentoItem[] = [
+const AGENT_PROOF_POINTS = [
+  { value: 'Typed', label: 'Events infer through every handler.' },
+  { value: 'Schema', label: 'Runtime validation at boundaries.' },
+  { value: 'Channels', label: 'Producers and sinks stay decoupled.' },
+  { value: 'SSE', label: 'Streaming endpoints without glue code.' },
+];
+
+const AGENT_FLOW_POINTS = [
   {
-    icon: '⚡',
-    title: 'Event-Driven Agents',
-    desc: 'Write a typed async function. Tell the factory which events trigger it and which it can emit. No base class, no decorator, no node to register — just logic and a schema.',
-    code: 'AgentFactory.run().listensTo([evt]).logic(fn).produce({})',
-    tag: 'core',
+    label: '1. Event',
+    title: 'Declare what happened',
+    body: 'Events carry schemas, so every agent receives a known payload shape.',
   },
   {
-    icon: '🔗',
-    title: 'Agent Networks',
-    desc: (
-      <>
-        <code className="inline-code text-[11px]">setup()</code> is the only wiring ceremony.
-        Subscribe an agent to a channel, tell it where to publish. Chain, fan-out, fork — always the
-        same two lines.
-      </>
-    ),
-    code: 'AgentNetwork.setup(({ registerAgent }) => …)',
-    tag: 'core',
+    label: '2. Handler',
+    title: 'Write the business logic',
+    body: 'Agents are async functions. No graph nodes, decorators, or shared state object.',
   },
   {
-    icon: '🛡',
-    title: 'Typed Events',
-    desc: (
-      <>
-        The payload you emit in AgentA is the typed{' '}
-        <code className="inline-code text-[11px]">triggerEvent</code> in AgentB. Effect Schema
-        validates every handoff at runtime — a schema mismatch fails loudly, not silently in
-        production.
-      </>
-    ),
-    code: "AgentNetworkEvent.of('request', S.Struct({…}))",
-    tag: 'typesafe',
-  },
-  {
-    icon: '📡',
-    title: 'SSE Streaming',
-    desc: (
-      <>
-        Call <code className="inline-code text-[11px]">.expose()</code> on a network and you have a
-        streaming HTTP endpoint. The Next.js adapter is a one-liner. Your frontend reads a
-        Server-Sent Events stream, not a polling loop.
-      </>
-    ),
-    code: 'NextEndpoint.from(network.expose(registerSSEStream({…}))).handler()',
-    tag: 'stream',
-  },
-  {
-    icon: '🔀',
-    title: 'Channels & Proxies',
-    desc: (
-      <>
-        Channels are named message buses. Swap an{' '}
-        <code className="inline-code text-[11px]">sse</code> proxy for Kafka without touching a
-        single agent. The agent doesn&apos;t know — or care — where its events go.
-      </>
-    ),
-    code: "createChannel('client').proxy(proxy.sse())",
-    tag: 'infra',
-  },
-  {
-    icon: '📦',
-    title: 'Batteries Included',
-    desc: (
-      <>
-        <code className="inline-code text-[11px]">useConversation()</code> manages SSE state in
-        React. <code className="inline-code text-[11px]">Pump</code> chains transforms over streams.{' '}
-        <code className="inline-code text-[11px]">AiCursor</code> renders a live typing indicator.
-        Nothing to assemble separately.
-      </>
-    ),
-    code: '@m4trix/core  |  @m4trix/stream  |  @m4trix/react',
-    tag: 'ecosystem',
+    label: '3. Channel',
+    title: 'Publish the result',
+    body: 'Send output to a named channel and swap the downstream sink whenever you need.',
   },
 ];
+
+const LANGGRAPH_CODE = `from langgraph.graph import StateGraph, START, END
+
+class State(TypedDict):
+    messages: Annotated[list, add_messages]
+
+def call_model(state: State):
+    return {"messages": [llm.invoke(state["messages"])]}
+
+builder = StateGraph(State)
+builder.add_node("llm", call_model)
+builder.add_edge(START, "llm")
+builder.add_edge("llm", END)
+graph = builder.compile()  # required before invoke`;
+
+const M4TRIX_CODE = `const UserQuery = AgentNetworkEvent.of(
+  'user:query',
+  S.Struct({ query: S.String })
+)
+
+const llmAgent = AgentFactory.run()
+  .listensTo([UserQuery])
+  .logic(async ({ event }) => ({
+    reply: await openai.chat(event.payload.query)
+  }))
+  .produce({ channel: 'client' })
+
+AgentNetwork.setup(({ registerAgent }) => {
+  registerAgent(llmAgent)
+})`;
+
+const AGENT_STEPS = [
+  {
+    title: 'Define events',
+    body: 'Name the input once and keep inference through the whole pipeline.',
+    code: `AgentNetworkEvent.of('user:query', S.Struct({
+  query: S.String,
+}))`,
+  },
+  {
+    title: 'Write logic',
+    body: 'Handle the event with a plain async function. Return typed output.',
+    code: `AgentFactory.run()
+  .listensTo([UserQuery])
+  .logic(async ({ event }) => ({
+    reply: await llm(event.payload.query)
+  }))`,
+  },
+  {
+    title: 'Wire the network',
+    body: 'Register agents and expose a channel as HTTP, SSE, or another sink.',
+    code: `AgentNetwork.setup(({ registerAgent }) => {
+  registerAgent(llmAgent)
+}).expose({ channel: 'client' })`,
+  },
+];
+
+const AGENT_FEATURES = [
+  {
+    eyebrow: 'Core primitive',
+    title: 'Agents are just typed handlers',
+    desc: 'Keep orchestration out of your business logic. Handlers listen to events and publish output.',
+    code: `AgentFactory.run()
+  .listensTo([UserQuery])
+  .logic(handler)
+  .produce({ channel: 'client' })`,
+    visual: 'Graphic placeholder: show one event flowing into a handler and out to a channel.',
+    size: 'lg:col-span-2',
+  },
+  {
+    eyebrow: 'Type safety',
+    title: 'Schemas travel with events',
+    desc: 'Effect Schema validates external input while TypeScript keeps handler payloads inferred.',
+    code: `AgentNetworkEvent.of('user:query', S.Struct({
+  query: S.String,
+}))`,
+  },
+  {
+    eyebrow: 'Scale path',
+    title: 'Start with one agent. Add more later.',
+    desc: 'Networks let agents share channels without a global state object or graph rewrite.',
+    code: `AgentNetwork.setup(({ registerAgent }) => {
+  registerAgent(llmAgent)
+  registerAgent(toolAgent)
+})`,
+  },
+  {
+    eyebrow: 'Routing',
+    title: 'Channels decouple every boundary',
+    desc: 'Change where events go without changing the agent that produced them.',
+    code: `createChannel('client').sink(sink.httpStream())`,
+    visual: 'Graphic placeholder: route picker showing HTTP, Kafka, and custom sink options.',
+  },
+  {
+    eyebrow: 'Adapters',
+    title: 'Streaming HTTP is built in',
+    desc: 'Expose a network as SSE from Next.js or Express without hand-rolled stream plumbing.',
+    code: `NextEndpoint.from(
+  network.expose({ channel: 'client' })
+).handler()`,
+  },
+  {
+    eyebrow: 'Ecosystem',
+    title: 'One model across the stack',
+    desc: 'Core, stream, React hooks, and UI pieces use the same event vocabulary.',
+    code: `// @m4trix/core · @m4trix/stream
+// @m4trix/react · @m4trix/ui`,
+    visual: 'Graphic placeholder: stack diagram from core to stream to React UI.',
+  },
+];
+
+function AgentsPanelSection({
+  title,
+  children,
+  description,
+  className = '',
+}: {
+  title: string;
+  children: React.ReactNode;
+  description?: string;
+  className?: string;
+}) {
+  return (
+    <section className={`relative z-[2] px-4 pb-20 sm:px-6 sm:pb-24 lg:px-8 ${className}`.trim()}>
+      <div className="mx-auto max-w-6xl">
+        <div className="mb-12 text-center">
+          <h2 className="agent-section-title">{title}</h2>
+          {description ? <p className="agent-section-desc">{description}</p> : null}
+        </div>
+        {children}
+      </div>
+    </section>
+  );
+}
+
+function AgentsProofStrip() {
+  return (
+    <div className="relative z-[2] mx-auto max-w-6xl px-6 pb-20">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {AGENT_PROOF_POINTS.map((point) => (
+          <div key={point.value} className="agent-stat-card">
+            <p className="font-display text-xl font-semibold text-(--accent)">{point.value}</p>
+            <p className="mt-2 text-sm leading-relaxed text-text-2">{point.label}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function GraphicPlaceholder({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="agent-graphic-placeholder">
+      <span className="agent-placeholder-label">Graphic placeholder</span>
+      <p>{children}</p>
+    </div>
+  );
+}
+
+function AgentOperatingModel() {
+  return (
+    <AgentsPanelSection
+      title="A small model that scales"
+      description="m4trix keeps the mental model compact: events describe data, agents handle work, channels route output."
+    >
+      <div className="grid items-stretch gap-6 lg:grid-cols-[1fr_0.85fr]">
+        <div className="agent-feature-card gap-5">
+          {AGENT_FLOW_POINTS.map((point) => (
+            <div key={point.label} className="flex gap-4">
+              <span className="mt-1 h-fit rounded-full border border-(--accent-border) bg-(--accent-dim) px-3 py-1 font-mono text-[11px] font-semibold text-(--accent)">
+                {point.label}
+              </span>
+              <div>
+                <h3 className="font-display text-lg font-semibold text-text-1">{point.title}</h3>
+                <p className="mt-1 text-[15px] leading-relaxed text-text-2">{point.body}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="hidden sm:block">
+          <GraphicPlaceholder>
+            Animated product graphic: browser request enters an event, passes through an agent, then
+            fans out to HTTP stream and Kafka/custom sink.
+          </GraphicPlaceholder>
+        </div>
+      </div>
+    </AgentsPanelSection>
+  );
+}
+
+function AgentTradeoff() {
+  return (
+    <AgentsPanelSection
+      title="What changes compared to graph frameworks"
+      description="You still get orchestration, but the unit of composition is an event contract instead of a hand-wired graph."
+    >
+      <div className="grid gap-4 md:grid-cols-3">
+        {[
+          ['Before logic', 'No state graph to model before the first handler exists.'],
+          ['While building', 'Handlers stay independent and communicate through named channels.'],
+          ['When shipping', 'Expose the same network through SSE, HTTP, Kafka, or your own sink.'],
+        ].map(([title, body]) => (
+          <div key={title} className="agent-stat-card">
+            <h3 className="font-display text-lg font-semibold text-text-1">{title}</h3>
+            <p className="mt-2 text-[15px] leading-relaxed text-text-2">{body}</p>
+          </div>
+        ))}
+      </div>
+    </AgentsPanelSection>
+  );
+}
+
+function CodeComparison() {
+  return (
+    <AgentsPanelSection
+      title="No graphs. Just events."
+      description="Same outcome — query in, LLM out. Far less ceremony."
+      className="hidden sm:block"
+    >
+      <div className="grid gap-6 lg:grid-cols-2">
+        <div className="agent-comparison-card">
+          <p className="mb-3 font-display text-sm font-semibold text-text-3">Graph-first</p>
+          <CodeBlock
+            className="agent-code-block"
+            code={LANGGRAPH_CODE}
+            language="python"
+            filename="agent.py"
+          />
+        </div>
+        <div className="agent-comparison-card agent-comparison-card-accent">
+          <p className="mb-3 font-display text-sm font-semibold text-(--accent)">Event-first</p>
+          <CodeBlock
+            className="agent-code-block"
+            code={M4TRIX_CODE}
+            language="typescript"
+            filename="agent.ts"
+          />
+        </div>
+      </div>
+      <div className="mt-8 grid gap-4 sm:grid-cols-2">
+        <p
+          className="rounded-lg border px-4 py-3 text-sm leading-relaxed text-text-3"
+          style={{ borderColor: 'var(--border)' }}
+        >
+          <span className="mr-2 text-(--red)">✗</span>
+          State, nodes, edges, and a compile step before your first invoke.
+        </p>
+        <p
+          className="rounded-lg border px-4 py-3 text-sm leading-relaxed text-text-2"
+          style={{ borderColor: 'var(--accent-border)', background: 'var(--accent-dim)' }}
+        >
+          <span className="mr-2 text-success">✓</span>
+          Define the event, write the handler, register the agent. TypeScript catches bad shapes.
+        </p>
+      </div>
+    </AgentsPanelSection>
+  );
+}
+
+function AgentSteps() {
+  return (
+    <AgentsPanelSection
+      title="The workflow fits in three files"
+      description="Each layer has one job: define the contract, implement the handler, register the network."
+      className="hidden sm:block"
+    >
+      <div className="grid gap-6 lg:grid-cols-3">
+        {AGENT_STEPS.map((step, index) => (
+          <div key={step.title} className="agent-feature-card">
+            <span
+              className="flex h-8 w-8 items-center justify-center rounded-full border font-display text-sm font-bold text-(--accent)"
+              style={{ borderColor: 'var(--accent-border)', background: 'var(--accent-dim)' }}
+            >
+              {index + 1}
+            </span>
+            <h3 className="font-display text-lg font-semibold text-text-1">{step.title}</h3>
+            <p className="text-[15px] leading-relaxed text-text-2">{step.body}</p>
+            <CodeBlock
+              className="agent-code-block mt-auto"
+              code={step.code}
+              language="typescript"
+            />
+          </div>
+        ))}
+      </div>
+    </AgentsPanelSection>
+  );
+}
+
+function MobileAgentSummary() {
+  return (
+    <AgentsPanelSection
+      title="What you get"
+      description="The full code examples are available on larger screens. On mobile, the important part is the shape of the system."
+      className="sm:hidden"
+    >
+      <div className="grid gap-4">
+        {[
+          [
+            'Typed contracts',
+            'Events define the payload once and carry inference into each handler.',
+          ],
+          [
+            'Plain handlers',
+            'Agent logic stays as async TypeScript functions instead of graph nodes.',
+          ],
+          [
+            'Swappable outputs',
+            'Channels let you route results to SSE, HTTP, Kafka, or custom sinks.',
+          ],
+        ].map(([title, body], index) => (
+          <div key={title} className="agent-feature-card">
+            <span
+              className="flex h-8 w-8 items-center justify-center rounded-full border font-display text-sm font-bold text-(--accent)"
+              style={{ borderColor: 'var(--accent-border)', background: 'var(--accent-dim)' }}
+            >
+              {index + 1}
+            </span>
+            <h3 className="font-display text-lg font-semibold text-text-1">{title}</h3>
+            <p className="text-[15px] leading-relaxed text-text-2">{body}</p>
+          </div>
+        ))}
+      </div>
+    </AgentsPanelSection>
+  );
+}
+
+function AgentFeatureGrid() {
+  return (
+    <AgentsPanelSection
+      title="Production pieces without new concepts"
+      description="The same event and channel model covers local agents, streamed responses, and downstream infrastructure."
+      className="hidden sm:block"
+    >
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        {AGENT_FEATURES.map((feature) => (
+          <div key={feature.title} className={`agent-feature-card ${feature.size ?? ''}`}>
+            <span className="font-mono text-[11px] font-semibold tracking-widest text-(--accent) uppercase">
+              {feature.eyebrow}
+            </span>
+            <h3 className="font-display text-xl font-semibold text-text-1">{feature.title}</h3>
+            <p className="text-[15px] leading-relaxed text-text-2">{feature.desc}</p>
+            {feature.visual ? <GraphicPlaceholder>{feature.visual}</GraphicPlaceholder> : null}
+            <CodeBlock
+              className="agent-code-block mt-auto"
+              code={feature.code}
+              language="typescript"
+            />
+          </div>
+        ))}
+      </div>
+    </AgentsPanelSection>
+  );
+}
+
+function AgentsPanel() {
+  return (
+    <>
+      <AgentsProofStrip />
+      <AgentOperatingModel />
+      <AgentTradeoff />
+      <MobileAgentSummary />
+      <CodeComparison />
+      <AgentSteps />
+      <AgentFeatureGrid />
+    </>
+  );
+}
 
 function AgentsSection() {
   return (
     <>
-      <section className="relative z-[2] overflow-hidden py-20 pb-24 lg:py-[80px] lg:pb-24">
+      <section className="relative z-[2] overflow-hidden py-12 pb-12 sm:py-20 sm:pb-24 lg:py-[80px] lg:pb-24">
         <HeroGlow />
-        <div className="relative z-[2] mx-auto max-w-7xl px-6 lg:px-8">
-          <div className="flex flex-col items-center gap-12 lg:flex-row lg:items-center">
+        <div className="relative z-[2] mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col items-center gap-8 sm:gap-12 lg:flex-row lg:items-center">
             <div className="flex-1 text-center lg:text-left">
               <p className="eyebrow">Agentic infrastructure</p>
               <AnimatedHeadline />
-              <p className="mx-auto mt-4 max-w-[520px] text-[17px] leading-[1.65] text-text-2 lg:mx-0">
+              <p className="mx-auto mt-4 max-w-[520px] text-[15px] leading-[1.65] text-text-2 sm:text-[17px] lg:mx-0">
                 Event-driven agent orchestration. Type-safe events, channels, proxies.{' '}
                 <code className="inline-code">@m4trix/core/matrix</code>. Build, wire, stream.
               </p>
-              <div className="mx-auto mt-6 lg:mx-0">
+              <div className="mx-auto mt-6 max-w-[400px] lg:mx-0">
                 <InstallBlock pkg="@m4trix/core" />
               </div>
-              <div className="mt-4 flex flex-wrap justify-center gap-[7px] font-mono text-[11px] lg:justify-start">
+              <div className="mx-auto mt-4 hidden max-w-[320px] flex-wrap justify-center gap-[7px] font-mono text-[11px] sm:flex sm:max-w-none lg:mx-0 lg:justify-start">
                 {[
                   { pkg: '@m4trix/core/matrix', desc: 'agents & networks' },
                   { pkg: '@m4trix/stream', desc: 'pipes' },
@@ -197,7 +515,7 @@ function AgentsSection() {
                 ].map((e) => (
                   <span key={e.pkg} className="entry-pill">
                     <span className="text-(--accent) transition-[color] duration-300">{e.pkg}</span>
-                    <span className="ml-1.5 text-text-4">
+                    <span className="ml-1.5 hidden text-text-4 sm:inline">
                       {'// '}
                       {e.desc}
                     </span>
@@ -211,7 +529,7 @@ function AgentsSection() {
                 </a>
                 <a
                   href="https://github.com/Pascal-Lohscheidt/m4trix/stargazers"
-                  className="btn-secondary"
+                  className="btn-secondary hidden sm:inline-flex"
                 >
                   <svg
                     width="15"
@@ -226,7 +544,7 @@ function AgentsSection() {
                 </a>
               </div>
             </div>
-            <div className="w-full max-w-[260px] shrink-0">
+            <div className="hidden w-full max-w-[260px] shrink-0 sm:block">
               <div className="diagram-card">
                 <p className="mb-3.5 text-center font-mono text-[10px] font-bold uppercase tracking-[0.1em] text-text-4">
                   Agent network
@@ -251,28 +569,7 @@ function AgentsSection() {
           </div>
         </div>
       </section>
-      <section className="relative z-[2] px-6 pb-24 lg:px-8">
-        <div className="mx-auto max-w-7xl">
-          <div className="mb-12 text-center">
-            <h2 className="font-display text-[clamp(1.5rem,4vw,2.25rem)] font-bold tracking-[-0.02em] text-text-1">
-              Write logic first. Wire it second.
-            </h2>
-            <p className="mx-auto mt-2.5 max-w-2xl text-[15px] text-text-2">
-              Most frameworks make you draw a graph before you write a line of code. m4trix
-              doesn&apos;t.
-              <br />
-              Agents declare what events they care about. The network figures out the rest at
-              runtime.
-            </p>
-          </div>
-          <p className="mx-auto mb-10 max-w-[640px] text-center text-sm leading-[1.7] text-text-3">
-            The six primitives below compose into any topology — a linear chain, a fan-out, a
-            multi-tenant swarm. You never redraw a graph when requirements change; you change which
-            channel an agent subscribes to.
-          </p>
-          <BentoGrid items={AGENT_BENTO} />
-        </div>
-      </section>
+      <AgentsPanel />
     </>
   );
 }
@@ -313,17 +610,17 @@ const EVALS_HIGHLIGHTS: BentoItem[] = [
 function EvalsSection() {
   return (
     <>
-      <section className="relative z-[2] overflow-hidden py-20 pb-24 lg:py-[80px] lg:pb-24">
+      <section className="relative z-[2] overflow-hidden py-12 pb-12 sm:py-20 sm:pb-24 lg:py-[80px] lg:pb-24">
         <HeroGlow />
-        <div className="relative z-[2] mx-auto max-w-7xl px-6 lg:px-8">
-          <div className="flex flex-col items-center gap-12 lg:flex-row lg:items-center">
+        <div className="relative z-[2] mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col items-center gap-8 sm:gap-12 lg:flex-row lg:items-center">
             <div className="flex-1 text-center lg:text-left">
               <p className="eyebrow">@m4trix/evals</p>
               <h1 className="font-display text-[clamp(2.25rem,6vw,4rem)] font-bold tracking-[-0.025em] leading-[1.1] text-text-1">
                 Repeatable evals for{' '}
                 <span className="text-(--accent) transition-[color] duration-300">AI agents</span>
               </h1>
-              <p className="mx-auto mt-4 max-w-[580px] text-[17px] leading-[1.65] text-text-2 lg:mx-0">
+              <p className="mx-auto mt-4 max-w-[580px] text-[15px] leading-[1.65] text-text-2 sm:text-[17px] lg:mx-0">
                 Define datasets, evaluators, and test cases as TypeScript files. The CLI discovers
                 and runs them by convention — like Vitest, but for your AI outputs.
               </p>
@@ -336,7 +633,7 @@ function EvalsSection() {
                   ),
                 )}
               </div>
-              <div className="mx-auto mt-6 lg:mx-0">
+              <div className="mx-auto mt-6 max-w-[400px] lg:mx-0">
                 <InstallBlock pkg="@m4trix/evals" />
               </div>
               <div className="mt-7 flex flex-wrap justify-center gap-3 lg:justify-start">
@@ -424,10 +721,10 @@ const TRACING_HIGHLIGHTS: BentoItem[] = [
 function TracingSection() {
   return (
     <>
-      <section className="relative z-[2] overflow-hidden py-20 pb-24 lg:py-[80px] lg:pb-24">
+      <section className="relative z-[2] overflow-hidden py-12 pb-12 sm:py-20 sm:pb-24 lg:py-[80px] lg:pb-24">
         <HeroGlow />
-        <div className="relative z-[2] mx-auto max-w-7xl px-6 lg:px-8">
-          <div className="flex flex-col items-center gap-12 lg:flex-row lg:items-center">
+        <div className="relative z-[2] mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col items-center gap-8 sm:gap-12 lg:flex-row lg:items-center">
             <div className="flex-1 text-center lg:text-left">
               <p className="eyebrow">@m4trix/tracing</p>
               <h1 className="font-display text-[clamp(2.25rem,6vw,4rem)] font-bold tracking-[-0.025em] leading-[1.1] text-text-1">
@@ -437,11 +734,11 @@ function TracingSection() {
                   No cloud needed.
                 </span>
               </h1>
-              <p className="mx-auto mt-4 max-w-[520px] text-[17px] leading-[1.65] text-text-2 lg:mx-0">
+              <p className="mx-auto mt-4 max-w-[520px] text-[15px] leading-[1.65] text-text-2 sm:text-[17px] lg:mx-0">
                 A lightweight LangGraph/LangChain-compatible tracer. Structure stored separately
                 from payloads. Works locally, on Docker, or with custom storage adapters.
               </p>
-              <div className="mx-auto mt-6 lg:mx-0">
+              <div className="mx-auto mt-6 max-w-[400px] lg:mx-0">
                 <InstallBlock pkg="@m4trix/tracing" />
               </div>
               <div className="mt-7 flex flex-wrap justify-center gap-3 lg:justify-start">
@@ -509,7 +806,7 @@ export default function PackageTabs({ active, onChange }: PackageTabsProps) {
         }}
         role="tablist"
       >
-        <div className="mx-auto flex max-w-7xl overflow-x-auto px-6 lg:px-8">
+        <div className="mx-auto flex max-w-7xl overflow-x-auto px-4 sm:px-6 lg:px-8">
           {TABS.map((tab) => {
             const isActive = active === tab.id;
             return (
@@ -519,7 +816,7 @@ export default function PackageTabs({ active, onChange }: PackageTabsProps) {
                 role="tab"
                 aria-selected={isActive}
                 onClick={() => onChange(tab.id)}
-                className={`flex shrink-0 items-center gap-2 border-b-2 px-[18px] py-3.5 font-mono text-[13px] font-medium whitespace-nowrap transition-[color,border-color] duration-300 ${
+                className={`flex shrink-0 items-center gap-2 border-b-2 px-3 py-3.5 font-mono text-[12px] font-medium whitespace-nowrap transition-[color,border-color] duration-300 sm:px-[18px] sm:text-[13px] ${
                   isActive
                     ? 'border-(--accent) text-text-1'
                     : 'border-transparent text-text-4 hover:text-text-2'
