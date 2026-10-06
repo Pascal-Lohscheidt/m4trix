@@ -61,7 +61,7 @@ function main(): void {
     return;
   }
 
-  startTraceViewerServer({ traceViewerApi, port: cfg.port });
+  startTraceViewerServer({ traceViewerApi, port: cfg.port, mcp: cfg.mcp, version });
 }
 
 main();

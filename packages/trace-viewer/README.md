@@ -20,18 +20,29 @@ pnpm --filter @m4trix/trace-viewer exec m4trix-trace-viewer --adapter fs --path 
 - **`--adapter aws-stack`** — DynamoDB structure + S3 payloads via `TRACE_DYNAMO_TABLE`, `TRACE_S3_BUCKET`, and `AWS_REGION`.
 - **`--port`** — HTTP listen port (default `4319`).
 - **`--path`** — trace root for `fs` (default `tmp/tracing-example`).
+- **`--no-mcp`** — do not serve the MCP endpoint at `/mcp` (see below).
 
 Then open **http://127.0.0.1:4319** in a browser.
 
 ## MCP server for coding agents
 
-`m4trix-trace-viewer mcp` serves the same trace store as a local [MCP](https://modelcontextprotocol.io)
-server over stdio, so coding agents can inspect, search and compare traces. It accepts the same
-`--adapter` / `--path` flags. Pass an absolute `--path`, because agents may launch it from another directory.
+The running viewer also serves an [MCP](https://modelcontextprotocol.io) endpoint at
+**http://127.0.0.1:4319/mcp** (Streamable HTTP). Coding agents connect to it over localhost to
+inspect, search and compare the same traces you see in the UI. Agents need no trace path or
+credentials, and payloads loaded by one call stay searchable for later calls.
 
 ```bash
-claude mcp add m4trix-traces -- npx m4trix-trace-viewer mcp --path "$PWD/tmp/tracing-example"
+# Claude Code
+claude mcp add --transport http m4trix-traces http://127.0.0.1:4319/mcp
 ```
+
+Other clients take the same URL, e.g. `.mcp.json` / Cursor:
+`{ "mcpServers": { "m4trix-traces": { "type": "http", "url": "http://127.0.0.1:4319/mcp" } } }`.
+Clients without HTTP support can bridge with `npx -y mcp-remote http://127.0.0.1:4319/mcp`.
+
+The endpoint only accepts requests whose `Host` (and `Origin`, if sent) is loopback, so web pages
+cannot reach it through your browser. Disable it with `--no-mcp`. To run the MCP without the
+viewer, `m4trix-trace-viewer mcp --path <dir>` serves it over stdio instead.
 
 | Tool | Purpose |
 | --- | --- |
@@ -88,8 +99,10 @@ const traceViewerApi = createFsTraceViewerApi('./tmp/tracing-example');
 startTraceViewerServer({ traceViewerApi, port: 4319 });
 ```
 
-`createTraceMcpServer({ traceViewerApi })` returns an `McpServer` you can connect to any MCP
-transport; `startTraceMcpStdioServer` does that for stdio.
+`startTraceViewerServer` serves the MCP at `/mcp` unless `mcp: false` is passed.
+`createTraceMcpHttpHandler({ traceViewerApi })` returns a Node request handler to mount it elsewhere,
+and `createTraceMcpServer({ traceViewerApi })` returns an `McpServer` for any MCP transport
+(`startTraceMcpStdioServer` does that for stdio).
 
 ## tRPC procedures
 

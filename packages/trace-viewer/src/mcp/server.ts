@@ -52,10 +52,12 @@ export type TraceMcpServerOptions = {
   traceViewerApi: TraceViewerApi;
   index?: PayloadIndexOptions;
   version?: string;
+  /** Shared tool state (payload index). Pass one instance to keep loaded payloads across servers. */
+  tools?: TraceTools;
 };
 
 export function createTraceMcpServer(options: TraceMcpServerOptions): McpServer {
-  const tools = new TraceTools(options.traceViewerApi, { index: options.index });
+  const tools = options.tools ?? new TraceTools(options.traceViewerApi, { index: options.index });
   const server = new McpServer(
     { name: 'm4trix-traces', version: options.version ?? '0.0.0' },
     { instructions: SERVER_INSTRUCTIONS },

@@ -4,6 +4,7 @@ import { dirname, extname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { TraceViewerApi } from '@m4trix/tracing';
 import { createHTTPHandler } from '@trpc/server/adapters/standalone';
+import { createTraceMcpHttpHandler, MCP_HTTP_PATH } from '../mcp/http';
 import { appRouter } from './router';
 
 /**
@@ -86,16 +87,35 @@ export type StartServerOptions = {
   traceViewerApi: TraceViewerApi;
   port: number;
   host?: string;
+  /** Serve the trace MCP (Streamable HTTP) at `/mcp`. Default true. */
+  mcp?: boolean;
+  /** Version reported by the MCP server. */
+  version?: string;
 };
 
+function isMcpPath(url: string): boolean {
+  return (
+    url === MCP_HTTP_PATH ||
+    url.startsWith(`${MCP_HTTP_PATH}?`) ||
+    url.startsWith(`${MCP_HTTP_PATH}/`)
+  );
+}
+
 export function startTraceViewerServer(options: StartServerOptions): http.Server {
-  const { traceViewerApi, port, host = '127.0.0.1' } = options;
+  const { traceViewerApi, port, host = '127.0.0.1', mcp = true } = options;
 
   const trpcHandler = createHTTPHandler({
     router: appRouter,
     createContext: () => ({ traceViewerApi }),
     basePath: '/trpc/',
   });
+  const mcpHandler = mcp
+    ? createTraceMcpHttpHandler({
+        traceViewerApi,
+        version: options.version,
+        allowedHostnames: [host],
+      })
+    : null;
 
   const server = http.createServer((req, res) => {
     const url = req.url ?? '/';
@@ -105,12 +125,21 @@ export function startTraceViewerServer(options: StartServerOptions): http.Server
       return;
     }
 
+    if (mcpHandler && isMcpPath(url)) {
+      void mcpHandler(req, res);
+      return;
+    }
+
     serveClientAsset(req, res);
   });
 
   server.listen(port, host, () => {
     // eslint-disable-next-line no-console
     console.log(`Trace viewer listening on http://${host}:${port}`);
+    if (mcpHandler) {
+      // eslint-disable-next-line no-console
+      console.log(`Trace MCP endpoint:  http://${host}:${port}${MCP_HTTP_PATH}`);
+    }
   });
 
   return server;

@@ -11,6 +11,12 @@ export {
 } from './cli-args';
 export { createFsTraceViewerApi } from './fs-setup';
 export {
+  createTraceMcpHttpHandler,
+  isAllowedMcpRequest,
+  MCP_HTTP_PATH,
+  type TraceMcpHttpHandlerOptions,
+} from './mcp/http';
+export {
   createTraceMcpServer,
   startTraceMcpStdioServer,
   type TraceMcpServerOptions,

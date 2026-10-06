@@ -8,6 +8,7 @@ describe('parseCliArgs', () => {
       adapter: 'fs',
       path: DEFAULT_FS_RELATIVE_PATH,
       port: DEFAULT_PORT,
+      mcp: true,
     });
   });
 
@@ -22,6 +23,7 @@ describe('parseCliArgs', () => {
       adapter: 'aws-stack',
       path: undefined,
       port: DEFAULT_PORT,
+      mcp: true,
     });
   });
 
@@ -31,6 +33,7 @@ describe('parseCliArgs', () => {
       adapter: 'fs',
       path: './tmp/foo',
       port: 9000,
+      mcp: true,
     });
   });
 
@@ -49,9 +52,15 @@ describe('parseCliArgs', () => {
       adapter: 'fs',
       path: './tmp/foo',
       port: DEFAULT_PORT,
+      mcp: true,
     });
     expect(parseCliArgs(['node', 'cli', '--adapter', 'aws-stack', 'mcp']).command).toBe('mcp');
     expect(parseCliArgs(['node', 'cli', 'serve']).command).toBe('serve');
+  });
+
+  it('disables the MCP endpoint with --no-mcp', () => {
+    expect(parseCliArgs(['node', 'cli']).mcp).toBe(true);
+    expect(parseCliArgs(['node', 'cli', '--no-mcp']).mcp).toBe(false);
   });
 
   it('rejects unknown commands', () => {

@@ -1,6 +1,6 @@
 export type AdapterKind = 'fs' | 'aws-stack';
 
-/** `serve` starts the HTTP viewer; `mcp` serves the trace MCP over stdio. */
+/** `serve` starts the HTTP viewer (with the MCP at `/mcp`); `mcp` serves the trace MCP over stdio. */
 export type CliCommand = 'serve' | 'mcp';
 
 export type ParsedCli = {
@@ -9,6 +9,8 @@ export type ParsedCli = {
   /** Resolved absolute or cwd-relative path for fs adapter */
   path: string | undefined;
   port: number;
+  /** Serve the MCP endpoint at `/mcp` alongside the viewer. */
+  mcp: boolean;
 };
 
 export const DEFAULT_PORT = 4319;
@@ -27,6 +29,7 @@ export function parseCliArgs(argv: string[]): ParsedCli {
   let adapter: AdapterKind = 'fs';
   let path: string | undefined = DEFAULT_FS_RELATIVE_PATH;
   let port = DEFAULT_PORT;
+  let mcp = true;
 
   for (let i = 0; i < args.length; i++) {
     const a = args[i];
@@ -55,6 +58,10 @@ export function parseCliArgs(argv: string[]): ParsedCli {
       port = n;
       continue;
     }
+    if (a === '--no-mcp') {
+      mcp = false;
+      continue;
+    }
     if (a === '--help' || a === '-h') {
       throw new CliParseError('HELP');
     }
@@ -74,7 +81,7 @@ export function parseCliArgs(argv: string[]): ParsedCli {
     path = DEFAULT_FS_RELATIVE_PATH;
   }
 
-  return { command, adapter, path, port };
+  return { command, adapter, path, port, mcp };
 }
 
 export function cliHelpText(program: string): string {
@@ -86,17 +93,18 @@ Usage:
   ${program} mcp [--adapter fs|aws-stack] [--path <dir>]
 
 Commands:
-  serve                    Start the web viewer (default)
-  mcp                      Serve an MCP server over stdio for coding agents
+  serve                    Start the web viewer and the MCP endpoint at /mcp (default)
+  mcp                      Serve the MCP over stdio instead (for clients without HTTP support)
 
 Options:
   --adapter fs|aws-stack   Storage backend (default: fs)
   --path <dir>             Trace root for fs adapter (default: ${DEFAULT_FS_RELATIVE_PATH})
   --port <n>               HTTP port for serve (default: ${DEFAULT_PORT})
+  --no-mcp                 Do not serve the MCP endpoint at /mcp
   -h, --help               Show this help
 
 Examples:
   ${program} --adapter fs --path ./tmp/tracing-example --port ${DEFAULT_PORT}
-  claude mcp add m4trix-traces -- npx ${program} mcp --path "$PWD/tmp/tracing-example"
+  claude mcp add --transport http m4trix-traces http://127.0.0.1:${DEFAULT_PORT}/mcp
 `.trim();
 }
