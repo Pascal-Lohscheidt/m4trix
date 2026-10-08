@@ -1,7 +1,7 @@
-import { type Metadata } from 'next';
+import clsx from 'clsx';
+import type { Metadata } from 'next';
 import { Inter, JetBrains_Mono } from 'next/font/google';
 import localFont from 'next/font/local';
-import clsx from 'clsx';
 
 import '@/styles/tailwind.css';
 
@@ -26,7 +26,7 @@ const lexend = localFont({
 export const metadata: Metadata = {
   title: {
     template: '%s | m4trix',
-    default: 'm4trix tracing: open-source tracing for AI agents',
+    default: 'm4trix tracing: agent tracing without the platform',
   },
   description:
     'Open-source tracing for LangGraph and LangChain. Traces stay in your files or your AWS account, with a local viewer and an MCP server for coding agents.',

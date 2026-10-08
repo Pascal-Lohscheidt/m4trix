@@ -642,6 +642,103 @@
   }
 }
 
+@layer components {
+  /* ─── Explainer graphics (anime.js driven, final state is the static fallback) ── */
+  .gfx-card {
+    @apply relative overflow-hidden rounded-xl border;
+    border-color: var(--border-md);
+    background: color-mix(in srgb, var(--bg-raised) 55%, transparent);
+  }
+
+  .gfx-head {
+    @apply flex items-center gap-2 border-b px-4 py-2.5 font-mono text-[12px];
+    border-color: var(--border);
+    color: var(--text-3);
+  }
+
+  .gfx-label {
+    @apply font-mono text-[11px];
+    color: var(--text-3);
+  }
+
+  .gfx-node {
+    @apply relative flex items-center gap-2 overflow-hidden rounded-md border px-3 py-2 font-mono text-[12px];
+    border-color: var(--border-md);
+    background: color-mix(in srgb, var(--bg) 70%, transparent);
+    color: var(--text-1);
+  }
+
+  .gfx-fill {
+    @apply pointer-events-none absolute inset-0;
+    background: var(--accent-dim);
+    box-shadow: inset 0 0 0 1px var(--accent-border);
+    border-radius: inherit;
+  }
+
+  .gfx-tag {
+    @apply relative rounded-full border px-1.5 py-px text-[10px];
+    border-color: var(--border-md);
+    color: var(--text-3);
+  }
+
+  .gfx-dot {
+    @apply relative ml-auto h-1.5 w-1.5 shrink-0 rounded-full;
+    background: var(--green);
+  }
+
+  .gfx-flow-track {
+    @apply relative overflow-hidden rounded-full;
+    background: var(--border-md);
+  }
+
+  .gfx-flow {
+    @apply absolute inset-0 rounded-full;
+    background: var(--accent);
+    transform-origin: top center;
+    transform: scaleY(var(--p, 1));
+  }
+
+  @media (min-width: 1024px) {
+    .gfx-flow-x .gfx-flow {
+      transform-origin: center left;
+      transform: scaleX(var(--p, 1));
+    }
+  }
+
+  .gfx-badge {
+    @apply relative shrink-0 rounded-full px-2 py-px font-mono text-[10px] font-semibold;
+  }
+
+  /* ─── Claude Code console (MCP section) ─────────────────────────────── */
+  .console-shadow {
+    background: color-mix(in srgb, var(--bg) 82%, transparent);
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--accent) 8%, transparent),
+      0 32px 90px -48px color-mix(in srgb, var(--accent-solid) 60%, transparent);
+  }
+
+  .console-cell {
+    @apply inline-block w-[1ch] overflow-hidden text-center align-bottom;
+  }
+
+  .console-caret {
+    @apply inline-block h-[1.1em] w-[0.6em] translate-y-[0.2em];
+    background: var(--text-2);
+  }
+}
+
+@keyframes console-caret-blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .console-caret {
+    animation: console-caret-blink 1.1s steps(1) infinite;
+  }
+}
+
 @keyframes rise-in {
   from {
     opacity: 0;

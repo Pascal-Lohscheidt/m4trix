@@ -1,12 +1,6 @@
 'use client';
 
-import {
-  ArrowRightIcon,
-  CloudArrowUpIcon,
-  FolderSimpleIcon,
-  PlusIcon,
-  ShippingContainerIcon,
-} from '@phosphor-icons/react';
+import { ArrowRightIcon, PlusIcon } from '@phosphor-icons/react';
 import Image from 'next/image';
 import {
   siClaude,
@@ -22,6 +16,10 @@ import { BrandIcon } from '@/components/BrandIcon';
 import type { PackageId } from '@/lib/packages';
 import CodeBlock from './CodeBlock';
 import CopyCommand from './CopyCommand';
+import ClaudeConsoleGraphic from './graphics/ClaudeConsoleGraphic';
+import RecordGraphic from './graphics/RecordGraphic';
+import ShipGraphic from './graphics/ShipGraphic';
+import SplitStorageGraphic from './graphics/SplitStorageGraphic';
 import TracingPrimitivesExplorer from './TracingPrimitivesExplorer';
 
 const DOCS_HREF = 'https://docs.m4trix.dev/tracing';
@@ -63,14 +61,14 @@ function Hero() {
             className="rise-in font-display text-[clamp(2.5rem,6vw,4.25rem)] leading-[1.04] font-bold tracking-[-0.035em] text-text-1"
             style={{ '--rise-delay': '60ms' } as React.CSSProperties}
           >
-            Trace your agents. <span className="text-(--accent) sm:block">No cloud needed.</span>
+            Agent tracing, <span className="text-(--accent) sm:block">without the platform.</span>
           </h1>
           <p
             className="rise-in mt-6 max-w-[54ch] text-[17px] leading-relaxed text-text-2 sm:text-lg"
             style={{ '--rise-delay': '120ms' } as React.CSSProperties}
           >
-            Open-source tracing for LangGraph and LangChain. Traces stay in your files or your AWS
-            account, with a viewer you run.
+            A TypeScript library for LangGraph and LangChain. Traces land in your files or AWS
+            account, and a local viewer opens them.
           </p>
           <div
             className="rise-in mt-8 flex flex-col gap-3 sm:flex-row sm:items-center"
@@ -147,6 +145,59 @@ function WorksWith() {
   );
 }
 
+/* ─── MCP ─────────────────────────────────────────────────────────────── */
+
+const MCP_TOOLS = [
+  'list_traces',
+  'find_runs',
+  'search_payloads',
+  'get_trace',
+  'get_run',
+  'get_payload',
+  'get_conversation',
+  'analyze_trace',
+  'compare',
+  'annotate',
+  'load_trace_payloads',
+];
+
+function McpSection() {
+  return (
+    <Section>
+      <div className="grid items-center gap-12 lg:grid-cols-[0.8fr_1.2fr] lg:gap-14">
+        <div className="min-w-0">
+          <div className="flex items-center gap-3 text-text-3">
+            <BrandIcon icon={siModelcontextprotocol} className="h-6 w-6" />
+            <BrandIcon icon={siClaude} className="h-6 w-6" />
+            <BrandIcon icon={siCursor} className="h-6 w-6" />
+          </div>
+          <h2 className="lp-h2 mt-6">Let Claude Code debug the run</h2>
+          <p className="lp-lead">
+            The viewer serves an MCP endpoint on localhost. Claude Code reads the run tree, searches
+            payloads and points at the call that broke.
+          </p>
+          <CodeBlock
+            className="agent-code-block mt-8"
+            code={'claude mcp add --transport http \\\n  m4trix-traces http://127.0.0.1:4319/mcp'}
+            language="bash"
+            filename="terminal"
+          />
+          <ul className="mt-6 flex flex-wrap gap-2" aria-label="MCP tools">
+            {MCP_TOOLS.map((tool) => (
+              <li key={tool} className="tool-chip">
+                {tool}
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div className="min-w-0">
+          <ClaudeConsoleGraphic />
+        </div>
+      </div>
+    </Section>
+  );
+}
+
 /* ─── Quickstart ──────────────────────────────────────────────────────── */
 
 const QUICKSTART_CODE = `import {
@@ -167,65 +218,36 @@ const tracer = Tracer.from(traceStore).adapt(toLangGraph);
 await graph.invoke(input, { callbacks: [tracer] });
 await tracer.flush();`;
 
-const QUICKSTART_STEPS = [
-  {
-    title: 'Install the package',
-    body: 'The root entry has no runtime dependencies.',
-  },
-  {
-    title: 'Pass the tracer as a callback',
-    body: 'Every chain, model, tool and retriever call lands in ./.traces. Your graph code stays as it is.',
-  },
-  {
-    title: 'Open the viewer',
-    body: 'One command serves the run tree, payloads and annotations on localhost.',
-  },
-];
-
 function Quickstart() {
   return (
     <Section id="quickstart">
-      <div className="grid gap-12 lg:grid-cols-[0.8fr_1.2fr] lg:gap-16">
-        <div>
-          <h2 className="lp-h2">From callback to run tree in one file</h2>
-          <p className="lp-lead">
-            The tracer speaks the LangChain callback API, so adding it is a config change, not a
-            rewrite.
-          </p>
-          <ol className="mt-10 flex flex-col gap-7">
-            {QUICKSTART_STEPS.map((step, i) => (
-              <li key={step.title} className="grid grid-cols-[2rem_1fr] gap-x-4">
-                <span className="flex h-8 w-8 items-center justify-center rounded-full border border-(--accent-border) bg-(--accent-dim) font-mono text-[13px] font-semibold text-(--accent)">
-                  {i + 1}
-                </span>
-                <div>
-                  <h3 className="font-display text-[17px] font-semibold text-text-1">
-                    {step.title}
-                  </h3>
-                  <p className="mt-1 text-[15px] leading-relaxed text-text-2">{step.body}</p>
-                </div>
-              </li>
-            ))}
-          </ol>
-        </div>
+      <h2 className="lp-h2">One callback. Every step recorded.</h2>
+      <p className="lp-lead">
+        The tracer speaks the LangChain callback API. Pass it to invoke and every chain, model and
+        tool call lands in ./.traces.
+      </p>
+      <div className="mt-12">
+        <RecordGraphic />
+      </div>
+      <div className="mt-6 grid gap-4 lg:grid-cols-[1.25fr_0.75fr] lg:items-start">
+        <CodeBlock
+          className="agent-code-block min-w-0"
+          code={QUICKSTART_CODE}
+          language="typescript"
+          filename="agent.ts"
+        />
         <div className="flex min-w-0 flex-col gap-4">
           <CodeBlock
             className="agent-code-block"
             code="pnpm add @m4trix/tracing"
             language="bash"
-            filename="terminal"
+            filename="install"
           />
           <CodeBlock
             className="agent-code-block"
-            code={QUICKSTART_CODE}
-            language="typescript"
-            filename="agent.ts"
-          />
-          <CodeBlock
-            className="agent-code-block"
-            code="npx m4trix-trace-viewer --adapter fs --path ./.traces"
+            code={'npx @m4trix/trace-viewer \\\n  --adapter fs --path ./.traces'}
             language="bash"
-            filename="terminal"
+            filename="open the viewer"
           />
         </div>
       </div>
@@ -238,7 +260,7 @@ function Quickstart() {
 function Bento() {
   return (
     <Section>
-      <h2 className="lp-h2 max-w-2xl">Read an agent run the way you read code</h2>
+      <h2 className="lp-h2 max-w-2xl">Open a run, see what happened</h2>
       <p className="lp-lead">
         Small rows for lists and filters, full payloads when you open a run, and notes that stay
         with the trace.
@@ -272,7 +294,7 @@ function Bento() {
           <div className="mono-panel mt-auto pt-3">
             <span className="text-text-3">.traces/traces/</span>
             <br />
-            <span className="text-(--accent)">└─ f19bca0d…/</span>
+            <span className="text-(--accent)">└─ f19bca0d/</span>
             <br />
             &nbsp;&nbsp;&nbsp;├─ trace.json
             <br />
@@ -282,12 +304,13 @@ function Bento() {
           </div>
         </div>
 
-        <div className="bento-cell">
-          <h3 className="bento-title">Split storage</h3>
-          <p className="bento-body">
-            Structure rows hold timing, status and tokens. Prompts and completions are blobs,
-            fetched by ref only when you open a span.
+        <div className="bento-cell lg:col-span-2">
+          <h3 className="bento-title">Split storage, one store</h3>
+          <p className="bento-body mb-6 max-w-[60ch]">
+            Structure rows stay small, so lists and filters are fast. Prompts and completions are
+            blobs, fetched by ref when you open a run. The adapters that wrote them serve both back.
           </p>
+          <SplitStorageGraphic />
         </div>
 
         <div className="bento-cell">
@@ -296,87 +319,9 @@ function Bento() {
             Annotate traces and single runs after the fact. Notes live next to the structure rows,
             not in another tool.
           </p>
-          <code className="mono-panel mt-5 block text-(--cyan)">
+          <code className="mono-panel mt-auto block text-(--cyan)">
             {"annotation: { review: 'approved' }"}
           </code>
-        </div>
-
-        <div className="bento-cell">
-          <h3 className="bento-title">One store, both directions</h3>
-          <p className="bento-body">
-            The adapters that write a trace also serve it back through TraceViewerApi. No read
-            replica, no sync lag.
-          </p>
-        </div>
-      </div>
-    </Section>
-  );
-}
-
-/* ─── MCP ─────────────────────────────────────────────────────────────── */
-
-const MCP_GROUPS = [
-  {
-    title: 'Find',
-    tools: ['list_traces', 'find_runs', 'search_payloads', 'load_trace_payloads'],
-  },
-  {
-    title: 'Inspect',
-    tools: ['get_trace', 'get_run', 'get_payload', 'get_conversation'],
-  },
-  {
-    title: 'Diagnose',
-    tools: ['analyze_trace', 'compare', 'annotate'],
-  },
-];
-
-function McpSection() {
-  return (
-    <Section>
-      <div className="grid items-center gap-12 lg:grid-cols-2 lg:gap-16">
-        <div className="min-w-0">
-          <div className="flex items-center gap-3 text-text-3">
-            <BrandIcon icon={siModelcontextprotocol} className="h-6 w-6" />
-            <BrandIcon icon={siClaude} className="h-6 w-6" />
-            <BrandIcon icon={siCursor} className="h-6 w-6" />
-          </div>
-          <h2 className="lp-h2 mt-6">Hand the trace to your coding agent</h2>
-          <p className="lp-lead">
-            The viewer also runs as an MCP server. Claude Code, Cursor or any MCP client can search
-            payloads, find the root cause of an error and diff two runs.
-          </p>
-          <CodeBlock
-            className="agent-code-block mt-8"
-            code={
-              'claude mcp add m4trix-traces -- \\\n  npx m4trix-trace-viewer mcp --path "$PWD/.traces"'
-            }
-            language="bash"
-            filename="terminal"
-          />
-        </div>
-
-        <div className="min-w-0 rounded-xl border border-(--border) bg-[color-mix(in_srgb,var(--bg-raised)_45%,transparent)] p-6 sm:p-8">
-          <p className="font-display text-[17px] font-semibold text-text-1">
-            11 tools, read-only unless you approve a note
-          </p>
-          <div className="mt-6 flex flex-col gap-6">
-            {MCP_GROUPS.map((group) => (
-              <div key={group.title}>
-                <p className="text-sm font-medium text-text-3">{group.title}</p>
-                <ul className="mt-2.5 flex flex-wrap gap-2">
-                  {group.tools.map((tool) => (
-                    <li key={tool} className="tool-chip">
-                      {tool}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-          <p className="mt-7 border-t border-(--border) pt-5 text-[15px] leading-relaxed text-text-2">
-            <code className="inline-code">analyze_trace</code> flags error roots, unfinished runs,
-            the critical path, token hotspots and loops in one call.
-          </p>
         </div>
       </div>
     </Section>
@@ -385,59 +330,14 @@ function McpSection() {
 
 /* ─── Deploy path ─────────────────────────────────────────────────────── */
 
-const DEPLOY_STAGES = [
-  {
-    icon: FolderSimpleIcon,
-    title: 'On your laptop',
-    body: 'Filesystem adapters write to ./.traces. Open them with the viewer CLI.',
-    code: '--adapter fs --path ./.traces',
-  },
-  {
-    icon: ShippingContainerIcon,
-    title: 'In your cluster',
-    body: 'The app writes to a shared volume. A sidecar ships it, so the app needs no AWS credentials.',
-    code: 'm4trix-tracing-sidecar --root /traces',
-  },
-  {
-    icon: CloudArrowUpIcon,
-    title: 'In your AWS account',
-    body: 'Structure goes to DynamoDB, payloads to S3. The same viewer reads it back.',
-    code: '--adapter aws-stack',
-  },
-];
-
 function DeployPath() {
   return (
     <Section>
       <h2 className="lp-h2 max-w-2xl">Start on a laptop. Ship to AWS when you need to.</h2>
       <p className="lp-lead">Same Tracer, same viewer at every stage. Only the adapters change.</p>
-
-      <ol className="mt-12 grid overflow-hidden rounded-xl border border-(--border-md) lg:grid-cols-3">
-        {DEPLOY_STAGES.map((stage, i) => {
-          const StageIcon = stage.icon;
-          return (
-            <li
-              key={stage.title}
-              className={`relative flex flex-col p-6 sm:p-8 ${
-                i > 0 ? 'border-t border-(--border-md) lg:border-t-0 lg:border-l' : ''
-              }`}
-              style={{
-                background:
-                  i === 2
-                    ? 'linear-gradient(160deg, var(--accent-dim), transparent 70%)'
-                    : 'color-mix(in srgb, var(--bg-raised) 40%, transparent)',
-              }}
-            >
-              <StageIcon aria-hidden className="h-6 w-6 text-(--accent)" />
-              <h3 className="mt-5 font-display text-lg font-semibold text-text-1">{stage.title}</h3>
-              <p className="mt-2 flex-1 text-[15px] leading-relaxed text-text-2">{stage.body}</p>
-              <code className="mt-6 block truncate font-mono text-[12px] text-text-3">
-                {stage.code}
-              </code>
-            </li>
-          );
-        })}
-      </ol>
+      <div className="mt-12">
+        <ShipGraphic />
+      </div>
     </Section>
   );
 }
@@ -447,7 +347,7 @@ function DeployPath() {
 function ApiExplorer() {
   return (
     <Section>
-      <h2 className="lp-h2">Six primitives. That is the whole API.</h2>
+      <h2 className="lp-h2">Six primitives. No platform.</h2>
       <p className="lp-lead mb-12">Swap any adapter without touching the tracer or the viewer.</p>
       <TracingPrimitivesExplorer />
     </Section>
@@ -561,7 +461,7 @@ function ClosingCta() {
             'radial-gradient(ellipse at 50% 0%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 65%), color-mix(in srgb, var(--bg-raised) 60%, transparent)',
         }}
       >
-        <h2 className="lp-h2 mx-auto max-w-xl">Add tracing before your next run</h2>
+        <h2 className="lp-h2 mx-auto max-w-xl">Trace your next run</h2>
         <p className="mx-auto mt-4 max-w-[46ch] text-base leading-relaxed text-text-2">
           One callback, one folder, one command to open it.
         </p>
@@ -593,9 +493,9 @@ export default function TracingLanding({
     <>
       <Hero />
       <WorksWith />
+      <McpSection />
       <Quickstart />
       <Bento />
-      <McpSection />
       <DeployPath />
       <ApiExplorer />
       <Faq />
