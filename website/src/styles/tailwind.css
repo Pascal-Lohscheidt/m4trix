@@ -1,6 +1,6 @@
-@import 'tailwindcss';
+@import "tailwindcss";
 
-@plugin '@tailwindcss/typography';
+@plugin "@tailwindcss/typography";
 
 @custom-variant dark (&:where([data-mode="dark"], [data-mode="dark"] *));
 
@@ -36,7 +36,7 @@
 
   --font-sans: var(--font-inter);
   --font-display: var(--font-lexend);
-  --font-display--font-feature-settings: 'ss01';
+  --font-display--font-feature-settings: "ss01";
 
   --container-8xl: 88rem;
 
@@ -63,7 +63,7 @@
 
 /* ─── Mode tokens ─────────────────────────────────────────────────────── */
 :root,
-[data-mode='dark'] {
+[data-mode="dark"] {
   --bg: #09090b;
   --bg-raised: #18181b;
   --bg-subtle: #27272a;
@@ -79,7 +79,7 @@
   --red: #f87171;
 }
 
-[data-mode='light'] {
+[data-mode="light"] {
   --bg: #f8f8fb;
   --bg-raised: #ffffff;
   --bg-subtle: #f0eff6;
@@ -107,7 +107,7 @@
 }
 
 /* ─── Package accent tokens ───────────────────────────────────────────── */
-[data-pkg='tracing'] {
+[data-pkg="tracing"] {
   --accent: #a78bfa;
   --accent-solid: #7c3aed;
   --accent-dim: rgba(167, 139, 250, 0.12);
@@ -117,7 +117,7 @@
   --glow-2: rgba(103, 232, 249, 0.07);
 }
 
-[data-mode='light'][data-pkg='tracing'] {
+[data-mode="light"][data-pkg="tracing"] {
   --accent: #7c3aed;
   --accent-solid: #6d28d9;
   --accent-dim: rgba(124, 58, 237, 0.08);
@@ -125,7 +125,7 @@
   --accent-text: #5b21b6;
 }
 
-[data-pkg='evals'] {
+[data-pkg="evals"] {
   --accent: #34d399;
   --accent-solid: #059669;
   --accent-dim: rgba(52, 211, 153, 0.1);
@@ -135,7 +135,7 @@
   --glow-2: rgba(20, 184, 166, 0.08);
 }
 
-[data-mode='light'][data-pkg='evals'] {
+[data-mode="light"][data-pkg="evals"] {
   --accent: #059669;
   --accent-solid: #047857;
   --accent-dim: rgba(5, 150, 105, 0.08);
@@ -143,7 +143,7 @@
   --accent-text: #065f46;
 }
 
-[data-pkg='agents'] {
+[data-pkg="agents"] {
   --accent: #38bdf8;
   --accent-solid: #0369a1;
   --accent-dim: rgba(56, 189, 248, 0.1);
@@ -153,7 +153,7 @@
   --glow-2: rgba(7, 89, 133, 0.08);
 }
 
-[data-mode='light'][data-pkg='agents'] {
+[data-mode="light"][data-pkg="agents"] {
   --accent: #0284c7;
   --accent-solid: #0369a1;
   --accent-dim: rgba(2, 132, 199, 0.08);
@@ -281,12 +281,6 @@
     @apply flex flex-col gap-1.5 p-3.5;
   }
 
-  .entry-pill {
-    @apply rounded-md border px-2.5 py-1.5 font-mono text-[11px];
-    border-color: var(--border);
-    background: color-mix(in srgb, var(--bg-raised) 80%, transparent);
-  }
-
   .convention-pill {
     @apply rounded-md border px-[11px] py-1.5 font-mono text-xs;
     border-color: var(--border);
@@ -356,40 +350,6 @@
     background: color-mix(in srgb, var(--bg-raised) 70%, transparent);
   }
 
-  .diagram-node {
-    @apply flex items-center gap-2 rounded-md border px-3 py-2;
-    border-color: var(--accent-border);
-    background: var(--accent-dim);
-    color: var(--accent-text);
-    transition: all 0.3s;
-  }
-
-  .diagram-node-dot {
-    @apply h-[7px] w-[7px] shrink-0 rounded-full;
-    background: var(--accent);
-    transition: background 0.3s;
-  }
-
-  .diagram-channel {
-    @apply rounded-md border border-dashed px-3 py-2 text-center;
-    border-color: rgba(103, 232, 249, 0.3);
-    background: rgba(103, 232, 249, 0.05);
-    color: var(--cyan);
-  }
-
-  .diagram-node-plain {
-    @apply flex items-center justify-center rounded-md border px-3 py-2;
-    border-color: var(--border-md);
-    background: rgba(255, 255, 255, 0.04);
-    color: var(--text-2);
-  }
-
-  .diagram-split-box {
-    @apply flex-1 rounded-md border border-dashed px-2 py-2 text-center text-[10px] leading-snug;
-    border-color: var(--border-md);
-    color: var(--text-4);
-  }
-
   .mode-toggle {
     --pill-outer-r: var(--radius-lg);
     --pill-inset: 3px;
@@ -448,79 +408,12 @@
     color: var(--cyan);
   }
 
-  .agent-section-title {
-    @apply font-display text-[clamp(1.5rem,3.5vw,2.25rem)] font-bold tracking-[-0.02em] text-text-1;
-  }
-
-  .agent-section-desc {
-    @apply mx-auto mt-3 max-w-2xl text-[15px] leading-relaxed text-text-2;
-  }
-
-  .agent-stat-card {
-    @apply rounded-xl border p-5 transition;
-    border-color: var(--border);
-    background:
-      linear-gradient(180deg, color-mix(in srgb, var(--bg-raised) 82%, transparent), transparent),
-      color-mix(in srgb, var(--bg-raised) 54%, transparent);
-  }
-
-  .agent-stat-card:hover {
-    border-color: var(--accent-border);
-  }
-
-  .agent-feature-card {
-    @apply flex flex-col gap-4 rounded-xl border p-6 transition;
-    border-color: var(--border);
-    background:
-      radial-gradient(circle at 20% 0%, color-mix(in srgb, var(--accent) 8%, transparent), transparent 32%),
-      color-mix(in srgb, var(--bg-raised) 54%, transparent);
-  }
-
-  .agent-feature-card:hover {
-    border-color: var(--accent-border);
-    background: color-mix(in srgb, var(--bg-raised) 80%, transparent);
-  }
-
   .agent-code-block .code-block-hdr {
     @apply px-4 py-2 text-[11px];
   }
 
   .agent-code-block .code-block-body {
     @apply px-3 py-4 text-[12px] leading-[1.75] sm:px-4 sm:text-[13px];
-  }
-
-  .agent-comparison-card {
-    @apply rounded-xl border p-3;
-    min-width: 0;
-    border-color: var(--border);
-    background: color-mix(in srgb, var(--bg-raised) 42%, transparent);
-  }
-
-  .agent-comparison-card-accent {
-    border-color: var(--accent-border);
-    background:
-      radial-gradient(circle at 80% 0%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 35%),
-      color-mix(in srgb, var(--bg-raised) 58%, transparent);
-  }
-
-  .agent-graphic-placeholder {
-    @apply flex min-h-[180px] flex-col items-center justify-center rounded-xl border border-dashed px-6 py-8 text-center;
-    border-color: var(--accent-border);
-    background:
-      linear-gradient(135deg, color-mix(in srgb, var(--accent) 8%, transparent), transparent 42%),
-      color-mix(in srgb, var(--bg-subtle) 55%, transparent);
-    color: var(--text-3);
-  }
-
-  .agent-placeholder-label {
-    @apply mb-3 rounded-full border px-3 py-1 font-mono text-[10px] font-semibold tracking-widest uppercase;
-    border-color: var(--accent-border);
-    background: var(--accent-dim);
-    color: var(--accent);
-  }
-
-  .agent-graphic-placeholder p {
-    @apply max-w-sm text-sm leading-relaxed;
   }
 }
 
@@ -593,7 +486,11 @@
   .bento-cell-accent {
     border-color: var(--accent-border);
     background:
-      radial-gradient(circle at 100% 0%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 55%),
+      radial-gradient(
+        circle at 100% 0%,
+        color-mix(in srgb, var(--accent) 16%, transparent),
+        transparent 55%
+      ),
       color-mix(in srgb, var(--bg-raised) 60%, transparent);
   }
 
@@ -758,7 +655,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .headline-slide,
   .badge-accent-dot {
     animation: none;
   }
@@ -774,17 +670,454 @@
   }
 }
 
-@keyframes headline-fade {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
+@layer components {
+  /* ─── Agents landing ──────────────────────────────────────────────── */
+  .anatomy-item {
+    @apply flex w-full cursor-pointer flex-col gap-1 rounded-lg border border-transparent px-4 py-3 text-left transition-[color,background,border-color] duration-200;
+    color: var(--text-2);
   }
-  to {
+
+  .anatomy-item:hover {
+    background: color-mix(in srgb, var(--bg-raised) 60%, transparent);
+  }
+
+  .anatomy-item-active,
+  .anatomy-item-active:hover {
+    border-color: var(--accent-border);
+    background: var(--accent-dim);
+    color: var(--accent-text);
+  }
+
+  .anatomy-body {
+    @apply text-[14px] leading-relaxed;
+    color: var(--text-3);
+  }
+
+  .anatomy-item-active .anatomy-body {
+    color: var(--text-2);
+  }
+
+  .code-line-dim,
+  .code-line-lit {
+    transition: opacity 0.25s ease;
+  }
+
+  .code-line-dim {
+    opacity: 0.32;
+  }
+
+  .code-line-lit {
     opacity: 1;
-    transform: translateY(0);
+  }
+
+  .code-line-added {
+    @apply -mx-3 px-3 sm:-mx-4 sm:px-4;
+    background: var(--accent-dim);
+    box-shadow: inset 2px 0 0 var(--accent);
+  }
+
+  .wire-toggle {
+    @apply inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3.5 py-1.5 font-mono text-[12.5px] transition-[color,background,border-color] duration-200 active:scale-[0.98];
+    border-color: var(--border-md);
+    background: color-mix(in srgb, var(--bg-raised) 70%, transparent);
+    color: var(--text-2);
+  }
+
+  .wire-toggle:hover {
+    border-color: var(--text-3);
+    color: var(--text-1);
+  }
+
+  .wire-toggle-on,
+  .wire-toggle-on:hover {
+    border-color: var(--accent-border);
+    background: var(--accent-dim);
+    color: var(--accent-text);
   }
 }
 
-.headline-slide {
-  animation: headline-fade 0.45s ease-out forwards;
+@media (prefers-reduced-motion: no-preference) {
+  .code-line-added {
+    animation: line-added 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+}
+
+@keyframes line-added {
+  from {
+    background: color-mix(in srgb, var(--accent) 28%, transparent);
+  }
+}
+
+@layer components {
+  /* ─── Recorded agent run (hero) ───────────────────────────────────── */
+  .run-track {
+    @apply relative h-full;
+    background: linear-gradient(var(--border), var(--border)) center / 100% 1px no-repeat;
+  }
+
+  .run-bar {
+    @apply absolute rounded-[3px];
+    top: calc(50% - 6px);
+    height: 12px;
+    min-width: 2px;
+    background: var(--accent-dim);
+    box-shadow: inset 0 0 0 1px var(--accent-border);
+    transform-origin: left center;
+    transform: scaleX(clamp(0, calc((var(--t) - var(--s)) / var(--d)), 1));
+  }
+
+  .run-await {
+    background: repeating-linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--amber) 45%, transparent) 0 2px,
+      transparent 2px 5px
+    );
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--amber) 40%, transparent);
+  }
+
+  .run-tick {
+    @apply absolute w-[2px] rounded-full;
+    top: calc(50% - 5px);
+    height: 10px;
+    background: var(--accent);
+    opacity: clamp(0, calc(var(--t) - var(--s) + 1), 0.55);
+  }
+
+  .run-dot {
+    @apply absolute h-[7px] w-[7px] rounded-full;
+    top: calc(50% - 3.5px);
+    margin-left: -3.5px;
+    background: var(--text-1);
+    box-shadow: 0 0 0 2px var(--bg-raised);
+    opacity: clamp(0, calc(var(--t) - var(--s) + 1), 1);
+    transition: opacity 0.2s ease;
+  }
+
+  .run-playhead {
+    @apply absolute inset-y-0 left-0 block w-full;
+    transform: translateX(calc(var(--t) / var(--dur) * 100%));
+  }
+
+  .run-playhead::before {
+    content: "";
+    @apply absolute inset-y-0 left-0 w-px;
+    background: color-mix(in srgb, var(--accent) 70%, transparent);
+  }
+
+  .run-bubble {
+    @apply max-w-[88%] rounded-lg rounded-br-sm px-3.5 py-2 text-[13.5px] leading-snug;
+    background: var(--bg-subtle);
+    color: var(--text-1);
+  }
+
+  .run-approval {
+    @apply rounded-lg border p-3.5;
+    border-color: color-mix(in srgb, var(--amber) 35%, transparent);
+    background: color-mix(in srgb, var(--amber) 6%, transparent);
+  }
+
+  .run-btn {
+    @apply inline-flex cursor-pointer items-center rounded-md border px-3 py-1.5 font-mono text-[12px] font-medium transition active:scale-[0.98] disabled:cursor-default disabled:opacity-60;
+    border-color: var(--border-md);
+    color: var(--text-1);
+  }
+
+  .run-btn-primary {
+    border-color: transparent;
+    background: var(--accent-solid);
+    color: #fff;
+  }
+
+  .run-status {
+    @apply h-2 w-2 shrink-0 rounded-full;
+    background: var(--text-4);
+  }
+
+  .run-status-running {
+    background: var(--accent);
+  }
+
+  .run-status-waiting {
+    background: var(--amber);
+  }
+
+  .run-status-done {
+    background: var(--green);
+  }
+}
+
+@keyframes run-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes run-fade {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .run-spin {
+    animation: run-spin 0.9s linear infinite;
+  }
+
+  .run-fade {
+    animation: run-fade 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .run-status-running,
+  .run-status-waiting {
+    animation: pulse-dot 1.4s ease-in-out infinite;
+  }
+}
+
+@layer components {
+  .section-band {
+    @apply border-y;
+    border-color: var(--border);
+    background: color-mix(in srgb, var(--bg-raised) 35%, transparent);
+  }
+}
+
+@layer components {
+  /* ─── Recorded run: views ─────────────────────────────────────────── */
+  .run-tab {
+    @apply cursor-pointer rounded-md border border-transparent px-2.5 py-1 font-mono text-[11.5px] transition-[color,background,border-color] duration-200;
+    color: var(--text-3);
+  }
+
+  .run-tab:hover {
+    color: var(--text-1);
+  }
+
+  .run-tab-active,
+  .run-tab-active:hover {
+    border-color: var(--accent-border);
+    background: var(--accent-dim);
+    color: var(--accent-text);
+  }
+
+  .run-file {
+    @apply shrink-0 cursor-pointer rounded-md px-2 py-1 font-mono text-[11px] whitespace-nowrap transition-colors;
+    color: var(--text-3);
+  }
+
+  .run-file:hover {
+    color: var(--text-1);
+  }
+
+  .run-file-active,
+  .run-file-active:hover {
+    background: var(--bg-subtle);
+    color: var(--text-1);
+  }
+
+  .run-code .code-block-hdr {
+    display: none;
+  }
+
+  .run-code .code-block-body {
+    @apply text-[11.5px] leading-[1.7] sm:text-[12px];
+  }
+
+  /* ─── Event plane ─────────────────────────────────────────────────── */
+  .plane-packet {
+    @apply pointer-events-none absolute inset-0;
+    --p: clamp(0, calc((var(--t) - var(--s)) / var(--d)), 1);
+    transform: translate(
+      calc((var(--ax) + (var(--bx) - var(--ax)) * var(--p)) * 1%),
+      calc((var(--ay) + (var(--by) - var(--ay)) * var(--p)) * 1%)
+    );
+    opacity: clamp(0, min(calc(var(--t) - var(--s)), calc(var(--s) + var(--d) - var(--t))), 1);
+  }
+
+  .plane-packet::before {
+    content: "";
+    @apply absolute top-0 left-0 h-[7px] w-[7px] rounded-full;
+    margin: -3.5px 0 0 -3.5px;
+    background: var(--accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
+  }
+
+  .plane-packet-approval::before {
+    background: var(--amber);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--amber) 25%, transparent);
+  }
+
+  /* Glass on purpose: wires and packets stay faintly visible as they run into the agent. */
+  .plane-node {
+    @apply glass absolute flex w-[6.75rem] -translate-x-1/2 -translate-y-1/2 cursor-pointer flex-col gap-0.5 rounded-lg border px-[7px] py-1.5 text-left font-mono leading-tight transition-[border-color] hover:border-(--accent-border);
+    --glass-blur: 3px;
+    --glass-shadow: 0 6px 18px -10px rgb(0 0 0 / 0.5);
+    border-color: var(--glass-edge);
+  }
+
+  /* The browser is outside the network: it talks to it through main and the SSE channel. */
+  .plane-node-outside {
+    @apply border-dashed;
+    border-color: var(--border-md);
+  }
+
+  .plane-rail {
+    @apply pointer-events-none absolute h-[14px] -translate-y-1/2 rounded-full;
+    background: color-mix(in srgb, var(--accent) 6%, transparent);
+  }
+
+  .plane-rail::before {
+    content: "";
+    @apply absolute inset-x-0 top-1/2 h-[2px] -translate-y-1/2 rounded-full;
+    background: color-mix(in srgb, var(--accent) 45%, transparent);
+  }
+
+  .plane-rail-flash {
+    @apply absolute inset-0 rounded-full;
+    background: color-mix(in srgb, var(--accent) 22%, transparent);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent);
+    opacity: clamp(0, min(calc(var(--t) - var(--s)), calc(var(--e) - var(--t))), 1);
+    transition: opacity 0.2s ease;
+  }
+
+  .plane-rail-label {
+    @apply absolute -translate-y-[calc(100%+9px)] cursor-pointer font-mono text-[10px] font-semibold tracking-[0.14em] uppercase transition-colors hover:text-text-1;
+    color: var(--accent-text);
+  }
+
+  .plane-stub {
+    @apply pointer-events-none absolute w-px -translate-x-1/2;
+    background: var(--border-md);
+  }
+
+  .plane-plug {
+    @apply absolute inline-block h-[9px] w-[9px] -translate-x-1/2 -translate-y-1/2 rounded-full border-[1.5px];
+    border-color: var(--accent);
+    background: var(--bg-raised);
+  }
+
+  .plane-plug-sub {
+    background: var(--accent);
+  }
+
+  .plane-glow {
+    @apply pointer-events-none absolute inset-0;
+    border-radius: inherit;
+    background: var(--accent-dim);
+    box-shadow: inset 0 0 0 1px var(--accent);
+    opacity: clamp(0, min(calc(var(--t) - var(--s)), calc(var(--e) - var(--t))), 1);
+    transition: opacity 0.18s ease;
+  }
+
+  .plane-glow-wait {
+    background: color-mix(in srgb, var(--amber) 12%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--amber) 70%, transparent);
+  }
+}
+
+@layer components {
+  /* ─── Recorded run: model calls ───────────────────────────────────── */
+  .run-llm {
+    background: color-mix(in srgb, var(--accent) 55%, transparent);
+    box-shadow: none;
+  }
+
+  .run-swatch {
+    @apply inline-block h-2 w-3 rounded-[2px];
+  }
+
+  .run-swatch-invoke {
+    background: var(--accent-dim);
+    box-shadow: inset 0 0 0 1px var(--accent-border);
+  }
+
+  .run-swatch-llm {
+    background: color-mix(in srgb, var(--accent) 55%, transparent);
+  }
+
+  .run-swatch-await {
+    background: repeating-linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--amber) 55%, transparent) 0 2px,
+      transparent 2px 4px
+    );
+  }
+
+  .run-swatch-event {
+    @apply h-[7px] w-[7px] rounded-full;
+    background: var(--text-1);
+  }
+
+  .plane-llm {
+    @apply pointer-events-none absolute -top-2 right-1.5 flex items-center gap-1 rounded-full px-1.5 py-[2px] font-mono text-[9.5px] leading-none font-semibold;
+    background: var(--accent-solid);
+    color: #fff;
+    opacity: clamp(0, min(calc(var(--t) - var(--s)), calc(var(--e) - var(--t))), 1);
+    transition: opacity 0.15s ease;
+  }
+
+  .plane-llm::before {
+    content: "";
+    @apply h-1 w-1 rounded-full bg-white;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  /* Pulse a child, not the badge: the badge's own opacity is its visibility window. */
+  .plane-llm::before {
+    animation: pulse-dot 1.2s ease-in-out infinite;
+  }
+}
+
+/* ─── Glass ───────────────────────────────────────────────────────────────
+ * Web frosted glass (backdrop-filter, a translucent fill and a lit top edge). Used only where
+ * something moves underneath: the sticky nav over the page, agent cards over the event plane.
+ * Falls back to a solid surface without backdrop-filter or with reduced transparency. */
+:root,
+[data-mode="dark"] {
+  --glass-fill: color-mix(in srgb, var(--bg-raised) 62%, transparent);
+  --glass-edge: rgb(255 255 255 / 0.1);
+  --glass-highlight: rgb(255 255 255 / 0.07);
+}
+
+[data-mode="light"] {
+  --glass-fill: rgb(255 255 255 / 0.62);
+  --glass-edge: rgb(15 15 19 / 0.09);
+  --glass-highlight: rgb(255 255 255 / 0.9);
+}
+
+@utility glass {
+  background: var(--glass-fill);
+  -webkit-backdrop-filter: blur(var(--glass-blur, 16px)) saturate(160%);
+  backdrop-filter: blur(var(--glass-blur, 16px)) saturate(160%);
+  box-shadow:
+    inset 0 1px 0 var(--glass-highlight),
+    var(--glass-shadow, 0 0 #0000);
+}
+
+@layer components {
+  .glass-nav {
+    --glass-fill: color-mix(in srgb, var(--bg) 66%, transparent);
+    --glass-blur: 18px;
+  }
+
+  [data-mode="light"] .glass-nav {
+    --glass-fill: rgb(248 248 251 / 0.7);
+  }
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass,
+  .plane-node {
+    background: var(--bg-raised);
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .glass,
+  .plane-node {
+    background: var(--bg-raised);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
 }

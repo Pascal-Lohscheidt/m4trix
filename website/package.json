@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "record:agents": "pnpm --filter @m4trix/core exec tsx ../../website/scripts/record-agent-run.mts"
   },
   "browserslist": "defaults, not ie <= 11",
   "dependencies": {

@@ -1,0 +1,1593 @@
+{
+  "prompt": "Checkout p95 jumped after the 14:02 deploy. What happened?",
+  "branches": {
+    "approved": {
+      "duration": 7856,
+      "events": [
+        {
+          "i": 0,
+          "t": 37,
+          "name": "user-message",
+          "channels": [
+            "main"
+          ],
+          "by": "you",
+          "payload": {
+            "text": "Checkout p95 jumped after the 14:02 deploy. What happened?"
+          }
+        },
+        {
+          "i": 1,
+          "t": 1241,
+          "name": "plan",
+          "channels": [
+            "work",
+            "client"
+          ],
+          "by": "triage",
+          "payload": {
+            "steps": [
+              "Search checkout errors since 14:02",
+              "Compare p95 before and after the deploy",
+              "Diff deploy 4f2a1c"
+            ]
+          }
+        },
+        {
+          "i": 2,
+          "t": 1404,
+          "name": "investigate",
+          "channels": [
+            "work",
+            "client"
+          ],
+          "by": "triage",
+          "payload": {
+            "area": "logs",
+            "question": "Errors on the checkout path since 14:02?"
+          }
+        },
+        {
+          "i": 3,
+          "t": 1404,
+          "name": "investigate",
+          "channels": [
+            "work",
+            "client"
+          ],
+          "by": "triage",
+          "payload": {
+            "area": "metrics",
+            "question": "How did checkout latency change?"
+          }
+        },
+        {
+          "i": 4,
+          "t": 1404,
+          "name": "investigate",
+          "channels": [
+            "work",
+            "client"
+          ],
+          "by": "triage",
+          "payload": {
+            "area": "deploys",
+            "question": "What changed in the 14:02 deploy?"
+          }
+        },
+        {
+          "i": 5,
+          "t": 1909,
+          "name": "tool-call",
+          "channels": [
+            "work",
+            "client"
+          ],
+          "by": "logs",
+          "payload": {
+            "area": "logs",
+            "tool": "searchLogs",
+            "phase": "start"
+          }
+        },
+        {
+          "i": 6,
+          "t": 1960,
+          "name": "tool-call",
+          "channels": [
+            "work",
+            "client"
+          ],
+          "by": "deploys",
+          "payload": {
+            "area": "deploys",
+            "tool": "diffDeploy",
+            "phase": "start"
+          }
+        },
+        {
+          "i": 7,
+          "t": 2058,
+          "name": "tool-call",
+          "channels": [
+            "work",
+            "client"
+          ],
+          "by": "metrics",
+          "payload": {
+            "area": "metrics",
+            "tool": "queryMetrics",
+            "phase": "start"
+          }
+        },
+        {
+          "i": 8,
+          "t": 2612,
+          "name": "tool-call",
+          "channels": [
+            "work",
+            "client"
+          ],
+          "by": "logs",
+          "payload": {
+            "area": "logs",
+            "tool": "searchLogs",
+            "phase": "end",
+            "summary": "312 timeouts from the card API client since 14:03"
+          }
+        },
+        {
+          "i": 9,
+          "t": 2961,
+          "name": "tool-call",
+          "channels": [
+            "work",
+            "client"
+          ],
+          "by": "metrics",
+          "payload": {
+            "area": "metrics",
+            "tool": "queryMetrics",
+            "phase": "end",
+            "summary": "Checkout p95 went from 180 ms to 2.4 s at 14:03"
+          }
+        },
+        {
+          "i": 10,
+          "t": 3215,
+          "name": "finding",
+          "channels": [
+            "work",
+            "client"
+          ],
+          "by": "logs",
+          "payload": {
+            "area": "logs",
+            "summary": "312 timeouts from the card API client since 14:03"
+          }
+        },
+        {
+          "i": 11,
+          "t": 3262,
+          "name": "tool-call",
+          "channels": [
+            "work",
+            "client"
+          ],
+          "by": "deploys",
+          "payload": {
+            "area": "deploys",
+            "tool": "diffDeploy",
+            "phase": "end",
+            "summary": "Deploy 4f2a1c wraps the card API client in a retry loop"
+          }
+        },
+        {
+          "i": 12,
+          "t": 3563,
+          "name": "finding",
+          "channels": [
+            "work",
+            "client"
+          ],
+          "by": "metrics",
+          "payload": {
+            "area": "metrics",
+            "summary": "Checkout p95 went from 180 ms to 2.4 s at 14:03"
+          }
+        },
+        {
+          "i": 13,
+          "t": 3865,
+          "name": "finding",
+          "channels": [
+            "work",
+            "client"
+          ],
+          "by": "deploys",
+          "payload": {
+            "area": "deploys",
+            "summary": "Deploy 4f2a1c wraps the card API client in a retry loop"
+          }
+        },
+        {
+          "i": 14,
+          "t": 3870,
+          "name": "findings-ready",
+          "channels": [
+            "work"
+          ],
+          "by": "findings",
+          "payload": {
+            "findings": [
+              {
+                "area": "logs",
+                "summary": "312 timeouts from the card API client since 14:03"
+              },
+              {
+                "area": "metrics",
+                "summary": "Checkout p95 went from 180 ms to 2.4 s at 14:03"
+              },
+              {
+                "area": "deploys",
+                "summary": "Deploy 4f2a1c wraps the card API client in a retry loop"
+              }
+            ]
+          }
+        },
+        {
+          "i": 15,
+          "t": 4878,
+          "name": "approval-requested",
+          "channels": [
+            "client"
+          ],
+          "by": "remediator",
+          "payload": {
+            "action": "Roll back deploy 4f2a1c",
+            "reason": "Its retry loop matches the timeouts and the p95 jump."
+          }
+        },
+        {
+          "i": 16,
+          "t": 5780,
+          "name": "approval-resolved",
+          "channels": [
+            "main"
+          ],
+          "by": "you",
+          "payload": {
+            "approved": true
+          }
+        },
+        {
+          "i": 17,
+          "t": 7026,
+          "name": "chunk",
+          "channels": [
+            "client"
+          ],
+          "by": "remediator",
+          "payload": {
+            "delta": "Rolled back 4f2a1c."
+          }
+        },
+        {
+          "i": 18,
+          "t": 7117,
+          "name": "chunk",
+          "channels": [
+            "client"
+          ],
+          "by": "remediator",
+          "payload": {
+            "delta": " The new retry"
+          }
+        },
+        {
+          "i": 19,
+          "t": 7209,
+          "name": "chunk",
+          "channels": [
+            "client"
+          ],
+          "by": "remediator",
+          "payload": {
+            "delta": " loop tripled calls"
+          }
+        },
+        {
+          "i": 20,
+          "t": 7301,
+          "name": "chunk",
+          "channels": [
+            "client"
+          ],
+          "by": "remediator",
+          "payload": {
+            "delta": " to the card"
+          }
+        },
+        {
+          "i": 21,
+          "t": 7392,
+          "name": "chunk",
+          "channels": [
+            "client"
+          ],
+          "by": "remediator",
+          "payload": {
+            "delta": " API, so requests"
+          }
+        },
+        {
+          "i": 22,
+          "t": 7484,
+          "name": "chunk",
+          "channels": [
+            "client"
+          ],
+          "by": "remediator",
+          "payload": {
+            "delta": " queued behind timeouts."
+          }
+        },
+        {
+          "i": 23,
+          "t": 7576,
+          "name": "chunk",
+          "channels": [
+            "client"
+          ],
+          "by": "remediator",
+          "payload": {
+            "delta": " p95 should drop"
+          }
+        },
+        {
+          "i": 24,
+          "t": 7667,
+          "name": "chunk",
+          "channels": [
+            "client"
+          ],
+          "by": "remediator",
+          "payload": {
+            "delta": " back to about"
+          }
+        },
+        {
+          "i": 25,
+          "t": 7759,
+          "name": "chunk",
+          "channels": [
+            "client"
+          ],
+          "by": "remediator",
+          "payload": {
+            "delta": " 180 ms within"
+          }
+        },
+        {
+          "i": 26,
+          "t": 7849,
+          "name": "chunk",
+          "channels": [
+            "client"
+          ],
+          "by": "remediator",
+          "payload": {
+            "delta": " a few minutes."
+          }
+        },
+        {
+          "i": 27,
+          "t": 7849,
+          "name": "answer",
+          "channels": [
+            "client"
+          ],
+          "by": "remediator",
+          "payload": {
+            "text": "Rolled back 4f2a1c. The new retry loop tripled calls to the card API, so requests queued behind timeouts. p95 should drop back to about 180 ms within a few minutes."
+          }
+        }
+      ],
+      "spans": [
+        {
+          "lane": "triage",
+          "name": "plan-investigation",
+          "start": 38,
+          "end": 1240
+        },
+        {
+          "lane": "logs",
+          "name": "write-query",
+          "start": 1406,
+          "end": 1908
+        },
+        {
+          "lane": "deploys",
+          "name": "write-query",
+          "start": 1407,
+          "end": 1958
+        },
+        {
+          "lane": "metrics",
+          "name": "write-query",
+          "start": 1407,
+          "end": 2057
+        },
+        {
+          "lane": "logs",
+          "name": "summarize",
+          "start": 2612,
+          "end": 3213
+        },
+        {
+          "lane": "metrics",
+          "name": "summarize",
+          "start": 2961,
+          "end": 3563
+        },
+        {
+          "lane": "deploys",
+          "name": "summarize",
+          "start": 3262,
+          "end": 3864
+        },
+        {
+          "lane": "remediator",
+          "name": "choose-action",
+          "start": 3875,
+          "end": 4877
+        },
+        {
+          "lane": "remediator",
+          "name": "explain",
+          "start": 6433,
+          "end": 7848
+        }
+      ],
+      "invocations": [
+        {
+          "lane": "auditLog",
+          "channel": "main",
+          "trigger": 0,
+          "start": 38,
+          "end": 38
+        },
+        {
+          "lane": "triage",
+          "channel": "main",
+          "trigger": 0,
+          "start": 38,
+          "end": 1404
+        },
+        {
+          "lane": "auditLog",
+          "channel": "work",
+          "trigger": 1,
+          "start": 1243,
+          "end": 1244
+        },
+        {
+          "lane": "auditLog",
+          "channel": "client",
+          "trigger": 1,
+          "start": 1243,
+          "end": 1244
+        },
+        {
+          "lane": "auditLog",
+          "channel": "work",
+          "trigger": 2,
+          "start": 1405,
+          "end": 1406
+        },
+        {
+          "lane": "auditLog",
+          "channel": "client",
+          "trigger": 2,
+          "start": 1405,
+          "end": 1406
+        },
+        {
+          "lane": "logs",
+          "channel": "work",
+          "trigger": 2,
+          "start": 1405,
+          "end": 3215
+        },
+        {
+          "lane": "auditLog",
+          "channel": "work",
+          "trigger": 3,
+          "start": 1406,
+          "end": 1407
+        },
+        {
+          "lane": "auditLog",
+          "channel": "client",
+          "trigger": 3,
+          "start": 1406,
+          "end": 1407
+        },
+        {
+          "lane": "metrics",
+          "channel": "work",
+          "trigger": 3,
+          "start": 1406,
+          "end": 3563
+        },
+        {
+          "lane": "auditLog",
+          "channel": "work",
+          "trigger": 4,
+          "start": 1407,
+          "end": 1407
+        },
+        {
+          "lane": "auditLog",
+          "channel": "client",
+          "trigger": 4,
+          "start": 1407,
+          "end": 1407
+        },
+        {
+          "lane": "deploys",
+          "channel": "work",
+          "trigger": 4,
+          "start": 1407,
+          "end": 3865
+        },
+        {
+          "lane": "auditLog",
+          "channel": "work",
+          "trigger": 5,
+          "start": 1911,
+          "end": 1912
+        },
+        {
+          "lane": "auditLog",
+          "channel": "client",
+          "trigger": 5,
+          "start": 1911,
+          "end": 1912
+        },
+        {
+          "lane": "auditLog",
+          "channel": "work",
+          "trigger": 6,
+          "start": 1961,
+          "end": 1961
+        },
+        {
+          "lane": "auditLog",
+          "channel": "client",
+          "trigger": 6,
+          "start": 1961,
+          "end": 1961
+        },
+        {
+          "lane": "auditLog",
+          "channel": "work",
+          "trigger": 7,
+          "start": 2060,
+          "end": 2061
+        },
+        {
+          "lane": "auditLog",
+          "channel": "client",
+          "trigger": 7,
+          "start": 2060,
+          "end": 2061
+        },
+        {
+          "lane": "auditLog",
+          "channel": "work",
+          "trigger": 8,
+          "start": 2613,
+          "end": 2614
+        },
+        {
+          "lane": "auditLog",
+          "channel": "client",
+          "trigger": 8,
+          "start": 2613,
+          "end": 2614
+        },
+        {
+          "lane": "auditLog",
+          "channel": "work",
+          "trigger": 9,
+          "start": 2963,
+          "end": 2964
+        },
+        {
+          "lane": "auditLog",
+          "channel": "client",
+          "trigger": 9,
+          "start": 2963,
+          "end": 2964
+        },
+        {
+          "lane": "findings",
+          "channel": "work",
+          "trigger": 10,
+          "start": 3218,
+          "end": 3220
+        },
+        {
+          "lane": "auditLog",
+          "channel": "work",
+          "trigger": 10,
+          "start": 3218,
+          "end": 3220
+        },
+        {
+          "lane": "auditLog",
+          "channel": "client",
+          "trigger": 10,
+          "start": 3218,
+          "end": 3220
+        },
+        {
+          "lane": "auditLog",
+          "channel": "work",
+          "trigger": 11,
+          "start": 3264,
+          "end": 3264
+        },
+        {
+          "lane": "auditLog",
+          "channel": "client",
+          "trigger": 11,
+          "start": 3264,
+          "end": 3265
+        },
+        {
+          "lane": "findings",
+          "channel": "work",
+          "trigger": 12,
+          "start": 3564,
+          "end": 3565
+        },
+        {
+          "lane": "auditLog",
+          "channel": "work",
+          "trigger": 12,
+          "start": 3564,
+          "end": 3565
+        },
+        {
+          "lane": "auditLog",
+          "channel": "client",
+          "trigger": 12,
+          "start": 3564,
+          "end": 3565
+        },
+        {
+          "lane": "auditLog",
+          "channel": "work",
+          "trigger": 13,
+          "start": 3866,
+          "end": 3870
+        },
+        {
+          "lane": "findings",
+          "channel": "work",
+          "trigger": 13,
+          "start": 3866,
+          "end": 3870
+        },
+        {
+          "lane": "auditLog",
+          "channel": "client",
+          "trigger": 13,
+          "start": 3868,
+          "end": 3870
+        },
+        {
+          "lane": "auditLog",
+          "channel": "work",
+          "trigger": 14,
+          "start": 3874,
+          "end": 3876
+        },
+        {
+          "lane": "remediator",
+          "channel": "work",
+          "trigger": 14,
+          "start": 3874,
+          "end": 7849
+        },
+        {
+          "lane": "auditLog",
+          "channel": "client",
+          "trigger": 15,
+          "start": 4879,
+          "end": 4880
+        },
+        {
+          "lane": "auditLog",
+          "channel": "main",
+          "trigger": 16,
+          "start": 5782,
+          "end": 5782
+        },
+        {
+          "lane": "auditLog",
+          "channel": "client",
+          "trigger": 17,
+          "start": 7027,
+          "end": 7027
+        },
+        {
+          "lane": "auditLog",
+          "channel": "client",
+          "trigger": 18,
+          "start": 7118,
+          "end": 7118
+        },
+        {
+          "lane": "auditLog",
+          "channel": "client",
+          "trigger": 19,
+          "start": 7210,
+          "end": 7210
+        },
+        {
+          "lane": "auditLog",
+          "channel": "client",
+          "trigger": 20,
+          "start": 7301,
+          "end": 7302
+        },
+        {
+          "lane": "auditLog",
+          "channel": "client",
+          "trigger": 21,
+          "start": 7393,
+          "end": 7393
+        },
+        {
+          "lane": "auditLog",
+          "channel": "client",
+          "trigger": 22,
+          "start": 7484,
+          "end": 7484
+        },
+        {
+          "lane": "auditLog",
+          "channel": "client",
+          "trigger": 23,
+          "start": 7576,
+          "end": 7577
+        },
+        {
+          "lane": "auditLog",
+          "channel": "client",
+          "trigger": 24,
+          "start": 7668,
+          "end": 7668
+        },
+        {
+          "lane": "auditLog",
+          "channel": "client",
+          "trigger": 25,
+          "start": 7760,
+          "end": 7761
+        },
+        {
+          "lane": "auditLog",
+          "channel": "client",
+          "trigger": 26,
+          "start": 7854,
+          "end": 7855
+        },
+        {
+          "lane": "auditLog",
+          "channel": "client",
+          "trigger": 27,
+          "start": 7856,
+          "end": 7856
+        }
+      ]
+    },
+    "denied": {
+      "duration": 7194,
+      "events": [
+        {
+          "i": 0,
+          "t": 31,
+          "name": "user-message",
+          "channels": [
+            "main"
+          ],
+          "by": "you",
+          "payload": {
+            "text": "Checkout p95 jumped after the 14:02 deploy. What happened?"
+          }
+        },
+        {
+          "i": 1,
+          "t": 1234,
+          "name": "plan",
+          "channels": [
+            "work",
+            "client"
+          ],
+          "by": "triage",
+          "payload": {
+            "steps": [
+              "Search checkout errors since 14:02",
+              "Compare p95 before and after the deploy",
+              "Diff deploy 4f2a1c"
+            ]
+          }
+        },
+        {
+          "i": 2,
+          "t": 1396,
+          "name": "investigate",
+          "channels": [
+            "work",
+            "client"
+          ],
+          "by": "triage",
+          "payload": {
+            "area": "logs",
+            "question": "Errors on the checkout path since 14:02?"
+          }
+        },
+        {
+          "i": 3,
+          "t": 1396,
+          "name": "investigate",
+          "channels": [
+            "work",
+            "client"
+          ],
+          "by": "triage",
+          "payload": {
+            "area": "metrics",
+            "question": "How did checkout latency change?"
+          }
+        },
+        {
+          "i": 4,
+          "t": 1396,
+          "name": "investigate",
+          "channels": [
+            "work",
+            "client"
+          ],
+          "by": "triage",
+          "payload": {
+            "area": "deploys",
+            "question": "What changed in the 14:02 deploy?"
+          }
+        },
+        {
+          "i": 5,
+          "t": 1901,
+          "name": "tool-call",
+          "channels": [
+            "work",
+            "client"
+          ],
+          "by": "logs",
+          "payload": {
+            "area": "logs",
+            "tool": "searchLogs",
+            "phase": "start"
+          }
+        },
+        {
+          "i": 6,
+          "t": 1953,
+          "name": "tool-call",
+          "channels": [
+            "work",
+            "client"
+          ],
+          "by": "deploys",
+          "payload": {
+            "area": "deploys",
+            "tool": "diffDeploy",
+            "phase": "start"
+          }
+        },
+        {
+          "i": 7,
+          "t": 2050,
+          "name": "tool-call",
+          "channels": [
+            "work",
+            "client"
+          ],
+          "by": "metrics",
+          "payload": {
+            "area": "metrics",
+            "tool": "queryMetrics",
+            "phase": "start"
+          }
+        },
+        {
+          "i": 8,
+          "t": 2602,
+          "name": "tool-call",
+          "channels": [
+            "work",
+            "client"
+          ],
+          "by": "logs",
+          "payload": {
+            "area": "logs",
+            "tool": "searchLogs",
+            "phase": "end",
+            "summary": "312 timeouts from the card API client since 14:03"
+          }
+        },
+        {
+          "i": 9,
+          "t": 2952,
+          "name": "tool-call",
+          "channels": [
+            "work",
+            "client"
+          ],
+          "by": "metrics",
+          "payload": {
+            "area": "metrics",
+            "tool": "queryMetrics",
+            "phase": "end",
+            "summary": "Checkout p95 went from 180 ms to 2.4 s at 14:03"
+          }
+        },
+        {
+          "i": 10,
+          "t": 3204,
+          "name": "finding",
+          "channels": [
+            "work",
+            "client"
+          ],
+          "by": "logs",
+          "payload": {
+            "area": "logs",
+            "summary": "312 timeouts from the card API client since 14:03"
+          }
+        },
+        {
+          "i": 11,
+          "t": 3254,
+          "name": "tool-call",
+          "channels": [
+            "work",
+            "client"
+          ],
+          "by": "deploys",
+          "payload": {
+            "area": "deploys",
+            "tool": "diffDeploy",
+            "phase": "end",
+            "summary": "Deploy 4f2a1c wraps the card API client in a retry loop"
+          }
+        },
+        {
+          "i": 12,
+          "t": 3555,
+          "name": "finding",
+          "channels": [
+            "work",
+            "client"
+          ],
+          "by": "metrics",
+          "payload": {
+            "area": "metrics",
+            "summary": "Checkout p95 went from 180 ms to 2.4 s at 14:03"
+          }
+        },
+        {
+          "i": 13,
+          "t": 3856,
+          "name": "finding",
+          "channels": [
+            "work",
+            "client"
+          ],
+          "by": "deploys",
+          "payload": {
+            "area": "deploys",
+            "summary": "Deploy 4f2a1c wraps the card API client in a retry loop"
+          }
+        },
+        {
+          "i": 14,
+          "t": 3859,
+          "name": "findings-ready",
+          "channels": [
+            "work"
+          ],
+          "by": "findings",
+          "payload": {
+            "findings": [
+              {
+                "area": "logs",
+                "summary": "312 timeouts from the card API client since 14:03"
+              },
+              {
+                "area": "metrics",
+                "summary": "Checkout p95 went from 180 ms to 2.4 s at 14:03"
+              },
+              {
+                "area": "deploys",
+                "summary": "Deploy 4f2a1c wraps the card API client in a retry loop"
+              }
+            ]
+          }
+        },
+        {
+          "i": 15,
+          "t": 4863,
+          "name": "approval-requested",
+          "channels": [
+            "client"
+          ],
+          "by": "remediator",
+          "payload": {
+            "action": "Roll back deploy 4f2a1c",
+            "reason": "Its retry loop matches the timeouts and the p95 jump."
+          }
+        },
+        {
+          "i": 16,
+          "t": 5766,
+          "name": "approval-resolved",
+          "channels": [
+            "main"
+          ],
+          "by": "you",
+          "payload": {
+            "approved": false
+          }
+        },
+        {
+          "i": 17,
+          "t": 6360,
+          "name": "chunk",
+          "channels": [
+            "client"
+          ],
+          "by": "remediator",
+          "payload": {
+            "delta": "Rollback skipped. The"
+          }
+        },
+        {
+          "i": 18,
+          "t": 6451,
+          "name": "chunk",
+          "channels": [
+            "client"
+          ],
+          "by": "remediator",
+          "payload": {
+            "delta": " retry loop in"
+          }
+        },
+        {
+          "i": 19,
+          "t": 6543,
+          "name": "chunk",
+          "channels": [
+            "client"
+          ],
+          "by": "remediator",
+          "payload": {
+            "delta": " 4f2a1c triples calls"
+          }
+        },
+        {
+          "i": 20,
+          "t": 6635,
+          "name": "chunk",
+          "channels": [
+            "client"
+          ],
+          "by": "remediator",
+          "payload": {
+            "delta": " to the card"
+          }
+        },
+        {
+          "i": 21,
+          "t": 6727,
+          "name": "chunk",
+          "channels": [
+            "client"
+          ],
+          "by": "remediator",
+          "payload": {
+            "delta": " API, so p95"
+          }
+        },
+        {
+          "i": 22,
+          "t": 6820,
+          "name": "chunk",
+          "channels": [
+            "client"
+          ],
+          "by": "remediator",
+          "payload": {
+            "delta": " stays near 2.4"
+          }
+        },
+        {
+          "i": 23,
+          "t": 6912,
+          "name": "chunk",
+          "channels": [
+            "client"
+          ],
+          "by": "remediator",
+          "payload": {
+            "delta": " s until the"
+          }
+        },
+        {
+          "i": 24,
+          "t": 7005,
+          "name": "chunk",
+          "channels": [
+            "client"
+          ],
+          "by": "remediator",
+          "payload": {
+            "delta": " loop is capped"
+          }
+        },
+        {
+          "i": 25,
+          "t": 7097,
+          "name": "chunk",
+          "channels": [
+            "client"
+          ],
+          "by": "remediator",
+          "payload": {
+            "delta": " or the deploy"
+          }
+        },
+        {
+          "i": 26,
+          "t": 7192,
+          "name": "chunk",
+          "channels": [
+            "client"
+          ],
+          "by": "remediator",
+          "payload": {
+            "delta": " is reverted."
+          }
+        },
+        {
+          "i": 27,
+          "t": 7192,
+          "name": "answer",
+          "channels": [
+            "client"
+          ],
+          "by": "remediator",
+          "payload": {
+            "text": "Rollback skipped. The retry loop in 4f2a1c triples calls to the card API, so p95 stays near 2.4 s until the loop is capped or the deploy is reverted."
+          }
+        }
+      ],
+      "spans": [
+        {
+          "lane": "triage",
+          "name": "plan-investigation",
+          "start": 32,
+          "end": 1232
+        },
+        {
+          "lane": "logs",
+          "name": "write-query",
+          "start": 1398,
+          "end": 1899
+        },
+        {
+          "lane": "metrics",
+          "name": "write-query",
+          "start": 1398,
+          "end": 2050
+        },
+        {
+          "lane": "deploys",
+          "name": "write-query",
+          "start": 1400,
+          "end": 1952
+        },
+        {
+          "lane": "logs",
+          "name": "summarize",
+          "start": 2602,
+          "end": 3204
+        },
+        {
+          "lane": "metrics",
+          "name": "summarize",
+          "start": 2952,
+          "end": 3553
+        },
+        {
+          "lane": "deploys",
+          "name": "summarize",
+          "start": 3254,
+          "end": 3855
+        },
+        {
+          "lane": "remediator",
+          "name": "choose-action",
+          "start": 3860,
+          "end": 4861
+        },
+        {
+          "lane": "remediator",
+          "name": "explain",
+          "start": 5766,
+          "end": 7191
+        }
+      ],
+      "invocations": [
+        {
+          "lane": "auditLog",
+          "channel": "main",
+          "trigger": 0,
+          "start": 31,
+          "end": 32
+        },
+        {
+          "lane": "triage",
+          "channel": "main",
+          "trigger": 0,
+          "start": 31,
+          "end": 1396
+        },
+        {
+          "lane": "auditLog",
+          "channel": "work",
+          "trigger": 1,
+          "start": 1235,
+          "end": 1235
+        },
+        {
+          "lane": "auditLog",
+          "channel": "client",
+          "trigger": 1,
+          "start": 1235,
+          "end": 1235
+        },
+        {
+          "lane": "auditLog",
+          "channel": "work",
+          "trigger": 2,
+          "start": 1397,
+          "end": 1398
+        },
+        {
+          "lane": "auditLog",
+          "channel": "client",
+          "trigger": 2,
+          "start": 1397,
+          "end": 1398
+        },
+        {
+          "lane": "logs",
+          "channel": "work",
+          "trigger": 2,
+          "start": 1397,
+          "end": 3205
+        },
+        {
+          "lane": "auditLog",
+          "channel": "work",
+          "trigger": 3,
+          "start": 1398,
+          "end": 1399
+        },
+        {
+          "lane": "auditLog",
+          "channel": "client",
+          "trigger": 3,
+          "start": 1398,
+          "end": 1400
+        },
+        {
+          "lane": "metrics",
+          "channel": "work",
+          "trigger": 3,
+          "start": 1398,
+          "end": 3555
+        },
+        {
+          "lane": "auditLog",
+          "channel": "work",
+          "trigger": 4,
+          "start": 1400,
+          "end": 1400
+        },
+        {
+          "lane": "auditLog",
+          "channel": "client",
+          "trigger": 4,
+          "start": 1400,
+          "end": 1400
+        },
+        {
+          "lane": "deploys",
+          "channel": "work",
+          "trigger": 4,
+          "start": 1400,
+          "end": 3856
+        },
+        {
+          "lane": "auditLog",
+          "channel": "work",
+          "trigger": 5,
+          "start": 1902,
+          "end": 1902
+        },
+        {
+          "lane": "auditLog",
+          "channel": "client",
+          "trigger": 5,
+          "start": 1902,
+          "end": 1902
+        },
+        {
+          "lane": "auditLog",
+          "channel": "work",
+          "trigger": 6,
+          "start": 1954,
+          "end": 1954
+        },
+        {
+          "lane": "auditLog",
+          "channel": "client",
+          "trigger": 6,
+          "start": 1954,
+          "end": 1954
+        },
+        {
+          "lane": "auditLog",
+          "channel": "work",
+          "trigger": 7,
+          "start": 2051,
+          "end": 2051
+        },
+        {
+          "lane": "auditLog",
+          "channel": "client",
+          "trigger": 7,
+          "start": 2051,
+          "end": 2051
+        },
+        {
+          "lane": "auditLog",
+          "channel": "work",
+          "trigger": 8,
+          "start": 2603,
+          "end": 2604
+        },
+        {
+          "lane": "auditLog",
+          "channel": "client",
+          "trigger": 8,
+          "start": 2603,
+          "end": 2604
+        },
+        {
+          "lane": "auditLog",
+          "channel": "work",
+          "trigger": 9,
+          "start": 2953,
+          "end": 2953
+        },
+        {
+          "lane": "auditLog",
+          "channel": "client",
+          "trigger": 9,
+          "start": 2953,
+          "end": 2953
+        },
+        {
+          "lane": "findings",
+          "channel": "work",
+          "trigger": 10,
+          "start": 3205,
+          "end": 3206
+        },
+        {
+          "lane": "auditLog",
+          "channel": "work",
+          "trigger": 10,
+          "start": 3205,
+          "end": 3206
+        },
+        {
+          "lane": "auditLog",
+          "channel": "client",
+          "trigger": 10,
+          "start": 3205,
+          "end": 3206
+        },
+        {
+          "lane": "auditLog",
+          "channel": "work",
+          "trigger": 11,
+          "start": 3255,
+          "end": 3256
+        },
+        {
+          "lane": "auditLog",
+          "channel": "client",
+          "trigger": 11,
+          "start": 3255,
+          "end": 3256
+        },
+        {
+          "lane": "findings",
+          "channel": "work",
+          "trigger": 12,
+          "start": 3556,
+          "end": 3557
+        },
+        {
+          "lane": "auditLog",
+          "channel": "work",
+          "trigger": 12,
+          "start": 3556,
+          "end": 3557
+        },
+        {
+          "lane": "auditLog",
+          "channel": "client",
+          "trigger": 12,
+          "start": 3556,
+          "end": 3557
+        },
+        {
+          "lane": "auditLog",
+          "channel": "work",
+          "trigger": 13,
+          "start": 3858,
+          "end": 3859
+        },
+        {
+          "lane": "auditLog",
+          "channel": "client",
+          "trigger": 13,
+          "start": 3858,
+          "end": 3859
+        },
+        {
+          "lane": "findings",
+          "channel": "work",
+          "trigger": 13,
+          "start": 3858,
+          "end": 3859
+        },
+        {
+          "lane": "auditLog",
+          "channel": "work",
+          "trigger": 14,
+          "start": 3860,
+          "end": 3860
+        },
+        {
+          "lane": "remediator",
+          "channel": "work",
+          "trigger": 14,
+          "start": 3860,
+          "end": 7192
+        },
+        {
+          "lane": "auditLog",
+          "channel": "client",
+          "trigger": 15,
+          "start": 4864,
+          "end": 4865
+        },
+        {
+          "lane": "auditLog",
+          "channel": "main",
+          "trigger": 16,
+          "start": 5766,
+          "end": 5766
+        },
+        {
+          "lane": "auditLog",
+          "channel": "client",
+          "trigger": 17,
+          "start": 6361,
+          "end": 6361
+        },
+        {
+          "lane": "auditLog",
+          "channel": "client",
+          "trigger": 18,
+          "start": 6451,
+          "end": 6451
+        },
+        {
+          "lane": "auditLog",
+          "channel": "client",
+          "trigger": 19,
+          "start": 6543,
+          "end": 6543
+        },
+        {
+          "lane": "auditLog",
+          "channel": "client",
+          "trigger": 20,
+          "start": 6635,
+          "end": 6635
+        },
+        {
+          "lane": "auditLog",
+          "channel": "client",
+          "trigger": 21,
+          "start": 6728,
+          "end": 6728
+        },
+        {
+          "lane": "auditLog",
+          "channel": "client",
+          "trigger": 22,
+          "start": 6820,
+          "end": 6823
+        },
+        {
+          "lane": "auditLog",
+          "channel": "client",
+          "trigger": 23,
+          "start": 6914,
+          "end": 6915
+        },
+        {
+          "lane": "auditLog",
+          "channel": "client",
+          "trigger": 24,
+          "start": 7006,
+          "end": 7007
+        },
+        {
+          "lane": "auditLog",
+          "channel": "client",
+          "trigger": 25,
+          "start": 7098,
+          "end": 7099
+        },
+        {
+          "lane": "auditLog",
+          "channel": "client",
+          "trigger": 26,
+          "start": 7193,
+          "end": 7194
+        },
+        {
+          "lane": "auditLog",
+          "channel": "client",
+          "trigger": 27,
+          "start": 7194,
+          "end": 7194
+        }
+      ]
+    }
+  }
+}

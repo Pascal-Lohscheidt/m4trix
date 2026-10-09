@@ -11,9 +11,17 @@ export interface CodeBlockProps {
   language: CodeLanguage;
   filename?: string;
   className?: string;
+  /** Extra classes per line, keyed by 1-based line number. */
+  lineClassName?: (line: number) => string;
 }
 
-export default function CodeBlock({ code, language, filename, className = '' }: CodeBlockProps) {
+export default function CodeBlock({
+  code,
+  language,
+  filename,
+  className = '',
+  lineClassName,
+}: CodeBlockProps) {
   const mode = useDataMode();
   const theme = getCodeTheme(mode);
   const label =
@@ -45,7 +53,7 @@ export default function CodeBlock({ code, language, filename, className = '' }: 
                 <span
                   key={lineIndex}
                   {...getLineProps({ line })}
-                  className="code-block-line block min-h-[1.65em]"
+                  className={`code-block-line block min-h-[1.65em] ${lineClassName?.(lineIndex + 1) ?? ''}`.trim()}
                 >
                   {line.map((token, tokenIndex) => (
                     <span key={tokenIndex} {...getTokenProps({ token })} />

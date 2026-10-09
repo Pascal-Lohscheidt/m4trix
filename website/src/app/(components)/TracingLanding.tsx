@@ -1,12 +1,11 @@
 'use client';
 
-import { ArrowRightIcon, PlusIcon } from '@phosphor-icons/react';
+import { ArrowRightIcon } from '@phosphor-icons/react';
 import Image from 'next/image';
 import {
   siClaude,
   siCursor,
   siDocker,
-  siGithub,
   siKubernetes,
   siLangchain,
   siLanggraph,
@@ -20,29 +19,18 @@ import ClaudeConsoleGraphic from './graphics/ClaudeConsoleGraphic';
 import RecordGraphic from './graphics/RecordGraphic';
 import ShipGraphic from './graphics/ShipGraphic';
 import SplitStorageGraphic from './graphics/SplitStorageGraphic';
+import {
+  ClosingCta,
+  Faq,
+  type FaqItem,
+  Section,
+  type Sibling,
+  Toolkit,
+  WorksWith,
+} from './LandingSections';
 import TracingPrimitivesExplorer from './TracingPrimitivesExplorer';
 
 const DOCS_HREF = 'https://docs.m4trix.dev/tracing';
-const GITHUB_HREF = 'https://github.com/Pascal-Lohscheidt/m4trix';
-
-function Section({
-  id,
-  className = '',
-  children,
-}: {
-  id?: string;
-  className?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <section
-      id={id}
-      className={`relative z-[2] px-4 py-16 sm:px-6 sm:py-20 lg:px-8 ${className}`.trim()}
-    >
-      <div className="mx-auto max-w-6xl">{children}</div>
-    </section>
-  );
-}
 
 /* ─── Hero ─────────────────────────────────────────────────────────────── */
 
@@ -123,27 +111,6 @@ const STACK = [
   siDocker,
   siKubernetes,
 ];
-
-function WorksWith() {
-  return (
-    <div className="relative z-[2] px-4 pt-6 pb-4 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-6xl">
-        <p className="text-center text-sm text-text-3">Fits the stack you already run</p>
-        <ul className="mt-6 flex flex-wrap items-center justify-center gap-x-10 gap-y-5">
-          {STACK.map((icon) => (
-            <li
-              key={icon.slug}
-              className="flex items-center gap-2.5 text-text-3 transition-colors hover:text-text-1"
-            >
-              <BrandIcon icon={icon} />
-              <span className="text-sm font-medium">{icon.title}</span>
-            </li>
-          ))}
-        </ul>
-      </div>
-    </div>
-  );
-}
 
 /* ─── MCP ─────────────────────────────────────────────────────────────── */
 
@@ -356,7 +323,7 @@ function ApiExplorer() {
 
 /* ─── FAQ ─────────────────────────────────────────────────────────────── */
 
-const FAQ = [
+const FAQ: FaqItem[] = [
   {
     q: 'Does anything leave my machine?',
     a: 'Not by default. The filesystem adapters write to a folder you choose. Data only moves if you configure the S3 and DynamoDB adapters or run the sidecar. AI profiles call the model provider directly from your browser, with your key.',
@@ -379,30 +346,9 @@ const FAQ = [
   },
 ];
 
-function Faq() {
-  return (
-    <Section>
-      <div className="grid gap-10 lg:grid-cols-[0.75fr_1.25fr] lg:gap-16">
-        <h2 className="lp-h2">Questions</h2>
-        <div className="border-t border-(--border)">
-          {FAQ.map((item) => (
-            <details key={item.q} className="faq-item group">
-              <summary>
-                {item.q}
-                <PlusIcon aria-hidden className="faq-icon h-5 w-5" />
-              </summary>
-              <p className="mt-3 max-w-[62ch] text-[15px] leading-relaxed text-text-2">{item.a}</p>
-            </details>
-          ))}
-        </div>
-      </div>
-    </Section>
-  );
-}
-
 /* ─── Rest of the toolkit ─────────────────────────────────────────────── */
 
-const SIBLINGS: { id: PackageId; name: string; title: string; body: string }[] = [
+const SIBLINGS: Sibling[] = [
   {
     id: 'evals',
     name: '@m4trix/evals',
@@ -417,73 +363,6 @@ const SIBLINGS: { id: PackageId; name: string; title: string; body: string }[] =
   },
 ];
 
-function Toolkit({ onSelectPackage }: { onSelectPackage: (pkg: PackageId) => void }) {
-  return (
-    <Section>
-      <h2 className="lp-h2">Part of the m4trix toolkit</h2>
-      <p className="lp-lead">
-        Each package works on its own. Together they share one TypeScript model.
-      </p>
-      <div className="mt-10 grid gap-4 md:grid-cols-2">
-        {SIBLINGS.map((pkg) => (
-          <button
-            key={pkg.id}
-            type="button"
-            onClick={() => onSelectPackage(pkg.id)}
-            className="group bento-cell cursor-pointer text-left transition-[border-color] hover:border-(--accent-border)"
-          >
-            <span className="font-mono text-[13px] text-text-3">{pkg.name}</span>
-            <span className="mt-3 flex items-center gap-2 font-display text-xl font-semibold text-text-1">
-              {pkg.title}
-              <ArrowRightIcon
-                aria-hidden
-                className="h-4 w-4 text-text-3 transition-transform group-hover:translate-x-0.5"
-                weight="bold"
-              />
-            </span>
-            <span className="bento-body">{pkg.body}</span>
-          </button>
-        ))}
-      </div>
-    </Section>
-  );
-}
-
-/* ─── Closing CTA ─────────────────────────────────────────────────────── */
-
-function ClosingCta() {
-  return (
-    <section className="relative z-[2] px-4 pt-6 pb-20 sm:px-6 lg:px-8">
-      <div
-        className="mx-auto max-w-6xl overflow-hidden rounded-2xl border border-(--accent-border) px-6 py-16 text-center sm:px-12"
-        style={{
-          background:
-            'radial-gradient(ellipse at 50% 0%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 65%), color-mix(in srgb, var(--bg-raised) 60%, transparent)',
-        }}
-      >
-        <h2 className="lp-h2 mx-auto max-w-xl">Trace your next run</h2>
-        <p className="mx-auto mt-4 max-w-[46ch] text-base leading-relaxed text-text-2">
-          One callback, one folder, one command to open it.
-        </p>
-        <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-          <a href={DOCS_HREF} className="btn-primary group">
-            Get started
-            <ArrowRightIcon
-              aria-hidden
-              className="h-4 w-4 transition-transform group-hover:translate-x-0.5"
-              weight="bold"
-            />
-          </a>
-          <a href={GITHUB_HREF} className="btn-secondary">
-            <BrandIcon icon={siGithub} className="h-4 w-4" />
-            Star on GitHub
-          </a>
-        </div>
-      </div>
-    </section>
-  );
-}
-
 export default function TracingLanding({
   onSelectPackage,
 }: {
@@ -492,15 +371,19 @@ export default function TracingLanding({
   return (
     <>
       <Hero />
-      <WorksWith />
+      <WorksWith label="Fits the stack you already run" icons={STACK} />
       <McpSection />
       <Quickstart />
       <Bento />
       <DeployPath />
       <ApiExplorer />
-      <Faq />
-      <Toolkit onSelectPackage={onSelectPackage} />
-      <ClosingCta />
+      <Faq items={FAQ} />
+      <Toolkit siblings={SIBLINGS} onSelectPackage={onSelectPackage} />
+      <ClosingCta
+        title="Trace your next run"
+        body="One callback, one folder, one command to open it."
+        href={DOCS_HREF}
+      />
     </>
   );
 }

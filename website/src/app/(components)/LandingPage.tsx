@@ -93,10 +93,9 @@ function SiteNav({
 
   return (
     <nav
-      className="sticky top-0 z-50 border-b backdrop-blur-xl transition-[border-color,background] duration-300"
+      className="glass glass-nav sticky top-0 z-50 border-b transition-[border-color,background] duration-300"
       style={{
         borderColor: 'var(--border)',
-        background: 'color-mix(in srgb, var(--bg) 88%, transparent)',
       }}
     >
       <div className="px-4 sm:px-6 lg:px-8">
@@ -218,7 +217,7 @@ export default function LandingPage() {
   }, []);
 
   return (
-    <div className="relative min-h-screen w-full overflow-x-hidden">
+    <div className="relative min-h-screen w-full overflow-x-clip">
       <MatrixRain opacity={0.045} color="#00ff41" fontSize={14} speed={45} />
 
       <div
