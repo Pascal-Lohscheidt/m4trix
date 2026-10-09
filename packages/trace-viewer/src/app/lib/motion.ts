@@ -1,10 +1,11 @@
-import { animate, createScope, type Scope, spring, stagger } from 'animejs';
+import { animate, createScope, cubicBezier, type Scope, spring, stagger } from 'animejs';
 import { type RefObject, useLayoutEffect, useRef } from 'react';
 
 const REDUCE_QUERY = '(prefers-reduced-motion: reduce)';
 
 export const glassSpring = spring({ stiffness: 220, damping: 26 });
-export const glassEase = 'cubicBezier(0.16, 1, 0.3, 1)';
+// anime.js v4 dropped string easings like 'cubicBezier(...)'; it needs the function.
+export const glassEase = cubicBezier(0.16, 1, 0.3, 1);
 
 /**
  * Fades + lifts every `[data-reveal]` descendant of `root` whenever `replayKey` changes.

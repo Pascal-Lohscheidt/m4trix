@@ -1,6 +1,8 @@
+import { LANGGRAPH_PLUMBING_PATTERN } from '../../shared/langgraph-plumbing';
 import type { RunNode } from '../types';
 
 export const FILTER_GROUPS_STORAGE_KEY = 'm4trix.traceViewer.filterGroups.v1';
+export const LANGGRAPH_PLUMBING_GROUP_ID = 'builtin:langgraph-plumbing';
 
 export type DepthOperator = 'eq' | 'lt' | 'lte' | 'gt' | 'gte';
 
@@ -21,6 +23,7 @@ export type RunMatchContext = {
   runId: string;
   name: string;
   type: string;
+  status: string;
   depth: number;
 };
 
@@ -73,7 +76,9 @@ export function groupMatches(group: FilterGroup, ctx: RunMatchContext): boolean 
   return group.conditions.every((c) => conditionMatches(c, ctx));
 }
 
+/** Error runs are never hidden, so a hide group cannot mask a failure (same rule as the MCP). */
 export function nodeMatchesHide(groups: FilterGroup[], ctx: RunMatchContext): boolean {
+  if (ctx.status === 'error') return false;
   return groups.some((g) => g.hideEnabled && groupMatches(g, ctx));
 }
 
@@ -91,11 +96,23 @@ export function nodeDisplayEffect(
   return { hidden: false, forceCollapse: false };
 }
 
+/** Hides LangGraph wiring spans (`ChannelWrite<…>`, `Branch<…>`, `__start__`, `__end__`). */
+export function createLangGraphPlumbingGroup(): FilterGroup {
+  return {
+    id: LANGGRAPH_PLUMBING_GROUP_ID,
+    name: 'LangGraph plumbing',
+    conditions: [{ kind: 'regex', pattern: LANGGRAPH_PLUMBING_PATTERN }],
+    hideEnabled: true,
+    collapseEnabled: false,
+  };
+}
+
+/** First visit (nothing stored yet) starts with plumbing hidden; saved groups are kept as-is. */
 export function loadFilterGroups(): FilterGroup[] {
   if (typeof window === 'undefined') return [];
   try {
     const raw = window.localStorage.getItem(FILTER_GROUPS_STORAGE_KEY);
-    if (!raw) return [];
+    if (raw == null) return [createLangGraphPlumbingGroup()];
     const parsed = JSON.parse(raw) as unknown;
     if (!Array.isArray(parsed)) return [];
     return parsed.filter(isValidFilterGroup);
@@ -161,6 +178,7 @@ export function buildMatchContext(node: RunNode, depth: number): RunMatchContext
     runId: node.runId,
     name: node.name,
     type: node.type,
+    status: node.status,
     depth,
   };
 }

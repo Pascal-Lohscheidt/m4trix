@@ -16,7 +16,8 @@ import {
   type RunSubtreeRollup,
 } from '../lib/trace-profiles/langgraph/aggregates';
 import { useReveal } from '../lib/motion';
-import { cx, statusDotClass, statusTextClass } from '../lib/viewer';
+import { cx, formatLatency, statusDotClass, statusTextClass } from '../lib/viewer';
+import { type RunKind, runBar, runKind, type TraceTimeline } from '../lib/waterfall';
 import { useFilterGroups } from '../state/filter-groups-context';
 import type { RunNode } from '../types';
 
@@ -32,8 +33,81 @@ type RunTreeProps = {
   subtreeRollupsByRunId?: ReadonlyMap<string, RunSubtreeRollup>;
   /** When false, rollups may be incomplete (not all payloads loaded). */
   subtreeRollupsComplete?: boolean;
+  /** Waterfall mode: draws each run's time bar in a right-hand column aligned across rows. */
+  timeline?: TraceTimeline | null;
   depth?: number;
 };
+
+/**
+ * Width of the waterfall column. Container query units keep it identical at every nesting level;
+ * the `@container` element is set up by the run tree card.
+ */
+export const WATERFALL_COLUMN_CLASS = 'w-[clamp(10rem,46cqw,40rem)]';
+/** Bar track; vertical grid lines follow the axis tick step set on the card. */
+export const WATERFALL_TRACK_CLASS =
+  'relative h-5 min-w-0 flex-1 bg-[linear-gradient(to_right,rgb(255_255_255_/_0.06)_1px,transparent_1px)] bg-[size:var(--waterfall-grid-step,25%)_100%]';
+/** Fixed duration slot to the right of the track, so numbers line up down the column. */
+export const WATERFALL_LABEL_CLASS = 'w-14 shrink-0 text-right whitespace-nowrap';
+
+const waterfallBarClass: Record<RunKind, string> = {
+  llm: 'bg-amber-300/85',
+  tool: 'bg-sky-400/85',
+  chain: 'bg-violet-400/55',
+  other: 'bg-zinc-400/55',
+};
+
+function WaterfallCell({
+  run,
+  timeline,
+  selected,
+}: {
+  run: RunNode;
+  timeline: TraceTimeline;
+  selected: boolean;
+}): ReactNode {
+  const bar = runBar(run, timeline);
+  const durationMs = run.latencyMs ?? bar?.durationMs ?? 0;
+  const durationLabel = !bar
+    ? ''
+    : bar.open
+      ? 'running'
+      : durationMs < 1
+        ? '<1 ms'
+        : formatLatency(durationMs);
+
+  return (
+    <span
+      title={
+        bar ? `${run.name} · ${durationLabel} · starts +${formatLatency(bar.offsetMs)}` : undefined
+      }
+      className={cx('ml-3 flex shrink-0 items-center gap-2', WATERFALL_COLUMN_CLASS)}
+    >
+      <span className={WATERFALL_TRACK_CLASS}>
+        {bar && (
+          <span
+            aria-hidden="true"
+            className={cx(
+              'absolute top-1/2 h-2.5 -translate-y-1/2 rounded-full transition-[filter,box-shadow] duration-200',
+              run.status === 'error' ? 'bg-rose-400' : waterfallBarClass[runKind(run.type)],
+              bar.open && 'animate-pulse',
+              selected && 'shadow-[0_0_0_1.5px_rgb(255_255_255_/_0.7)] brightness-125',
+            )}
+            style={{ left: `${bar.leftPct}%`, width: `max(3px, ${bar.widthPct}%)` }}
+          />
+        )}
+      </span>
+      <span
+        className={cx(
+          WATERFALL_LABEL_CLASS,
+          'font-mono text-[11px] tabular-nums',
+          selected ? 'text-zinc-100' : 'text-zinc-500',
+        )}
+      >
+        {durationLabel}
+      </span>
+    </span>
+  );
+}
 
 function SubtreeRollupBadge({
   rollup,
@@ -79,41 +153,37 @@ function SubtreeRollupBadge({
 }
 
 function runTypeBadge(type: string): ReactNode {
-  const normalizedType = type.toLowerCase().replaceAll(/[\s_-]/g, '');
+  const kind = runKind(type);
   const iconClassName = 'h-3.5 w-3.5';
 
-  if (normalizedType.includes('tool')) {
+  if (kind === 'tool') {
     return (
-      <span className="mr-2 inline-flex items-center gap-1 rounded-full bg-sky-400/10 px-2 py-0.5 text-[11px] font-medium text-sky-200 ring-1 ring-sky-300/20 ring-inset">
+      <span className="mr-2 inline-flex shrink-0 items-center gap-1 rounded-full bg-sky-400/10 px-2 py-0.5 text-[11px] font-medium text-sky-200 ring-1 ring-sky-300/20 ring-inset">
         <WrenchIcon aria-hidden="true" weight="bold" className={iconClassName} />
         {type}
       </span>
     );
   }
 
-  if (normalizedType.includes('chain')) {
+  if (kind === 'chain') {
     return (
-      <span className="mr-2 inline-flex items-center gap-1 rounded-full bg-violet-400/10 px-2 py-0.5 text-[11px] font-medium text-violet-200 ring-1 ring-violet-300/20 ring-inset">
+      <span className="mr-2 inline-flex shrink-0 items-center gap-1 rounded-full bg-violet-400/10 px-2 py-0.5 text-[11px] font-medium text-violet-200 ring-1 ring-violet-300/20 ring-inset">
         <LinkSimpleIcon aria-hidden="true" weight="bold" className={iconClassName} />
         {type}
       </span>
     );
   }
 
-  if (
-    normalizedType.includes('llm') ||
-    normalizedType.includes('ai') ||
-    normalizedType.includes('model')
-  ) {
+  if (kind === 'llm') {
     return (
-      <span className="mr-2 inline-flex items-center gap-1 rounded-full bg-amber-400/10 px-2 py-0.5 text-[11px] font-medium text-amber-200 ring-1 ring-amber-300/20 ring-inset">
+      <span className="mr-2 inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-400/10 px-2 py-0.5 text-[11px] font-medium text-amber-200 ring-1 ring-amber-300/20 ring-inset">
         <BrainIcon aria-hidden="true" weight="bold" className={iconClassName} />
         {type}
       </span>
     );
   }
 
-  return <span className="mr-2 text-[11px] text-zinc-500">{type}</span>;
+  return <span className="mr-2 shrink-0 text-[11px] text-zinc-500">{type}</span>;
 }
 
 export function RunTree(props: RunTreeProps): ReactNode {
@@ -125,6 +195,7 @@ export function RunTree(props: RunTreeProps): ReactNode {
     hideBypassRunIds,
     subtreeRollupsByRunId,
     subtreeRollupsComplete = true,
+    timeline,
     depth = 0,
   } = props;
   const { filterGroups } = useFilterGroups();
@@ -152,7 +223,7 @@ export function RunTree(props: RunTreeProps): ReactNode {
   if (hidden && !bypassHide) return null;
 
   return (
-    <div key={node.runId} className="w-max min-w-full">
+    <div key={node.runId} className={timeline ? 'w-full' : 'w-max min-w-full'}>
       <div
         className={cx(
           'mb-0.5 flex w-full items-center rounded-xl text-[13px] whitespace-nowrap transition-[background-color,box-shadow] duration-200',
@@ -193,30 +264,38 @@ export function RunTree(props: RunTreeProps): ReactNode {
         <button
           type="button"
           onClick={() => onSelect(node.runId)}
-          className="flex flex-1 items-center px-2.5 py-1.5 text-left"
+          className="flex min-w-0 flex-1 items-center px-2.5 py-1.5 text-left"
         >
-          {runTypeBadge(node.type)}
-          <span>{node.name}</span>
-          <span
-            title={node.status}
-            className={cx('ml-2 h-1.5 w-1.5 shrink-0 rounded-full', statusDotClass(node.status))}
-          />
-          <span className="sr-only">{node.status}</span>
-          {node.status !== 'success' && (
-            <span className={cx('ml-1.5 text-xs', statusTextClass(node.status))}>
-              {node.status}
+          <span className="flex min-w-0 flex-1 items-center">
+            {runTypeBadge(node.type)}
+            <span
+              className={timeline ? 'min-w-0 truncate' : undefined}
+              title={timeline ? node.name : undefined}
+            >
+              {node.name}
             </span>
-          )}
-          {subtreeRollup?.hasUsage ? (
-            <SubtreeRollupBadge rollup={subtreeRollup} complete={subtreeRollupsComplete} />
-          ) : null}
-          {hasChildren && (!expanded || forceCollapse) ? (
-            <span className="ml-2 text-xs text-zinc-500">
-              {forceCollapse
-                ? `${node.children.length} hidden by filter`
-                : `${node.children.length} ${node.children.length === 1 ? 'child' : 'children'}`}
-            </span>
-          ) : null}
+            <span
+              title={node.status}
+              className={cx('ml-2 h-1.5 w-1.5 shrink-0 rounded-full', statusDotClass(node.status))}
+            />
+            <span className="sr-only">{node.status}</span>
+            {node.status !== 'success' && (
+              <span className={cx('ml-1.5 shrink-0 text-xs', statusTextClass(node.status))}>
+                {node.status}
+              </span>
+            )}
+            {subtreeRollup?.hasUsage ? (
+              <SubtreeRollupBadge rollup={subtreeRollup} complete={subtreeRollupsComplete} />
+            ) : null}
+            {hasChildren && (!expanded || forceCollapse) ? (
+              <span className="ml-2 shrink-0 text-xs text-zinc-500">
+                {forceCollapse
+                  ? `${node.children.length} hidden by filter`
+                  : `${node.children.length} ${node.children.length === 1 ? 'child' : 'children'}`}
+              </span>
+            ) : null}
+          </span>
+          {timeline ? <WaterfallCell run={node} timeline={timeline} selected={selected} /> : null}
         </button>
       </div>
       {showChildren && (
@@ -231,6 +310,7 @@ export function RunTree(props: RunTreeProps): ReactNode {
               hideBypassRunIds={hideBypassRunIds}
               subtreeRollupsByRunId={subtreeRollupsByRunId}
               subtreeRollupsComplete={subtreeRollupsComplete}
+              timeline={timeline}
               depth={depth + 1}
             />
           ))}

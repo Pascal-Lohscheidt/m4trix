@@ -5,27 +5,22 @@ import type { RunNode, TraceRow, TraceTree } from '../types';
 export function useSelectedTraceTree(traceId: string | null) {
   const [tree, setTree] = useState<TraceTree | null>(null);
   const [treeErr, setTreeErr] = useState<string | null>(null);
-  const [runId, setRunId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!traceId) {
-      setTree(null);
-      setRunId(null);
-      return;
-    }
+    // Drop the previous trace right away so its runs never pair with the new selection.
+    setTree(null);
+    setTreeErr(null);
+    if (!traceId) return;
     let cancelled = false;
     void (async () => {
       try {
         const r = await client.traces.getTree.query({ traceId });
         if (cancelled) return;
         if (!r) {
-          setTree(null);
           setTreeErr('Trace not found');
           return;
         }
         setTree({ trace: r.trace as TraceRow, root: r.root as RunNode });
-        setTreeErr(null);
-        setRunId(r.root.runId);
       } catch (e) {
         if (cancelled) return;
         setTreeErr(e instanceof Error ? e.message : String(e));
@@ -36,5 +31,5 @@ export function useSelectedTraceTree(traceId: string | null) {
     };
   }, [traceId]);
 
-  return { tree, treeErr, runId, setRunId };
+  return { tree, treeErr };
 }

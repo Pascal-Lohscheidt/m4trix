@@ -8,7 +8,8 @@ import { TraceSidebar } from './components/TraceSidebar';
 import { usePayloadCache } from './hooks/usePayloadCache';
 import { useSelectedTraceTree } from './hooks/useSelectedTraceTree';
 import { useTraceList } from './hooks/useTraceList';
-import { cx } from './lib/viewer';
+import { useViewerUrlState } from './hooks/useViewerUrlState';
+import { cx, findRun } from './lib/viewer';
 import {
   MapperDialogContextProvider,
   type MapperDialogRequest,
@@ -28,8 +29,10 @@ export function TraceViewerPage(): ReactNode {
     projectOptions,
   } = useTraceList(settings.autoUpdatePreset);
 
-  const [traceId, setTraceId] = useState<string | null>(null);
-  const { tree, treeErr, runId, setRunId } = useSelectedTraceTree(traceId);
+  const { traceId, runId, view, selectTrace, selectRun, setView } = useViewerUrlState();
+  const { tree, treeErr } = useSelectedTraceTree(traceId);
+  // The tree hook clears synchronously in an effect, so guard against one stale render.
+  const currentTree = tree && tree.trace.traceId === traceId ? tree : null;
   const payload = usePayloadCache(traceId);
 
   const [layoutFocus, setLayoutFocus] = useState<LayoutFocus>('run-tree');
@@ -40,11 +43,21 @@ export function TraceViewerPage(): ReactNode {
     setMapper((prev) => ({ key: (prev?.key ?? 0) + 1, request }));
   }, []);
 
+  // Deselect only when the list filters exclude the trace. A linked trace that is not in the
+  // list at all (older than the list window, or the list is still loading) stays selected.
   useEffect(() => {
     if (!traceId) return;
+    if (!traces.some((trace) => trace.traceId === traceId)) return;
     if (filteredTraces.some((trace) => trace.traceId === traceId)) return;
-    setTraceId(null);
-  }, [filteredTraces, traceId]);
+    selectTrace(null);
+  }, [traces, filteredTraces, traceId, selectTrace]);
+
+  // Land on the root run when nothing (or a run from elsewhere) is selected.
+  useEffect(() => {
+    if (!currentTree) return;
+    if (runId && findRun(currentTree.root, runId)) return;
+    selectRun(currentTree.root.runId);
+  }, [currentTree, runId, selectRun]);
 
   return (
     <MapperDialogContextProvider openMapper={openMapper}>
@@ -59,7 +72,7 @@ export function TraceViewerPage(): ReactNode {
           projectOptions={projectOptions}
           listErr={listErr}
           onFiltersChange={setFilters}
-          onSelectTrace={setTraceId}
+          onSelectTrace={selectTrace}
         />
         <main className="flex min-w-0 flex-1 flex-col gap-3 pr-1">
           <Toolbar
@@ -69,12 +82,14 @@ export function TraceViewerPage(): ReactNode {
             onLayoutFocusChange={setLayoutFocus}
             onOpenSettings={() => setSettingsOpen(true)}
           />
-          {traceId && tree ? (
+          {traceId && currentTree ? (
             <TraceMainPanel
-              tree={tree}
+              tree={currentTree}
               treeErr={treeErr}
               runId={runId}
-              setRunId={setRunId}
+              setRunId={selectRun}
+              view={view}
+              onViewChange={setView}
               layoutFocus={layoutFocus}
               payloadCache={payload.payloadCache}
               payloadLoading={payload.payloadLoading}
@@ -94,7 +109,7 @@ export function TraceViewerPage(): ReactNode {
             onClose={() => setMapper(null)}
             traces={filteredTraces}
             currentTraceId={traceId}
-            currentTree={tree}
+            currentTree={currentTree}
             payloadCache={payload.payloadCache}
           />
         )}

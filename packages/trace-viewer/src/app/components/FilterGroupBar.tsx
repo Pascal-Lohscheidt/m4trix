@@ -9,7 +9,12 @@ import {
 } from '@phosphor-icons/react';
 import { type ReactNode, useCallback, useId, useMemo, useState } from 'react';
 import type { DepthOperator, FilterCondition, FilterGroup } from '../lib/filter-groups';
-import { createFilterGroupId, validateConditionsForSave } from '../lib/filter-groups';
+import {
+  createFilterGroupId,
+  createLangGraphPlumbingGroup,
+  LANGGRAPH_PLUMBING_GROUP_ID,
+  validateConditionsForSave,
+} from '../lib/filter-groups';
 import { cx } from '../lib/viewer';
 import { useFilterGroups } from '../state/filter-groups-context';
 
@@ -309,6 +314,18 @@ export function FilterGroupBar(): ReactNode {
           )}
         </PopoverPanel>
       </Popover>
+
+      {!groups.some((group) => group.id === LANGGRAPH_PLUMBING_GROUP_ID) && (
+        <button
+          type="button"
+          onClick={() => persist([createLangGraphPlumbingGroup(), ...groups])}
+          title="Hide ChannelWrite<…>, Branch<…>, __start__ and __end__ spans (errors stay visible)"
+          className="inline-flex h-8 items-center gap-1.5 rounded-full border border-dashed border-white/15 px-3 text-xs text-zinc-400 transition-colors hover:border-violet-300/40 hover:text-violet-100"
+        >
+          <EyeSlashIcon aria-hidden="true" className="h-3.5 w-3.5" weight="bold" />
+          Hide LangGraph plumbing
+        </button>
+      )}
 
       {groups.map((group) => (
         <div

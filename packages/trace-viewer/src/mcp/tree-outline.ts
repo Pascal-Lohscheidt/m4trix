@@ -1,7 +1,8 @@
+import { LANGGRAPH_PLUMBING_PATTERN } from '../shared/langgraph-plumbing';
 import { formatRunLabel, type RunTreeNode } from './trace-access';
 
 /** LangGraph plumbing spans that rarely matter when debugging. */
-export const DEFAULT_HIDE_PATTERN = '^(ChannelWrite<.*>|Branch<.*>|__start__|__end__)$';
+export const DEFAULT_HIDE_PATTERN = LANGGRAPH_PLUMBING_PATTERN;
 
 export type TreeOutlineOptions = {
   /** Regex against run names; matching runs are skipped and their children promoted. */
