@@ -1121,3 +1121,24 @@
     backdrop-filter: none;
   }
 }
+
+@layer components {
+  /* Floats over the page, so it shares the nav's glass. z-50 is the overlay layer, like the nav. */
+  .cookie-notice {
+    @apply fixed right-4 bottom-4 left-4 z-50 flex items-start gap-3 rounded-xl border p-4 sm:left-auto sm:max-w-[25rem] sm:items-center;
+    --glass-fill: color-mix(in srgb, var(--bg-raised) 78%, transparent);
+    --glass-shadow: 0 24px 60px -24px rgb(0 0 0 / 0.55);
+    border-color: var(--glass-edge);
+  }
+
+  [data-mode="light"] .cookie-notice {
+    --glass-fill: rgb(255 255 255 / 0.82);
+    --glass-shadow: 0 24px 60px -28px rgb(15 15 19 / 0.3);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .cookie-notice {
+    animation: rise-in 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.8s both;
+  }
+}

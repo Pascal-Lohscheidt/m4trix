@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import { Inter, JetBrains_Mono } from 'next/font/google';
 import localFont from 'next/font/local';
 
+import CookieNotice from '@/components/CookieNotice';
 import '@/styles/tailwind.css';
 
 const inter = Inter({
@@ -45,7 +46,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       className={clsx('h-full', inter.variable, lexend.variable, jetbrainsMono.variable)}
       suppressHydrationWarning
     >
-      <body className="flex min-h-full antialiased">{children}</body>
+      <body className="flex min-h-full antialiased">
+        {children}
+        <CookieNotice />
+      </body>
     </html>
   );
 }
