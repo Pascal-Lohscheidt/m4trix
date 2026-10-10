@@ -1,0 +1,47 @@
+/* ── Neumorphic: client / browser card ─────────────────────────────────── */
+
+.client {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px;
+  border-radius: 26px;
+  background: var(--neu-surface);
+  box-shadow: var(--neu-raised);
+}
+.client-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  font-weight: 620;
+}
+.client-screen {
+  position: relative;
+  flex: 1;
+  padding: 14px;
+  border-radius: 16px;
+  box-shadow: var(--neu-inset);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.client-line {
+  opacity: 0;
+}
+.client-user {
+  margin-bottom: 10px;
+  color: var(--ink-3);
+}
+.client-answer {
+  font-weight: 560;
+}
+.client-done {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 12px;
+  font-size: 12px;
+  color: var(--ink-3);
+}

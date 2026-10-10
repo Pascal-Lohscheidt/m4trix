@@ -1,0 +1,55 @@
+@import "@fontsource-variable/jetbrains-mono";
+
+/*
+ * Visual language for docs diagrams.
+ *
+ * Frame:   cool gray canvas with a gray dot grid.
+ * Neumorphic (soft extruded) surfaces for things that *do* work: agents, proxies, clients.
+ * Glass (frosted, backdrop-filter) for things that *contain*: the network, channels, events.
+ * Accent:  brand violet for events, blue for agents. Channels stay low-saturation tints.
+ *
+ * Glass here is a web approximation (backdrop-filter + layered borders + highlights),
+ * not Apple Liquid Glass.
+ */
+
+:root {
+  --canvas: #e8eaef;
+  --dot: #bcc2cc;
+  --ink: #1d2230;
+  --ink-2: #4a5265;
+  --ink-3: #7b8396;
+
+  --neu-light: rgba(255, 255, 255, 0.95);
+  --neu-dark: rgba(140, 149, 170, 0.5);
+  --neu-surface: linear-gradient(145deg, #f4f5f8 0%, #e2e5eb 100%);
+  --neu-raised:
+    -7px -7px 16px var(--neu-light), 8px 9px 20px var(--neu-dark),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  --neu-raised-sm:
+    -4px -4px 10px var(--neu-light), 5px 5px 12px var(--neu-dark),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  --neu-inset:
+    inset 3px 3px 7px rgba(140, 149, 170, 0.5), inset -3px -3px 7px rgba(255, 255, 255, 0.95);
+
+  --agent: #2f6bea;
+  --agent-soft: rgba(47, 107, 234, 0.16);
+  --event-a: #8b5cf6;
+  --event-b: #6d28d9;
+  --network-ink: #6d28d9;
+  --done: #2f8a66;
+
+  --font-mono: "JetBrains Mono Variable", ui-monospace, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--canvas);
+  color: var(--ink);
+  font-family: var(--font-mono);
+  -webkit-font-smoothing: antialiased;
+}

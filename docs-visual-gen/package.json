@@ -1,0 +1,32 @@
+{
+  "name": "docs-visual-gen",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "React + anime.js scenes rendered to PNG / GIF for the m4trix docs.",
+  "scripts": {
+    "dev": "vite",
+    "render": "tsx scripts/render.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@fontsource-variable/jetbrains-mono": "^5.2.5",
+    "@phosphor-icons/react": "^2.1.10",
+    "animejs": "^4.5.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/pngjs": "^6.0.5",
+    "@types/react": "^19.1.2",
+    "@types/react-dom": "^19.1.2",
+    "@vitejs/plugin-react": "^4.7.0",
+    "gifenc": "^1.0.3",
+    "playwright-core": "^1.63.0",
+    "pngjs": "^7.0.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5.8.3",
+    "vite": "^6.4.3"
+  }
+}

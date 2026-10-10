@@ -1,0 +1,34 @@
+/* ── Glass: label tags that sit on a container border ──────────────────── */
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 30px;
+  padding: 0 13px 0 10px;
+  border-radius: 999px;
+  white-space: nowrap;
+  font-size: 13px;
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.95);
+  box-shadow:
+    0 0 0 1px rgba(120, 128, 150, 0.12),
+    0 4px 10px -4px rgba(110, 118, 140, 0.35);
+}
+.tag-kind {
+  color: var(--ink-3);
+}
+.tag-name {
+  font-weight: 650;
+  color: var(--tag-ink, var(--ink));
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .tag {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: #f7f7fa;
+  }
+}

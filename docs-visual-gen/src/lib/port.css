@@ -1,0 +1,32 @@
+/* ── Neumorphic: boundary adapters (expose(), proxies) ─────────────────── */
+
+.port {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  height: 42px;
+  padding: 0 16px 0 6px;
+  border-radius: 999px;
+  background: var(--neu-surface);
+  box-shadow: var(--neu-raised-sm);
+  font-size: 13.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.port-well {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  box-shadow: var(--neu-inset);
+  color: var(--ink-2);
+}
+.port-flash {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.55);
+  opacity: 0;
+}
