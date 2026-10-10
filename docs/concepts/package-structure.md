@@ -34,7 +34,7 @@ The **Matrix** entry point is the core. It provides:
 - **AgentFactory** — Fluent builder for type-safe agents
 - **AgentNetwork** — Orchestrator for wiring agents to channels
 - **AgentNetworkEvent** — Schema-validated event definitions
-- **Channels & Proxies** — Event routing with HTTP stream and Kafka proxies
+- **Channels & Proxies** — Event routing, SSE and custom proxies
 - **NextEndpoint / ExpressEndpoint** — Framework adapters for exposing networks as APIs
 
 ## Stream Utilities

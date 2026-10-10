@@ -22,12 +22,15 @@ const agent = AgentFactory.run()
 ## Streaming LLM Agent
 
 ```ts
-.logic(async ({ triggerEvent, emit }) => {
-  const stream = await openai.chat.completions.create({
-    model: 'gpt-4o',
-    stream: true,
-    messages: [{ role: 'user', content: triggerEvent.payload.query }],
-  });
+.logic(async ({ triggerEvent, emit, signal }) => {
+  const stream = await openai.chat.completions.create(
+    {
+      model: 'gpt-4o',
+      stream: true,
+      messages: [{ role: 'user', content: triggerEvent.payload.query }],
+    },
+    { signal }, // stops the call when the run ends or the client disconnects
+  );
   for await (const chunk of stream) {
     const content = chunk.choices[0]?.delta?.content;
     if (content) {
@@ -38,6 +41,29 @@ const agent = AgentFactory.run()
 })
 ```
 
+## End the Run
+
+Declare the terminal event in setup, or end the run from logic:
+
+```ts
+AgentNetwork.setup(({ mainChannel, createChannel, proxy, registerAgent, endsOn }) => {
+  // ...
+  endsOn(responseEvent, (event) => event.payload.isFinal);
+});
+
+// or, in agent logic:
+.logic(async ({ emit, complete }) => {
+  emit({ name: 'agent-response', payload: { answer: '42', done: true } });
+  complete();
+})
+```
+
+Without either, the run ends on the `idleTimeout` safety net (default 60 seconds after its agents went quiet) as `m4trix:run.failed`. Time spent inside an agent invocation never counts as idle; `maxDuration` catches stuck agents. Tune both per expose:
+
+```ts
+registerSSEStream({ channel: 'client', idleTimeout: '5 minutes', maxDuration: Infinity });
+```
+
 ## Auth in expose()
 
 ```ts
@@ -45,11 +71,12 @@ const api = network.expose(
   registerSSEStream({
     channel: 'client',
     auth: async (req) => {
-      const token = req.request?.headers?.get?.('authorization');
-      if (!token || !isValid(token)) {
+      const user = await verifyToken(req.request?.headers?.get?.('authorization'));
+      if (!user) {
         return { allowed: false, message: 'Invalid token', status: 401 };
       }
-      return { allowed: true };
+      // The principal namespaces history and reaches agents as `ctx.principal`.
+      return { allowed: true, principal: { id: user.id } };
     },
   }),
 );
@@ -67,6 +94,8 @@ registerAgent(loggerAgent).subscribe(main).subscribe(processing);
 ```
 
 ## Error Event
+
+Unhandled errors fail the run with `m4trix:run.failed` by default (see `onAgentError`). Emit your own event when the client should get a domain-specific error instead:
 
 ```ts
 const errorEvent = AgentNetworkEvent.of('agent-error', S.Struct({ message: S.String }));

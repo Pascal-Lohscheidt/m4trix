@@ -11,6 +11,7 @@ import {
   AgentNetwork,
   AgentNetworkEvent,
   NextEndpoint,
+  registerSSEStream,
   S,
 } from '@m4trix/core/matrix';
 
@@ -42,10 +43,10 @@ const myAgent = AgentFactory.run()
 
 // 3. Wire the network
 const network = AgentNetwork.setup(
-  ({ mainChannel, createChannel, proxy, registerAgent }) => {
-    const main = mainChannel('main');
+  ({ mainChannel, createChannel, proxy, registerAgent, endsOn }) => {
     const client = createChannel('client').proxy(proxy.sse());
-    registerAgent(myAgent).subscribe(main).publishTo(client);
+    registerAgent(myAgent).subscribe(mainChannel).publishTo(client);
+    endsOn(responseEvent); // the run, and the response, end with the answer
   },
 );
 
@@ -65,7 +66,7 @@ export const POST = NextEndpoint.from(api).handler();
 
 1. **Events** — `requestEvent` and `responseEvent` define typed messages with schema validation.
 2. **Agent** — `myAgent` listens for `user-request`, runs logic, and emits `agent-response`.
-3. **Network** — The main channel receives requests; the client channel streams responses via HTTP.
+3. **Network** — The main channel receives requests; the client channel streams responses via HTTP. `endsOn(responseEvent)` ends the run once the answer is published, so the response closes after `m4trix:run.completed`.
 4. **API** — `expose()` turns the network into an SSE endpoint; `NextEndpoint` adapts it for Next.js.
 
 ## Next

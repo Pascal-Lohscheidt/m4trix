@@ -32,9 +32,11 @@ Every event flowing through the system is wrapped in an envelope:
   meta: {
     runId: 'uuid-...',         // Unique run identifier
     contextId: '...',          // Optional context grouping
-    correlationId: '...',      // Optional correlation chain
-    causationId: '...',        // Optional cause tracking
-    ts: 1700000000,            // Optional timestamp
+    eventId: '...',            // Unique event id (set on publish)
+    correlationId: '...',      // Shared by an emitAndAwait request and its replies
+    causationId: '...',        // eventId of the event whose handling emitted this one
+    ts: 1700000000000,         // Publish time, epoch ms (set on publish)
+    depth: 1,                  // Hops from the run's start event (start event: 0)
   },
   payload: {
     text: 'Hello!',            // Validated against the schema

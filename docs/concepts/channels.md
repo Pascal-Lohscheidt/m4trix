@@ -28,6 +28,8 @@ const client = createChannel('client')
   .events([responseEvent, errorEvent]);
 ```
 
+The list is enforced: other events are refused on that channel (an agent's emit throws `EmitValidationError`, an external publish resolves `false`), and `AgentNetwork.setup()` rejects wiring that contradicts it. Runtime `m4trix:*` events always pass, and a channel without `.events()` carries everything. See [Channel API](../api-reference/channel-api.md#events).
+
 ## Proxies
 
 Proxies declare how events can cross the boundary between the internal event plane and external systems.
@@ -40,12 +42,12 @@ Routes events to HTTP SSE streams. Required for `expose()` to work.
 const client = createChannel('client').proxy(proxy.sse());
 ```
 
-### Kafka Proxy
+### Custom Proxies
 
-Declares that events can be routed to a Kafka topic. Runtime Kafka activation is implemented separately.
+Any other destination is a custom proxy kind, exposed with `registerCustomProxy` / `defineProxyKind` (see [Custom Proxies](../api-reference/io-adapters.md#custom-proxies)). Kafka and Socket.IO bridges are not built in; they are planned on top of [`EventTransport`](../api-reference/agent-network.md#event-transport).
 
 ```ts
-const events = createChannel('events').proxy(proxy.kafka({ topic: 'agent-events' }));
+const events = createChannel('events').proxy(proxy.custom('queue', { topic: 'agent-events' }));
 ```
 
 ### Multiple Proxies
@@ -55,7 +57,7 @@ A single channel can have multiple proxies:
 ```ts
 const output = createChannel('output')
   .proxy(proxy.sse())
-  .proxy(proxy.kafka({ topic: 'output-events' }));
+  .proxy(proxy.custom('queue', { topic: 'output-events' }));
 ```
 
 ## Event Flow

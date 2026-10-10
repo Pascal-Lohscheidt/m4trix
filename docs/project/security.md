@@ -11,6 +11,7 @@ title: "Security Considerations"
 ## Authentication
 
 - Use the `auth` callback in `expose()` to validate tokens or sessions before processing requests
+- Return the request's **principal** (`{ allowed: true, principal: { id } }`) so its history is namespaced: the `contextId` comes from the client and is not a secret
 - Return appropriate HTTP status codes (401, 403) when auth fails
 - Do not log sensitive tokens or credentials
 
@@ -22,8 +23,11 @@ title: "Security Considerations"
 
 ## Multi-Tenant Isolation
 
-- When building multi-tenant apps, ensure tenant context is passed correctly (e.g. via `onRequest` enriching the payload)
-- Use the spawner pattern for per-tenant agent instances when isolation is critical
+- History is stored and read per `(principal, contextId)`. Requests without a principal share one anonymous namespace where anyone who knows a `contextId` reads that conversation; do not rely on it for multi-user apps
+- Runs belong to their principal: events for another principal's run are refused, and streams only yield their own principal's events
+- Proxy publishes never trust `meta.principalId`; pass `principal` explicitly from your server-side auth (see [Auth + Multi-Tenant](../guides/auth-multitenant.md))
+- Store adapters must scope every read and write by both `namespace` and `contextId` (check yours with `runStoreContract` from `@m4trix/core/testing`)
+- Keep per-tenant resources (credentials, indexes) behind dependency layers selected by the run's `principal`
 - Avoid sharing mutable state between tenants
 
 ## Dependencies

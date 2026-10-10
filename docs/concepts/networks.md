@@ -25,9 +25,10 @@ const network = AgentNetwork.setup(
 |------|-------------|
 | `mainChannel(name)` | Designates the main channel where start events are published |
 | `createChannel(name)` | Creates additional named channels |
-| `proxy` | Provides proxy factories (e.g. `sse()`, `kafka()`) |
+| `proxy` | Provides proxy factories (`sse()`, `custom(kind)`) |
 | `registerAgent(agent)` | Registers an agent and returns a binding builder |
-| `spawner` | Creates a spawner for dynamic agent creation (multi-tenant) |
+| `registerAggregator(aggregator)` | Registers an event aggregator and returns a binding builder |
+| `endsOn(event, when?)` | Declares a terminal event that completes the run |
 
 ## Multi-Agent Patterns
 

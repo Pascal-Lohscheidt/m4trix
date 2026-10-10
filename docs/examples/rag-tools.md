@@ -20,6 +20,8 @@ For agents that call tools (e.g. search, calculator):
 
 This can be implemented with multiple agents on different channels, or with a single agent that manages tool state internally.
 
+For a single agent calling an LLM directly, define tools with `Tool.of()` and pass them to the provider with `tools.toOpenAI()`, `tools.toAnthropic()` or `tools.toAiSdk({ jsonSchema })`. Feed the results back with `executeForModel()`. See [How to add tools to an agent](../getting-started/how-to.md#how-to-add-tools-to-an-agent).
+
 ## Example Repos
 
 - **core-example** — Basic streaming agent; extend with RAG by adding retrieval before the LLM call

@@ -10,6 +10,145 @@ Product updates for **@m4trix/core**, generated from [conventional commits](http
 
 _Last regenerated 2026-06-05 (UTC)._
 
+<Update label="October 9, 2026" description="Unreleased · latest core v0.16.2, stream v0.8.3, react v0.8.3, ui v0.8.3" tags={["Features"]} rss={{ title: "October 9, 2026 — @m4trix/core updates", description: "explicit run lifecycle: terminal events, failure policy, cancellation; run limits and usage tracking; pluggable event store and per-principal history; runtime validation of requests, emits, channels and params; resumable, hardened SSE; event transport seam; injectable logger and metrics; explicit public API, Node 20+ and Edge support" }}>
+
+### Breaking changes
+
+- explicit run lifecycle for exposed networks (`matrix`) **BREAKING**
+
+  Runs now end, exactly once, and the stream closes after a run-end event: `m4trix:run.completed`, `m4trix:run.failed` (sanitized `{ name, message, kind }`; timeouts use `kind: 'idle-timeout' | 'max-duration'`) or `m4trix:run.cancelled` (traced and stored only).
+  
+  BREAKING CHANGE: streams no longer stay open until the client aborts. Declare terminal events with `endsOn(event, when?)` in `AgentNetwork.setup()` or call `complete()` from agent logic; otherwise a run fails after `idleTimeout` (default 60 seconds) and at `maxDuration` (default 10 minutes). An agent that throws now fails its run by default (`onAgentError: 'fail'`) instead of only being logged. A stream that owns a run only yields that run's events. Event names starting with `m4trix:` are reserved and rejected by `AgentNetworkEvent.of()`. `EventPlane` gained run lifecycle members.
+
+- tools validate their definition and reject with typed errors (`matrix`) **BREAKING**
+
+  BREAKING CHANGE: `Tool.of()` throws a `ToolDefinitionError` for names that do not match `^[a-zA-Z0-9_-]{1,64}$`, and `define()` throws one when the input schema is not an object schema or cannot be converted to JSON Schema (e.g. `S.DateFromSelf`). A bound tool's `execute` now rejects with `ToolInputError`, `ToolExecutionError`, `ToolOutputError` or `ToolTimeoutError` instead of a raw `ParseError`/`FiberFailure` or the tool's own error (kept as `cause`); a cancelled call rejects with the signal's reason.
+
+- runs have default structural limits (`matrix`) **BREAKING**
+
+  BREAKING CHANGE: a run now fails with `m4trix:run.failed` (`kind: 'limit-exceeded'`) when an event would be more than 25 hops from its start event (`maxDepth`) or when it publishes more than 1000 durable events (`maxEvents`). Raise them or pass `Infinity` in the setup options, `network.run()` or `registerSSEStream()`. Agent emits no longer copy their trigger's `causationId` and `ts`: `causationId` is now the trigger's `eventId` (also for `emitAndAwait` requests, where it used to be the trigger's `correlationId`), and `ts` is the publish time.
+
+- agents read history on demand with `ctx.history` (`matrix`) **BREAKING**
+
+  BREAKING CHANGE: `runEvents` and `contextEvents` are gone from agent logic and from `EventAggregator` `emitWhen` / `mapToEmit`. Use `await history.run()` (the run's durable events) and `await history.context({ limit?, before? })` (a page `{ events, cursor? }` of the conversation, newest `limit`, oldest first; pass `cursor` as `before` for older events). History is scoped to the run's principal and never contains transient events. `RunEvents` / `ContextEvents` types and `EventPlane.getRunEvents` / `getContextEvents` are removed; use `plane.history({ runId, contextId, principalId? })`.
+
+- async, pluggable event store (`matrix`) **BREAKING**
+
+  BREAKING CHANGE: `AgentNetworkStore` is now an async interface for Redis/Postgres-style backends: `append(key, event)`, `readRun(key, runId)`, `readContext(key, { limit?, before? })` and optional `deleteContext(key)`, where `key` is `{ namespace, contextId }`. `storeEvent`, `getEvents`, `getContextEvents`, `getFullStore`, `persist` and `load` are removed. The default in-memory store now drops a conversation 30 minutes after its last event and keeps at most 1000 conversations (`createInMemoryNetworkStore({ ttl, maxContexts })`). Transient events are no longer stored. A store write is retried (3 attempts) before the event is dropped undelivered and the run fails with `kind: 'store-error'`.
+
+- history is namespaced by the principal `auth` returns (`matrix`) **BREAKING**
+
+  BREAKING CHANGE: `AuthResult` is `{ allowed: true; principal?: { id, ...claims } } | { allowed: false; status?; message? }`. History is stored and read per `(principal, contextId)`, so a client-supplied `contextId` no longer reaches another user's conversation; requests without a principal (including every request when no `auth` is set) share an anonymous namespace, as before. Events of a run carry `meta.principalId`; events for another principal's run are refused, a request reusing another principal's `runId` fails with 403, and streams only yield their principal's events, also on a shared plane. Proxy `publish` / `withMeta` / `publishInbound` drop any `meta.principalId` from the event: pass `{ principal }` explicitly (`withMeta(meta, { principal })`); their `meta` type no longer accepts `principalId`.
+
+- runtime validation at the network's boundaries (`matrix`) **BREAKING**
+
+  BREAKING CHANGE: event, params and channel schemas are now enforced at runtime. `expose()` answers malformed JSON (previously treated as `{}`) and payloads that fail the trigger event's schema with a 400 `{ error: 'invalid_request', issues }` before any run starts; with several `triggerEvents` the body must be `{ name, payload }` (previously the first trigger's name was used for every request). An agent's or tool's `emit` throws `EmitValidationError` for events missing from its `.emits()`, payloads that fail the schema, or events none of its publish channels accepts; the event is not published and the invocation fails even when the logic catches the error (run failure `kind: 'invalid-emit'` under `onAgentError: 'fail'`). Agents without `.emits()` may emit nothing. Channels declared with `.events([...])` refuse other events (`publish` resolves `false` for external publishers). `AgentNetwork.setup()` throws `NetworkWiringError` when the wiring contradicts channel declarations. `.produce(params)` throws `AgentParamsError` for params that fail the `.params()` schema. Published payloads and params are the decoded values (transformations applied, unknown properties dropped) unless already exactly of the schema's type.
+
+- public API cleanup before 0.8.0 (`matrix`) **BREAKING**
+
+  BREAKING CHANGE: typos are fixed without aliases: `DepedencyLayer` is `DependencyLayer` (also `DependencyLayerDef`, `DependencyLayerInstance`, `DependencyLayerValue`, `DependencyLayerInstanceTypeId`, `isDependencyLayerInstance`); a layer definition's `_tag` is `'DependencyLayerDef'` (was `'SkillDependencyDef'`), and the brand symbols moved to the `m4trix/` namespace (`Symbol.for('m4trix/DependencyLayerInstance')`, `'m4trix/Done'`). Removed: the spawner (`ctx.spawner`, `SpawnerBuilder`, `SpawnFn`, `SpawnCallbackContext`, `network.getSpawnerRegistrations()`, wiring code `spawner-listen-not-accepted`), `Proxy.kafka` and `Proxy.socketIo` (use `Proxy.custom(kind)` / `defineProxyKind`; Kafka and Socket.IO bridges are planned on top of `EventTransport`), the socket.io helpers (`SocketIoFactory`, `SocketEventName`, `BaseMessage`, `TextMessage`, `VoiceMessage`, `Message`, `Role`), the unused LLM/prompt/message helpers and `Channel.of` / `ChannelDef`. Internal helpers are no longer exported: `assertLayersProvided`, `assertUniqueLayerNames`, `assertDependencyMatch`, `toLayerArray`, `mergeDependencyLayers`, `toToolArray`, `channelAcceptsEvent`, `channelHasProxy`, `createInboundPublisher`, `createProxyExposeContext`, `createInteractiveStream` (custom proxies keep `ctx.createInteractiveStream`), `resolveChannelsForProxyKind`, `guardNetworkTracer`, `tracerFailureLogger`, `traceEndStatus`, `pickRunLimits`, `resolveRunLimits` and the run-outcome helpers (`runEndEnvelope`, `outcomeError`, ...). `effect` is now a peer dependency only (`^3.20.0`): install it next to `@m4trix/core`. Node.js 20+ is required (`engines`). `reconnectWindow` defaults to 30 seconds instead of `0`: a dropped stream's run keeps going that long for a resume before it is cancelled; pass `reconnectWindow: 0` for the old behavior.
+
+- run failure kinds for streams; stores keep channels (`matrix`) **BREAKING**
+
+  BREAKING CHANGE: `RunErrorKind` gains `'run-unavailable'` (a resumed stream's run neither runs on this server nor has a run-end event) and `'stream-error'` (the adapter failed to keep writing a stream); both only reach one stream and are never stored, but exhaustive `switch`es over `error.kind` need the new cases. `StoredEvent` gains `channels` (the channels the event was published to), written by the runtime on every append: store adapters must persist it for resumed streams to replay exactly their channel (`runStoreContract` checks it). SSE responses now start with an `id:` line (no data) and carry `id:` on durable events, which `EventSource` handles natively; hand-written parsers that reject unknown fields need to accept `id:` and `:` comment lines. A subscriber whose `plane.subscribe` filter throws no longer fails the publisher; the failure is logged.
+
+### New features
+
+- resumable SSE streams (`matrix`)
+
+  - every durable event is sent with an SSE `id:` (`<contextId>/<runId>/<eventId>`, `sseEventId(meta)`), a stream that starts a run first sends its start event's position; transient events get no id. `ExposedStream.idOf(envelope)` / `startId`, `formatSSE(envelope, { id })`
+  - a reconnect with `Last-Event-ID` (or `?lastEventId=` for polyfills; `ExposeRequest.lastEventId`) resumes its run: the run's durable events of the stream's channel after that id are replayed from the store, scoped to the request's principal, then the stream continues live while the run goes on, or ends with its run-end event (also stored `m4trix:*` events). A resume never starts a run, calls `onRequest` or publishes anything
+  - `ExposeRunNotFoundError` (404 `{ error: 'run_not_found' }`, which stops `EventSource` reconnecting) for unknown or expired runs, unknown positions and other principals' runs (indistinguishable); `m4trix:run.failed` `kind: 'run-unavailable'` for a stored run this server neither runs nor has ended
+  - `reconnectWindow` on `registerSSEStream()` (default `'30 seconds'`, `DEFAULT_RECONNECT_WINDOW`; `0` cancels at once): a run whose stream dropped keeps going that long for a reconnect, then is cancelled
+
+- explicit exports, Edge runtimes and packaging (`matrix`)
+
+  - every export of `@m4trix/core` and `@m4trix/core/matrix` is listed by name; `Envelope` (with `EventPlane`, `RunMeta`, `RunLimits`) and `DEFAULT_RECONNECT_WINDOW` are exported. An API report (`packages/core/api/*.api.md`, `@microsoft/api-extractor`) is checked in CI (`pnpm --filter @m4trix/core api:check`, `api:update`)
+  - no Node built-ins in the runtime code (`crypto.randomUUID()` instead of `node:crypto`), so the package runs on Edge runtimes (Vercel Edge, Cloudflare Workers, Deno, Bun); CI bundles the build for a neutral platform to keep it that way (`check:runtime`). Build target `node20`
+  - `"sideEffects": false`; the `exports` map gives CommonJS consumers their own `.d.cts` types (they got the ESM ones before) and exposes `./package.json`; `typesVersions` for `moduleResolution: node`. The empty `browser` field and the socket.io dependencies are gone
+  - transient events emitted only through an agent's tools are treated as transient too (not stored, sliding mailboxes); before, only the agent's own `.emits()` and `.listensTo()` counted
+  - `NextEndpoint.from(api)` and `ExpressEndpoint.from(api)` work without options, as the docs showed: `requestToContextId` / `requestToRunId` default to a fresh id per request
+  - `@m4trix/core` README rewritten; `CHANGELOG.md` in the package
+
+- SSE hardening (`matrix`)
+
+  - heartbeat comments (`: ping`) every 15 seconds on `NextEndpoint` and `ExpressEndpoint` (`heartbeat` option, `Infinity` disables) and `X-Accel-Buffering: no`
+  - `ExpressEndpoint` waits for `'drain'` when `res.write()` returns `false`, and never rejects: errors before the stream started go to `next` (500 without it), errors after it end the stream with `m4trix:run.failed` (`kind: 'stream-error'`) and are logged; `NextEndpoint` closes a failing stream the same way. Both answer `ExposeRunNotFoundError` with a 404 and take a `logger` option
+  - `formatSSE` keeps event names and ids on one line (no SSE field injection) and no longer ends a stream on a payload `JSON.stringify` cannot serialize: BigInts are sent as strings, cycles as `"[Circular]"`, else an `{ error: 'unserializable-payload' }` marker, logged
+  - GET requests take the payload as `?payload=<URL-encoded JSON>` (for `EventSource`), validated exactly like a POST body, including the 400 `ExposeValidationError` and the `{ name, payload }` shape; `ExpressRequest` gains optional `method`, `headers`, `query`, `url`, `originalUrl`
+
+- event transport seam (`matrix`)
+
+  - `EventTransport` (`publish(channels, envelope)`, scoped `subscribe(channel, handler)`, scoped `expectReply(request, match)`) carries channel fan-out and `emitAndAwait` replies; mailboxes, ordering, back-pressure, limits, ownership and run ends stay in the plane. `createInMemoryTransport()` is the default (one per plane); the `transport` setup option shares one between the network's planes; `network.getTransport()`
+  - `runTransportContract({ describe, it, expect }, createTransport)` in `@m4trix/core/testing` checks a transport implementation
+  - `PublishAndAwaitTimeoutError` is exported
+  - docs: deploying several instances (shared store, sticky routing until distributed transports, planned after 1.0) and ending a run for long human waits
+
+- injectable logger and metrics (`matrix`)
+
+  - the `logger` setup option is a full `NetworkLogger` (`{ debug?, info?, warn, error? }`; the `{ warn }` shape and `console` still fit, `error` falls back to `warn`, a throwing logger is ignored). Every runtime message goes through it: refused publishes, `endsOn` predicate errors, store failures, invalid usage reports, tracer hook failures, subscriber and outbox failures, SSE stream errors; `consoleNetworkLogger` is the default
+  - `onMetric` setup option receives `NetworkMetric`s (guarded, first failure logged): `m4trix.run.duration_ms`, `m4trix.run.events`, `m4trix.run.tokens`, `m4trix.run.cost_usd`, `m4trix.agent.invocation.duration_ms`, `m4trix.mailbox.depth`, `m4trix.store.append.duration_ms`, `m4trix.store.append.errors`, with `kind`, `unit` and low-cardinality attributes only
+
+- quieter wiring check (`matrix`)
+
+  - `.emits([event], { reply: true })` on `AgentFactory` and `Tool` declares events that only answer an `emitAndAwait`; they are not reported as `unconsumed-event` (`EmitsOptions`, `Agent.getReplyEvents()`, `ToolDefinition.replyEvents`, optional `AnyAgent.getReplyEvents`)
+  - `wiring: { ignore: WiringWarningCode[] }` setup option leaves warning codes out of the check, at setup and in `network.validate()`; `network.getWiringOptions()`
+
+- run lifecycle controls (`matrix`)
+
+  - `endsOn(event, when?)` in the setup context; `onAgentError: 'fail' | 'continue'` setup option (`'continue'` publishes `m4trix:agent.error`)
+  - `signal`, `complete()` and `fail(error)` in agent logic; `signal` and `complete()` in tool `execute`; `signal` in skill `define` and `invoke`/`invokeStream` runtime options; `agent.invoke({ signal })`
+  - `idleTimeout` and `maxDuration` on `registerSSEStream()` (`Infinity` disables)
+  - client disconnect cancels the run and aborts its agents; emits after a run ended are dropped
+  - `RunLifecycleEvent`, `isRunEndEnvelope`, `isRunLifecycleEnvelope` exports
+  - `network.run()` and `expose()` wait for agent subscriptions instead of sleeping, so start events are never lost
+
+- tools for LLM providers (`matrix`)
+
+  - JSON Schema from the Effect input schema: `tool.toJsonSchema()`, `tools.toJsonSchemas()` (`$schema` removed, non-recursive `$ref`s inlined)
+  - provider formatters without SDK dependencies: `tools.toOpenAI()` (Chat Completions function tools), `tools.toAnthropic()` (Messages API tools), `tools.toAiSdk({ jsonSchema })` (AI SDK v5 `ToolSet`), plus `toOpenAITools`, `toAnthropicTools`, `toAiSdkTools` for standalone tools
+  - `executeForModel(input)` resolves with `{ ok: true, output }` or `{ ok: false, error: { kind, message, issues? } }` to send back to the model; cancellation still rejects
+  - opt-in `.timeout(duration)` (aborts the tool's signal) and `.retry({ times, backoff? })` (execution errors only) on the `Tool` builder
+  - per-call `execute(input, { toolCallId, signal })`
+  - every tool call inside an agent opens a `tool` trace span with its input and output or error
+  - `Skill.invokeStream()` yields chunks as they are emitted instead of after `define` resolves; stopping iteration early aborts the skill's signal
+
+- per-run agent concurrency (`matrix`)
+
+  - agents handle a run's events one at a time and in order, across all channels they subscribe to (an event published to several of them arrives once); different runs run in parallel instead of queueing behind each other. Agents that relied on being invoked one at a time across runs can opt back in with `.concurrency(1)`
+  - `AgentFactory.concurrency(n)` caps an agent's concurrent invocations across runs (default unbounded)
+  - one bounded mailbox per (agent, run): back-pressure only slows the run that caused it. `AgentNetworkEvent.of(name, schema, { transient: true })` marks events that replace older buffered ones instead of blocking
+  - an exposed stream only buffers its own run's events, so a slow client no longer stalls other runs on a shared plane; `EventPlane.subscribe(channel, filter?)`
+  - every emit of an invocation, including `emitAndAwait` requests, is published in order inside the network's scope, on `network.run()` and `expose()` alike
+  - `idleTimeout` no longer accrues while an agent invocation of the run is in flight or queued: idle means no agent running and no events. `maxDuration` still catches stuck agents
+  - ended runs release their mailboxes and fibers, so long-lived shared planes don't grow with every run
+  - `NetworkTracer.onRunEnd` / `onAgentInvokeEnd` get a third `{ status: 'ok' | 'error' | 'cancelled' }` argument; cancelled runs are no longer errors. `@m4trix/tracing` records them with the new `cancelled` trace status, and the trace viewer shows and filters it
+  - events a run's own agents emit no longer wait for room in a full mailbox, so a run cannot stall on itself: an agent awaiting an `emitAndAwait` reply that sat behind its own full mailbox used to wait for the reply's timeout
+
+- run limits, usage tracking and budgets (`matrix`)
+
+  - `maxDepth` (default 25), `maxEvents` (default 1000), `maxTokens` and `maxCostUsd` (off by default) on `AgentNetwork.setup()` options, `network.run()` and `registerSSEStream()`; the most specific wins, `Infinity` disables. Exceeding one fails the run with `error.kind: 'limit-exceeded'`, `limit: 'depth' | 'events' | 'tokens' | 'cost'` and `max`; the event over a depth or event limit is not delivered. `RunLimitExceededError`, `network.getRunLimits()`
+  - every published event gets `meta.eventId`, `meta.ts` and `meta.depth` when missing; agent, tool and `emitAndAwait` emits get `meta.causationId` (the trigger's `eventId`) and `depth + 1`
+  - `reportUsage({ inputTokens?, outputTokens?, totalTokens?, cacheReadTokens?, cacheWriteTokens?, costUsd?, model? })` in agent logic and tool `execute`: summed per run and per model, included as `usage` in the run-end payloads, and passed to the new optional `NetworkTracer.onUsage` hook. `@m4trix/tracing`'s `toM4trixTracer` records each report as an `llm` run, so it counts toward the trace's tokens and cost
+
+- event store and tenancy (`matrix`)
+
+  - `store` option on `AgentNetwork.setup()` (also via `AgentNetwork.dependsOn(...).setup()`), used by `network.run()` and `expose()`; `network.getStore()`
+  - `createInMemoryNetworkStore({ ttl, maxContexts, clock })` with lazy expiry and LRU eviction, no timers; `ANONYMOUS_NAMESPACE`, `principalNamespace(id)`
+  - `@m4trix/core/testing` entry with `runStoreContract({ describe, it, expect }, createStore)` to check a store adapter with any test runner
+  - each run's store writes are applied in publish order, whatever the store's latency; events are written before they are delivered
+  - `ctx.principal` in agent logic, `principal` in tool `define` and in `onRequest`; `NetworkStoreError` and the `store-error` run failure kind
+
+- runtime validation (`matrix`)
+
+  - `ExposeValidationError` (`status: 400`, `issues`, `toJSON()`), translated to 400 JSON responses by `NextEndpoint` and `ExpressEndpoint`; `emitStartEvent` validates events the network knows; Express string/buffer JSON bodies are parsed
+  - `EmitValidationError` (`eventName`, `agentId`, `toolName`, `reason: 'undeclared' | 'invalid-payload' | 'channel'`, `issues`), `isEmitValidationError`, run failure kind `invalid-emit` with the refused `event`; tools validate their emits wherever they are bound (`ToolBindOptions.agentId` / `onInvalidEmit`)
+  - `AgentParamsError` from `.produce(params)`; `ValidationIssue` (`{ path, message }`)
+  - setup-time wiring check: `network.validate()` returns `{ errors, warnings }` (`WiringIssue` with `code`, `message`, `agentId?`, `event?`, `channels?`); errors throw `NetworkWiringError`, warnings (unconsumed events, agents never invoked or unreachable, terminal events no agent emits) go to the new `logger` setup option (`{ warn(message, data?) }`, default `console.warn`); `network.getLogger()`
+  - `Agent.getEmits()` / `getListensToEvents()` (also on `EventAggregatorInstance`); optional `getEmits` / `getListensToEvents` on `AnyAgent`
+
+</Update>
+
 <Update label="June 5, 2026" description="Unreleased · latest core v0.16.2, stream v0.8.3, react v0.8.3, ui v0.8.3" tags={["Features"]} rss={{ title: "June 5, 2026 — @m4trix/core updates", description: "replace channel sinks with proxy consumers" }}>
 
 ### Breaking changes
@@ -36,7 +175,7 @@ _Last regenerated 2026-06-05 (UTC)._
 
 - add dependency layers, typed tools, and network tracing (`matrix`) ([4e2c6fa](https://github.com/Pascal-Lohscheidt/m4trix/commit/4e2c6fa14adabb5aec1b7f832fb946652692771a))
 
-  - Extract DepedencyLayer for injection across skills, agents, and networks
+  - Extract DependencyLayer for injection across skills, agents, and networks
   - AgentFactory dependsOn/tools; agent logic gets layers, tools, emitAndAwait, tracing
   - Tool builder with Effect schemas, layer deps, and optional event emission
   - AgentNetwork.dependsOn with layer injection at run() and expose()

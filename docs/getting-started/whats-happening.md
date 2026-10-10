@@ -17,7 +17,7 @@ Here's the mental model for how a request flows through m4trix:
 
 - **Events** are typed messages. Schemas are validated at runtime via Effect.
 - **Channels** route events. Agents subscribe to channels (input) and publish to channels (output).
-- **Proxies** determine how events leave the system — e.g. `proxy.sse()` for SSE, or Kafka for event backends.
+- **Proxies** determine how events leave the system — e.g. `proxy.sse()` for SSE, or a custom proxy kind of your own.
 - **AgentNetwork** wires everything: channels, agents, and the event plane.
 
 ## Diagram

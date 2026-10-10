@@ -27,12 +27,19 @@ Channel names must be **kebab-case** (e.g. `'main'`, `'client-output'`).
 
 ### `.events([...])`
 
-Optionally declare which events a channel carries:
+Optionally declare which events a channel carries. The declaration is enforced:
 
 ```ts
 const client = createChannel('client')
   .events([responseEvent, errorEvent]);
 ```
+
+- An agent publishes each emitted event only to those of its `publishTo` channels that accept it. When none does, `emit` throws `EmitValidationError` (`reason: 'channel'`) and the agent's [`onAgentError`](agent-network.md#setup-options) policy applies (run failure `kind: 'invalid-emit'`).
+- An external publish (`plane.publish`, proxy `publish` / `publishInbound`) of an event the channel does not accept resolves `false`; the event is not delivered and a warning goes to the network's `logger`. The run is not failed, the same as an event refused because its run belongs to another principal.
+- Runtime `m4trix:*` events (run end, agent errors) always pass.
+- A channel without `.events()` carries every event.
+
+Contradictions are caught when the network is set up: an agent that emits an event none of its publish channels accepts, or listens to one none of its subscribed channels accepts, makes `AgentNetwork.setup()` throw. See [Wiring check](agent-network.md#wiring-check).
 
 ### `.proxy(...proxies)`
 
@@ -42,7 +49,7 @@ Attach one or more proxy declarations. A channel can declare multiple proxies.
 const client = createChannel('client').proxy(proxy.sse());
 const output = createChannel('output')
   .proxy(proxy.sse())
-  .proxy(proxy.kafka({ topic: 'output-events' }));
+  .proxy(proxy.custom('queue', { topic: 'output-events' }));
 ```
 
 ## Proxy Factories
@@ -50,9 +57,9 @@ const output = createChannel('output')
 | Proxy | Description |
 |------|-------------|
 | `proxy.sse()` | Streams events as SSE to HTTP clients |
-| `proxy.kafka({ topic })` | Declares Kafka egress metadata |
-| `proxy.socketIo({ namespace })` | Declares a future bidirectional Socket.IO proxy |
-| `proxy.custom(kind, config, direction)` | Declares a user-defined proxy kind |
+| `proxy.custom(kind, config, direction)` | Declares a user-defined proxy kind (see [Custom Proxies](io-adapters.md#custom-proxies)) |
+
+Kafka and Socket.IO proxies are not built in; bridges for them are planned on top of [`EventTransport`](agent-network.md#event-transport).
 
 ## See Also
 

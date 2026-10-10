@@ -39,7 +39,8 @@ The builder provides end-to-end type inference:
 
 * **Trigger events** — `triggerEvent` in `.logic()` is typed as a union of all `listensTo` event envelopes
 * **Emit payloads** — The `emit()` function only accepts payloads matching declared `emits` events
-* **Parameters** — `params` in `.logic()` matches the schema from `.params()`
+* **Parameters** — `params` in `.logic()` matches the schema from `.params()` (validated by `.produce()`)
+* **Runtime emit checks** — `emit` only publishes events declared with `.emits()` (or a tool's `.emits()`) whose payload passes the event's schema; anything else throws `EmitValidationError` and fails the invocation. An agent without `.emits()` may emit nothing
 
 ## Catch-All Agents
 

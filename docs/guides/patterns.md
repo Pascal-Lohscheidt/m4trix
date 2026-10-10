@@ -59,6 +59,10 @@ Each call is scoped with a generated `meta.correlationId`, and the matcher only 
 
 The reply must be produced by a different subscriber while the caller is waiting. If an agent emits a request and waits for a reply that only the same blocked invocation can produce, the wait will time out.
 
+Declare the replying agent's event with `.emits([taskResult], { reply: true })`: nothing listens to it (the waiting agent receives it as its reply), and the option tells the [wiring check](../api-reference/agent-network.md#wiring-check) so. A wait that times out rejects with `PublishAndAwaitTimeoutError`.
+
+Waits are held in memory by the waiting invocation. For waits on a human that can take minutes to days (approvals, reviews, deploys), end the run instead and continue in a new run of the same context: see [Long human waits](deployment.md#long-human-waits).
+
 ## Join (Multiple Inputs)
 
 To "join" multiple event streams, create an agent that listens to multiple event types and combines them. Use `listensTo([eventA, eventB])` — the agent runs when either event arrives. For true join semantics (wait for both), you may need to implement state in the agent (e.g. store partial results, emit only when both have arrived).

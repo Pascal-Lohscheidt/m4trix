@@ -12,6 +12,7 @@ m4trix uses **SSE** for streaming agent responses to HTTP clients. When agents e
 2. `expose()` publishes a start event to the main channel.
 3. Agents run and emit events to the client channel.
 4. Events are streamed as SSE to the response.
+5. When the run ends (terminal event from `endsOn`, `complete()`, an agent failure, a timeout), the last event is `m4trix:run.completed` or `m4trix:run.failed`, and the response closes. See [Run Lifecycle](../api-reference/io-adapters.md#run-lifecycle).
 
 ### Response Format
 
@@ -31,6 +32,9 @@ eventSource.addEventListener('agent-response', (e) => {
   const data = JSON.parse(e.data);
   console.log(data.payload.text);
 });
+// EventSource reconnects when a response ends: close it once the run is over.
+eventSource.addEventListener('m4trix:run.completed', () => eventSource.close());
+eventSource.addEventListener('m4trix:run.failed', () => eventSource.close());
 ```
 
 Or use `fetch` with `ReadableStream` for POST:
@@ -41,12 +45,16 @@ const res = await fetch('/api/chat', {
   body: JSON.stringify({ query: 'Hi' }),
 });
 const reader = res.body!.getReader();
-// ... read chunks
+// ... read chunks until `done`: the server closes the response when the run ends
 ```
 
 ## WebSocket
 
 m4trix focuses on **SSE** (request → stream response). For bidirectional WebSocket, you would need to adapt the event plane or use a separate WebSocket layer. The `useSocketConversation` hook in `@m4trix/react` can work with WebSocket backends when your server exposes a compatible protocol.
+
+## Disconnects
+
+When the client goes away, the run is cancelled: agents' `signal` aborts, later emits are dropped, and `m4trix:run.cancelled` is recorded for tracers and the store.
 
 ## Backpressure
 

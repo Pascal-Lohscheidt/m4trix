@@ -31,6 +31,12 @@ Ensure you have `"moduleResolution": "bundler"` or `"node16"` in your `tsconfig.
 - The `auth` callback receives a request-like object. Ensure you're reading headers correctly (e.g. `req.request?.headers?.get?.('authorization')`)
 - Return `{ allowed: false, message: '...', status: 401 }` for auth failures
 
+### An agent sees no history (or another conversation's history is missing)
+
+- History is namespaced by the principal `auth` returns: the same `contextId` under two principals (or anonymous vs. signed in) is two conversations. Check that `auth` returns the same `principal.id` for the user's requests
+- Transient events are never stored, so they never appear in `ctx.history`
+- The default in-memory store drops a conversation 30 minutes after its last event and keeps at most 1000; it is per process. Pass a persistent `store` to `AgentNetwork.setup()` for longer-lived history
+
 ## Evals
 
 ### eval-agents-simple not found

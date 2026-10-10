@@ -3,7 +3,7 @@ title: "How to ..."
 description: "Task-focused answers with snippet-first examples for common agent workflows."
 ---
 
-Short answers to specific questions. Each section shows the minimum code to wire pieces together — partial snippets across files, not full apps. Fifteen topics below; use the table of contents to jump.
+Short answers to specific questions. Each section shows the minimum code to wire pieces together — partial snippets across files, not full apps. Sixteen topics below; use the table of contents to jump.
 
 ---
 
@@ -28,9 +28,11 @@ export const MessageEvent = AgentNetworkEvent.of(
 ```ts
 // network/network.ts
 const network = AgentNetwork.setup(
-  ({ mainChannel, createChannel, proxy, registerAgent }) => {
+  ({ mainChannel, createChannel, proxy, registerAgent, endsOn }) => {
     const client = createChannel('client').proxy(proxy.sse());
     registerAgent(exampleAgent).subscribe(mainChannel).publishTo(client);
+    // The user's message starts the run; the assistant's reply ends it.
+    endsOn(MessageEvent, (event) => event.payload.role === 'assistant');
   },
 );
 ```
@@ -88,6 +90,7 @@ while (true) {
   for (const line of lines) {
     if (!line.startsWith('data: ')) continue;
     const event = JSON.parse(line.slice(6));
+    if (event.name === 'm4trix:run.failed') showError(event.payload.error.message);
     if (event.name === 'message-stream-chunk') {
       appendChunk(event.payload.chunk);
       if (event.payload.isFinal) finish();
@@ -118,11 +121,11 @@ export const MessageStreamChunkEvent = AgentNetworkEvent.of(
 
 ```ts
 // network/example-agent.ts
-.logic(async ({ triggerEvent, emit, contextEvents }) => {
+.logic(async ({ triggerEvent, emit, history }) => {
   const stream = await openai.chat.completions.create({
     model: 'gpt-4o',
     stream: true,
-    messages: [/* ...history from contextEvents... */],
+    messages: [/* ...from (await history.context({ limit: 50 })).events... */],
   });
 
   for await (const chunk of stream) {
@@ -194,6 +197,133 @@ export const assistantAgent = AgentFactory.run()
 ```
 
 Tools can emit events (for UI side-effects) and depend on [dependency layers](../concepts/package-structure.md) for shared services. See `examples/assistant-app/src/network/tools/`.
+
+Tool names must match `^[a-zA-Z0-9_-]{1,64}$` (accepted by every provider); `Tool.of()` throws a `ToolDefinitionError` otherwise. The input schema must be an object schema (`S.Struct`) that converts to JSON Schema: `define()` throws a `ToolDefinitionError` for schemas such as `S.DateFromSelf` or `S.instanceOf(...)`, so the problem shows up at startup rather than on the first model call. Transformations are described by their encoded side (`S.NumberFromString` becomes `{ type: 'string' }`), which is what the model sends.
+
+### Send tools to a model provider
+
+The collection turns the agent's tools into each provider's format. m4trix does not depend on any provider SDK; the shapes are plain objects.
+
+| Method | Shape | Targets |
+| --- | --- | --- |
+| `tools.toJsonSchemas()` | `{ name, description, parameters }` | Provider-neutral JSON Schema |
+| `tools.toOpenAI()` | `{ type: 'function', function: { name, description, parameters } }` | OpenAI Chat Completions (`openai` v5/v6) and OpenAI-compatible APIs |
+| `tools.toAnthropic()` | `{ name, description, input_schema }` | Anthropic Messages API (`@anthropic-ai/sdk`) |
+| `tools.toAiSdk({ jsonSchema })` | `{ [name]: { description, inputSchema, execute } }` | Vercel AI SDK v5 `ToolSet` |
+
+The JSON Schema has `$schema` removed and non-recursive `$ref`s inlined (`$defs` is kept only for recursive schemas). OpenAI `strict` mode is not set, because strict mode requires every property to be required. For the OpenAI Responses API, flatten each entry: `{ type: 'function', ...tool.function }`.
+
+The same formatters exist as functions for tools used outside an agent: `toOpenAITools([tool])`, `toAnthropicTools([tool])` (definitions or bound tools), `toAiSdkTools([tool.bind({ layers })], { jsonSchema })`, and `tool.toJsonSchema()`.
+
+### Run a tool-call loop with `executeForModel`
+
+`execute(input)` rejects with typed errors: `ToolInputError` (with `issues: { path, message }[]`), `ToolExecutionError` (the thrown value is in `cause`), `ToolOutputError` (the tool returned data that fails its own output schema, which is a bug in the tool) and `ToolTimeoutError`. Each error has a `_tag`.
+
+`executeForModel(input)` never rejects for those failures. It resolves with a result to send back to the model, so the model can fix its arguments and retry:
+
+```ts
+type ToolModelResult<T> =
+  | { ok: true; output: T }
+  | {
+      ok: false;
+      error: {
+        kind: 'invalid_input' | 'execution_error' | 'timeout' | 'invalid_output';
+        message: string; // no stack traces
+        issues?: { path: string; message: string }[]; // invalid_input only
+      };
+    };
+```
+
+Cancellation is not converted into a result: when the agent's `signal` (or a per-call `signal`) aborts, both methods reject with the signal's reason so the run stops.
+
+OpenAI Chat Completions:
+
+```ts
+.logic(async ({ tools, signal, triggerEvent }) => {
+  const byName = new Map(tools.toTools().map((tool) => [tool.schema.name, tool]));
+  const messages: ChatCompletionMessageParam[] = [
+    { role: 'user', content: triggerEvent.payload.message },
+  ];
+
+  while (true) {
+    const response = await openai.chat.completions.create(
+      { model, messages, tools: tools.toOpenAI() },
+      { signal },
+    );
+    const message = response.choices[0].message;
+    messages.push(message);
+    if (!message.tool_calls?.length) break;
+
+    for (const call of message.tool_calls) {
+      if (call.type !== 'function') continue;
+      const tool = byName.get(call.function.name);
+      const result = tool
+        ? await tool.executeForModel(JSON.parse(call.function.arguments), { toolCallId: call.id })
+        : { ok: false, error: { message: `Unknown tool ${call.function.name}` } };
+      messages.push({ role: 'tool', tool_call_id: call.id, content: JSON.stringify(result) });
+    }
+  }
+})
+```
+
+Anthropic Messages API:
+
+```ts
+const response = await anthropic.messages.create(
+  { model, max_tokens: 1024, messages, tools: tools.toAnthropic() },
+  { signal },
+);
+const toolResults = [];
+for (const block of response.content) {
+  if (block.type !== 'tool_use') continue;
+  const result = await byName.get(block.name)?.executeForModel(block.input, { toolCallId: block.id });
+  toolResults.push({
+    type: 'tool_result',
+    tool_use_id: block.id,
+    content: JSON.stringify(result),
+    is_error: !result?.ok,
+  });
+}
+messages.push({ role: 'assistant', content: response.content }, { role: 'user', content: toolResults });
+```
+
+Vercel AI SDK v5 runs the loop itself. Pass `jsonSchema` from `ai` so the SDK gets its own schema objects; the tools' `execute` receives the SDK's `toolCallId` and `abortSignal`, and their typed errors are reported back to the model as tool errors:
+
+```ts
+import { generateText, jsonSchema, stepCountIs } from 'ai';
+
+const { text } = await generateText({
+  model,
+  prompt: triggerEvent.payload.message,
+  tools: tools.toAiSdk({ jsonSchema }),
+  stopWhen: stepCountIs(5),
+  abortSignal: signal,
+});
+```
+
+### Add a timeout and retries
+
+Both are off by default:
+
+```ts
+export const fetchPageTool = Tool.of({ name: 'fetchPage', description: 'Fetch a web page' })
+  .input(S.Struct({ url: S.String }))
+  .output(S.Struct({ html: S.String }))
+  .timeout('10 seconds')
+  .retry({ times: 2, backoff: { base: '200 millis', factor: 2, max: '2 seconds' } })
+  .define(async ({ input, signal }) => {
+    const response = await fetch(input.url, { signal });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return { html: await response.text() };
+  });
+```
+
+- `.timeout(duration)` fails an attempt with `ToolTimeoutError` and aborts the tool's `signal` with that error, so tools that pass `signal` on stop their work. The agent's own signal is not aborted.
+- `.retry({ times, backoff? })` re-runs the tool only when it throws (`ToolExecutionError`, whose `attempts` counts the runs). Invalid input, invalid output and timeouts are never retried, and no retry starts after the signal aborted; an abort also cuts a backoff wait short. Retries keep the same `toolCallId`. Without `backoff`, retries start immediately; with it, retry `n` waits `base * factor^(n - 1)`, capped at `max` (`factor` defaults to `2`).
+
+### Tracing
+
+When an agent calls a tool from its `tools` collection, each call opens a `tool` span named after the tool in the invocation's `tracing` scope, with the raw input, and ends it with the output or the typed error. Tools bound by hand can pass a scope: `tool.bind({ layers, tracing })`. A failing tracer never fails the tool.
 
 ---
 
@@ -279,7 +409,7 @@ The reply must come from a **different** subscriber while the caller is blocked 
 
 ## How to add auth to an exposed endpoint
 
-Reject unauthenticated requests before any start event is published. Return `{ allowed: false, status, message }` from the `auth` callback on `registerSSEStream`.
+Reject unauthenticated requests before any start event is published: return `{ allowed: false, status, message }` from the `auth` callback on `registerSSEStream`. For allowed requests, return the **principal** they act for: it namespaces conversation history, so a client-supplied `contextId` (e.g. `x-correlation-id`) can only reach that principal's conversations.
 
 ```ts
 // app/api/chat/route.ts
@@ -288,23 +418,23 @@ const api = network.expose(
     channel: 'client',
     triggerEvents: [MessageEvent],
     auth: async (req) => {
-      const token = req.request?.headers?.get('authorization');
-      if (!token || !isValid(token)) {
+      const user = await verifyToken(req.request?.headers?.get('authorization'));
+      if (!user) {
         return { allowed: false, message: 'Invalid token', status: 401 };
       }
-      return { allowed: true };
+      return { allowed: true, principal: { id: user.id, tenantId: user.tenantId } };
     },
   }),
 );
 ```
 
-Forward the same header from the client `fetch` call. See [Auth + Multi-Tenant](../guides/auth-multitenant.md).
+Forward the same header from the client `fetch` call. Requests allowed without a principal (or with no `auth` at all) share one anonymous namespace, where anyone who knows a `contextId` reads that conversation. See [Auth + Multi-Tenant](../guides/auth-multitenant.md).
 
 ---
 
 ## How to pass user or tenant context into events
 
-Enrich the start event in `onRequest` so agents receive `userId`, `tenantId`, or other scope fields in the payload.
+The principal `auth` returns reaches agents as `ctx.principal` (and tools as `principal`), and `onRequest` receives it too. To also carry scope fields in the payload, enrich the start event in `onRequest`:
 
 ```ts
 // network/events.ts
@@ -320,17 +450,15 @@ const api = network.expose(
   registerSSEStream({
     channel: 'client',
     triggerEvents: [UserRequestEvent],
-    onRequest: async ({ emitStartEvent, req, payload }) => {
-      const user = await getUserFromRequest(req);
-      if (!user) return;
-
+    auth: authenticate, // returns { allowed: true, principal: { id, tenantId } }
+    onRequest: async ({ emitStartEvent, req, payload, principal }) => {
       emitStartEvent({
         contextId: req.contextId ?? crypto.randomUUID(),
         runId: req.runId ?? crypto.randomUUID(),
         event: UserRequestEvent.make({
           ...(payload as { query: string }),
-          userId: user.id,
-          tenantId: user.tenantId,
+          userId: principal?.id ?? 'anonymous',
+          tenantId: String(principal?.tenantId ?? 'none'),
         }),
       });
     },
@@ -344,19 +472,20 @@ Use `contextId` from the request (or a header like `x-correlation-id`) to group 
 
 ## How to use conversation history in agent logic
 
-`contextEvents` exposes prior events for the current `contextId`. Filter by event type to rebuild chat history before calling an LLM.
+`history` reads the conversation's durable events from the network's store, on demand. `history.context({ limit })` returns the newest `limit` events of the current `contextId` (across runs, oldest first); filter by event type to rebuild chat history before calling an LLM. The trigger is already in history, so leave it out when you add it yourself.
 
 ```ts
 // network/example-agent.ts
-.logic(async ({ triggerEvent, emit, contextEvents }) => {
+.logic(async ({ triggerEvent, emit, history }) => {
   if (!MessageEvent.is(triggerEvent)) return;
 
   const message = triggerEvent.payload.message;
   const role = triggerEvent.payload.role as 'user' | 'assistant';
 
-  const messageHistory = contextEvents.all
+  const { events } = await history.context({ limit: 50 });
+  const messageHistory = events
     .filter(MessageEvent.is)
-    .filter((event) => event.payload.message !== message || event.payload.role !== role);
+    .filter((event) => event.meta.eventId !== triggerEvent.meta.eventId);
 
   const stream = await openai.chat.completions.create({
     model: 'gpt-4o',
@@ -374,7 +503,7 @@ Use `contextId` from the request (or a header like `x-correlation-id`) to group 
 })
 ```
 
-`runEvents` contains events from the current run only; `contextEvents` spans the full conversation context.
+`history.run()` returns the current run's events only; `history.context()` spans the whole conversation. Page back with `history.context({ limit, before: page.cursor })`. History is scoped to the request's principal, and transient events (token deltas) are never in it. See [Event history and stores](../api-reference/agent-network.md#event-history-and-stores).
 
 ---
 
@@ -418,7 +547,7 @@ const api = network.expose(
 );
 ```
 
-You can also declare allowed events on the channel itself:
+You can also declare allowed events on the channel itself. Unlike the stream's `events` filter, this is enforced for every publisher: agents publish other events only to their other channels (an emit no publish channel accepts throws), external publishes of other events are refused, and `AgentNetwork.setup()` throws on wiring that contradicts it:
 
 ```ts
 // network/network.ts
@@ -431,7 +560,7 @@ const client = createChannel('client')
 
 ## How to handle errors and surface them to the UI
 
-Define an error event, emit it from a `try/catch` in agent logic, and include it in the SSE filter so the client can render failures.
+Unhandled errors already reach the client: by default an agent that throws ends the run with `m4trix:run.failed` and a sanitized `{ name, message, kind }` (see [How to end or cancel a run](#how-to-end-or-cancel-a-run)). For domain-specific errors, define an error event, emit it from a `try/catch` in agent logic, and include it in the SSE filter so the client can render failures.
 
 ```ts
 // network/events.ts
@@ -471,7 +600,7 @@ Declare layers on the network, implement them with `.make()`, and pass instances
 
 ```ts
 // network/layers/open-ai.ts
-export const OpenAiLayer = DepedencyLayer.of({
+export const OpenAiLayer = DependencyLayer.of({
   name: 'OpenAi',
   config: S.Struct({ model: S.String }),
 }).define<{ client: OpenAI }>();
@@ -629,42 +758,61 @@ import { Done } from '@m4trix/core';
 })
 ```
 
+`invokeStream()` yields each chunk as soon as `define` emits it, then a final `Done`. An error thrown in `define` (or an invalid chunk) rejects the iteration after the chunks emitted before it. If the consumer stops early (`break`, `return`), the skill's `signal` is aborted so its work stops; the `signal` you passed in is not aborted. `invoke()` still resolves with all chunks and the done value once `define` finishes.
+
 Skills are testable units; agents handle event wiring. See `examples/core-example/skills/reasoning.skill.ts`.
 
 ---
 
-## How to spawn agents at runtime
+## How to end or cancel a run
 
-Use `spawner` to create agents on demand when a spawn event arrives — useful for per-tenant or per-session workers.
+A run ends exactly once, and its stream closes after the run-end event. Declare the event that finishes a run, or end it from logic. Pass `signal` to long calls so they stop with the run.
 
-```ts
-// network/events.ts
-export const SpawnEvent = AgentNetworkEvent.of(
-  'daemon-spawn',
-  S.Struct({
-    kind: S.String,
-    params: S.Record({ key: S.String, value: S.Unknown }),
-  }),
-);
-```
+### Declare a terminal event
 
 ```ts
 // network/network.ts
-spawner(AgentFactory)
-  .listen(main, SpawnEvent)
-  .registry({ analyst: analystFactory, writer: writerFactory })
-  .defaultBinding(({ kind }) => ({
-    subscribe: ['main'],
-    publishTo: kind === 'analyst' ? ['client'] : [],
-  }))
-  .onSpawn(({ factory, payload, spawn }) => {
-    const agent = factory.produce(payload.params);
-    spawn(agent);
-    return agent;
-  });
+AgentNetwork.setup(({ mainChannel, createChannel, proxy, registerAgent, endsOn }) => {
+  // ...
+  endsOn(AnswerEvent);
+});
 ```
 
-The spawn event payload can carry `tenantId` or custom params; `onSpawn` selects the factory and calls `spawn(agent)` to register bindings. See [Auth + Multi-Tenant](../guides/auth-multitenant.md#multi-tenant-agent-selection).
+### End the run from agent logic
+
+```ts
+// network/my-agent.ts
+.logic(async ({ triggerEvent, emit, complete, fail, signal }) => {
+  const res = await fetch(searchUrl(triggerEvent.payload.query), { signal });
+  if (!res.ok) return fail(new Error(`Search failed: ${res.status}`));
+  emit(AnswerEvent.make({ answer: await res.text() }));
+  complete(); // published after the answer above
+})
+```
+
+### Choose the failure policy and safety net
+
+```ts
+// network/network.ts
+AgentNetwork.setup(setupFn, { onAgentError: 'continue' }); // default: 'fail'
+```
+
+```ts
+// app/api/chat/route.ts
+// Idle = no agent running and no events. A long LLM call or approval wait is not idle.
+registerSSEStream({ channel: 'client', idleTimeout: '2 minutes', maxDuration: '15 minutes' });
+```
+
+### React to the end on the client
+
+```ts
+// app/_hooks/use-sse-agent-chat.ts
+if (event.name === 'm4trix:run.failed') setError(event.payload.error.message);
+if (event.name === 'm4trix:agent.error') warn(event.payload.error.message); // 'continue' policy
+// The response closes after m4trix:run.completed / m4trix:run.failed.
+```
+
+When the client disconnects, the run is cancelled: agents' `signal` aborts and `m4trix:run.cancelled` reaches the tracer. See [Run Lifecycle](../api-reference/io-adapters.md#run-lifecycle).
 
 ---
 

@@ -96,7 +96,8 @@ Methods:
 ## Data Types
 
 ```ts
-type TraceStatus = 'running' | 'success' | 'error';
+// `cancelled`: aborted before it finished (e.g. the client went away); neither success nor failure.
+type TraceStatus = 'running' | 'success' | 'error' | 'cancelled';
 
 type TraceRunType =
   | 'agent'

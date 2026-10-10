@@ -14,6 +14,18 @@ AgentNetworkEvent.of(name, schema)
 const myEvent = AgentNetworkEvent.of('my-event', S.Struct({ value: S.Number }));
 ```
 
+### Transient events
+
+```ts
+const tokenDelta = AgentNetworkEvent.of('token-delta', S.Struct({ text: S.String }), {
+  transient: true,
+});
+```
+
+`transient` (default `false`) marks events that may be dropped under back-pressure, such as token deltas or progress ticks. When an agent's mailbox for a run is full, a new transient event replaces the oldest buffered transient event instead of making the publisher wait (and is dropped if there is none to replace). Durable events always wait for room. Transient events are streamed and traced but never written to the network's store, so they never appear in `ctx.history`. The flag is readable as `myEvent.transient`.
+
+A plane knows an event is transient when an agent or aggregator started on it declares its definition (with `transient: true`) in `listensTo` or `emits`. An event only published from outside (e.g. `plane.publish`) whose definition no agent or aggregator of the network declares is treated as durable.
+
 ## Methods
 
 ### `.make(payload)`
@@ -70,10 +82,12 @@ Every event has:
   name: string;           // Event name
   meta: {
     runId: string;
-    contextId?: string;
-    correlationId?: string;
-    causationId?: string;
-    ts?: number;
+    contextId: string;
+    eventId?: string;       // Unique id; set on publish when missing
+    correlationId?: string; // Shared by an emitAndAwait request and its replies
+    causationId?: string;   // eventId of the event whose handling emitted this one
+    ts?: number;            // Publish time (epoch ms); set on publish when missing
+    depth?: number;         // Hops from the run's start event (0); checked against maxDepth
   };
   payload: T;            // Validated against schema
 }

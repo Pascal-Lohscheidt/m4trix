@@ -34,7 +34,7 @@ AgentFactory.run()
 
 ## Emit Typing
 
-The `emit()` function only accepts events declared in `.emits()`. TypeScript will error if you emit an undeclared event or wrong payload shape.
+The `emit()` function only accepts events declared in `.emits()`. TypeScript will error if you emit an undeclared event or wrong payload shape. The same check runs at runtime (payloads built from model output bypass the types): an undeclared event or a payload that fails the schema throws `EmitValidationError` and fails the agent's invocation. See [`.emits()`](agent-factory.md#emitsevents).
 
 ## Channel Names
 
