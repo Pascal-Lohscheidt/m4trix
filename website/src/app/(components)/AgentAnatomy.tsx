@@ -13,12 +13,12 @@ export const assistant = AgentFactory.run()
   .listensTo([Message])
   .emits([Message, Chunk])
   .tools(webSearch, askResearcher)
-  .logic(async ({ triggerEvent, emit, contextEvents, tools }) => {
+  .logic(async ({ triggerEvent, emit, history, tools }) => {
     if (triggerEvent.payload.role !== 'user') return
-    const history = contextEvents.all.filter(Message.is)
+    const chat = (await history.context({ limit: 50 })).events.filter(Message.is)
 
     const reply = await streamReply({
-      history,
+      history: chat,
       tools: tools.toTools(),
       onToken: (delta) => emit(Chunk.make({ delta })),
     })
@@ -45,19 +45,19 @@ const PARTS: Part[] = [
   {
     id: 'emits',
     label: '.emits',
-    body: 'emit accepts these events and nothing else. Emitting an undeclared event is a type error, and .make() checks the payload.',
+    body: 'emit accepts these events and nothing else. An undeclared event is a type error, and at runtime it fails the invocation. .make() checks the payload.',
     lines: [9, 18, 21],
   },
   {
     id: 'tools',
     label: '.tools',
-    body: 'Tools declare schema input and output plus their dependencies. They can emit events of their own.',
+    body: 'Tools declare schema input and output plus their dependencies. They can emit events of their own, and their input schema becomes JSON Schema for the model.',
     lines: [10, 17],
   },
   {
     id: 'memory',
-    label: 'contextEvents',
-    body: 'Every event in this conversation, in order. Chat history is a filter over the log, not a second store.',
+    label: 'history',
+    body: 'The events of this conversation, in order, read page by page from the network store. Chat history is a filter over the log, not a second store.',
     lines: [13, 16],
   },
 ];

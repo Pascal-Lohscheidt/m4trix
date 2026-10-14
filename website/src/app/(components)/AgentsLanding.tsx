@@ -15,6 +15,7 @@ import AgentAnatomy from './AgentAnatomy';
 import AgentRunReplay from './AgentRunReplay';
 import CodeBlock from './CodeBlock';
 import CopyCommand from './CopyCommand';
+import ResumeGraphic from './graphics/ResumeGraphic';
 import SseStreamGraphic from './graphics/SseStreamGraphic';
 import {
   ClosingCta,
@@ -25,9 +26,10 @@ import {
   Toolkit,
   WorksWith,
 } from './LandingSections';
+import ToolFormats from './ToolFormats';
 import WiringExplorer from './WiringExplorer';
 
-const DOCS_HREF = 'https://docs.m4trix.dev';
+const DOCS_HREF = '/docs';
 
 /* ─── Hero ─────────────────────────────────────────────────────────────── */
 
@@ -104,7 +106,7 @@ const SHIFTS = [
   },
   {
     pain: 'Streaming partial output to the UI is a second pipeline you build by hand.',
-    fix: 'Put an SSE proxy on a channel. Whatever lands there reaches the browser.',
+    fix: "Put an SSE proxy on a channel. The run's events on it stream to the browser.",
     code: "createChannel('client').proxy(proxy.sse())",
   },
   {
@@ -151,6 +153,9 @@ function Anatomy() {
         SDK works inside it.
       </p>
       <AgentAnatomy />
+      <div className="mt-16 border-t border-(--border) pt-12">
+        <ToolFormats />
+      </div>
     </Section>
   );
 }
@@ -291,34 +296,28 @@ function Production() {
 
 /* ─── Ship ────────────────────────────────────────────────────────────── */
 
-const ROUTE_CODE = `import { NextEndpoint, registerSSEStream } from '@m4trix/core/matrix'
+const ROUTE_CODE = `import { NextEndpoint, registerSSEStream } from '@m4trix/core'
 
 const api = network.expose(
-  registerSSEStream({
-    channel: 'client',
-    triggerEvents: [UserMessage],
-    onRequest: ({ emitStartEvent, req, payload }) =>
-      emitStartEvent({
-        contextId: req.contextId ?? crypto.randomUUID(),
-        runId: req.runId ?? crypto.randomUUID(),
-        event: UserMessage.make(payload),
-      }),
-  }),
+  registerSSEStream({ channel: 'client', triggerEvents: [UserMessage] }),
 )
 
-export const POST = NextEndpoint.from(api, {
+const handler = NextEndpoint.from(api, {
   requestToContextId: (req) =>
     req.headers.get('x-chat-id') ?? crypto.randomUUID(),
-  requestToRunId: () => crypto.randomUUID(),
-}).handler()`;
+}).handler()
+
+export const POST = handler
+export const GET = handler // EventSource: ?payload=<JSON>`;
 
 function Ship() {
   return (
     <Section>
       <h2 className="lp-h2">Stream it from one route</h2>
       <p className="lp-lead mb-12">
-        Expose the client channel and mount the handler. The request body is checked against the
-        event schema, and every event on the channel streams back. Express works the same way.
+        Expose the client channel and mount the handler. A body that fails the event schema gets a
+        400 before any run starts. The response streams that run&apos;s events from the channel and
+        closes when the run ends. Express works the same way.
       </p>
       <div className="grid gap-4 lg:grid-cols-2">
         <CodeBlock
@@ -333,12 +332,138 @@ function Ship() {
   );
 }
 
+/* ─── Run controls ────────────────────────────────────────────────────── */
+
+type Control = {
+  api: string;
+  title: string;
+  body: string;
+  code?: { file: string; source: string };
+  visual?: React.ReactNode;
+};
+
+const CONTROLS: Control[] = [
+  {
+    api: 'endsOn',
+    title: 'A run ends on an event you name',
+    body: 'Once the answer is out the run completes and its stream closes. A run that stalls fails after 60 idle seconds instead of hanging.',
+    code: {
+      file: 'network.ts',
+      source: `endsOn(Answer) // in AgentNetwork.setup
+
+// or from an agent: complete(), fail(error)`,
+    },
+  },
+  {
+    api: 'maxDepth · maxEvents · maxCostUsd',
+    title: 'Loops and spend have a ceiling',
+    body: 'A run fails 25 hops deep or past 1000 events. Report what each model call used and it also stops at your budget.',
+    code: {
+      file: 'network.ts',
+      source: `AgentNetwork.setup(wire, { maxCostUsd: 0.5 })
+
+// in agent logic, after each model call
+reportUsage({ model, inputTokens, outputTokens, costUsd })
+// over budget: m4trix:run.failed, error.limit === 'cost'`,
+    },
+  },
+  {
+    api: 'signal',
+    title: 'A closed tab stops the model call',
+    body: "If the client leaves and does not reconnect within 30 seconds, the run is cancelled and every agent's signal aborts.",
+    code: {
+      file: 'assistant.ts',
+      source: `.logic(async ({ signal }) => {
+  const reply = await openai.chat.completions.create(request, { signal })
+})`,
+    },
+  },
+  {
+    api: 'principal',
+    title: 'Each user reads only their own history',
+    body: 'auth returns a principal. Its id namespaces the store, so two users who send the same chat id get two conversations.',
+    code: {
+      file: 'app/api/chat/route.ts',
+      source: `auth: async ({ request }) => {
+  const user = await getUser(request)
+  return user
+    ? { allowed: true, principal: { id: user.id } }
+    : { allowed: false, status: 401 }
+},`,
+    },
+  },
+  {
+    api: 'Last-Event-ID',
+    title: 'A dropped stream picks up where it left off',
+    body: 'Durable events carry an SSE id. EventSource reconnects with the last one, and the route replays what was missed, then follows the run live.',
+    visual: <ResumeGraphic />,
+  },
+  {
+    api: 'executeForModel',
+    title: 'Tool errors go back to the model',
+    body: 'Bad arguments, a thrown error or a timeout come back as a typed result with the failing fields, so the model can fix the call.',
+    code: {
+      file: 'assistant.ts',
+      source: `const result = await tool.executeForModel(args, { toolCallId })
+// { ok: false, error: { kind: 'invalid_input', message, issues } }
+
+messages.push({
+  role: 'tool',
+  tool_call_id: toolCallId,
+  content: JSON.stringify(result),
+})`,
+    },
+  },
+];
+
+function RunControls() {
+  return (
+    <Section>
+      <h2 className="lp-h2 max-w-2xl">Every run ends, inside its limits</h2>
+      <p className="lp-lead">
+        The runtime ends runs, bounds them, cancels them when nobody listens and keeps each user to
+        their own history. Your agents stay plain async functions.
+      </p>
+      <div className="mt-12 grid gap-x-12 lg:grid-cols-2">
+        {CONTROLS.map((control) => (
+          <div
+            key={control.api}
+            className="flex min-w-0 flex-col border-t border-(--border) pt-6 pb-10"
+          >
+            <code className="block truncate font-mono text-[12.5px] text-(--accent-text)">
+              {control.api}
+            </code>
+            <h3 className="mt-2 font-display text-lg leading-snug font-semibold text-text-1">
+              {control.title}
+            </h3>
+            <p className="mt-2 max-w-[56ch] text-[15px] leading-relaxed text-text-2">
+              {control.body}
+            </p>
+            <div className="mt-5 min-w-0">
+              {control.code ? (
+                <CodeBlock
+                  className="agent-code-block min-w-0"
+                  code={control.code.source}
+                  language="typescript"
+                  filename={control.code.file}
+                />
+              ) : (
+                control.visual
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </Section>
+  );
+}
+
 /* ─── FAQ ─────────────────────────────────────────────────────────────── */
 
 const FAQ: FaqItem[] = [
   {
     q: 'Is it ready for production?',
-    a: 'Not yet. The package is pre-alpha and the API still changes between minor versions. Events live in memory for the life of the process, so there is no durable store or cross-process transport yet.',
+    a: 'Not yet. The package is pre-alpha and the API still changes between minor versions. History goes through a pluggable store, in memory by default, but a run lives on the instance that started it. Several instances need a shared store and sticky routing until distributed transports land after 1.0.',
   },
   {
     q: 'How is this different from LangGraph?',
@@ -391,6 +516,7 @@ export default function AgentsLanding({
       <Wiring />
       <Production />
       <Ship />
+      <RunControls />
       <Faq items={FAQ} />
       <Toolkit siblings={SIBLINGS} onSelectPackage={onSelectPackage} />
       <ClosingCta

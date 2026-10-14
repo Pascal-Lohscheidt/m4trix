@@ -7,7 +7,12 @@ export type RunEvent = {
   t: number;
   name: string;
   channels: string[];
+  /** The lane that emitted it; 'network' for the runtime's own m4trix:* lifecycle events. */
   by: string;
+  /** Hops from the start event (meta.depth). */
+  depth: number;
+  /** Index of the event that caused it (meta.causationId), or -1 for events from outside. */
+  cause: number;
   payload: Record<string, unknown>;
 };
 
@@ -42,6 +47,9 @@ export const GLOW_MIN = 220;
 
 export const reqIndex = (run: Run) => run.events.findIndex((e) => e.name === 'approval-requested');
 
+/** m4trix:run.completed, .failed or .cancelled: published by the runtime on every channel. */
+export const isRunEnd = (e: RunEvent) => e.name.startsWith('m4trix:run.');
+
 /** The invocation an event was emitted from: same lane, and the event falls inside its run. */
 function sourceOf(run: Run, e: RunEvent): Invocation | undefined {
   return run.invocations.find((inv) => inv.lane === e.by && inv.start <= e.t && e.t <= inv.end + 2);
@@ -75,6 +83,8 @@ export function visualTimes(run: Run): VisualTimes {
     if (e.name === 'approval-resolved' && req >= 0 && req < e.i) {
       vt = Math.max(vt, event[req] + TRAVEL);
     }
+    // The runtime ends the run once the terminal event was delivered, so after it landed.
+    if (isRunEnd(e) && e.i > 0) vt = Math.max(vt, Math.max(...event) + TRAVEL);
     vt = Math.max(vt, lastByLane.get(e.by) ?? 0);
     lastByLane.set(e.by, vt);
     event.push(vt);

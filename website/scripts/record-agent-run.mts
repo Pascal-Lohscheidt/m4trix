@@ -6,7 +6,7 @@
  *   pnpm --filter website record:agents
  *
  * The model calls are mocked with fixed delays. Everything else (channels, fan-out, the
- * aggregator, emitAndAwait, tools) is the real runtime.
+ * aggregator, emitAndAwait, tools, the run's end) is the real runtime.
  */
 import { writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
@@ -20,6 +20,8 @@ import {
   AgentNetworkEvent,
   ChannelName,
   EventAggregator,
+  isRunEndEnvelope,
+  type NetworkLogger,
   type NetworkTracer,
   noopRunTraceScope,
   type RunTraceScope,
@@ -60,7 +62,8 @@ const ApprovalResolved = AgentNetworkEvent.of(
   'approval-resolved',
   S.Struct({ approved: S.Boolean }),
 );
-const Chunk = AgentNetworkEvent.of('chunk', S.Struct({ delta: S.String }));
+// Token deltas are transient: streamed and traced, never stored, so they carry no SSE id.
+const Chunk = AgentNetworkEvent.of('chunk', S.Struct({ delta: S.String }), { transient: true });
 const Answer = AgentNetworkEvent.of('answer', S.Struct({ text: S.String }));
 
 /* ─── Attribution ────────────────────────────────────────────────────── */
@@ -182,9 +185,9 @@ const triage = AgentFactory.run()
 
 const findings = EventAggregator.listensTo([Finding])
   .emits([FindingsReady])
-  .emitWhen(({ runEvents }) => runEvents.filter(Finding.is).length === AREAS.length)
-  .mapToEmit(({ emit, runEvents }) => {
-    const all = runEvents.filter(Finding.is).map((event) => event.payload);
+  .emitWhen(async ({ history }) => (await history.run()).filter(Finding.is).length === AREAS.length)
+  .mapToEmit(async ({ emit, history }) => {
+    const all = (await history.run()).filter(Finding.is).map((event) => event.payload);
     emit(by('findings', FindingsReady.make({ findings: all })));
   });
 
@@ -250,6 +253,10 @@ type RecordedEvent = {
   name: string;
   channels: string[];
   by: string;
+  /** Hops from the start event (`meta.depth`). */
+  depth: number;
+  /** Index of the event that caused this one (`meta.causationId`), or -1. */
+  cause: number;
   payload: unknown;
 };
 
@@ -267,6 +274,8 @@ async function record(approved: boolean) {
   const lanes = new Map<string, string>();
   const events: RecordedEvent[] = [];
   const byPayload = new Map<unknown, RecordedEvent>();
+  const byEventId = new Map<string, RecordedEvent>();
+  let ended: string | undefined;
   const open = new Map<RunTraceScope, RecordedInvocation>();
   const invocations: RecordedInvocation[] = [];
   const spans: RecordedSpan[] = [];
@@ -276,7 +285,7 @@ async function record(approved: boolean) {
   const tracer: NetworkTracer = {
     onRunStart: async () => {},
     onRunEnd: async () => {},
-    onEventPublish: async ({ channel, name, payload }) => {
+    onEventPublish: async ({ channel, name, meta, payload }) => {
       const existing = byPayload.get(payload);
       if (existing) {
         existing.channels.push(channel);
@@ -287,23 +296,28 @@ async function record(approved: boolean) {
         t: now(),
         name,
         channels: [channel],
-        by: emitter.get(payload as object) ?? 'unknown',
+        // m4trix:* lifecycle events come from the runtime, not from an agent.
+        by: name.startsWith('m4trix:') ? 'network' : (emitter.get(payload as object) ?? 'unknown'),
+        depth: meta.depth ?? 0,
+        cause: (meta.causationId ? byEventId.get(meta.causationId)?.i : undefined) ?? -1,
         payload,
       };
       events.push(event);
       byPayload.set(payload, event);
+      if (meta.eventId) byEventId.set(meta.eventId, event);
     },
     onAgentInvokeStart: async ({ agentId, channel, trigger }) => {
       const lane = lanes.get(agentId) ?? agentId;
       const scope: RunTraceScope = {
         ...noopRunTraceScope(trigger.meta),
-        startRun: (_type, name) => {
+        startRun: (type, name) => {
           const span: RecordedSpan = { lane, name, start: now(), end: now() };
           return {
             runId: `${lane}-${name}-${span.start}`,
             end: async () => {
               span.end = now();
-              spans.push(span);
+              // The runtime also opens a 'tool' span per tool call; the page shows model calls.
+              if (type === 'llm') spans.push(span);
             },
           };
         },
@@ -332,8 +346,15 @@ async function record(approved: boolean) {
   for (const [lane, agent] of investigators) lanes.set(agent.getId(), lane);
   lanes.set(findings.getId(), 'findings');
 
+  // Any wiring smell (an event nobody consumes, an agent nobody reaches) fails the recording.
+  const warnings: string[] = [];
+  const logger: NetworkLogger = {
+    warn: (message) => warnings.push(message),
+    error: (message) => warnings.push(message),
+  };
+
   const network = AgentNetwork.setup(
-    ({ mainChannel, createChannel, proxy, registerAgent, registerAggregator }) => {
+    ({ mainChannel, createChannel, proxy, registerAgent, registerAggregator, endsOn }) => {
       const work = createChannel('work');
       const client = createChannel('client').proxy(proxy.sse());
 
@@ -344,9 +365,13 @@ async function record(approved: boolean) {
       registerAggregator(findings).subscribe(work).publishTo(work);
       registerAgent(remediator).subscribe(work).publishTo(client);
       registerAgent(auditLog).subscribe(mainChannel).subscribe(work).subscribe(client);
+
+      // The run, and the browser's stream, end once the answer is out.
+      endsOn(Answer);
     },
-    { networkTracer: tracer },
+    { networkTracer: tracer, logger },
   );
+  if (warnings.length > 0) throw new Error(`Wiring warnings:\n${warnings.join('\n')}`);
 
   await Effect.runPromise(
     Effect.scoped(
@@ -369,15 +394,28 @@ async function record(approved: boolean) {
             yield* Effect.sleep('900 millis');
             yield* plane.publish(ChannelName('main'), {
               ...by('you', ApprovalResolved.make({ approved })),
-              meta: envelope.meta,
+              // The reply carries the request's correlationId, but an event id of its own: an
+              // event with the request's id would be taken for the request itself.
+              meta: {
+                runId: envelope.meta.runId,
+                contextId: envelope.meta.contextId,
+                correlationId: envelope.meta.correlationId,
+              },
             });
           }
-          if (envelope.name === 'answer') break;
+          // The stream ends with the run: m4trix:run.completed, failed or cancelled.
+          if (isRunEndEnvelope(envelope)) {
+            ended = envelope.name;
+            break;
+          }
         }
         yield* Effect.sleep('80 millis');
       }),
     ),
   );
+
+  if (ended !== 'm4trix:run.completed') throw new Error(`The run ended with ${ended}.`);
+  if (warnings.length > 0) throw new Error(`Runtime warnings:\n${warnings.join('\n')}`);
 
   return {
     duration: Math.max(...events.map((e) => e.t), ...invocations.map((inv) => inv.end)),
@@ -385,9 +423,10 @@ async function record(approved: boolean) {
     spans: spans.sort((a, b) => a.start - b.start),
     // Investigators also wake for the other two areas and return at once; those carry no work.
     invocations: invocations
-      .filter(
-        (inv) => inv.end - inv.start >= 5 || inv.lane === 'auditLog' || inv.lane === 'findings',
-      )
+      .filter((inv) => {
+        const area = (events[inv.trigger]?.payload as { area?: string } | undefined)?.area;
+        return !(AREAS as string[]).includes(inv.lane) || area === inv.lane;
+      })
       .sort((a, b) => a.start - b.start),
   };
 }
@@ -412,5 +451,5 @@ writeFileSync(
   `${JSON.stringify({ prompt: PROMPT, branches: { approved, denied } }, null, 2)}\n`,
 );
 console.log(
-  `Recorded ${approved.events.length} events (approved, ${approved.duration} ms) and ${denied.events.length} (denied, ${denied.duration} ms) to ${out}`,
+  `Recorded ${approved.events.length} events (approved, ${approved.duration} ms) and ${denied.events.length} (denied, ${denied.duration} ms), both ending with ${approved.events.at(-1)?.name}, to ${out}`,
 );

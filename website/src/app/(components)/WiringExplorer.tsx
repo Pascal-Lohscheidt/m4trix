@@ -16,20 +16,20 @@ const EXTRAS: Extra[] = [
   {
     id: 'postmortem',
     file: 'postmortem.ts',
-    does: 'drafts a postmortem once the answer has streamed',
-    line: '    registerAgent(postmortem).subscribe(client).publishTo(client)',
+    does: 'streams a postmortem draft once the findings are in',
+    line: '    registerAgent(postmortem).subscribe(work).publishTo(client)',
   },
   {
-    id: 'costMeter',
-    file: 'cost-meter.ts',
-    does: 'tallies model spend per run',
-    line: '    registerAgent(costMeter).subscribe(mainChannel).subscribe(work)',
+    id: 'statusPage',
+    file: 'status-page.ts',
+    does: 'posts an incident to the status page when triage has a plan',
+    line: '    registerAgent(statusPage).subscribe(client)',
   },
 ];
 
 // The incident-triage network from the replay at the top of the page.
 const HEAD = `export const network = AgentNetwork.setup(
-  ({ mainChannel, createChannel, proxy, registerAgent, registerAggregator }) => {
+  ({ mainChannel, createChannel, proxy, registerAgent, registerAggregator, endsOn }) => {
     const work = createChannel('work')
     const client = createChannel('client').proxy(proxy.sse())
 
@@ -40,7 +40,9 @@ const HEAD = `export const network = AgentNetwork.setup(
     registerAggregator(findings).subscribe(work).publishTo(work)
     registerAgent(remediator).subscribe(work).publishTo(client)`;
 
-const TAIL = `  },
+const TAIL = `
+    endsOn(Answer)
+  },
 )`;
 
 const HEAD_LINES = HEAD.split('\n').length;

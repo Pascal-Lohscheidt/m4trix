@@ -9,18 +9,19 @@ import {
 } from '@phosphor-icons/react';
 import { animate, type JSAnimation } from 'animejs';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { type SnippetId, SNIPPET_FOR, SNIPPETS } from '@/lib/agent-run-code';
 import {
   type Decision,
   endOf,
+  isRunEnd,
   PROMPT,
+  pauseOf,
   RUNS,
   type Run,
   type RunEvent,
   reqIndex,
-  pauseOf,
   SCALE,
 } from '@/lib/agent-run';
+import { SNIPPET_FOR, SNIPPETS, type SnippetId } from '@/lib/agent-run-code';
 import AgentRunPlane from './AgentRunPlane';
 import CodeBlock from './CodeBlock';
 
@@ -83,6 +84,7 @@ function ClientPane({
     .map((e) => e.payload.delta as string)
     .join('');
   const streaming = answer.length > 0 && !events.some((e) => e.name === 'answer');
+  const end = events.find(isRunEnd);
 
   const stepState = (area: (typeof AREAS)[number]) => {
     if (events.some((e) => e.name === 'finding' && e.payload.area === area)) return 'done';
@@ -190,6 +192,14 @@ function ClientPane({
           {streaming ? <span className="console-caret ml-0.5" /> : null}
         </p>
       ) : null}
+
+      {end ? (
+        <p className="run-fade flex min-w-0 items-center gap-2 border-t border-(--border) pt-3 font-mono text-[11.5px] text-text-3">
+          <CheckIcon aria-hidden className="h-3.5 w-3.5 shrink-0 text-success" weight="bold" />
+          <span className="truncate text-success">{end.name}</span>
+          <span className="ml-auto shrink-0">stream closed</span>
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -198,6 +208,7 @@ function ClientPane({
 
 function Lanes({ run, awaitFrom, awaitTo }: { run: Run; awaitFrom?: number; awaitTo?: number }) {
   const pct = (ms: number) => `${(ms / SCALE) * 100}%`;
+  const end = run.events.find(isRunEnd);
   return (
     <div className="relative">
       {LANES.map((lane) => {
@@ -273,6 +284,13 @@ function Lanes({ run, awaitFrom, awaitTo }: { run: Run; awaitFrom?: number; awai
         );
       })}
       <div className="pointer-events-none absolute top-0 right-0 bottom-6 left-[5.5rem] sm:left-[6.5rem]">
+        {end ? (
+          <span
+            className="run-end"
+            title={end.name}
+            style={{ left: pct(end.t), '--s': end.t } as React.CSSProperties}
+          />
+        ) : null}
         <span className="run-playhead" />
       </div>
       <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 pl-[5.5rem] font-mono text-[10.5px] text-text-3 sm:pl-[6.5rem]">
@@ -288,6 +306,9 @@ function Lanes({ run, awaitFrom, awaitTo }: { run: Run; awaitFrom?: number; awai
         <span className="flex items-center gap-1.5">
           <span className="run-swatch run-swatch-event" /> event
         </span>
+        <span className="flex items-center gap-1.5">
+          <span className="run-swatch run-swatch-end" /> run end
+        </span>
       </div>
     </div>
   );
@@ -297,18 +318,24 @@ function EventLog({ events }: { events: RunEvent[] }) {
   const recent = events.slice(-6);
   return (
     <ol className="flex flex-col justify-end gap-1 font-mono text-[11.5px]" aria-live="off">
-      {recent.map((e) => (
-        <li key={e.i} className="run-fade flex min-w-0 items-baseline gap-3">
-          <span className="w-11 shrink-0 text-right text-text-4 tabular-nums">
-            {(e.t / 1000).toFixed(2)}s
-          </span>
-          <span className="w-[4.5rem] shrink-0 truncate text-text-3">{e.by}</span>
-          <span className="shrink-0 text-(--accent)">{e.name}</span>
-          <span className="hidden truncate text-text-4 sm:inline">
-            {e.channels.join(' + ')} {JSON.stringify(e.payload)}
-          </span>
-        </li>
-      ))}
+      {recent.map((e) => {
+        const end = isRunEnd(e);
+        // meta.causationId: the event whose handler emitted this one.
+        const cause = events[e.cause];
+        return (
+          <li key={e.i} className="run-fade flex min-w-0 items-baseline gap-3">
+            <span className="w-11 shrink-0 text-right text-text-4 tabular-nums">
+              {(e.t / 1000).toFixed(2)}s
+            </span>
+            <span className="w-[4.5rem] shrink-0 truncate text-text-3">{e.by}</span>
+            <span className={`shrink-0 ${end ? 'text-success' : 'text-(--accent)'}`}>{e.name}</span>
+            <span className="hidden truncate text-text-4 sm:inline">
+              {cause ? <span className="text-text-3">← {cause.name} </span> : null}
+              {end ? 'all channels' : e.channels.join(' + ')} {JSON.stringify(e.payload)}
+            </span>
+          </li>
+        );
+      })}
     </ol>
   );
 }
@@ -439,7 +466,9 @@ export default function AgentRunReplay() {
 
   const status = useMemo(() => {
     if (phase === 'waiting') return 'waiting for you';
-    if (phase === 'done') return decision === 'denied' ? 'done, rollback denied' : 'done';
+    if (phase === 'done') {
+      return decision === 'denied' ? 'run.completed, rollback denied' : 'run.completed';
+    }
     return 'running';
   }, [phase, decision]);
 

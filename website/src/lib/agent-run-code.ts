@@ -21,6 +21,9 @@ const UserMessage = AgentNetworkEvent.of('user-message', S.Struct({ text: S.Stri
 const Plan = AgentNetworkEvent.of('plan', S.Struct({ steps: S.Array(S.String) }))
 const Investigate = AgentNetworkEvent.of('investigate',
   S.Struct({ area: Area, question: S.String }))
+const ToolCall = AgentNetworkEvent.of('tool-call', S.Struct({
+  area: Area, tool: S.String, phase: S.Literal('start', 'end'), summary: S.optional(S.String),
+}))
 const Finding = AgentNetworkEvent.of('finding',
   S.Struct({ area: Area, summary: S.String }))
 const FindingsReady = AgentNetworkEvent.of('findings-ready',
@@ -29,7 +32,8 @@ const ApprovalRequested = AgentNetworkEvent.of('approval-requested',
   S.Struct({ action: S.String, reason: S.String }))
 const ApprovalResolved = AgentNetworkEvent.of('approval-resolved',
   S.Struct({ approved: S.Boolean }))
-const Chunk = AgentNetworkEvent.of('chunk', S.Struct({ delta: S.String }))
+// Transient: streamed to the browser, never stored in history.
+const Chunk = AgentNetworkEvent.of('chunk', S.Struct({ delta: S.String }), { transient: true })
 const Answer = AgentNetworkEvent.of('answer', S.Struct({ text: S.String }))`,
   },
   {
@@ -62,7 +66,7 @@ const Answer = AgentNetworkEvent.of('answer', S.Struct({ text: S.String }))`,
       if (triggerEvent.payload.area !== params.area) return
 
       const [search] = tools.toTools()
-      const { summary } = await search.execute(triggerEvent.payload)
+      const { summary } = (await search.execute(triggerEvent.payload)) as { summary: string }
       emit(Finding.make({ area: params.area, summary }))
     })
     .produce({ area })
@@ -77,11 +81,11 @@ export const deploys = investigator('deploys', diffDeploy)`,
     code: `// Fan in: waits for all three findings of the run, then emits once.
 export const findings = EventAggregator.listensTo([Finding])
   .emits([FindingsReady])
-  .emitWhen(({ runEvents }) => runEvents.filter(Finding.is).length === 3)
-  .mapToEmit(({ emit, runEvents }) =>
+  .emitWhen(async ({ history }) => (await history.run()).filter(Finding.is).length === 3)
+  .mapToEmit(async ({ emit, history }) =>
     emit(
       FindingsReady.make({
-        findings: runEvents.filter(Finding.is).map((e) => e.payload),
+        findings: (await history.run()).filter(Finding.is).map((e) => e.payload),
       }),
     ),
   )`,
@@ -108,7 +112,7 @@ export const remediator = AgentFactory.run()
   .tools(rollbackDeploy)
   .logic(async ({ triggerEvent, emit, tools }) => {
     const [rollback] = tools.toTools()
-    const { approved } = await rollback.execute({ deploy: '4f2a1c' })
+    const { approved } = (await rollback.execute({ deploy: '4f2a1c' })) as { approved: boolean }
 
     const text = await llm.explain(triggerEvent.payload.findings, { approved })
     for (const delta of chunks(text)) emit(Chunk.make({ delta }))
@@ -120,7 +124,7 @@ export const remediator = AgentFactory.run()
     id: 'network',
     file: 'network.ts',
     code: `export const network = AgentNetwork.setup(
-  ({ mainChannel, createChannel, proxy, registerAgent, registerAggregator }) => {
+  ({ mainChannel, createChannel, proxy, registerAgent, registerAggregator, endsOn }) => {
     const work = createChannel('work')
     const client = createChannel('client').proxy(proxy.sse())
 
@@ -133,6 +137,9 @@ export const remediator = AgentFactory.run()
 
     // Catch-all: no listensTo, so it sees every event on all three channels.
     registerAgent(auditLog).subscribe(mainChannel).subscribe(work).subscribe(client)
+
+    // The run ends with the answer: m4trix:run.completed, then the stream closes.
+    endsOn(Answer)
   },
 )`,
   },

@@ -8,7 +8,15 @@ import {
   RobotIcon,
   WrenchIcon,
 } from '@phosphor-icons/react';
-import { GLOW_MIN, reqIndex, type Run, type RunEvent, TRAVEL, visualTimes } from '@/lib/agent-run';
+import {
+  GLOW_MIN,
+  isRunEnd,
+  type Run,
+  type RunEvent,
+  reqIndex,
+  TRAVEL,
+  visualTimes,
+} from '@/lib/agent-run';
 
 /**
  * The event plane of the recorded run. Channels are rails (one PubSub each), agents are cards
@@ -129,9 +137,16 @@ export default function AgentRunPlane({
     glows[id].push(w);
   };
   const approval = (e: RunEvent) => e.name.startsWith('approval');
+  // The runtime publishes the run end on every channel at once and the browser's stream closes on
+  // it. The plane stays green from then on: nothing else happens in an ended run.
+  const ends: Window[] = [];
 
   for (const e of run.events) {
     const at = vt[e.i];
+    if (isRunEnd(e)) {
+      ends.push({ key: `end${e.i}`, s: at, e: 1e9 });
+      continue;
+    }
     for (const channel of e.channels) {
       railFlashes[channel]?.push({ key: `r${e.i}`, s: at + TRAVEL * 0.2, e: at + TRAVEL });
     }
@@ -205,6 +220,13 @@ export default function AgentRunPlane({
                 style={vars({ '--s': w.s, '--e': w.e })}
               />
             ))}
+            {ends.map((w) => (
+              <span
+                key={w.key}
+                className="plane-rail-flash plane-rail-flash-end"
+                style={vars({ '--s': w.s, '--e': w.e })}
+              />
+            ))}
           </div>
           <button
             type="button"
@@ -274,6 +296,15 @@ export default function AgentRunPlane({
             {merge(glows[id] ?? []).map((w) => (
               <span key={w.key} className="plane-glow" style={vars({ '--s': w.s, '--e': w.e })} />
             ))}
+            {id === 'you'
+              ? ends.map((w) => (
+                  <span
+                    key={w.key}
+                    className="plane-glow plane-glow-end"
+                    style={vars({ '--s': w.s + TRAVEL * 0.5, '--e': w.e })}
+                  />
+                ))
+              : null}
             {wait && req >= 0 ? (
               <span
                 className="plane-glow plane-glow-wait"

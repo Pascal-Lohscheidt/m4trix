@@ -4,16 +4,32 @@ import { createTimeline, onScroll, stagger, utils } from 'animejs';
 import { useRef } from 'react';
 import { useAnimeScope } from './useAnimeScope';
 
-// The wire format NextEndpoint writes: one SSE message per envelope on the client channel.
+// The wire format NextEndpoint writes: the start event's position first, then one SSE message per
+// envelope of this run on the client channel. Durable events carry an `id:` (contextId/runId/
+// eventId) to resume from; transient ones (token chunks) do not. The run-end event closes it.
+const START_ID = 'chat-7/9b2e…/5d3a…';
+
 const FRAMES = [
-  { id: 'f1', name: 'plan', payload: '{"steps":["Search checkout errors since 14:02",…]}' },
+  {
+    id: 'f1',
+    sseId: 'chat-7/9b2e…/a41f…',
+    name: 'plan',
+    payload: '{"steps":["Search checkout errors since 14:02",…]}',
+  },
   {
     id: 'f2',
-    name: 'finding',
-    payload: '{"area":"logs","summary":"312 timeouts from the card API"}',
+    sseId: 'chat-7/9b2e…/c07e…',
+    name: 'approval-requested',
+    payload: '{"action":"Roll back deploy 4f2a1c"}',
   },
-  { id: 'f3', name: 'approval-requested', payload: '{"action":"Roll back deploy 4f2a1c"}' },
-  { id: 'f4', name: 'chunk', payload: '{"delta":"Rolled back 4f2a1c."}' },
+  { id: 'f3', name: 'chunk', payload: '{"delta":"Rolled back 4f2a1c."}' },
+  {
+    id: 'f4',
+    sseId: 'chat-7/9b2e…/e9b2…',
+    name: 'm4trix:run.completed',
+    payload: '{"reason":"terminal-event","event":"answer"}',
+    end: true,
+  },
 ];
 
 export default function SseStreamGraphic() {
@@ -28,7 +44,7 @@ export default function SseStreamGraphic() {
       defaults: { ease: 'out(3)' },
       autoplay: onScroll({ target: el, enter: 'bottom top', leave: 'top bottom' }),
     })
-      .add(frames, { opacity: [0, 1], y: [6, 0], duration: 360, delay: stagger(520) }, 500)
+      .add(frames, { opacity: [0, 1], y: [6, 0], duration: 360, delay: stagger(480) }, 500)
       .add(frames, { opacity: 0, duration: 400 }, '+=2600');
   });
 
@@ -41,12 +57,21 @@ export default function SseStreamGraphic() {
         <p className="text-text-2">
           <span className="text-(--accent)">$</span> curl -N localhost:3000/api/chat \
           <br />
+          &nbsp;&nbsp;-H &apos;x-chat-id: chat-7&apos; \
+          <br />
           &nbsp;&nbsp;-d &apos;{'{'}&quot;text&quot;:&quot;Checkout p95 jumped&quot;{'}'}&apos;
+        </p>
+        <p data-frame className="truncate text-text-4">
+          id: {START_ID}
         </p>
         {FRAMES.map((frame) => (
           <p key={frame.id} data-frame className="min-w-0">
+            {frame.sseId ? (
+              <span className="block truncate text-text-4">id: {frame.sseId}</span>
+            ) : null}
             <span className="block text-text-3">
-              event: <span className="text-(--accent)">{frame.name}</span>
+              event:{' '}
+              <span className={frame.end ? 'text-success' : 'text-(--accent)'}>{frame.name}</span>
             </span>
             <span className="block truncate text-text-3">
               data: {'{'}&quot;name&quot;:&quot;{frame.name}&quot;,&quot;payload&quot;:
@@ -54,6 +79,9 @@ export default function SseStreamGraphic() {
             </span>
           </p>
         ))}
+        <p data-frame className="text-text-2">
+          <span className="text-(--accent)">$</span> <span className="console-caret" />
+        </p>
       </div>
     </div>
   );
