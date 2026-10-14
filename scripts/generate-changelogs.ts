@@ -143,6 +143,17 @@ function escapeMdx(text: string): string {
     .replace(/</g, '&lt;');
 }
 
+/**
+ * Escapes Markdown prose for MDX but leaves inline code spans as written: MDX reads them
+ * literally, so escaping there would show `\{` and `&lt;` on the page.
+ */
+function escapeMdxProse(text: string): string {
+  const parts = text.split('`');
+  // An odd number of backticks means a code span wraps onto another line: escape it all.
+  if (parts.length % 2 === 0) return escapeMdx(text);
+  return parts.map((part, i) => (i % 2 === 1 ? part : escapeMdx(part))).join('`');
+}
+
 function parseConventionalCommit(
   hash: string,
   isoDate: string,
@@ -312,7 +323,7 @@ function versionDescription(section: ChangelogSection, dayEntries: ChangelogEntr
 
 function renderCommitLine(entry: ChangelogEntry): string {
   const { commit, scopeLabel } = entry;
-  const desc = escapeMdx(commit.description);
+  const desc = escapeMdxProse(commit.description);
   const link = `https://github.com/${GITHUB_REPO}/commit/${commit.hash}`;
   const scopeSuffix = scopeLabel ? ` (\`${scopeLabel}\`)` : '';
   const breaking = commit.breaking ? ' **BREAKING**' : '';
@@ -333,7 +344,7 @@ function renderCommitBody(commit: ParsedCommit): string {
 
   if (lines.length === 0) return '';
 
-  const rendered = lines.map((line) => `  ${escapeMdx(line)}`).join('\n');
+  const rendered = lines.map((line) => `  ${escapeMdxProse(line)}`).join('\n');
   return `\n\n${rendered}`;
 }
 
@@ -372,6 +383,8 @@ function renderSection(section: ChangelogSection, entries: ChangelogEntry[]): st
       if (entry.commit.breaking) breaking.push(entry);
       const tag = TYPE_TAGS[entry.commit.type];
       if (tag) tags.add(tag);
+      // Breaking commits are listed once, under "Breaking changes".
+      if (entry.commit.breaking) continue;
       const list = byType.get(entry.commit.type) ?? [];
       list.push(entry);
       byType.set(entry.commit.type, list);
