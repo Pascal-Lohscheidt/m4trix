@@ -1,0 +1,1181 @@
+<!DOCTYPE html>
+<html lang="en" data-pkg="agents">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>m4trix — Agents preview</title>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet" />
+  <style>
+    /* ═══════════════════════════════════════════
+       DESIGN TOKENS — agents / violet palette
+    ═══════════════════════════════════════════ */
+    :root {
+      --bg:            #09090b;
+      --bg-raised:     #18181b;
+      --bg-subtle:     #27272a;
+      --accent:        #a78bfa;
+      --accent-solid:  #7c3aed;
+      --accent-dim:    rgba(167,139,250,0.12);
+      --accent-border: rgba(167,139,250,0.30);
+      --accent-text:   #c4b5fd;
+      --text-1: #f4f4f5;
+      --text-2: #a1a1aa;
+      --text-3: #71717a;
+      --text-4: #52525b;
+      --green:  #4ade80;
+      --cyan:   #67e8f9;
+      --amber:  #fbbf24;
+      --red:    #f87171;
+      --border: rgba(255,255,255,0.07);
+      --font:   'JetBrains Mono', monospace;
+      --radius: 12px;
+      --radius-sm: 6px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      background: var(--bg);
+      color: var(--text-1);
+      font-family: var(--font);
+      font-size: 14px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      min-height: 100vh;
+    }
+
+    /* subtle grid texture */
+    body::before {
+      content: '';
+      position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      background-image:
+        linear-gradient(rgba(167,139,250,0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(167,139,250,0.025) 1px, transparent 1px);
+      background-size: 40px 40px;
+    }
+
+    /* scanlines */
+    body::after {
+      content: '';
+      position: fixed; inset: 0; z-index: 1; pointer-events: none;
+      background: repeating-linear-gradient(
+        0deg,
+        rgba(167,139,250,0.006) 0px,
+        rgba(167,139,250,0.006) 1px,
+        transparent 1px,
+        transparent 2px
+      );
+    }
+
+    /* ═══════════════════════════════════════════
+       NAV
+    ═══════════════════════════════════════════ */
+    nav {
+      position: sticky; top: 0; z-index: 50;
+      border-bottom: 1px solid var(--border);
+      background: rgba(9,9,11,0.92);
+      backdrop-filter: blur(20px);
+    }
+    .nav-inner {
+      max-width: 1200px; margin: 0 auto;
+      padding: 0 24px;
+      height: 56px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .nav-brand { display: flex; align-items: center; gap: 10px; }
+    .nav-logo {
+      font-size: 18px; font-weight: 600;
+      color: var(--accent);
+      filter: drop-shadow(0 0 10px rgba(167,139,250,0.35));
+      letter-spacing: -0.03em;
+    }
+    .nav-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      border: 1px solid var(--accent-border);
+      background: var(--accent-dim);
+      border-radius: 4px;
+      padding: 2px 8px;
+      font-size: 11px; font-weight: 500;
+      color: var(--accent-text);
+    }
+    .nav-badge-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--accent);
+      animation: pulse 2s ease-in-out infinite;
+    }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+    .nav-actions { display: flex; align-items: center; gap: 8px; }
+    .btn-ghost {
+      display: flex; align-items: center; gap: 6px;
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: var(--radius-sm);
+      padding: 6px 12px;
+      font-family: var(--font); font-size: 11px;
+      color: var(--text-3);
+      text-decoration: none;
+      background: transparent;
+      cursor: pointer;
+      transition: border-color 0.15s, color 0.15s, background 0.15s;
+    }
+    .btn-ghost:hover { border-color: rgba(255,255,255,0.22); color: var(--text-1); background: rgba(255,255,255,0.04); }
+    .btn-primary {
+      display: flex; align-items: center; gap: 6px;
+      border: 1px solid var(--accent-border);
+      background: var(--accent-dim);
+      border-radius: var(--radius-sm);
+      padding: 6px 14px;
+      font-family: var(--font); font-size: 11px; font-weight: 500;
+      color: var(--accent-text);
+      text-decoration: none;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+    }
+    .btn-primary:hover {
+      background: rgba(167,139,250,0.2);
+      border-color: rgba(167,139,250,0.5);
+      box-shadow: 0 0 20px rgba(167,139,250,0.2);
+    }
+    .btn-dollar { color: rgba(167,139,250,0.5); }
+
+    /* ═══════════════════════════════════════════
+       PACKAGE TABS
+    ═══════════════════════════════════════════ */
+    .tab-bar {
+      position: sticky; top: 56px; z-index: 40;
+      background: rgba(9,9,11,0.88);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border);
+    }
+    .tab-bar-inner {
+      max-width: 1200px; margin: 0 auto;
+      padding: 0 24px;
+      display: flex; align-items: center; gap: 0;
+    }
+    .tab {
+      display: flex; align-items: center; gap: 7px;
+      padding: 14px 18px;
+      font-size: 12px; font-weight: 500;
+      color: var(--text-3);
+      border-bottom: 2px solid transparent;
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s;
+      white-space: nowrap;
+    }
+    .tab:hover { color: var(--text-2); }
+    .tab.active {
+      color: var(--accent-text);
+      border-bottom-color: var(--accent);
+    }
+    .tab-pip {
+      width: 5px; height: 5px; border-radius: 50%;
+      background: var(--accent);
+      opacity: 0;
+      transition: opacity 0.15s;
+    }
+    .tab.active .tab-pip { opacity: 1; }
+    .tab-badge {
+      font-size: 9px; padding: 1px 5px; border-radius: 3px;
+      background: var(--accent-dim);
+      border: 1px solid var(--accent-border);
+      color: var(--accent-text);
+    }
+
+    /* ═══════════════════════════════════════════
+       HERO
+    ═══════════════════════════════════════════ */
+    .hero {
+      position: relative; z-index: 2;
+      padding: 80px 24px 64px;
+      text-align: center;
+      overflow: hidden;
+    }
+    .hero-glow-1 {
+      position: absolute; top: -80px; left: 50%;
+      transform: translateX(-50%);
+      width: 600px; height: 400px;
+      background: radial-gradient(ellipse at center, rgba(167,139,250,0.12) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .hero-glow-2 {
+      position: absolute; top: 40%; right: 10%;
+      width: 300px; height: 300px;
+      background: radial-gradient(ellipse at center, rgba(103,232,249,0.06) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .hero-inner { position: relative; z-index: 1; max-width: 680px; margin: 0 auto; }
+
+    .hero-eyebrow {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-size: 11px; color: var(--accent-text);
+      border: 1px solid var(--accent-border);
+      background: var(--accent-dim);
+      border-radius: 99px; padding: 4px 12px;
+      margin-bottom: 24px;
+    }
+    .hero-eyebrow-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--accent); animation: pulse 2s ease-in-out infinite; }
+
+    .hero-h1 {
+      font-size: clamp(32px, 5vw, 52px);
+      font-weight: 600; line-height: 1.15;
+      letter-spacing: -0.03em;
+      color: var(--text-1);
+      margin-bottom: 20px;
+    }
+    .hero-h1 .accent { color: var(--accent); }
+    .hero-h1 .dim { color: var(--text-3); }
+    .hero-sub {
+      font-size: 15px; color: var(--text-2); line-height: 1.7;
+      max-width: 540px; margin: 0 auto 36px;
+    }
+    .hero-sub code {
+      font-family: var(--font); font-size: 12px;
+      color: var(--cyan);
+      background: var(--bg-subtle);
+      border: 1px solid var(--border);
+      border-radius: 4px; padding: 1px 6px;
+    }
+
+    /* Install block */
+    .install {
+      display: inline-block; text-align: left;
+      background: var(--bg-raised);
+      border: 1px solid rgba(167,139,250,0.18);
+      border-radius: var(--radius);
+      overflow: hidden;
+      box-shadow: 0 0 40px rgba(167,139,250,0.06);
+      margin-bottom: 28px;
+      min-width: 320px;
+    }
+    .install-hd {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 8px 14px;
+      border-bottom: 1px solid var(--border);
+    }
+    .install-hd-left { display: flex; align-items: center; gap: 8px; }
+    .install-dot { width: 6px; height: 6px; border-radius: 50%; background: rgba(167,139,250,0.5); }
+    .install-hd-label { font-size: 10px; color: var(--text-4); }
+    .install-hd-lang  { font-size: 10px; color: var(--text-4); }
+    .install-body { padding: 12px 14px; }
+    .install-line { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+    .install-line .dollar { color: rgba(167,139,250,0.7); }
+    .install-line .cmd { color: var(--text-2); }
+    .install-line .pkg { color: var(--accent); }
+    .install-ok { display: flex; align-items: center; gap: 8px; font-size: 11px; padding-top: 4px; padding-left: 18px; }
+    .install-ok .check { color: var(--green); }
+    .install-ok .ok-text { color: rgba(167,139,250,0.7); }
+    .install-ok .ok-dim { color: var(--text-4); }
+
+    /* Package pills */
+    .pills { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+    .pill {
+      font-size: 11px;
+      border: 1px solid var(--border);
+      background: var(--bg-raised);
+      border-radius: var(--radius-sm);
+      padding: 6px 12px;
+      color: var(--text-3);
+    }
+    .pill .pkg-name { color: var(--accent); }
+    .pill .pkg-desc { color: var(--text-4); }
+
+    /* CTAs */
+    .hero-ctas { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-top: 32px; }
+    .cta-primary {
+      display: flex; align-items: center; gap: 8px;
+      border: 1px solid var(--accent-border);
+      background: var(--accent-dim);
+      border-radius: var(--radius-sm);
+      padding: 12px 24px;
+      font-family: var(--font); font-size: 13px; font-weight: 500;
+      color: var(--accent-text);
+      text-decoration: none;
+      box-shadow: 0 0 30px rgba(167,139,250,0.15);
+      transition: all 0.15s;
+    }
+    .cta-primary:hover { background: rgba(167,139,250,0.2); box-shadow: 0 0 50px rgba(167,139,250,0.25); }
+    .cta-secondary {
+      display: flex; align-items: center; gap: 8px;
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: var(--radius-sm);
+      padding: 12px 24px;
+      font-family: var(--font); font-size: 13px;
+      color: var(--text-3);
+      text-decoration: none;
+      transition: all 0.15s;
+    }
+    .cta-secondary:hover { border-color: rgba(251,191,36,0.4); color: var(--amber); }
+    .star-icon { color: var(--amber); }
+
+    /* ═══════════════════════════════════════════
+       TRUST BAR
+    ═══════════════════════════════════════════ */
+    .trust-wrap {
+      position: relative; z-index: 2;
+      max-width: 860px; margin: 0 auto;
+      padding: 0 24px 64px;
+    }
+    .trust-bar {
+      display: grid; grid-template-columns: repeat(4, 1fr);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--bg-raised);
+      overflow: hidden;
+    }
+    .trust-cell {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      padding: 16px 12px;
+      border-right: 1px solid var(--border);
+      text-align: center; gap: 3px;
+    }
+    .trust-cell:last-child { border-right: none; }
+    .trust-val { font-size: 14px; font-weight: 600; }
+    .trust-val.violet { color: var(--accent-text); }
+    .trust-val.blue   { color: #60a5fa; }
+    .trust-val.green  { color: var(--green); }
+    .trust-val.amber  { color: var(--amber); }
+    .trust-lbl { font-size: 10px; color: var(--text-4); }
+
+    /* ═══════════════════════════════════════════
+       SECTION WRAPPER
+    ═══════════════════════════════════════════ */
+    .section {
+      position: relative; z-index: 2;
+      max-width: 900px; margin: 0 auto;
+      padding: 0 24px 80px;
+    }
+    .section-hd { text-align: center; margin-bottom: 40px; }
+    .section-hd h2 {
+      font-size: clamp(22px, 3vw, 30px); font-weight: 600;
+      letter-spacing: -0.02em; color: var(--text-1); margin-bottom: 10px;
+    }
+    .section-hd p { font-size: 13px; color: var(--text-2); max-width: 520px; margin: 0 auto; line-height: 1.7; }
+
+    /* ═══════════════════════════════════════════
+       LANDSCAPE (framework comparison)
+    ═══════════════════════════════════════════ */
+    .landscape-grid {
+      display: grid; grid-template-columns: repeat(4, 1fr);
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .lcard {
+      background: var(--bg-raised);
+      padding: 20px 16px;
+      display: flex; flex-direction: column; gap: 10px;
+    }
+    .lcard.highlight { background: rgba(167,139,250,0.06); }
+    .lcard-name {
+      font-size: 12px; font-weight: 600; color: var(--text-1);
+      display: flex; align-items: center; gap: 8px;
+    }
+    .lcard-name .badge-you {
+      font-size: 9px; padding: 1px 5px; border-radius: 3px;
+      background: var(--accent-dim); border: 1px solid var(--accent-border);
+      color: var(--accent-text); font-weight: 500;
+    }
+    .lcard-sub { font-size: 10px; color: var(--text-4); }
+    .lcard-row {
+      display: flex; flex-direction: column; gap: 5px; font-size: 10px;
+    }
+    .lcard-item { display: flex; align-items: baseline; gap: 5px; }
+    .lcard-item .li-key { color: var(--text-4); white-space: nowrap; min-width: 48px; }
+    .lcard-item .li-val { color: var(--text-2); }
+    .lcard-item .li-val.bad { color: var(--red); }
+    .lcard-item .li-val.ok  { color: var(--amber); }
+    .lcard-item .li-val.good{ color: var(--green); }
+    .lcard-item .li-val.accent { color: var(--accent-text); }
+    .lcard-verdict {
+      font-size: 10px; color: var(--text-3); line-height: 1.5;
+      border-top: 1px solid var(--border); padding-top: 10px; margin-top: 4px;
+    }
+    .lcard-verdict.you { color: var(--accent-text); }
+
+    /* ═══════════════════════════════════════════
+       CODE COMPARISON
+    ═══════════════════════════════════════════ */
+    .compare {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .compare-grid { display: grid; grid-template-columns: 1fr 1fr; }
+    .cpanel { display: flex; flex-direction: column; }
+    .cpanel + .cpanel { border-left: 1px solid var(--border); }
+    .cpanel-hd {
+      display: flex; align-items: center; gap: 8px;
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--border);
+      font-size: 11px;
+    }
+    .cpanel-hd.bad  { background: rgba(248,113,113,0.05); color: var(--red); }
+    .cpanel-hd.good { background: rgba(167,139,250,0.07); color: var(--accent-text); }
+    .cpanel-hd .clang { margin-left: auto; font-size: 9px; color: var(--text-4); }
+    .cpanel-body { padding: 20px; font-size: 11.5px; line-height: 1.85; flex: 1; }
+    .cpanel-body pre { white-space: pre; font-family: var(--font); }
+
+    /* syntax colours */
+    .kw  { color: var(--accent-text); }
+    .fn  { color: #93c5fd; }
+    .str { color: var(--green); }
+    .tp  { color: var(--cyan); }
+    .cm  { color: var(--text-4); font-style: italic; }
+    .op  { color: var(--text-3); }
+    .pk  { color: #f472b6; }          /* python keyword */
+    .pf  { color: #fbbf24; }          /* python fn */
+    .pc  { color: var(--cyan); }      /* python class */
+
+    .compare-bottom {
+      display: grid; grid-template-columns: 1fr 1fr;
+      border-top: 1px solid var(--border);
+    }
+    .cverdict {
+      padding: 12px 16px; font-size: 11px; color: var(--text-3);
+      display: flex; align-items: flex-start; gap: 8px; line-height: 1.6;
+    }
+    .cverdict + .cverdict { border-left: 1px solid var(--border); }
+    .cverdict .vi { flex-shrink: 0; }
+    .cverdict.bad  .vi { color: var(--red); }
+    .cverdict.good .vi { color: var(--green); }
+
+    /* line count callout */
+    .line-count {
+      display: flex; gap: 2px;
+      padding: 8px 16px;
+      border-top: 1px solid var(--border);
+      background: var(--bg-subtle);
+    }
+    .lc-item {
+      flex: 1; text-align: center; padding: 6px;
+      font-size: 10px; color: var(--text-3);
+    }
+    .lc-num {
+      font-size: 18px; font-weight: 600; display: block; margin-bottom: 2px;
+    }
+    .lc-num.bad  { color: var(--red); }
+    .lc-num.good { color: var(--green); }
+
+    /* ═══════════════════════════════════════════
+       HOW IT WORKS — 3 steps
+    ═══════════════════════════════════════════ */
+    .steps { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; align-items: start; gap: 0; }
+    .step-arrow { align-self: center; padding: 0 8px; color: var(--text-4); font-size: 18px; margin-top: -24px; }
+    .step {
+      background: var(--bg-raised);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px 20px;
+      display: flex; flex-direction: column; gap: 10px;
+      transition: border-color 0.15s;
+    }
+    .step:hover { border-color: var(--accent-border); }
+    .step-num {
+      width: 26px; height: 26px; border-radius: 50%;
+      background: var(--accent-dim); border: 1px solid var(--accent-border);
+      color: var(--accent-text); font-size: 11px; font-weight: 600;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .step h3 { font-size: 12px; font-weight: 600; color: var(--text-1); }
+    .step p  { font-size: 11px; color: var(--text-3); line-height: 1.6; }
+    .step code {
+      display: block;
+      background: var(--bg-subtle); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); padding: 8px 10px;
+      font-family: var(--font); font-size: 10px; color: var(--cyan);
+      white-space: pre; line-height: 1.7;
+    }
+
+    /* ═══════════════════════════════════════════
+       NETWORK DIAGRAM
+    ═══════════════════════════════════════════ */
+    .diagram-wrap {
+      background: var(--bg-raised);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 32px 24px;
+      overflow-x: auto;
+    }
+    .diagram-wrap svg { display: block; margin: 0 auto; }
+
+    /* ═══════════════════════════════════════════
+       BENTO GRID
+    ═══════════════════════════════════════════ */
+    .bento {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+    .bcard {
+      background: var(--bg-raised);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 22px;
+      display: flex; flex-direction: column; gap: 10px;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .bcard:hover {
+      border-color: var(--accent-border);
+      box-shadow: 0 0 28px rgba(167,139,250,0.07);
+    }
+    .bcard-tall { grid-row: span 2; }
+    .bcard-wide { grid-column: span 2; }
+    .bcard-tag {
+      align-self: flex-start; display: inline-flex; align-items: center;
+      font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--accent-text);
+      background: var(--accent-dim); border: 1px solid var(--accent-border);
+      border-radius: 4px; padding: 2px 7px;
+    }
+    .bcard h3 { font-size: 12px; font-weight: 600; color: var(--text-1); line-height: 1.4; }
+    .bcard .problem { font-size: 11px; color: var(--text-4); line-height: 1.65; font-style: italic; }
+    .bcard .solution { font-size: 11px; color: var(--text-2); line-height: 1.65; }
+    .bcard code {
+      font-family: var(--font); font-size: 10px; color: var(--cyan);
+      background: var(--bg-subtle); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); padding: 8px 10px;
+      display: block; white-space: pre-wrap; line-height: 1.7;
+      margin-top: auto;
+    }
+
+    /* ═══════════════════════════════════════════
+       FOOTER
+    ═══════════════════════════════════════════ */
+    footer {
+      position: relative; z-index: 2;
+      border-top: 1px solid var(--border);
+      background: var(--bg);
+    }
+    .footer-inner {
+      max-width: 1200px; margin: 0 auto;
+      padding: 8px 24px;
+      display: flex; align-items: center; justify-content: space-between;
+      font-size: 11px; color: var(--text-4);
+    }
+    .footer-left, .footer-right { display: flex; align-items: center; gap: 16px; }
+    .footer-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+    footer a { color: inherit; text-decoration: none; transition: color 0.15s; }
+    footer a:hover { color: var(--accent-text); }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════
+     NAV
+═══════════════════════════════════════════ -->
+<nav>
+  <div class="nav-inner">
+    <div class="nav-brand">
+      <span class="nav-logo">m4trix</span>
+      <span class="nav-badge">
+        <span class="nav-badge-dot"></span>
+        Pre-Alpha
+      </span>
+    </div>
+    <div class="nav-actions">
+      <a href="https://github.com/Pascal-Lohscheidt/m4trix" class="btn-ghost">
+        <svg width="13" height="13" fill="currentColor" viewBox="0 0 24 24"><path fill-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clip-rule="evenodd"/></svg>
+        GitHub
+      </a>
+      <a href="https://docs.m4trix.dev" class="btn-primary">
+        <span class="btn-dollar">$</span> read docs
+        <span style="opacity:0.5">→</span>
+      </a>
+    </div>
+  </div>
+</nav>
+
+<!-- ═══════════════════════════════════════════
+     PACKAGE TABS
+═══════════════════════════════════════════ -->
+<div class="tab-bar">
+  <div class="tab-bar-inner">
+    <div class="tab active">
+      <span class="tab-pip"></span>
+      Agent Orchestrator
+      <span class="tab-badge">Pre-Alpha</span>
+    </div>
+    <div class="tab">
+      <span class="tab-pip"></span>
+      Evals
+    </div>
+    <div class="tab">
+      <span class="tab-pip"></span>
+      Tracing
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     HERO
+═══════════════════════════════════════════ -->
+<section class="hero">
+  <div class="hero-glow-1"></div>
+  <div class="hero-glow-2"></div>
+  <div class="hero-inner">
+
+    <div class="hero-eyebrow">
+      <span class="hero-eyebrow-dot"></span>
+      @m4trix/core · Event-driven agent orchestration
+    </div>
+
+    <h1 class="hero-h1">
+      Build agents<br>
+      <span class="accent">without the graph.</span>
+    </h1>
+
+    <p class="hero-sub">
+      TypeScript-native agent orchestration. No state machines to wire. No graph theory to learn.
+      Just typed events, async handlers, and named channels.
+      <code>@m4trix/core/matrix</code>
+    </p>
+
+    <div class="install">
+      <div class="install-hd">
+        <div class="install-hd-left">
+          <span class="install-dot"></span>
+          <span class="install-hd-label"># install</span>
+        </div>
+        <span class="install-hd-lang">bash</span>
+      </div>
+      <div class="install-body">
+        <div class="install-line">
+          <span class="dollar">$</span>
+          <span class="cmd">pnpm add <span class="pkg">@m4trix/core</span></span>
+        </div>
+        <div class="install-ok">
+          <span class="check">✓</span>
+          <span class="ok-text">Packages: +1</span>
+          <span class="ok-dim">Done in 0.4s</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="pills">
+      <span class="pill"><span class="pkg-name">@m4trix/core/matrix</span><span class="pkg-desc"> // agents & networks</span></span>
+      <span class="pill"><span class="pkg-name">@m4trix/stream</span><span class="pkg-desc"> // pipes</span></span>
+      <span class="pill"><span class="pkg-name">@m4trix/react</span><span class="pkg-desc"> // hooks</span></span>
+    </div>
+
+    <div class="hero-ctas">
+      <a href="#" class="cta-primary">
+        <span style="color:rgba(167,139,250,0.6)">$</span> Quick Start →
+      </a>
+      <a href="#" class="cta-secondary">
+        <span class="star-icon">★</span> Star on GitHub
+      </a>
+    </div>
+
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════
+     TRUST BAR
+═══════════════════════════════════════════ -->
+<div class="trust-wrap">
+  <div class="trust-bar">
+    <div class="trust-cell">
+      <span class="trust-val violet">TypeScript</span>
+      <span class="trust-lbl">native — full inference</span>
+    </div>
+    <div class="trust-cell">
+      <span class="trust-val blue">Effect Schema</span>
+      <span class="trust-lbl">runtime validation built-in</span>
+    </div>
+    <div class="trust-cell">
+      <span class="trust-val green">MIT License</span>
+      <span class="trust-lbl">no usage limits · self-host</span>
+    </div>
+    <div class="trust-cell">
+      <span class="trust-val amber">0 graphs required</span>
+      <span class="trust-lbl">events, handlers, channels</span>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     LANDSCAPE — "pick your framework"
+═══════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-hd">
+    <h2>Know the landscape. Choose deliberately.</h2>
+    <p>Every agent framework makes a different trade-off. Here's an honest read — including the ones you've probably already tried.</p>
+  </div>
+
+  <div class="landscape-grid">
+
+    <div class="lcard">
+      <div class="lcard-name">LangGraph</div>
+      <div class="lcard-sub">by LangChain · Python-first</div>
+      <div class="lcard-row">
+        <div class="lcard-item"><span class="li-key">model</span><span class="li-val bad">state graph + nodes</span></div>
+        <div class="lcard-item"><span class="li-key">lang</span><span class="li-val ok">Python (TS port exists)</span></div>
+        <div class="lcard-item"><span class="li-key">DX</span><span class="li-val bad">steepest curve (≈18 min setup)</span></div>
+        <div class="lcard-item"><span class="li-key">cloud</span><span class="li-val bad">$49–99 / mo (LangSmith)</span></div>
+        <div class="lcard-item"><span class="li-key">control</span><span class="li-val good">highest</span></div>
+      </div>
+      <div class="lcard-verdict">Powerful once it clicks — graph theory is genuinely the right model for some workflows. But you pay upfront in complexity and ongoing in cloud costs.</div>
+    </div>
+
+    <div class="lcard">
+      <div class="lcard-name">CrewAI</div>
+      <div class="lcard-sub">role-based · Python</div>
+      <div class="lcard-row">
+        <div class="lcard-item"><span class="li-key">model</span><span class="li-val ok">Agent / Crew / Task roles</span></div>
+        <div class="lcard-item"><span class="li-key">lang</span><span class="li-val ok">Python</span></div>
+        <div class="lcard-item"><span class="li-key">DX</span><span class="li-val good">easiest to start</span></div>
+        <div class="lcard-item"><span class="li-key">cloud</span><span class="li-val bad">$29–99 / mo</span></div>
+        <div class="lcard-item"><span class="li-key">control</span><span class="li-val bad">lowest</span></div>
+      </div>
+      <div class="lcard-verdict">Ships demos fast. But role-based abstraction becomes a ceiling — debugging is opaque and per-run cloud billing adds up.</div>
+    </div>
+
+    <div class="lcard">
+      <div class="lcard-name">Mastra / AI SDK</div>
+      <div class="lcard-sub">Vercel + Mastra · TypeScript</div>
+      <div class="lcard-row">
+        <div class="lcard-item"><span class="li-key">model</span><span class="li-val ok">primitives — bring your own glue</span></div>
+        <div class="lcard-item"><span class="li-key">lang</span><span class="li-val good">TypeScript</span></div>
+        <div class="lcard-item"><span class="li-key">DX</span><span class="li-val ok">good — no strong conventions</span></div>
+        <div class="lcard-item"><span class="li-key">cloud</span><span class="li-val good">self-host friendly</span></div>
+        <div class="lcard-item"><span class="li-key">control</span><span class="li-val ok">medium</span></div>
+      </div>
+      <div class="lcard-verdict">Solid building blocks for Next.js. But you wire orchestration yourself — no event model, no channel routing, no streaming layer built-in.</div>
+    </div>
+
+    <div class="lcard highlight">
+      <div class="lcard-name">m4trix/core <span class="badge-you">you are here</span></div>
+      <div class="lcard-sub">event-driven · TypeScript</div>
+      <div class="lcard-row">
+        <div class="lcard-item"><span class="li-key">model</span><span class="li-val accent">typed events + handlers</span></div>
+        <div class="lcard-item"><span class="li-key">lang</span><span class="li-val good">TypeScript (native)</span></div>
+        <div class="lcard-item"><span class="li-key">DX</span><span class="li-val accent">event → function → network</span></div>
+        <div class="lcard-item"><span class="li-key">cloud</span><span class="li-val good">MIT · fully self-hosted</span></div>
+        <div class="lcard-item"><span class="li-key">control</span><span class="li-val good">high — no black boxes</span></div>
+      </div>
+      <div class="lcard-verdict you">No graph theory. No per-run billing. Schema-validated events, async handlers, named channels — and SSE streaming to your frontend out of the box.</div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     CODE COMPARISON
+═══════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-hd">
+    <h2>No graphs. Just events.</h2>
+    <p>Same outcome — an agent that receives a query and calls an LLM. Watch how much ceremony disappears.</p>
+  </div>
+
+  <div class="compare">
+    <div class="compare-grid">
+
+      <!-- LEFT: LangGraph -->
+      <div class="cpanel">
+        <div class="cpanel-hd bad">
+          <svg width="11" height="11" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="#f87171" stroke-width="1.5"/><path d="M5 5l6 6M11 5l-6 6" stroke="#f87171" stroke-width="1.5" stroke-linecap="round"/></svg>
+          LangGraph — the graph way
+          <span class="clang">Python</span>
+        </div>
+        <div class="cpanel-body">
+<pre><span class="cm"># Step 1: import the graph theory</span>
+<span class="pk">from</span> langgraph.graph <span class="pk">import</span> <span class="pc">StateGraph</span>, START, END
+<span class="pk">from</span> langgraph.graph.message <span class="pk">import</span> add_messages
+<span class="pk">from</span> typing_extensions <span class="pk">import</span> TypedDict, Annotated
+<span class="pk">from</span> langchain_openai <span class="pk">import</span> <span class="pc">ChatOpenAI</span>
+
+<span class="cm"># Step 2: define your state shape upfront</span>
+<span class="pk">class</span> <span class="pc">State</span>(TypedDict):
+    messages: Annotated[list, add_messages]
+
+<span class="cm"># Step 3: define nodes as separate functions</span>
+llm = <span class="pc">ChatOpenAI</span>(model=<span class="str">"gpt-4o"</span>)
+
+<span class="pk">def</span> <span class="pf">call_model</span>(state: <span class="pc">State</span>):
+    <span class="pk">return</span> {<span class="str">"messages"</span>: [llm.invoke(state[<span class="str">"messages"</span>])]}
+
+<span class="cm"># Step 4: construct the graph by hand</span>
+graph_builder = <span class="pc">StateGraph</span>(<span class="pc">State</span>)
+graph_builder.add_node(<span class="str">"llm"</span>, call_model)
+graph_builder.add_edge(START, <span class="str">"llm"</span>)
+graph_builder.add_edge(<span class="str">"llm"</span>, END)
+
+<span class="cm"># Step 5: compile before you can use it</span>
+graph = graph_builder.compile()
+
+result = <span class="pk">await</span> graph.ainvoke(
+    {<span class="str">"messages"</span>: [{<span class="str">"role"</span>: <span class="str">"user"</span>, <span class="str">"content"</span>: query}]}
+)</pre>
+        </div>
+      </div>
+
+      <!-- RIGHT: m4trix -->
+      <div class="cpanel">
+        <div class="cpanel-hd good">
+          <svg width="11" height="11" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="#a78bfa" stroke-width="1.5"/><path d="M4.5 8l2.5 2.5 4.5-4.5" stroke="#a78bfa" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          m4trix — the event way
+          <span class="clang">TypeScript</span>
+        </div>
+        <div class="cpanel-body">
+<pre><span class="cm">// Step 1: name the thing that happens</span>
+<span class="kw">const</span> <span class="fn">UserQuery</span> = AgentNetworkEvent.of(
+  <span class="str">'user:query'</span>,
+  S.Struct({ query: S.<span class="tp">String</span> })
+)
+
+<span class="cm">// Step 2: write the logic — just a function</span>
+<span class="kw">const</span> <span class="fn">llmAgent</span> = AgentFactory
+  .run()
+  .listensTo([<span class="fn">UserQuery</span>])
+  .logic(<span class="kw">async</span> ({ event }) => ({
+    reply: <span class="kw">await</span> openai.chat(event.payload.query)
+  }))
+  .produce({ channel: <span class="str">'client'</span> })
+
+<span class="cm">// Step 3: register — done</span>
+<span class="kw">const</span> <span class="fn">network</span> = AgentNetwork.setup(
+  ({ registerAgent }) => {
+    registerAgent(<span class="fn">llmAgent</span>)
+  }
+)
+
+
+</pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- Line count bar -->
+    <div class="line-count">
+      <div class="lc-item">
+        <span class="lc-num bad">5</span>
+        imports before logic
+      </div>
+      <div class="lc-item">
+        <span class="lc-num bad">3</span>
+        graph concepts to know
+      </div>
+      <div class="lc-item">
+        <span class="lc-num bad">compile()</span>
+        required before invoke
+      </div>
+      <div style="width:1px;background:var(--border);"></div>
+      <div class="lc-item">
+        <span class="lc-num good">1</span>
+        concept — typed event
+      </div>
+      <div class="lc-item">
+        <span class="lc-num good">0</span>
+        graph theory required
+      </div>
+      <div class="lc-item">
+        <span class="lc-num good">TS</span>
+        catches wrong shapes
+      </div>
+    </div>
+
+    <!-- Verdict -->
+    <div class="compare-bottom">
+      <div class="cverdict bad">
+        <span class="vi">✗</span>
+        <span>TypedDict state, node functions, add_node calls, add_edge wiring, compile step — five distinct concepts before your agent does anything. And that's the <em>simple</em> example. Add conditional routing and you're writing graph topology by hand.</span>
+      </div>
+      <div class="cverdict good">
+        <span class="vi">✓</span>
+        <span>Define what happened (the event), write what to do (the function), say where results go (the channel). TypeScript catches mismatched payloads at compile time. No state machine. No compile step. No Python.</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     HOW IT WORKS — 3 steps
+═══════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-hd">
+    <h2>Three steps, then you're wiring agents.</h2>
+    <p>The mental model fits on a napkin. Start with one agent. Grow to a swarm without rewriting anything.</p>
+  </div>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <h3>Define typed events</h3>
+      <p>Name the thing that happens. Attach a schema. Agents that receive the wrong shape get a compile error, not a runtime crash.</p>
+      <code>AgentNetworkEvent.of(
+  'user:query',
+  S.Struct({
+    query: S.String,
+    userId: S.String
+  })
+)</code>
+    </div>
+
+    <div class="step-arrow">→</div>
+
+    <div class="step">
+      <div class="step-num">2</div>
+      <h3>Write agent logic</h3>
+      <p>A plain async function. Typed input in, typed output out. No graph concepts, no state accumulators, no reducers.</p>
+      <code>AgentFactory
+  .run()
+  .listensTo([UserQuery])
+  .logic(async ({ event }) => ({
+    reply: await llm(
+      event.payload.query
+    )
+  }))</code>
+    </div>
+
+    <div class="step-arrow">→</div>
+
+    <div class="step">
+      <div class="step-num">3</div>
+      <h3>Wire to a network</h3>
+      <p>Register one agent or fifty. Expose as SSE, Kafka, or HTTP. Start solo, scale to a swarm — the network doesn't care.</p>
+      <code>AgentNetwork
+  .setup(({ registerAgent }) => {
+    registerAgent(llmAgent)
+  })
+  .expose({ channel: 'client' })</code>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     NETWORK DIAGRAM
+═══════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-hd">
+    <h2>Events in. Results out. Agents in between.</h2>
+    <p>Agents connect through named channels. Swap a sink, add an agent, or change a route — without touching the agents themselves.</p>
+  </div>
+
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 800 280" width="800" height="280" xmlns="http://www.w3.org/2000/svg" font-family="'JetBrains Mono', monospace" font-size="10">
+      <defs>
+        <filter id="gv" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+        <filter id="gc" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+        <marker id="av" markerWidth="7" markerHeight="5" refX="6" refY="2.5" orient="auto">
+          <polygon points="0 0,7 2.5,0 5" fill="rgba(167,139,250,0.65)"/>
+        </marker>
+        <marker id="ag" markerWidth="7" markerHeight="5" refX="6" refY="2.5" orient="auto">
+          <polygon points="0 0,7 2.5,0 5" fill="rgba(74,222,128,0.65)"/>
+        </marker>
+        <marker id="ac" markerWidth="7" markerHeight="5" refX="6" refY="2.5" orient="auto">
+          <polygon points="0 0,7 2.5,0 5" fill="rgba(103,232,249,0.65)"/>
+        </marker>
+        <!-- pulse animation along path -->
+        <style>
+          .flow-1 { stroke-dasharray: 6 10; animation: flow 1.8s linear infinite; }
+          .flow-2 { stroke-dasharray: 6 10; animation: flow 2.2s linear infinite 0.4s; }
+          .flow-3 { stroke-dasharray: 6 10; animation: flow 2s linear infinite 0.8s; }
+          .flow-4 { stroke-dasharray: 6 10; animation: flow 1.6s linear infinite 0.2s; }
+          .flow-5 { stroke-dasharray: 6 10; animation: flow 2.4s linear infinite 0.6s; }
+          @keyframes flow { to { stroke-dashoffset: -32; } }
+        </style>
+      </defs>
+
+      <!-- bg -->
+      <rect width="800" height="280" fill="#18181b"/>
+
+      <!-- ── Client box ── -->
+      <rect x="20" y="110" width="90" height="60" rx="8" fill="#27272a" stroke="rgba(255,255,255,0.09)" stroke-width="1"/>
+      <text x="65" y="137" text-anchor="middle" fill="#a1a1aa">Client</text>
+      <text x="65" y="153" text-anchor="middle" fill="#52525b" font-size="9">browser / API</text>
+
+      <!-- Event arrow: client → network -->
+      <line x1="110" y1="140" x2="166" y2="140" stroke="rgba(167,139,250,0.35)" stroke-width="1.5" class="flow-1" marker-end="url(#av)"/>
+      <text x="138" y="132" text-anchor="middle" fill="rgba(167,139,250,0.55)" font-size="9">event</text>
+
+      <!-- ── AgentNetwork boundary ── -->
+      <rect x="170" y="24" width="430" height="232" rx="10"
+            fill="rgba(167,139,250,0.03)"
+            stroke="rgba(167,139,250,0.18)" stroke-width="1.5" stroke-dasharray="7 5"/>
+      <text x="385" y="44" text-anchor="middle" fill="rgba(167,139,250,0.4)" font-size="9" letter-spacing="0.15em">AGENT NETWORK</text>
+
+      <!-- ── Orchestrator ── -->
+      <rect x="192" y="96" width="144" height="88" rx="8"
+            fill="#1c1c1f" stroke="rgba(167,139,250,0.38)" stroke-width="1" filter="url(#gv)"/>
+      <text x="264" y="124" text-anchor="middle" fill="#c4b5fd" font-weight="600">Orchestrator</text>
+      <text x="264" y="140" text-anchor="middle" fill="#71717a" font-size="9">routes by event type</text>
+      <rect x="208" y="152" width="112" height="20" rx="4" fill="rgba(167,139,250,0.09)" stroke="rgba(167,139,250,0.2)" stroke-width="1"/>
+      <text x="264" y="165" text-anchor="middle" fill="rgba(167,139,250,0.75)" font-size="9">.listensTo([UserQuery])</text>
+
+      <!-- Channel: orch → llm-agent -->
+      <line x1="336" y1="128" x2="390" y2="100" stroke="rgba(167,139,250,0.4)" stroke-width="1.5" class="flow-2" marker-end="url(#av)"/>
+      <text x="355" y="108" fill="rgba(167,139,250,0.5)" font-size="8">ch:llm</text>
+
+      <!-- Channel: orch → tool-agent -->
+      <line x1="336" y1="162" x2="390" y2="188" stroke="rgba(167,139,250,0.4)" stroke-width="1.5" class="flow-3" marker-end="url(#av)"/>
+      <text x="345" y="184" fill="rgba(167,139,250,0.5)" font-size="8">ch:tools</text>
+
+      <!-- ── LLM Agent ── -->
+      <rect x="392" y="60" width="130" height="72" rx="8"
+            fill="#1c1c1f" stroke="rgba(103,232,249,0.28)" stroke-width="1"/>
+      <text x="457" y="88" text-anchor="middle" fill="#67e8f9" font-weight="600">LLM Agent</text>
+      <text x="457" y="104" text-anchor="middle" fill="#71717a" font-size="9">model calls + streaming</text>
+      <text x="457" y="120" text-anchor="middle" fill="#52525b" font-size="8">gpt-4o / claude / gemini</text>
+
+      <!-- ── Tool Agent ── -->
+      <rect x="392" y="152" width="130" height="72" rx="8"
+            fill="#1c1c1f" stroke="rgba(74,222,128,0.22)" stroke-width="1"/>
+      <text x="457" y="180" text-anchor="middle" fill="#4ade80" font-weight="600">Tool Agent</text>
+      <text x="457" y="196" text-anchor="middle" fill="#71717a" font-size="9">function calls + results</text>
+      <text x="457" y="212" text-anchor="middle" fill="#52525b" font-size="8">search / code / db / api</text>
+
+      <!-- Arrows to sinks -->
+      <line x1="522" y1="96" x2="568" y2="90" stroke="rgba(74,222,128,0.4)" stroke-width="1.5" class="flow-4" marker-end="url(#ag)"/>
+      <line x1="522" y1="188" x2="568" y2="196" stroke="rgba(103,232,249,0.4)" stroke-width="1.5" class="flow-5" marker-end="url(#ac)"/>
+
+      <!-- ── Sinks ── -->
+      <rect x="570" y="64" width="108" height="52" rx="8"
+            fill="#27272a" stroke="rgba(74,222,128,0.18)" stroke-width="1"/>
+      <text x="624" y="88" text-anchor="middle" fill="#4ade80">HTTP Stream</text>
+      <text x="624" y="104" text-anchor="middle" fill="#52525b" font-size="9">SSE · Next.js · Express</text>
+
+      <rect x="570" y="166" width="108" height="52" rx="8"
+            fill="#27272a" stroke="rgba(103,232,249,0.18)" stroke-width="1"/>
+      <text x="624" y="190" text-anchor="middle" fill="#67e8f9">Kafka Sink</text>
+      <text x="624" y="206" text-anchor="middle" fill="#52525b" font-size="9">async · durable · ordered</text>
+
+      <!-- ── Arrows out from sinks ── -->
+      <line x1="678" y1="90" x2="714" y2="140" stroke="rgba(255,255,255,0.1)" stroke-width="1" marker-end="url(#av)"/>
+      <line x1="678" y1="192" x2="714" y2="148" stroke="rgba(255,255,255,0.1)" stroke-width="1" marker-end="url(#av)"/>
+
+      <!-- ── Consumer ── -->
+      <rect x="716" y="110" width="68" height="60" rx="8"
+            fill="#27272a" stroke="rgba(255,255,255,0.07)" stroke-width="1"/>
+      <text x="750" y="137" text-anchor="middle" fill="#71717a">Your</text>
+      <text x="750" y="152" text-anchor="middle" fill="#71717a">App</text>
+
+      <!-- Legend -->
+      <line x1="24" y1="248" x2="44" y2="248" stroke="rgba(167,139,250,0.4)" stroke-width="1.5" stroke-dasharray="6 10"/>
+      <text x="50" y="251" fill="#52525b" font-size="9">animated channels</text>
+      <rect x="170" y="242" width="10" height="10" rx="2" fill="none" stroke="rgba(167,139,250,0.18)" stroke-width="1" stroke-dasharray="4 3"/>
+      <text x="186" y="251" fill="#52525b" font-size="9">AgentNetwork boundary</text>
+    </svg>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     BENTO — feature cards
+═══════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-hd">
+    <h2>Write logic first. Wire it second.</h2>
+    <p>Everything you need to go from one agent to a full production swarm. Nothing you don't.</p>
+  </div>
+
+  <div class="bento">
+
+    <!-- Card 1: tall — core primitive -->
+    <div class="bcard bcard-tall">
+      <span class="bcard-tag">core primitive</span>
+      <h3>Write logic once.<br>Handle any event.</h3>
+      <p class="problem">Graphs make you define nodes and edges before you've written a single line of business logic.</p>
+      <p class="solution">m4trix agents are async functions that listen to typed events and produce typed outputs. No graph. No global state. Compose into a network when you're ready.</p>
+      <code>AgentFactory
+  .run()
+  .listensTo([UserQuery])
+  .logic(async ({ event }) => ({
+    reply: await llm(
+      event.payload.query
+    )
+  }))
+  .produce({ channel: 'client' })</code>
+    </div>
+
+    <!-- Card 2: typed events -->
+    <div class="bcard">
+      <span class="bcard-tag">type safety</span>
+      <h3>If the schema changes, you'll know before prod.</h3>
+      <p class="solution">Effect Schema validates event payloads at runtime and gives you full TypeScript inference through the whole call chain. Wrong shape → compile error.</p>
+      <code>AgentNetworkEvent.of(
+  'user:query',
+  S.Struct({
+    query: S.String
+  })
+)</code>
+    </div>
+
+    <!-- Card 3: network -->
+    <div class="bcard">
+      <span class="bcard-tag">orchestration</span>
+      <h3>One agent today. A swarm when you need it.</h3>
+      <p class="solution">Register agents into a network. They share named channels, not a monolithic state object. Add agents incrementally — the network doesn't care how many.</p>
+      <code>AgentNetwork.setup(
+  ({ registerAgent }) => {
+    registerAgent(orchestrator)
+    registerAgent(llmAgent)
+    registerAgent(toolAgent)
+  }
+)</code>
+    </div>
+
+    <!-- Card 4: channels -->
+    <div class="bcard">
+      <span class="bcard-tag">routing</span>
+      <h3>Producers don't need to know who's listening.</h3>
+      <p class="solution">Named channels decouple agents from each other. Swap a sink without touching agent logic. Route the same channel to HTTP, Kafka, or a custom handler.</p>
+      <code>createChannel('client')
+  .sink(sink.httpStream())</code>
+    </div>
+
+    <!-- Card 5: SSE -->
+    <div class="bcard">
+      <span class="bcard-tag">http adapter</span>
+      <h3>Your network already has an API. Just expose it.</h3>
+      <p class="solution">Built-in Next.js and Express adapters wrap your network as a streaming handler. Clients get results as SSE — no boilerplate, no extra infra.</p>
+      <code>NextEndpoint
+  .from(network.expose({
+    channel: 'client'
+  }))
+  .handler()</code>
+    </div>
+
+    <!-- Card 6: wide — ecosystem -->
+    <div class="bcard bcard-wide">
+      <span class="bcard-tag">ecosystem</span>
+      <h3>Same mental model, all the way down the stack.</h3>
+      <p class="solution">Core handles orchestration. Stream handles async pipes. React gives you <code style="font-size:10px;background:none;border:none;padding:0;color:var(--cyan)">useAgentStream()</code>. UI gives you pre-built components. One team, one versioning, zero glue code between layers.</p>
+      <code>@m4trix/core    // agents & networks — you are here
+@m4trix/stream  // async pipes & backpressure
+@m4trix/react   // hooks — useAgentStream()
+@m4trix/ui      // pre-built streaming components</code>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     FOOTER
+═══════════════════════════════════════════ -->
+<footer>
+  <div class="footer-inner">
+    <div class="footer-left">
+      <span class="footer-dot"></span>
+      <span>main</span>
+      <span>MIT</span>
+      <span>Pascal Lohscheidt</span>
+    </div>
+    <div class="footer-right">
+      <a href="https://github.com/Pascal-Lohscheidt/m4trix">
+        <svg width="13" height="13" fill="currentColor" viewBox="0 0 24 24"><path fill-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clip-rule="evenodd"/></svg>
+      </a>
+      <span>© 2026</span>
+      <span>TypeScript</span>
+      <span>UTF-8</span>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
