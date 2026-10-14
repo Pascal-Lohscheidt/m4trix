@@ -1,8 +1,13 @@
 import { mkdtemp, rm } from 'node:fs/promises';
-import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { FsStructureStoreAdapter, type Trace, type TraceRun } from '../index.js';
+import {
+  FsStructureStoreAdapter,
+  type ListTracesQuery,
+  type Trace,
+  type TraceRun,
+} from '../index.js';
 
 describe('FsStructureStoreAdapter', () => {
   let root: string;
@@ -72,6 +77,46 @@ describe('FsStructureStoreAdapter', () => {
     await expect(adapter.listTraces({ projectId: 'demo', status: 'success' })).resolves.toEqual({
       traces: [expect.objectContaining({ traceId: 'newer-success' })],
     });
+  });
+
+  it('filters lists by session, user, tags, latency, and cost', async () => {
+    const adapter = new FsStructureStoreAdapter({ path: root });
+    await adapter.upsertTrace(
+      makeTrace({
+        traceId: 'match',
+        sessionId: 'session-1',
+        userId: 'user-1',
+        tags: ['prod', 'checkout'],
+        latencyMs: 5000,
+        costUsd: 0.2,
+        startTime: '2026-01-01T00:00:00.000Z',
+      }),
+    );
+    await adapter.upsertTrace(
+      makeTrace({
+        traceId: 'other',
+        sessionId: 'session-2',
+        startTime: '2026-01-02T00:00:00.000Z',
+      }),
+    );
+    await adapter.upsertTrace(
+      makeTrace({
+        traceId: 'cheap',
+        sessionId: 'session-1',
+        costUsd: 0.01,
+        startTime: '2026-01-03T00:00:00.000Z',
+      }),
+    );
+    const ids = async (query: ListTracesQuery) =>
+      (await adapter.listTraces(query)).traces.map((trace) => trace.traceId);
+
+    expect(await ids({ sessionId: 'session-1' })).toEqual(['cheap', 'match']);
+    expect(await ids({ userId: 'user-1' })).toEqual(['match']);
+    expect(await ids({ tags: ['prod', 'checkout'] })).toEqual(['match']);
+    expect(await ids({ tags: ['prod', 'missing'] })).toEqual([]);
+    expect(await ids({ minLatencyMs: 1000 })).toEqual(['match']);
+    expect(await ids({ minCostUsd: 0.1 })).toEqual(['match']);
+    expect(await ids({ minCostUsd: 0 })).toEqual(['cheap', 'match']);
   });
 
   it('returns null for missing traces', async () => {

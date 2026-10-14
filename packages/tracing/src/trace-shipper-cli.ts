@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { OtlpHttpExporter, resolveOtlpHttpExporterOptionsFromEnv, withOtlpExport } from './otel.js';
 import {
   DynamoStructureStoreAdapter,
   resolveDynamoStructureStoreOptionsFromEnv,
@@ -15,6 +16,7 @@ import {
   TraceShipperCliParseError,
   traceShipperCliHelpText,
 } from './trace-shipper-args.js';
+import type { StructureStoreAdapter } from './types.js';
 
 const program = 'm4trix-tracing-sidecar';
 
@@ -47,7 +49,7 @@ function main(): void {
   }
 
   let payloadDest: S3PayloadStoreAdapter;
-  let structureDest: DynamoStructureStoreAdapter;
+  let structureDest: StructureStoreAdapter;
   try {
     payloadDest = new S3PayloadStoreAdapter(resolveS3PayloadStoreOptionsFromEnv());
     structureDest = new DynamoStructureStoreAdapter(resolveDynamoStructureStoreOptionsFromEnv());
@@ -59,6 +61,20 @@ function main(): void {
       `${program}: set TRACE_DYNAMO_TABLE, TRACE_S3_BUCKET, and AWS_REGION (optional: TRACE_S3_PREFIX, AWS_ENDPOINT_URL).`,
     );
     process.exit(1);
+  }
+
+  // Also export finished traces to an OpenTelemetry backend when an OTLP endpoint is configured.
+  const otlp = resolveOtlpHttpExporterOptionsFromEnv();
+  const exporting = otlp
+    ? withOtlpExport(structureDest, new OtlpHttpExporter(otlp), {
+        onError(error, traceId) {
+          console.error(`[trace-shipper] OTLP export of ${traceId} failed: ${errorMessage(error)}`);
+        },
+      })
+    : undefined;
+  if (exporting && otlp) {
+    structureDest = exporting;
+    console.log(`[trace-shipper] exporting finished traces to ${otlp.url}`);
   }
 
   // Stop polling on shutdown; the loop makes one final pass before resolving.
@@ -95,10 +111,13 @@ function main(): void {
         console.error(`[trace-shipper] pass failed: ${errorMessage(error)}`);
       },
     },
-  ).catch((error) => {
-    console.error(`${program}: ${errorMessage(error)}`);
-    process.exit(1);
-  });
+  )
+    // Let exports of the final pass finish before the process exits.
+    .then(() => exporting?.drainExports())
+    .catch((error) => {
+      console.error(`${program}: ${errorMessage(error)}`);
+      process.exit(1);
+    });
 }
 
 function errorMessage(error: unknown): string {

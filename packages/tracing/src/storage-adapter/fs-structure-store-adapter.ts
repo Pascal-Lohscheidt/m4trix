@@ -202,7 +202,16 @@ function keepStoredAnnotation<T extends Trace | TraceRun>(
 
 function matchesTraceQuery(trace: Trace, query: ListTracesQuery): boolean {
   if (query.projectId && trace.projectId !== query.projectId) return false;
+  if (query.sessionId && trace.sessionId !== query.sessionId) return false;
+  if (query.userId && trace.userId !== query.userId) return false;
   if (query.status && trace.status !== query.status) return false;
+  if (query.tags?.some((tag) => !trace.tags?.includes(tag))) return false;
+  if (query.minLatencyMs !== undefined && !((trace.latencyMs ?? -1) >= query.minLatencyMs)) {
+    return false;
+  }
+  if (query.minCostUsd !== undefined && !((trace.costUsd ?? -1) >= query.minCostUsd)) {
+    return false;
+  }
   if (query.startAfter && trace.startTime <= query.startAfter) return false;
   if (query.startBefore && trace.startTime >= query.startBefore) return false;
   return true;

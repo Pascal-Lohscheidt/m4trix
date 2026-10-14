@@ -99,6 +99,9 @@ Environment:
   AWS_REGION           AWS region
   AWS_ENDPOINT_URL     Optional custom endpoint (e.g. LocalStack)
   TRACE_ROOT           Default --root when flag omitted
+  TRACE_DYNAMO_TTL_SECONDS          Optional; expire DynamoDB items this long after they started
+  OTEL_EXPORTER_OTLP_ENDPOINT       Optional; also export finished traces over OTLP/HTTP
+  OTEL_EXPORTER_OTLP_TRACES_ENDPOINT, OTEL_EXPORTER_OTLP_HEADERS, OTEL_SERVICE_NAME
 
 Examples:
   ${program} --root ./.traces --once

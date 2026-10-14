@@ -3,7 +3,7 @@ import { sidecarConfig } from './tsup.sidecar.config.js';
 
 export default defineConfig([
   {
-    entry: { index: 'src/index.ts', aws: 'src/aws.ts' },
+    entry: { index: 'src/index.ts', aws: 'src/aws.ts', otel: 'src/otel.ts' },
     format: ['esm', 'cjs'],
     dts: true,
     splitting: false,

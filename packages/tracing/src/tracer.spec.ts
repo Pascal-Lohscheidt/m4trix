@@ -1,19 +1,19 @@
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { toLangGraph } from './adapters/langgraph.js';
 import {
   FsPayloadStoreAdapter,
   FsStructureStoreAdapter,
-  type PayloadStoreAdapter,
-  type StructureStoreAdapter,
-  type Trace,
-  type TraceRun,
   Tracer,
   TraceStore,
   TraceViewerApi,
 } from './index.js';
+import {
+  RecordingPayloadStoreAdapter,
+  RecordingStructureStoreAdapter,
+} from './testing/recording-stores.js';
 
 describe('Tracer', () => {
   it('marks callback work as awaited for LangChain-compatible callback managers', () => {
@@ -132,7 +132,7 @@ describe('Tracer', () => {
           type: 'chat_model',
         }),
         expect.objectContaining({
-          error: { message: 'tool failed', type: 'Error' },
+          error: expect.objectContaining({ message: 'tool failed', type: 'Error' }),
           parentRunId: 'root-run',
           runId: 'tool-run',
           status: 'error',
@@ -295,16 +295,24 @@ describe('Tracer.flush', () => {
     });
   });
 
-  it('re-queues runs and traces when a store write fails', async () => {
+  it('re-queues runs and traces when a store write fails, and reports it instead of throwing', async () => {
     const structureStoreAdapter = new RecordingStructureStoreAdapter();
     structureStoreAdapter.failNextWrites = 1;
     const payloadStoreAdapter = new RecordingPayloadStoreAdapter();
-    const tracer = Tracer.from(TraceStore.of({ payloadStoreAdapter, structureStoreAdapter }));
+    const onError = vi.fn();
+    const tracer = Tracer.from(TraceStore.of({ payloadStoreAdapter, structureStoreAdapter }), {
+      autoFlush: false,
+      onError,
+    });
 
     await tracer.handleChainStart({}, {}, 'root-run');
     await tracer.handleChainEnd({}, 'root-run');
-    await expect(tracer.flush()).rejects.toThrow('structure store unavailable');
+    await expect(tracer.flush()).resolves.toBeUndefined();
     expect(structureStoreAdapter.batches).toHaveLength(0);
+    expect(onError).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: 'flush', error: expect.any(Error) }),
+    );
+    expect(tracer.stats()).toMatchObject({ failedFlushes: 1, pendingRuns: 1 });
 
     await tracer.flush();
 
@@ -321,14 +329,17 @@ describe('Tracer.flush', () => {
     structureStoreAdapter.failNextWrites = 1;
     structureStoreAdapter.writeDelayMs = 5;
     const payloadStoreAdapter = new RecordingPayloadStoreAdapter();
-    const tracer = Tracer.from(TraceStore.of({ payloadStoreAdapter, structureStoreAdapter }));
+    const tracer = Tracer.from(TraceStore.of({ payloadStoreAdapter, structureStoreAdapter }), {
+      autoFlush: false,
+      onError: () => {},
+    });
 
     await tracer.handleChainStart({}, {}, 'root-run');
     const failedFlush = tracer.flush();
     // Let the failing flush take its snapshot before the run moves on.
     await new Promise((resolve) => setTimeout(resolve, 1));
     await tracer.handleChainEnd({}, 'root-run');
-    await expect(failedFlush).rejects.toThrow('structure store unavailable');
+    await failedFlush;
 
     await tracer.flush();
 
@@ -393,7 +404,9 @@ describe('Tracer trace lifecycle', () => {
   it('releases a trace from memory once it has finished and been flushed', async () => {
     const structureStoreAdapter = new RecordingStructureStoreAdapter();
     const payloadStoreAdapter = new RecordingPayloadStoreAdapter();
-    const tracer = Tracer.from(TraceStore.of({ payloadStoreAdapter, structureStoreAdapter }));
+    const tracer = Tracer.from(TraceStore.of({ payloadStoreAdapter, structureStoreAdapter }), {
+      autoFlush: false,
+    });
 
     for (let i = 0; i < 20; i++) {
       await tracer.handleChainStart({}, {}, `root-${i}`);
@@ -412,7 +425,9 @@ describe('Tracer trace lifecycle', () => {
   it('keeps a trace in memory until its last child run ends', async () => {
     const structureStoreAdapter = new RecordingStructureStoreAdapter();
     const payloadStoreAdapter = new RecordingPayloadStoreAdapter();
-    const tracer = Tracer.from(TraceStore.of({ payloadStoreAdapter, structureStoreAdapter }));
+    const tracer = Tracer.from(TraceStore.of({ payloadStoreAdapter, structureStoreAdapter }), {
+      autoFlush: false,
+    });
 
     await tracer.handleChainStart({}, {}, 'root-run');
     await tracer.handleToolStart({}, 'query', 'background-tool', 'root-run');
@@ -438,11 +453,14 @@ describe('Tracer trace lifecycle', () => {
     const structureStoreAdapter = new RecordingStructureStoreAdapter();
     structureStoreAdapter.failNextWrites = 1;
     const payloadStoreAdapter = new RecordingPayloadStoreAdapter();
-    const tracer = Tracer.from(TraceStore.of({ payloadStoreAdapter, structureStoreAdapter }));
+    const tracer = Tracer.from(TraceStore.of({ payloadStoreAdapter, structureStoreAdapter }), {
+      autoFlush: false,
+      onError: () => {},
+    });
 
     await tracer.handleChainStart({}, {}, 'root-run', undefined, [], { projectId: 'demo' });
     await tracer.handleChainEnd({}, 'root-run');
-    await expect(tracer.flush()).rejects.toThrow('structure store unavailable');
+    await tracer.flush();
     expect(tracer.activeTraceCount).toBe(1);
 
     await tracer.flush();
@@ -454,91 +472,51 @@ describe('Tracer trace lifecycle', () => {
   });
 });
 
+describe('Tracer auto flush', () => {
+  it('writes a trace on its own once its last run ends', async () => {
+    const structureStoreAdapter = new RecordingStructureStoreAdapter();
+    const payloadStoreAdapter = new RecordingPayloadStoreAdapter();
+    const tracer = Tracer.from(TraceStore.of({ payloadStoreAdapter, structureStoreAdapter }));
+
+    await tracer.handleChainStart({}, {}, 'root-run');
+    await tracer.handleToolStart({}, 'query', 'background-tool', 'root-run');
+    await tracer.handleChainEnd({}, 'root-run');
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    // The root has ended, but a run is still going: nothing is written yet.
+    expect(structureStoreAdapter.traces).toHaveLength(0);
+
+    await tracer.handleToolEnd({ result: 'late' }, 'background-tool');
+
+    await vi.waitFor(() =>
+      expect(structureStoreAdapter.traces.at(-1)).toMatchObject({
+        traceId: 'root-run',
+        status: 'success',
+        runCount: 2,
+      }),
+    );
+    await vi.waitFor(() => expect(tracer.activeTraceCount).toBe(0));
+  });
+
+  it('leaves writing to explicit flushes when disabled', async () => {
+    const structureStoreAdapter = new RecordingStructureStoreAdapter();
+    const payloadStoreAdapter = new RecordingPayloadStoreAdapter();
+    const tracer = Tracer.from(TraceStore.of({ payloadStoreAdapter, structureStoreAdapter }), {
+      autoFlush: false,
+    });
+
+    await tracer.handleChainStart({}, {}, 'root-run');
+    await tracer.handleChainEnd({}, 'root-run');
+    await new Promise((resolve) => setTimeout(resolve, 5));
+
+    expect(structureStoreAdapter.traces).toHaveLength(0);
+    await tracer.flush();
+    expect(structureStoreAdapter.traces).toHaveLength(1);
+  });
+});
+
 function fsTraceStore(root: string): TraceStore {
   return TraceStore.of({
     structureStoreAdapter: new FsStructureStoreAdapter({ path: root }),
     payloadStoreAdapter: new FsPayloadStoreAdapter({ path: root }),
   });
-}
-
-class RecordingStructureStoreAdapter implements StructureStoreAdapter {
-  readonly traces: Trace[] = [];
-  readonly batches: TraceRun[][] = [];
-  writeDelayMs = 0;
-  failNextWrites = 0;
-  maxActiveWrites = 0;
-  private activeWrites = 0;
-  private readonly traceRecords = new Map<string, Trace>();
-  private readonly runRecords = new Map<string, TraceRun>();
-
-  async upsertTrace(trace: Trace): Promise<void> {
-    await this.write(() => {
-      this.traces.push(trace);
-      this.traceRecords.set(trace.traceId, trace);
-    });
-  }
-
-  async upsertRun(run: TraceRun): Promise<void> {
-    this.runRecords.set(run.runId, run);
-  }
-
-  async upsertRunBatch(runs: TraceRun[]): Promise<void> {
-    await this.write(() => {
-      this.batches.push(runs);
-      for (const run of runs) {
-        this.runRecords.set(run.runId, run);
-      }
-    });
-  }
-
-  private async write(apply: () => void): Promise<void> {
-    this.activeWrites += 1;
-    this.maxActiveWrites = Math.max(this.maxActiveWrites, this.activeWrites);
-    try {
-      if (this.writeDelayMs > 0) {
-        await new Promise((resolve) => setTimeout(resolve, this.writeDelayMs));
-      }
-      if (this.failNextWrites > 0) {
-        this.failNextWrites -= 1;
-        throw new Error('structure store unavailable');
-      }
-      apply();
-    } finally {
-      this.activeWrites -= 1;
-    }
-  }
-
-  async getTrace(traceId: string): Promise<{ trace: Trace; runs: TraceRun[] } | null> {
-    const trace = this.traceRecords.get(traceId);
-    if (!trace) return null;
-    return {
-      trace,
-      runs: [...this.runRecords.values()].filter((run) => run.traceId === traceId),
-    };
-  }
-
-  async listTraces(): Promise<{ traces: Trace[]; nextCursor?: string }> {
-    return { traces: [...this.traceRecords.values()] };
-  }
-
-  async patchTraceAnnotation(): Promise<Trace | null> {
-    return null;
-  }
-
-  async patchRunAnnotation(): Promise<TraceRun | null> {
-    return null;
-  }
-}
-
-class RecordingPayloadStoreAdapter implements PayloadStoreAdapter {
-  private readonly payloads = new Map<string, unknown>();
-
-  async putJson(path: string, value: unknown): Promise<string> {
-    this.payloads.set(path, value);
-    return path;
-  }
-
-  async getJson<T = unknown>(ref: string): Promise<T> {
-    return this.payloads.get(ref) as T;
-  }
 }

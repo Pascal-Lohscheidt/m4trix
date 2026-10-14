@@ -1,7 +1,7 @@
 import { ConditionalCheckFailedException } from '@aws-sdk/client-dynamodb';
 import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { Trace, TraceRun } from '../types.js';
+import type { ListTracesQuery, Trace, TraceRun } from '../types.js';
 import {
   DynamoStructureStoreAdapter,
   resolveDynamoStructureStoreOptionsFromEnv,
@@ -31,6 +31,24 @@ describe('resolveDynamoStructureStoreOptionsFromEnv', () => {
     expect(
       resolveDynamoStructureStoreOptionsFromEnv({ listShards: 2, maxConcurrentWrites: 4 }),
     ).toMatchObject({ listShards: 2, maxConcurrentWrites: 4 });
+  });
+
+  it('reads the item TTL from the environment', () => {
+    process.env.TRACE_DYNAMO_TTL_SECONDS = '2592000';
+    process.env.TRACE_DYNAMO_TTL_ATTRIBUTE = 'ttl';
+    try {
+      expect(resolveDynamoStructureStoreOptionsFromEnv({ tableName: 'traces' })).toMatchObject({
+        ttlSeconds: 2592000,
+        ttlAttribute: 'ttl',
+      });
+      process.env.TRACE_DYNAMO_TTL_SECONDS = '-1';
+      expect(() => resolveDynamoStructureStoreOptionsFromEnv({ tableName: 'traces' })).toThrow(
+        'TRACE_DYNAMO_TTL_SECONDS must be a positive integer',
+      );
+    } finally {
+      delete process.env.TRACE_DYNAMO_TTL_SECONDS;
+      delete process.env.TRACE_DYNAMO_TTL_ATTRIBUTE;
+    }
   });
 
   it('rejects a list shard count that is not a positive integer', () => {
@@ -190,6 +208,64 @@ describe('DynamoStructureStoreAdapter', () => {
     const result = await adapter.listTraces({ cursor: legacyCursor });
 
     expect(result.traces.map((trace) => trace.traceId)).toEqual(['t2', 't1']);
+  });
+
+  it('filters lists by session, user, tags, latency, and cost', async () => {
+    const table = createFakeTable();
+    const adapter = new DynamoStructureStoreAdapter({ tableName: 'traces', client: table.client });
+    await adapter.upsertTrace(
+      makeTrace({
+        traceId: 'match',
+        sessionId: 'session-1',
+        userId: 'user-1',
+        tags: ['prod', 'checkout'],
+        latencyMs: 5000,
+        costUsd: 0.2,
+        startTime: dayIso(1),
+      }),
+    );
+    await adapter.upsertTrace(
+      makeTrace({ traceId: 'other-session', sessionId: 'session-2', startTime: dayIso(2) }),
+    );
+    await adapter.upsertTrace(
+      makeTrace({ traceId: 'cheap', sessionId: 'session-1', costUsd: 0.01, startTime: dayIso(3) }),
+    );
+    const ids = async (query: ListTracesQuery) =>
+      (await adapter.listTraces(query)).traces.map((trace) => trace.traceId);
+
+    expect(await ids({ sessionId: 'session-1' })).toEqual(['cheap', 'match']);
+    expect(await ids({ userId: 'user-1' })).toEqual(['match']);
+    expect(await ids({ tags: ['prod', 'checkout'] })).toEqual(['match']);
+    expect(await ids({ tags: ['prod', 'missing'] })).toEqual([]);
+    expect(await ids({ minLatencyMs: 1000 })).toEqual(['match']);
+    expect(await ids({ minCostUsd: 0.1 })).toEqual(['match']);
+    expect(await ids({ sessionId: 'session-1', minCostUsd: 0.001, limit: 1 })).toEqual(['cheap']);
+  });
+
+  it('writes an expiry counted from the start time when a TTL is configured', async () => {
+    const table = createFakeTable();
+    const adapter = new DynamoStructureStoreAdapter({
+      tableName: 'traces',
+      client: table.client,
+      ttlSeconds: 3600,
+    });
+    const startTime = '2026-01-01T00:00:00.000Z';
+    const expiresAt = Date.parse(startTime) / 1000 + 3600;
+
+    await adapter.upsertTrace(makeTrace({ startTime }));
+    await adapter.upsertRunBatch([makeRun({ startTime })]);
+    await adapter.upsertTrace(makeTrace({ startTime, status: 'success' }));
+
+    expect(table.items().map((item) => item.expiresAt)).toEqual([expiresAt, expiresAt]);
+  });
+
+  it('writes no expiry without a TTL', async () => {
+    const table = createFakeTable();
+    const adapter = new DynamoStructureStoreAdapter({ tableName: 'traces', client: table.client });
+
+    await adapter.upsertTrace(makeTrace());
+
+    expect(table.items()[0]).not.toHaveProperty('expiresAt');
   });
 
   it('patches trace and run annotations', async () => {
@@ -607,6 +683,14 @@ class Expressions {
         const result = or();
         expect(')');
         return result;
+      }
+      if (token === 'contains') {
+        expect('(');
+        const container = this.readPath(item, this.path(next().replace(/,$/, '')));
+        const operand = this.value(next());
+        expect(')');
+        if (Array.isArray(container)) return container.includes(operand);
+        return typeof container === 'string' && container.includes(String(operand));
       }
       if (token === 'attribute_exists' || token === 'attribute_not_exists') {
         expect('(');

@@ -12,6 +12,7 @@ export type LangGraphTracer = Pick<
   | 'handleChainEnd'
   | 'handleChainError'
   | 'handleLLMStart'
+  | 'handleLLMNewToken'
   | 'handleLLMEnd'
   | 'handleLLMError'
   | 'handleChatModelStart'
@@ -21,6 +22,10 @@ export type LangGraphTracer = Pick<
   | 'handleRetrieverStart'
   | 'handleRetrieverEnd'
   | 'handleRetrieverError'
+  | 'handleText'
+  | 'handleAgentAction'
+  | 'handleAgentEnd'
+  | 'handleCustomEvent'
 >;
 
 export function toLangGraph(tracer: Tracer): LangGraphTracer {

@@ -1,3 +1,4 @@
+import { readScores, type ScoreInput, type TraceScore } from './scores.js';
 import type { TraceStore } from './trace-store.js';
 import type {
   ListTracesQuery,
@@ -5,10 +6,23 @@ import type {
   PatchRunAnnotationInput,
   PatchTraceAnnotationInput,
   Trace,
+  TraceMetadata,
   TraceRecord,
   TraceRun,
   TraceRunNode,
 } from './types.js';
+
+/** A trace's top-level input and output, ready to become an evaluation test case. */
+export type TraceExample = {
+  traceId: string;
+  name: string;
+  input: unknown;
+  output?: unknown;
+  status: Trace['status'];
+  tags?: string[];
+  metadata?: TraceMetadata;
+  scores: Record<string, TraceScore>;
+};
 
 export class TraceViewerApi {
   private constructor(private readonly traceStore: TraceStore) {}
@@ -53,6 +67,33 @@ export class TraceViewerApi {
 
   getPayload<T = unknown>(ref: string): Promise<T> {
     return this.traceStore.getPayload<T>(ref);
+  }
+
+  /** The root run's input and output, e.g. to turn a production trace into a test case. */
+  async getTraceExample(traceId: string): Promise<TraceExample | null> {
+    const record = await this.traceStore.getTrace(traceId);
+    const root = record?.runs.find((run) => run.runId === record.trace.rootRunId);
+    if (!record || !root) return null;
+
+    const [input, output] = await Promise.all([
+      root.inputRef ? this.traceStore.getPayload(root.inputRef) : undefined,
+      root.outputRef ? this.traceStore.getPayload(root.outputRef) : undefined,
+    ]);
+    const { trace } = record;
+    return {
+      traceId,
+      name: trace.name,
+      input,
+      ...(output !== undefined ? { output } : {}),
+      status: trace.status,
+      ...(trace.tags ? { tags: trace.tags } : {}),
+      ...(trace.metadata ? { metadata: trace.metadata } : {}),
+      scores: readScores(trace.annotation),
+    };
+  }
+
+  score(input: ScoreInput): Promise<TraceScore | null> {
+    return this.traceStore.score(input);
   }
 
   patchTraceAnnotation(input: PatchTraceAnnotationInput): Promise<Trace | null> {

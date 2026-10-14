@@ -42,6 +42,30 @@ pnpm add @aws-sdk/client-dynamodb @aws-sdk/lib-dynamodb @aws-sdk/client-s3
 
 The sidecar CLI (`m4trix-tracing-sidecar`) bundles the AWS SDK and needs no extra install.
 
+## Upgrading to 0.12
+
+0.12 makes the tracer safe to run in production and records much more per run. No storage
+migration is needed; older readers ignore the new fields.
+
+- **The tracer never throws into your app.** `flush()` and every callback resolve even when the
+  store is down. Failures go to the new `onError` option (default: `console.warn`) and to
+  `tracer.stats()`. If you relied on `flush()` rejecting, use `onError` instead.
+- **Traces flush on their own** once their last run ends, and failed flushes are retried with
+  backoff. Pass `autoFlush: false` to keep the old explicit-only behaviour. Keep calling
+  `await tracer.flush()` before a short-lived process exits.
+- **Memory is bounded.** When the store cannot keep up, buffered traces are dropped (and reported)
+  beyond `maxBufferedRuns` (default 10 000), finished ones waiting to be written first.
+- **Payloads are capped** at `maxPayloadBytes` (default 4 MiB); larger ones are stored as a
+  truncated preview. Payloads with cycles, BigInts, or Errors no longer fail to store.
+- **Run tags are first-class** (`run.tags`, `trace.tags`) instead of `run.extra.tags`.
+- **Errors carry more detail**: `stack`, HTTP `status`, `code`, and `cause`.
+- **`toM4trixTracer` records a network run's context id as `sessionId`**, not `projectId`. Pass
+  `toM4trixTracer(tracer, { projectId })` to set a project.
+- **Sessions:** `sessionId` / `userId` in root metadata (and LangGraph's `thread_id`) are lifted
+  onto the trace, like `projectId`.
+- **Core:** `@m4trix/core` now guards every `NetworkTracer` hook (a failing tracer no longer fails
+  the network) and starts a network run's trace under the run id of its start event.
+
 ## Upgrading to 0.11
 
 0.11 changes import paths and the DynamoDB item layout. Read this before upgrading anything that
@@ -83,19 +107,33 @@ export type TraceRun = {
     | "prompt" | "parser"
     | (string & {});
   name: string;
-  status: "running" | "success" | "error";
+  status: "running" | "success" | "error" | "cancelled";
   startTime: string;
   endTime?: string;
   latencyMs?: number;
-  tokens?: { input: number; output: number; cached?: number };
+  timeToFirstTokenMs?: number;
+  model?: string; // the model that served the call
+  provider?: string;
+  tokens?: TraceTokens;
   costUsd?: number;
-  error?: { message: string; type?: string };
+  error?: TraceError; // { message, type?, stack?, status?, code?, cause?: TraceError }
+  tags?: string[];
   inputRef?: string;
   outputRef?: string;
-  eventsRef?: string;
+  eventsRef?: string; // JSON array of { name, time, data } events
   metadata?: Record<string, string | number | boolean>;
   annotation?: Record<string, unknown>;
   extra?: Record<string, unknown>;
+};
+
+// `cached` (cache reads) and `cacheCreation` (cache writes) are part of `input`;
+// `reasoning` is part of `output` — as in the OpenTelemetry GenAI conventions.
+export type TraceTokens = {
+  input: number;
+  output: number;
+  cached?: number;
+  cacheCreation?: number;
+  reasoning?: number;
 };
 
 export type Trace = {
@@ -103,14 +141,18 @@ export type Trace = {
   traceId: string;
   rootRunId: string;
   projectId?: string;
+  sessionId?: string; // one conversation / thread
+  userId?: string;
   name: string;
-  status: "running" | "success" | "error";
+  status: "running" | "success" | "error" | "cancelled";
   startTime: string;
   endTime?: string;
   latencyMs?: number;
-  tokens?: { input: number; output: number };
-  costUsd?: number;
+  tokens?: TraceTokens; // summed over all runs
+  costUsd?: number; // summed over all runs
   runCount: number;
+  tags?: string[];
+  remoteParent?: { traceId: string; spanId: string; sampled: boolean }; // from traceparent
   metadata?: Record<string, string | number | boolean>;
   annotation?: Record<string, unknown>;
 };
@@ -175,6 +217,106 @@ await tracer.flush();
 
 Always `await tracer.flush()` (or `await lgTracer.flush()` when using `adapt(toLangGraph)`) on short-lived processes before exit.
 
+### What gets recorded
+
+For every LangChain / LangGraph run the tracer records inputs and outputs (as payloads), timing,
+status, tags and scalar metadata, and additionally:
+
+- **Model calls:** the requested model and provider (from `invocation_params` and LangChain's
+  `ls_provider` metadata), then the model that actually served the call; token usage from
+  `usage_metadata` (cache reads/writes and reasoning tokens included) or the legacy `llmOutput`
+  fields; time to first token for streamed calls.
+- **Events:** `dispatchCustomEvent` events, agent actions, and text callbacks, stored per run.
+- **Errors:** message, type, stack, HTTP status, code, and the `cause` chain.
+- **Trace attributes:** `projectId`, `sessionId`, `userId`, and `traceparent` from the root run's
+  metadata are lifted onto the trace. LangGraph's `configurable.thread_id` becomes the `sessionId`,
+  so every turn of a conversation can be listed with `listTraces({ sessionId })`.
+
+### Options
+
+```ts
+import { priceTable, ratioSampler, Tracer } from "@m4trix/tracing";
+
+const tracer = Tracer.from(traceStore, {
+  onError: (failure) => logger.warn(failure.message, failure), // default: throttled console.warn
+  sampler: ratioSampler(0.1), // keep 10% of traces
+  redact: (payload, { kind, runType }) => scrubEmails(payload),
+  maxPayloadBytes: 1024 * 1024, // default 4 MiB
+  maxBufferedRuns: 10_000, // default
+  maxEventsPerRun: 1_000, // default
+  cost: priceTable({
+    "gpt-4o": { input: 2.5, output: 10, cacheRead: 1.25 }, // USD per 1M tokens
+    "claude-sonnet-4-5": { input: 3, output: 15, cacheRead: 0.3, cacheWrite: 3.75 },
+  }),
+  autoFlush: true, // default
+});
+```
+
+- **Never throws.** Callbacks and `flush()` always resolve. Storage, redaction, sampler, and cost
+  failures go to `onError` with a `kind` (`payload`, `redact`, `flush`, `dropped`, `hook`) and are
+  counted in `tracer.stats()`. The default handler warns at most once a minute per kind.
+- **Outages.** A failed flush keeps its records and is retried after 1 s, doubling up to 30 s;
+  traces finishing meanwhile join that retry instead of each hitting the store.
+- **Bounded memory.** Runs are buffered until written. If more than `maxBufferedRuns` are buffered
+  (the store is down or too slow), traces are dropped and reported as `dropped`: the oldest
+  finished ones waiting to be written first, running ones only when that is not enough. Size the
+  limit above your peak of concurrently running runs.
+- **Redaction** runs on every input, output, and event payload before it is stored. If the
+  redactor throws, the payload is dropped, never stored unredacted. Metadata is not redacted: keep
+  it free of sensitive values.
+- **Sampling** is decided once per trace, at its root run; a sampled-out trace costs no writes.
+  `ratioSampler` hashes the OpenTelemetry trace id, so services sharing a trace through
+  `traceparent` agree. `parentBasedSampler(root)` follows an upstream caller's decision, and
+  sampled-out runs still hand out a `traceparent` (flagged unsampled) so downstream services can.
+- **Cost** is computed per run from the served model and tokens, and summed per trace. The library
+  ships no prices; `priceTable` matches a model by exact id or the longest prefix
+  (`gpt-4o` covers `gpt-4o-2024-08-06`).
+
+`tracer.stats()` returns `{ activeTraces, bufferedRuns, pendingRuns, droppedTraces, droppedRuns,
+droppedEvents, sampledOutTraces, failedFlushes, failedPayloads }`, which is useful as metrics.
+
+### Tracing your own code
+
+`startRun` traces anything, not only LangChain. A run without a parent starts a new trace:
+
+```ts
+const request = tracer.startRun({
+  type: "chain",
+  name: "POST /chat",
+  input: body,
+  sessionId: body.conversationId,
+  userId: user.id,
+  traceparent: req.headers.traceparent, // continue the caller's trace
+});
+const call = tracer.startRun({ type: "tool", name: "crm.lookup", parentRunId: request.runId });
+await fetch(url, { headers: { traceparent: call.traceparent() ?? "" } }); // propagate downstream
+call.addEvent("cache_miss", { key });
+await call.end({ output: customer });
+
+// Nest a LangGraph call under the request span:
+await graph.invoke(input, { callbacks: [tracer.childOf(request.runId)] });
+
+await request.end({ output: reply }); // or request.end({ error })
+```
+
+### m4trix agent networks
+
+```ts
+import { toM4trixTracer } from "@m4trix/tracing";
+
+const network = AgentNetwork.setup(setup, {
+  networkTracer: toM4trixTracer(tracer, { name: "support-bot", projectId: "support" }),
+});
+```
+
+Each network run becomes a trace whose `sessionId` is the run's context id. Agent invocations
+nest under it (with the triggering event as input), spans started through the agent's `tracing`
+scope nest under the agent (LLM spans read usage and model from their output message), and
+published events are recorded on the run (`captureEvents: false` turns that off). Inside an agent,
+`tracer.childOf(tracing.runId)` nests LangChain calls under the agent span. A run cancelled by the
+client (and the agent invocations it aborted) ends with status `cancelled`, not `error`; call
+`tracer.endRun(runId, { cancelled: true })` to do the same for your own runs.
+
 ## Reading Traces
 
 ```ts
@@ -182,6 +324,10 @@ await traceViewerApi.listTraces({ projectId: "my-app", limit: 25 });
 await traceViewerApi.getTrace(traceId);      // { trace, runs } | null
 await traceViewerApi.getTraceTree(traceId);  // { trace, root: TraceRunNode } | null
 await traceViewerApi.getPayload(ref);        // resolves any JSON payload ref
+await traceViewerApi.listTraces({
+  sessionId: "thread-1", // also: userId, tags (all must match), minLatencyMs, minCostUsd
+});
+await traceViewerApi.getTraceExample(traceId); // root input/output, tags, metadata, scores
 
 // Post-hoc review annotations (deep-merge by default)
 await traceViewerApi.patchTraceAnnotation({
@@ -213,6 +359,31 @@ re-shipping it) never wipes a review. Passing `annotation` to an upsert explicit
 Concurrent edits do not overwrite each other: the filesystem adapter serializes writes per trace
 within a process, and the DynamoDB adapter uses version-checked conditional updates with retries.
 
+## Scores
+
+Scores are named judgements of a trace or one of its runs: a number, a pass/fail, or a label.
+
+```ts
+await traceViewerApi.score({
+  traceId,
+  name: "helpfulness",
+  value: 0.8, // number | boolean | string
+  source: "llm_judge", // "human" | "llm_judge" | "eval" | "heuristic" | any string
+  comment: "Answered, but verbose",
+});
+await traceViewerApi.score({ traceId, runId, name: "relevant", value: false, source: "human" });
+
+readScores(trace.annotation); // { helpfulness: { value, source, comment, createdAt } }
+```
+
+Scores live in the annotation under `scores.<name>`, written as atomic patches: scores with
+different names never overwrite each other, and scoring the same name again replaces it. That
+needs no adapter support, so it works with every structure store.
+
+Together with `getTraceExample`, this closes the loop with evaluations: turn production traces
+into test cases (e.g. with `@m4trix/evals`' `TestCase.describe({ input: example.input, ... })`)
+and write eval results back to the traces they came from.
+
 ## Filesystem Adapters
 
 The bundled filesystem adapters write under one configurable directory:
@@ -227,7 +398,7 @@ The bundled filesystem adapters write under one configurable directory:
         {runId}/
           input.json
           output.json
-          events.ndjson
+          events.json
 ```
 
 `FsStructureStoreAdapter.listTraces` scans `traces/*/trace.json`, applies simple filters, and
@@ -273,6 +444,8 @@ Environment variables:
 | `TRACE_S3_FORCE_PATH_STYLE` | Optional `true` / `false`; defaults to `true` when a custom endpoint is set |
 | `TRACE_DYNAMO_LIST_SHARDS` | Optional; spread trace list writes over N partitions (default `1`) |
 | `TRACE_DYNAMO_PROJECT_INDEX` | Optional; name of the per-project GSI (see below) |
+| `TRACE_DYNAMO_TTL_SECONDS` | Optional; expire items this long after their trace / run started |
+| `TRACE_DYNAMO_TTL_ATTRIBUTE` | Optional; TTL attribute name (default `expiresAt`) |
 
 DynamoDB table schema (single-table):
 
@@ -300,6 +473,13 @@ key condition on `listSk`. Two opt-in settings help at higher volume:
   and set its name to query one project directly. `projectPk` is written on every trace upsert, so
   traces written before upgrading only appear in it once they are written again.
 
+**Retention:** with `ttlSeconds` / `TRACE_DYNAMO_TTL_SECONDS`, every item gets an epoch-seconds
+`expiresAt` attribute counted from its start time (re-shipping never extends it). Enable DynamoDB
+TTL on that attribute, and add a matching S3 lifecycle rule for the payload prefix.
+
+`sessionId`, `userId`, `tags`, `minLatencyMs`, and `minCostUsd` list queries are filters on the
+start-time index, so they read through the time range: narrow with `startAfter` / `startBefore`.
+
 Required IAM actions on the table and its indexes: `dynamodb:UpdateItem` (all writes, including
 ingest), `dynamodb:GetItem` and `dynamodb:Query` (reads and annotation patches).
 
@@ -308,6 +488,42 @@ Items written by 0.8.0 kept `annotation` inside `trace` / `run`; they are still 
 patch moves the annotation to the top-level attribute.
 
 Payload refs remain logical paths like `traces/{traceId}/payloads/{runId}/input.json`.
+
+## OpenTelemetry
+
+`@m4trix/tracing/otel` exports traces to any OTLP/HTTP backend (an OpenTelemetry Collector, Jaeger,
+Honeycomb, Datadog, Grafana Tempo...) following the GenAI semantic conventions: `chat {model}`,
+`execute_tool {name}`, `invoke_agent {name}` spans with `gen_ai.usage.*` tokens (including cache and
+reasoning), `gen_ai.request.model`, `gen_ai.provider.name`, `gen_ai.conversation.id` (the session),
+time to first chunk, error status, and scores as `gen_ai.evaluation.result` events. It needs no
+OpenTelemetry SDK. Payload contents (prompts and outputs) are not exported.
+
+```ts
+import { OtlpHttpExporter, withOtlpExport } from "@m4trix/tracing/otel";
+
+const structureStoreAdapter = withOtlpExport(
+  new FsStructureStoreAdapter({ path: "./.traces" }),
+  new OtlpHttpExporter({ url: "http://localhost:4318/v1/traces", serviceName: "support-api" }),
+);
+const traceStore = TraceStore.of({
+  structureStoreAdapter,
+  payloadStoreAdapter: new FsPayloadStoreAdapter({ path: "./.traces" }),
+});
+
+// On shutdown:
+await tracer.flush();
+await structureStoreAdapter.drainExports();
+```
+
+`withOtlpExport` wraps any structure store and exports each trace once it is written finished,
+with no run still running. Exports run in the background (4 at a time, up to 1 000 queued), so a
+slow or unreachable backend never slows down tracing; await `drainExports()` before the process
+exits. Failures go to its `onError` and never fail the write; a trace whose export failed
+or was skipped is exported if it is written again. `toOtlpTraceRequest(records, { serviceName })`
+gives the raw OTLP/JSON for custom transports.
+
+Traces that continue a `traceparent` join the caller's OpenTelemetry trace, and
+`tracer.traceparent(runId)` / `run.traceparent()` propagates the trace to services you call.
 
 ## Trace Sidecar (filesystem → AWS)
 
@@ -363,7 +579,10 @@ Flags:
 | `--retain-running <dur>` | `24h` | Same for traces never marked finished |
 | `--keep-shipped` | off | Never delete shipped traces from local disk |
 
-Uses the same env vars as the AWS adapters (`TRACE_DYNAMO_TABLE`, `TRACE_S3_BUCKET`, etc.).
+Uses the same env vars as the AWS adapters (`TRACE_DYNAMO_TABLE`, `TRACE_S3_BUCKET`, etc.). Set
+`OTEL_EXPORTER_OTLP_ENDPOINT` (or `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT`, plus optional
+`OTEL_EXPORTER_OTLP_HEADERS` and `OTEL_SERVICE_NAME`) to also export every shipped, finished trace
+over OTLP, with no change to the app.
 
 ### Docker
 
@@ -403,7 +622,12 @@ export type StructureStoreAdapter = {
   getTrace(traceId: string): Promise<{ trace: Trace; runs: TraceRun[] } | null>;
   listTraces(query?: {
     projectId?: string;
+    sessionId?: string;
+    userId?: string;
     status?: Trace["status"];
+    tags?: string[];
+    minLatencyMs?: number;
+    minCostUsd?: number;
     startAfter?: string;
     startBefore?: string;
     limit?: number;
@@ -432,8 +656,8 @@ export type PayloadStoreAdapter = {
 
 ## Out of Scope
 
-- Sampling and rate limiting.
-- PII redaction.
+- Rate limiting (sampling is supported).
+- Redacting metadata and error messages (payload redaction is supported).
 - Multi-tenant auth and authorization in the viewer.
-- Retention / TTL.
+- Retention for the filesystem adapters outside the sidecar.
 - Production-scale querying in the filesystem structure adapter.

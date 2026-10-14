@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
-import pkg from '../package.json';
+import pkg from '../package.json' with { type: 'json' };
 import * as root from './index.js';
+import * as otel from './otel.js';
 
 // The root entry must not load the AWS SDK: if it imports any of these, this file fails to load.
 // (Static imports with hoisted mocks keep module loading out of the per-test timeout.)
@@ -22,6 +23,19 @@ describe('package entry points', () => {
     expect(root).not.toHaveProperty('S3PayloadStoreAdapter');
   });
 
+  it('loads the otel entry without the AWS SDK or an OpenTelemetry SDK', () => {
+    expect(otel.withOtlpExport).toBeDefined();
+    expect(otel.OtlpHttpExporter).toBeDefined();
+    expect(pkg.exports['./otel']).toEqual({
+      types: './dist/otel.d.ts',
+      import: './dist/otel.js',
+      require: './dist/otel.cjs',
+      default: './dist/otel.js',
+    });
+    const { dependencies = {} } = pkg as { dependencies?: Record<string, string> };
+    expect(Object.keys(dependencies)).not.toContain('@opentelemetry/api');
+  });
+
   it('publishes the aws entry and keeps the AWS SDK an optional peer', () => {
     expect(pkg.exports['./aws']).toEqual({
       types: './dist/aws.d.ts',
@@ -30,7 +44,9 @@ describe('package entry points', () => {
       default: './dist/aws.js',
     });
     // TypeScript's legacy `moduleResolution: "node"` ignores `exports`; typesVersions covers it.
-    expect(pkg.typesVersions).toEqual({ '*': { aws: ['./dist/aws.d.ts'] } });
+    expect(pkg.typesVersions).toEqual({
+      '*': { aws: ['./dist/aws.d.ts'], otel: ['./dist/otel.d.ts'] },
+    });
     const sdks = [
       '@aws-sdk/client-dynamodb',
       '@aws-sdk/client-s3',

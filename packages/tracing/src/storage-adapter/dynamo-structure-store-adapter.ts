@@ -59,6 +59,12 @@ export type DynamoStructureStoreAdapterOptions = {
   listShards?: number;
   /** GSI on `projectPk` + `listSk`; when set, `projectId` queries use it instead of a filter. */
   projectIndexName?: string;
+  /**
+   * Expire items this many seconds after their trace or run started. Writes the epoch-seconds
+   * attribute `ttlAttribute` (default `expiresAt`); enable DynamoDB TTL on it for deletion.
+   */
+  ttlSeconds?: number;
+  ttlAttribute?: string;
 };
 
 const TRACE_SK = 'TRACE';
@@ -85,6 +91,7 @@ export class DynamoStructureStoreAdapter implements StructureStoreAdapter {
   private readonly maxConcurrentWrites: number;
   private readonly listShards: number;
   private readonly projectIndexName: string | undefined;
+  private readonly ttl: { seconds: number; attribute: string } | undefined;
   private readonly client: DynamoDBDocumentClient;
 
   constructor(options: DynamoStructureStoreAdapterOptions) {
@@ -96,6 +103,10 @@ export class DynamoStructureStoreAdapter implements StructureStoreAdapter {
     );
     this.listShards = Math.max(1, Math.floor(options.listShards ?? 1));
     this.projectIndexName = options.projectIndexName;
+    this.ttl =
+      options.ttlSeconds !== undefined
+        ? { seconds: options.ttlSeconds, attribute: options.ttlAttribute ?? 'expiresAt' }
+        : undefined;
     this.client =
       options.client ??
       DynamoDBDocumentClient.from(
@@ -113,6 +124,7 @@ export class DynamoStructureStoreAdapter implements StructureStoreAdapter {
       listPk: this.listKeyFor(trace.traceId),
       listSk: trace.startTime,
       ...(trace.projectId ? { projectPk: projectKey(trace.projectId) } : {}),
+      ...this.expiry(trace.startTime),
     });
   }
 
@@ -123,7 +135,13 @@ export class DynamoStructureStoreAdapter implements StructureStoreAdapter {
   async upsertRunBatch(runs: TraceRun[]): Promise<void> {
     await forEachConcurrently(runs, this.maxConcurrentWrites, async (run) => {
       const { annotation, ...record } = run;
-      await this.upsertRecord({ pk: run.traceId, sk: runSk(run.runId) }, 'run', record, annotation);
+      await this.upsertRecord(
+        { pk: run.traceId, sk: runSk(run.runId) },
+        'run',
+        record,
+        annotation,
+        this.expiry(run.startTime),
+      );
     });
   }
 
@@ -213,6 +231,13 @@ export class DynamoStructureStoreAdapter implements StructureStoreAdapter {
     );
   }
 
+  /** Expiry is counted from the start time, so re-shipping an item never extends its life. */
+  private expiry(startTime: string): Item {
+    const startedAt = Date.parse(startTime);
+    if (!this.ttl || Number.isNaN(startedAt)) return {};
+    return { [this.ttl.attribute]: Math.floor(startedAt / 1000) + this.ttl.seconds };
+  }
+
   private listKeyFor(traceId: string): string {
     return this.listShards === 1
       ? LIST_PK_ALL
@@ -271,6 +296,19 @@ export class DynamoStructureStoreAdapter implements StructureStoreAdapter {
     }
     if (query.status) {
       filters.push(`${traceField('status')} = ${expression.value(query.status)}`);
+    }
+    for (const field of ['sessionId', 'userId'] as const) {
+      const value = query[field];
+      if (value) filters.push(`${traceField(field)} = ${expression.value(value)}`);
+    }
+    for (const tag of query.tags ?? []) {
+      filters.push(`contains(${traceField('tags')}, ${expression.value(tag)})`);
+    }
+    if (query.minLatencyMs !== undefined) {
+      filters.push(`${traceField('latencyMs')} >= ${expression.value(query.minLatencyMs)}`);
+    }
+    if (query.minCostUsd !== undefined) {
+      filters.push(`${traceField('costUsd')} >= ${expression.value(query.minCostUsd)}`);
     }
 
     return {
@@ -522,14 +560,22 @@ export function resolveDynamoStructureStoreOptionsFromEnv(
     listShards: overrides.listShards ?? parseListShards(process.env.TRACE_DYNAMO_LIST_SHARDS),
     projectIndexName:
       overrides.projectIndexName ?? (process.env.TRACE_DYNAMO_PROJECT_INDEX || undefined),
+    ttlSeconds:
+      overrides.ttlSeconds ??
+      parsePositiveInteger('TRACE_DYNAMO_TTL_SECONDS', process.env.TRACE_DYNAMO_TTL_SECONDS),
+    ttlAttribute: overrides.ttlAttribute ?? (process.env.TRACE_DYNAMO_TTL_ATTRIBUTE || undefined),
   };
 }
 
 function parseListShards(value: string | undefined): number | undefined {
+  return parsePositiveInteger('TRACE_DYNAMO_LIST_SHARDS', value);
+}
+
+function parsePositiveInteger(name: string, value: string | undefined): number | undefined {
   if (!value) return undefined;
-  const shards = Number(value);
-  if (!Number.isInteger(shards) || shards < 1) {
-    throw new Error(`TRACE_DYNAMO_LIST_SHARDS must be a positive integer, got "${value}"`);
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 1) {
+    throw new Error(`${name} must be a positive integer, got "${value}"`);
   }
-  return shards;
+  return parsed;
 }

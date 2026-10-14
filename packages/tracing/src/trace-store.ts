@@ -1,3 +1,4 @@
+import { readScores, type ScoreInput, scoreAnnotationPatch, type TraceScore } from './scores.js';
 import type {
   ListTracesQuery,
   PatchRunAnnotationInput,
@@ -61,6 +62,15 @@ export class TraceStore {
 
   patchRunAnnotation(input: PatchRunAnnotationInput): Promise<TraceRun | null> {
     return this.structureStoreAdapter.patchRunAnnotation(input);
+  }
+
+  /** Adds or replaces a named score on a trace, or on one of its runs. `null` if not found. */
+  async score(input: ScoreInput): Promise<TraceScore | null> {
+    const annotation = scoreAnnotationPatch(input);
+    const updated = input.runId
+      ? await this.patchRunAnnotation({ traceId: input.traceId, runId: input.runId, annotation })
+      : await this.patchTraceAnnotation({ traceId: input.traceId, annotation });
+    return updated ? (readScores(updated.annotation)[input.name.trim()] ?? null) : null;
   }
 
   putJsonPayload(path: string, value: unknown): Promise<string> {

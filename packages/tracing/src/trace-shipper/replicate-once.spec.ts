@@ -267,7 +267,7 @@ function createDestinations(options: DestinationOptions = {}) {
       traces.set(trace.traceId, trace);
     }),
     upsertRun: vi.fn(),
-    upsertRunBatch: vi.fn(async (batch) => {
+    upsertRunBatch: vi.fn(async (batch: TraceRun[]) => {
       if (batch.some((run) => options.failRunIds?.includes(run.runId))) {
         throw new Error('item too large');
       }
