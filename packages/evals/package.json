@@ -24,6 +24,7 @@
   "license": "MIT",
   "scripts": {
     "build": "tsup",
+    "typecheck": "tsc --noEmit -p tsconfig.spec.json",
     "dev": "tsup --watch",
     "lint": "biome lint .",
     "format": "biome format --write .",

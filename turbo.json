@@ -57,9 +57,13 @@
       "cache": false,
       "passThroughEnv": ["NPM_ID_TOKEN", "CIRCLECI"]
     },
+    "docs-visual-gen#build": {},
     "website#build": {
       "dependsOn": ["^build"],
       "outputs": [".next/**", "!.next/cache/**"]
+    },
+    "typecheck": {
+      "dependsOn": ["^build"]
     }
   }
 }

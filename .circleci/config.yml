@@ -46,6 +46,17 @@ jobs:
           name: Install dependencies
           command: pnpm install
       - run:
+          name: Typecheck (sources and specs)
+          command: pnpm run typecheck
+      - run:
+          # Fails when core's public surface differs from packages/core/api/*.api.md (update it
+          # with `pnpm --filter @m4trix/core api:update`), or when its bundle imports Node built-ins.
+          name: Core API report and runtime check
+          command: |
+            pnpm --filter @m4trix/core build
+            pnpm --filter @m4trix/core api:check
+            pnpm --filter @m4trix/core check:runtime
+      - run:
           name: Run tests
           command: pnpm exec vitest --typecheck --run --reporter=default --reporter=junit --outputFile.junit=test-results/vitest.xml
       - store_test_results:

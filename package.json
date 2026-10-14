@@ -14,6 +14,7 @@
     "get:turbo": "npm install -g turbo",
     "test": "vitest --typecheck",
     "test:coverage": "vitest run --coverage",
+    "typecheck": "turbo run typecheck",
     "package:build": "turbo run @m4trix/core#build",
     "package:publish": "turbo run @m4trix/core#publish-package",
     "evals:build": "turbo run @m4trix/evals#build",

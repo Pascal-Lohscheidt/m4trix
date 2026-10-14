@@ -186,20 +186,20 @@ describe('runner discovery and execution', () => {
       [
         'export const solo = {',
         "  getName: () => 'solo',",
-        "  getTags: () => [],",
+        '  getTags: () => [],',
         '  getInputSchema: () => undefined,',
         '  getInput: () => ({ value: 0 })',
         '};',
         'export const grouped = [',
         '  {',
         "    getName: () => 'from-array-a',",
-        "    getTags: () => [],",
+        '    getTags: () => [],',
         '    getInputSchema: () => undefined,',
         '    getInput: () => ({ value: 1 })',
         '  },',
         '  {',
         "    getName: () => 'from-array-b',",
-        "    getTags: () => [],",
+        '    getTags: () => [],',
         '    getInputSchema: () => undefined,',
         '    getInput: () => ({ value: 2 })',
         '  },',
@@ -221,9 +221,7 @@ describe('runner discovery and execution', () => {
     });
     runners.push(runner);
 
-    const names = (await runner.searchTestCases())
-      .map((c) => c.testCase.getName())
-      .sort();
+    const names = (await runner.searchTestCases()).map((c) => c.testCase.getName()).sort();
     expect(names).toEqual(['from-array-a', 'from-array-b', 'solo']);
   });
 
@@ -469,7 +467,7 @@ describe('runner discovery and execution', () => {
     const [dataset] = await runner.collectDatasets();
     const [evaluator] = await runner.collectEvaluators();
 
-    const progress = new Promise<RunnerEvent>((resolve) => {
+    const progress = new Promise<Extract<RunnerEvent, { type: 'TestCaseProgress' }>>((resolve) => {
       const unsubscribe = runner.subscribeRunEvents((event) => {
         if (event.type === 'TestCaseProgress') {
           unsubscribe();
@@ -499,6 +497,10 @@ describe('runner discovery and execution', () => {
           runConfigName?: string;
           datasetName?: string;
           experimentName?: string;
+          testCaseName?: string;
+          testCaseId?: string;
+          triggerTimestamp?: number;
+          triggeredAt?: string;
         }
       | undefined;
     expect(meta?.datasetName).toBe('Alpha Dataset');
