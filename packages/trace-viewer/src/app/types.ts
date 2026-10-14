@@ -21,6 +21,7 @@ export type RunNode = {
   startTime: string;
   endTime?: string;
   latencyMs?: number;
+  model?: string;
   tokens?: { input: number; output: number; cached?: number };
   costUsd?: number;
   error?: { message: string; type?: string };

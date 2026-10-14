@@ -12,7 +12,7 @@ const listInput = z
   .object({
     limit: z.number().int().positive().max(500).optional(),
     cursor: z.string().optional(),
-    status: z.enum(['running', 'success', 'error']).optional(),
+    status: z.enum(['running', 'success', 'error', 'cancelled']).optional(),
     projectId: z.string().optional(),
   })
   .optional();

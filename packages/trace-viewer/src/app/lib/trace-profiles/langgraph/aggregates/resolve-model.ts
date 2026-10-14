@@ -69,6 +69,10 @@ export function resolveModelNameForRun(
   node: RunNode,
   payloadCache: Record<string, unknown>,
 ): string | null {
+  // The tracer records the served model on the run.
+  const recorded = readModelString(node.model);
+  if (recorded) return recorded;
+
   if (node.metadata) {
     const meta = node.metadata as Record<string, unknown>;
     for (const key of METADATA_MODEL_KEYS) {

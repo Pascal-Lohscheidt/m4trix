@@ -112,6 +112,8 @@ export async function createFixtureTraceApi(): Promise<{ api: TraceViewerApi; di
       startTime: new Date(BASE_TIME).toISOString(),
       latencyMs: 5000,
       runCount: 8,
+      sessionId: 'thread-1',
+      userId: 'user-1',
       metadata: { env: 'dev' },
     },
     [
@@ -184,6 +186,7 @@ export async function createFixtureTraceApi(): Promise<{ api: TraceViewerApi; di
       startTime: new Date(BASE_TIME + 86_400_000).toISOString(),
       latencyMs: 900,
       runCount: 3,
+      sessionId: 'thread-2',
       metadata: { env: 'prod' },
     },
     [

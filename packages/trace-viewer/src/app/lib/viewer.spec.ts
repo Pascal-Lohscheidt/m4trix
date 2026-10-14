@@ -43,4 +43,10 @@ describe('status classes', () => {
     expect(statusDotClass('error')).toContain('bg-rose-400');
     expect(statusDotClass('pending')).toContain('bg-amber-300');
   });
+
+  it('shows cancelled runs in a neutral style, neither success nor failure', () => {
+    expect(statusTextClass('cancelled')).toContain('zinc');
+    expect(statusDotClass('cancelled')).toContain('bg-zinc-');
+    expect(statusDotClass('cancelled')).not.toContain('shadow');
+  });
 });

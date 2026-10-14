@@ -3,6 +3,17 @@ import { resolveModelNameForRun } from './resolve-model';
 import { testRun } from './test-helpers';
 
 describe('resolveModelNameForRun', () => {
+  it('prefers the model the tracer recorded on the run', () => {
+    const run = testRun({
+      runId: 'a',
+      name: 'llm',
+      type: 'chat_model',
+      model: 'gpt-4o-2024-08-06',
+      metadata: { ls_model_name: 'gpt-4o' },
+    });
+    expect(resolveModelNameForRun(run, {})).toBe('gpt-4o-2024-08-06');
+  });
+
   it('reads model from run metadata', () => {
     const run = testRun({
       runId: 'a',

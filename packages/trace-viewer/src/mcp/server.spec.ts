@@ -49,6 +49,18 @@ describe('createTraceMcpServer', () => {
     expect(tools.find((tool) => tool.name === 'get_trace')?.annotations?.readOnlyHint).toBe(true);
   });
 
+  it('accepts cancelled as a status filter', async () => {
+    const { tools } = await client.listTools();
+    const listTraces = tools.find((tool) => tool.name === 'list_traces');
+    const status = (listTraces?.inputSchema.properties as Record<string, { enum?: string[] }>)
+      .status;
+    expect(status?.enum).toEqual(['running', 'success', 'error', 'cancelled']);
+
+    const result = await call('list_traces', { status: 'cancelled' });
+    expect(result.isError).toBeFalsy();
+    expect(textOf(result)).toBe('No traces match.');
+  });
+
   it('runs a load → search flow end to end', async () => {
     const loaded = await call('load_trace_payloads', { traceIds: ['latest', FAILING_TRACE_ID] });
     expect(loaded.isError).toBeFalsy();

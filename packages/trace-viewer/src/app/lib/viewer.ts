@@ -10,6 +10,8 @@ export function statusTextClass(status: string): string {
       return 'text-emerald-400';
     case 'error':
       return 'text-rose-400';
+    case 'cancelled':
+      return 'text-zinc-400';
     default:
       return 'text-amber-300';
   }
@@ -21,6 +23,8 @@ export function statusDotClass(status: string): string {
       return 'bg-emerald-400 shadow-[0_0_10px_rgb(52_211_153_/_0.6)]';
     case 'error':
       return 'bg-rose-400 shadow-[0_0_10px_rgb(251_113_133_/_0.6)]';
+    case 'cancelled':
+      return 'bg-zinc-500';
     default:
       return 'bg-amber-300 shadow-[0_0_10px_rgb(252_211_77_/_0.6)]';
   }

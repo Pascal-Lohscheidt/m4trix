@@ -156,6 +156,8 @@ export class TraceTools {
       {
         ...(input.status ? { status: input.status } : {}),
         ...(input.projectId ? { projectId: input.projectId } : {}),
+        ...(input.sessionId ? { sessionId: input.sessionId } : {}),
+        ...(input.userId ? { userId: input.userId } : {}),
         ...(input.since ? { startAfter: input.since } : {}),
         ...(input.until ? { startBefore: input.until } : {}),
       },

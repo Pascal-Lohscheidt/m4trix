@@ -31,7 +31,7 @@ const scalar = z.union([z.string(), z.number(), z.boolean()]);
 const traceIdField = z.string().min(1).describe('Trace id, unique prefix, or "latest".');
 const runIdField = z.string().min(1).describe('Run id or unique prefix within the trace.');
 const sideField = z.enum(['input', 'output']);
-const statusField = z.enum(['running', 'success', 'error']);
+const statusField = z.enum(['running', 'success', 'error', 'cancelled']);
 
 const readOnly = { readOnlyHint: true, openWorldHint: false } as const;
 
@@ -72,6 +72,11 @@ export function createTraceMcpServer(options: TraceMcpServerOptions): McpServer 
       inputSchema: {
         status: statusField.optional(),
         projectId: z.string().optional(),
+        sessionId: z
+          .string()
+          .optional()
+          .describe('Conversation / thread id; lists every turn of one conversation.'),
+        userId: z.string().optional(),
         name: z.string().optional().describe('Case-insensitive regex against the trace name.'),
         metadata: z
           .record(scalar)

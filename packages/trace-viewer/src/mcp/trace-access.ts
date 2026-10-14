@@ -175,6 +175,8 @@ export function statusIcon(status: string): string {
       return '✓';
     case 'error':
       return '✗';
+    case 'cancelled':
+      return '⊘';
     default:
       return '…';
   }
@@ -217,6 +219,8 @@ export function formatTraceRow(trace: Trace): string {
     formatTokens(trace.tokens),
     trace.costUsd !== undefined ? `$${trace.costUsd.toFixed(4)}` : '',
     trace.projectId ? `project=${trace.projectId}` : '',
+    trace.sessionId ? `session=${trace.sessionId}` : '',
+    trace.userId ? `user=${trace.userId}` : '',
     formatMetadata(trace.metadata),
     trace.annotation ? '[annotated]' : '',
   ]
@@ -231,6 +235,7 @@ export function formatRunLabel(run: TraceRun, options: { errorChars?: number } =
     run.error && errorChars > 0 ? `  error: ${clip(run.error.message, errorChars)}` : '';
   return [
     `${statusIcon(run.status)} ${run.type} ${run.name}`,
+    run.model ? `model=${run.model}` : '',
     formatMs(run.latencyMs),
     formatTokens(run.tokens),
     `[${shortId(run.runId)}]`,

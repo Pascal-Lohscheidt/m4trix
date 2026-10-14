@@ -1,6 +1,9 @@
 import type { TraceViewerApi } from '@m4trix/tracing';
 import { describe, expect, it, vi } from 'vitest';
-import { appRouter } from './router';
+import { type AppRouter, appRouter } from './router';
+
+/** `appRouter` is exported as `AnyRouter` for portable .d.ts; tests need the concrete procedures. */
+const createCaller = (appRouter as AppRouter).createCaller;
 
 describe('appRouter', () => {
   it('delegates traces.list to TraceViewerApi', async () => {
@@ -11,9 +14,22 @@ describe('appRouter', () => {
       getPayload: vi.fn(),
     } as unknown as TraceViewerApi;
 
-    const caller = appRouter.createCaller({ traceViewerApi });
+    const caller = createCaller({ traceViewerApi });
     await expect(caller.traces.list({ limit: 5, projectId: 'p' })).resolves.toEqual({ traces: [] });
     expect(listTraces).toHaveBeenCalledWith({ limit: 5, projectId: 'p' });
+  });
+
+  it('accepts the cancelled status filter on traces.list', async () => {
+    const listTraces = vi.fn(async () => ({ traces: [] }));
+    const traceViewerApi = {
+      listTraces,
+      getTraceTree: vi.fn(),
+      getPayload: vi.fn(),
+    } as unknown as TraceViewerApi;
+
+    const caller = createCaller({ traceViewerApi });
+    await caller.traces.list({ status: 'cancelled' });
+    expect(listTraces).toHaveBeenCalledWith({ status: 'cancelled' });
   });
 
   it('delegates traces.getTree', async () => {
@@ -24,7 +40,7 @@ describe('appRouter', () => {
       getPayload: vi.fn(),
     } as unknown as TraceViewerApi;
 
-    const caller = appRouter.createCaller({ traceViewerApi });
+    const caller = createCaller({ traceViewerApi });
     await expect(caller.traces.getTree({ traceId: 't1' })).resolves.toBeNull();
     expect(getTraceTree).toHaveBeenCalledWith('t1');
   });
@@ -39,7 +55,7 @@ describe('appRouter', () => {
       patchRunAnnotation: vi.fn(),
     } as unknown as TraceViewerApi;
 
-    const caller = appRouter.createCaller({ traceViewerApi });
+    const caller = createCaller({ traceViewerApi });
     await expect(caller.traces.getPayload({ ref: 'payload.json' })).resolves.toEqual({ ok: true });
     expect(getPayload).toHaveBeenCalledWith('payload.json');
   });
@@ -54,11 +70,14 @@ describe('appRouter', () => {
       patchRunAnnotation: vi.fn(),
     } as unknown as TraceViewerApi;
 
-    const caller = appRouter.createCaller({ traceViewerApi });
+    const caller = createCaller({ traceViewerApi });
     await expect(
       caller.traces.patchAnnotation({ traceId: 't1', annotation: { label: 'x' } }),
     ).resolves.toEqual({ traceId: 't1', annotation: { label: 'x' } });
-    expect(patchTraceAnnotation).toHaveBeenCalledWith({ traceId: 't1', annotation: { label: 'x' } });
+    expect(patchTraceAnnotation).toHaveBeenCalledWith({
+      traceId: 't1',
+      annotation: { label: 'x' },
+    });
   });
 
   it('delegates traces.patchRunAnnotation', async () => {
@@ -71,7 +90,7 @@ describe('appRouter', () => {
       patchRunAnnotation,
     } as unknown as TraceViewerApi;
 
-    const caller = appRouter.createCaller({ traceViewerApi });
+    const caller = createCaller({ traceViewerApi });
     await expect(
       caller.traces.patchRunAnnotation({
         traceId: 't1',

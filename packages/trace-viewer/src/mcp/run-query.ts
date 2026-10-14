@@ -5,7 +5,7 @@ export type RunFilter = {
   type?: string[];
   /** Case-insensitive regex against run names. */
   name?: string;
-  status?: 'running' | 'success' | 'error';
+  status?: Trace['status'];
   /** Case-insensitive substring of the run error message. */
   errorContains?: string;
   minLatencyMs?: number;
@@ -51,6 +51,9 @@ export function metadataMatches(
 export type TraceFilter = {
   status?: Trace['status'];
   projectId?: string;
+  /** Conversation or thread the trace belongs to. */
+  sessionId?: string;
+  userId?: string;
   /** Case-insensitive regex against trace names. */
   name?: string;
   metadata?: Record<string, string | number | boolean>;
@@ -65,6 +68,8 @@ export function traceMatchesFilter(
 ): boolean {
   if (filter.status && trace.status !== filter.status) return false;
   if (filter.projectId && trace.projectId !== filter.projectId) return false;
+  if (filter.sessionId && trace.sessionId !== filter.sessionId) return false;
+  if (filter.userId && trace.userId !== filter.userId) return false;
   if (namePattern && !namePattern.test(trace.name)) return false;
   if (filter.minLatencyMs !== undefined && (trace.latencyMs ?? -1) < filter.minLatencyMs)
     return false;

@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import type { TraceViewerApi } from '@m4trix/tracing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createFixtureTraceApi, FAILING_TRACE_ID, PASSING_TRACE_ID } from './test-fixtures';
-import { TraceToolError } from './trace-access';
+import { statusIcon, TraceToolError } from './trace-access';
 import { TraceTools } from './trace-tools';
 
 let api: TraceViewerApi;
@@ -32,6 +32,18 @@ describe('listTraces', () => {
     const second = await tools.listTraces({ limit: 1, offset: 1 });
     expect(second).toContain(FAILING_TRACE_ID);
     expect(await tools.listTraces({ name: 'nope' })).toBe('No traces match.');
+  });
+
+  it('filters by session and user, and shows them per trace', async () => {
+    const thread = await tools.listTraces({ sessionId: 'thread-1' });
+    expect(thread).toContain(FAILING_TRACE_ID);
+    expect(thread).not.toContain(PASSING_TRACE_ID);
+    expect(thread).toContain('session=thread-1');
+    expect(thread).toContain('user=user-1');
+
+    expect(await tools.listTraces({ userId: 'user-1', sessionId: 'thread-2' })).toBe(
+      'No traces match.',
+    );
   });
 
   it('rejects invalid name regexes', async () => {
@@ -301,5 +313,16 @@ describe('annotate', () => {
     await expect(
       tools.annotate({ traceId: FAILING_TRACE_ID, runId: 'missing', annotation: {} }),
     ).rejects.toThrow('Run "missing" not found');
+  });
+});
+
+describe('statusIcon', () => {
+  it('marks cancelled runs apart from successes, errors and running ones', () => {
+    expect(['success', 'error', 'cancelled', 'running'].map(statusIcon)).toEqual([
+      '✓',
+      '✗',
+      '⊘',
+      '…',
+    ]);
   });
 });

@@ -22,6 +22,7 @@
   "license": "MIT",
   "scripts": {
     "build": "tsup && vite build",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
     "build:client": "vite build",
     "build:server": "tsup",
     "dev": "vite --host 127.0.0.1",
