@@ -1,0 +1,20 @@
+{
+  "name": "m4trix-code",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A simplified Claude Code clone whose agent loop is an @m4trix/core event network",
+  "scripts": {
+    "start": "tsx src/cli.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@m4trix/core": "workspace:*",
+    "effect": "^3.20.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "tsx": "^4",
+    "typescript": "^5"
+  }
+}
