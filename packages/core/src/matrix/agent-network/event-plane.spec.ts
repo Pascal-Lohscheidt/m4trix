@@ -1,10 +1,11 @@
 import { Effect, Fiber, Queue, Schema as S } from 'effect';
 import { describe, expect, test, vitest } from 'vitest';
 import { AgentFactory } from '../agent-factory.js';
-import { AgentNetwork } from './agent-network.js';
+import { AgentNetwork, type AgentNetworkSetupOptions } from './agent-network.js';
 import { AgentNetworkEvent, type EventMeta } from './agent-network-event.js';
 import { ChannelName } from './channel.js';
-import { createEventPlane, type Envelope, run, runSubscriber } from './event-plane.js';
+import { createEventPlane, type Envelope, run, startAgents } from './event-plane.js';
+import type { EventHistory } from './history.js';
 import { createInMemoryNetworkStore } from './stores/inmemory-network-store.js';
 
 const meta = { runId: 'test-run', contextId: 'test-context' };
@@ -25,6 +26,8 @@ function requireMainChannel(network: AgentNetwork) {
   return channel;
 }
 
+/** Networks whose worker channel is read with `plane.subscribe` rather than by agents. */
+const workerReaders: AgentNetworkSetupOptions = { wiring: { ignore: ['unconsumed-event'] } };
 describe('EventPlane', () => {
   describe('createEventPlane', () => {
     test('creates a plane with one PubSub per channel', async () => {
@@ -37,8 +40,7 @@ describe('EventPlane', () => {
       expect(plane.publish).toBeDefined();
       expect(plane.subscribe).toBeDefined();
       expect(plane.publishToChannels).toBeDefined();
-      expect(plane.getRunEvents).toBeDefined();
-      expect(plane.getContextEvents).toBeDefined();
+      expect(plane.history).toBeDefined();
       expect(plane.shutdown).toBeDefined();
     });
 
@@ -69,7 +71,7 @@ describe('EventPlane', () => {
 
       expect(received).toEqual({
         name: 'test-event',
-        meta,
+        meta: { ...meta, eventId: expect.any(String), ts: expect.any(Number), depth: 0 },
         payload: { value: 42 },
       });
     });
@@ -108,10 +110,9 @@ describe('EventPlane', () => {
 
       const program = Effect.gen(function* () {
         const plane = yield* createEventPlane({ network });
-        const channels = network.getChannels();
-        const mainCh = channels.get('main')!;
-        const clientCh = channels.get('client')!;
-        const logsCh = channels.get('logs')!;
+        const mainCh = requireChannel(network, 'main');
+        const clientCh = requireChannel(network, 'client');
+        const logsCh = requireChannel(network, 'logs');
 
         const clientDequeue = yield* plane.subscribe(ChannelName('client'));
         const logsDequeue = yield* plane.subscribe(ChannelName('logs'));
@@ -361,8 +362,8 @@ describe('EventPlane', () => {
     });
   });
 
-  describe('runSubscriber', () => {
-    test('invokes agent with runEvents and contextEvents', async () => {
+  describe('startAgents', () => {
+    test('invokes agent with the history of its run and context', async () => {
       const requestEvt = AgentNetworkEvent.of('request', S.Struct({ x: S.Number }));
       const responseEvt = AgentNetworkEvent.of(
         'response',
@@ -373,19 +374,13 @@ describe('EventPlane', () => {
         (ctx: {
           triggerEvent: { meta: EventMeta; payload: { x: number } };
           emit: (e: unknown) => void;
-          runEvents: readonly { name: string; meta: EventMeta; payload: unknown }[];
-          contextEvents: {
-            all: readonly { name: string; meta: EventMeta; payload: unknown }[];
-            byRun(runId: string): readonly { name: string; meta: EventMeta; payload: unknown }[];
-            map: ReadonlyMap<
-              string,
-              readonly { name: string; meta: EventMeta; payload: unknown }[]
-            >;
-          };
+          history: EventHistory;
         }) => Promise<void>
-      >(async ({ emit, runEvents, contextEvents }) => {
-        const historyCount = runEvents.length;
-        const contextRunIds = [...contextEvents.map.keys()];
+      >(async ({ emit, history }) => {
+        const historyCount = (await history.run()).length;
+        const contextRunIds = [
+          ...new Set((await history.context()).events.map((e) => e.meta.runId)),
+        ];
         emit({
           name: 'response',
           payload: {
@@ -409,21 +404,16 @@ describe('EventPlane', () => {
 
       const program = Effect.gen(function* () {
         const plane = yield* createEventPlane({ network });
-        const [reg] = [...network.getAgentRegistrations().values()];
-        const dequeue = yield* plane.subscribe(reg!.subscribedTo[0]!.name);
+        yield* startAgents(network, plane);
 
-        const fiber = yield* runSubscriber(reg!.agent, reg!.publishesTo, dequeue, plane);
-
-        yield* plane.publish(reg!.subscribedTo[0]!.name, {
+        yield* plane.publish(requireMainChannel(network).name, {
           name: 'request',
           meta: { runId: 'run-1', contextId: 'ctx-1' },
           payload: { x: 42 },
         });
 
-        const clientDequeue = yield* plane.subscribe(reg!.publishesTo[0]!.name);
+        const clientDequeue = yield* plane.subscribe(requireChannel(network, 'client').name);
         const emitted = yield* Queue.take(clientDequeue);
-
-        yield* Fiber.interrupt(fiber);
 
         return { emitted, logicSpy };
       });
@@ -438,11 +428,9 @@ describe('EventPlane', () => {
       expect(spy).toHaveBeenCalledWith(
         expect.objectContaining({
           triggerEvent: expect.objectContaining({ payload: { x: 42 } }),
-          runEvents: expect.any(Array),
-          contextEvents: expect.objectContaining({
-            all: expect.any(Array),
-            byRun: expect.any(Function),
-            map: expect.any(Map),
+          history: expect.objectContaining({
+            run: expect.any(Function),
+            context: expect.any(Function),
           }),
         }),
       );
@@ -483,21 +471,16 @@ describe('EventPlane', () => {
 
       const program = Effect.gen(function* () {
         const plane = yield* createEventPlane({ network });
-        const [reg] = [...network.getAgentRegistrations().values()];
-        const dequeue = yield* plane.subscribe(reg!.subscribedTo[0]!.name);
+        yield* startAgents(network, plane);
 
-        const fiber = yield* runSubscriber(reg!.agent, reg!.publishesTo, dequeue, plane);
-
-        yield* plane.publish(reg!.subscribedTo[0]!.name, {
+        yield* plane.publish(requireMainChannel(network).name, {
           name: 'weather-set',
           meta,
           payload: { temp: 25 },
         });
 
-        const clientDequeue = yield* plane.subscribe(reg!.publishesTo[0]!.name);
+        const clientDequeue = yield* plane.subscribe(requireChannel(network, 'client').name);
         const emitted = yield* Queue.take(clientDequeue);
-
-        yield* Fiber.interrupt(fiber);
 
         return { emitted, logicSpy };
       });
@@ -537,20 +520,15 @@ describe('EventPlane', () => {
 
       const program = Effect.gen(function* () {
         const plane = yield* createEventPlane({ network });
-        const [reg] = [...network.getAgentRegistrations().values()];
-        const dequeue = yield* plane.subscribe(reg!.subscribedTo[0]!.name);
+        yield* startAgents(network, plane);
 
-        const fiber = yield* runSubscriber(reg!.agent, reg!.publishesTo, dequeue, plane);
-
-        yield* plane.publish(reg!.subscribedTo[0]!.name, {
+        yield* plane.publish(requireMainChannel(network).name, {
           name: 'other-event',
           meta,
           payload: { ignored: true },
         });
 
         yield* Effect.sleep('20 millis');
-        yield* Fiber.interrupt(fiber);
-
         return filterSpy;
       });
 
@@ -595,8 +573,8 @@ describe('EventPlane', () => {
 
       const program = Effect.gen(function* () {
         const plane = yield* createEventPlane({ network });
-        const mainCh = network.getMainChannel()!;
-        const clientCh = network.getChannels().get('client')!;
+        const mainCh = requireMainChannel(network);
+        const clientCh = requireChannel(network, 'client');
 
         const runFiber = yield* Effect.fork(run(network, plane).pipe(Effect.scoped));
 
@@ -668,7 +646,8 @@ describe('EventPlane', () => {
 
         registerAgent(orchestrator).subscribe(mainChannel).publishTo(worker);
         registerAgent(workerAgent).subscribe(worker).publishTo(client);
-      });
+        // `final` is read with plane.subscribe on the worker channel.
+      }, workerReaders);
 
       const program = Effect.gen(function* () {
         const plane = yield* createEventPlane({ network });
@@ -729,7 +708,8 @@ describe('EventPlane', () => {
           .produce({});
 
         registerAgent(orchestrator).subscribe(mainChannel).publishTo(worker);
-      });
+        // Nobody answers on purpose; the test reads the worker channel itself.
+      }, workerReaders);
 
       const program = Effect.gen(function* () {
         const plane = yield* createEventPlane({ network });
@@ -793,30 +773,31 @@ describe('EventPlane', () => {
       });
 
       const program = Effect.gen(function* () {
-        const store = createInMemoryNetworkStore<Envelope>();
+        const store = createInMemoryNetworkStore();
         const plane = yield* createEventPlane({ network, store });
-        const [reg] = [...network.getAgentRegistrations().values()];
-        const dequeue = yield* plane.subscribe(reg!.subscribedTo[0]!.name);
+        yield* startAgents(network, plane);
 
-        const fiber = yield* runSubscriber(reg!.agent, reg!.publishesTo, dequeue, plane);
-
-        yield* plane.publish(reg!.subscribedTo[0]!.name, {
+        yield* plane.publish(requireMainChannel(network).name, {
           name: 'request',
           meta: { runId: 'run-1', contextId: 'ctx-1' },
           payload: { id: 99 },
         });
 
-        const clientDequeue = yield* plane.subscribe(reg!.publishesTo[0]!.name);
+        const clientDequeue = yield* plane.subscribe(requireChannel(network, 'client').name);
         yield* Queue.take(clientDequeue);
 
-        yield* Fiber.interrupt(fiber);
-
-        const runEvents = plane.getRunEvents('run-1', 'ctx-1');
-        const contextEvents = plane.getContextEvents('ctx-1');
-        return { runEvents, contextEvents };
+        const history = plane.history({ runId: 'run-1', contextId: 'ctx-1' });
+        const runEvents = yield* Effect.promise(() => history.run());
+        const contextEvents = yield* Effect.promise(() => history.context());
+        const stored = yield* Effect.promise(() =>
+          store.readRun({ namespace: 'anonymous', contextId: 'ctx-1' }, 'run-1'),
+        );
+        return { runEvents, contextEvents, stored };
       });
 
-      const { runEvents, contextEvents } = await Effect.runPromise(program.pipe(Effect.scoped));
+      const { runEvents, contextEvents, stored } = await Effect.runPromise(
+        program.pipe(Effect.scoped),
+      );
 
       expect(runEvents).toHaveLength(2);
       expect(runEvents[0]).toMatchObject({
@@ -827,13 +808,13 @@ describe('EventPlane', () => {
         name: 'response',
         payload: { echoed: 99 },
       });
-      expect(contextEvents.all).toHaveLength(2);
-      expect(contextEvents.byRun('run-1')).toHaveLength(2);
+      expect(contextEvents.events).toHaveLength(2);
+      expect(stored).toEqual(runEvents);
     });
   });
 
-  describe('getRunEvents and getContextEvents', () => {
-    test('records events on publish and getRunEvents returns them', async () => {
+  describe('plane.history', () => {
+    test('records events on publish and history.run() returns them', async () => {
       const network = AgentNetwork.setup(() => {});
 
       const program = Effect.gen(function* () {
@@ -849,7 +830,7 @@ describe('EventPlane', () => {
           payload: { x: 2 },
         });
 
-        return plane.getRunEvents('r1', 'c1');
+        return yield* Effect.promise(() => plane.history({ runId: 'r1', contextId: 'c1' }).run());
       });
 
       const events = await Effect.runPromise(program.pipe(Effect.scoped));
@@ -859,19 +840,21 @@ describe('EventPlane', () => {
       expect(events[1]).toMatchObject({ name: 'evt-2', payload: { x: 2 } });
     });
 
-    test('getRunEvents returns empty for unknown runId or contextId', async () => {
+    test('history is empty for unknown runId or contextId', async () => {
       const network = AgentNetwork.setup(() => {});
 
       const program = Effect.gen(function* () {
         const plane = yield* createEventPlane({ network });
-        return plane.getRunEvents('unknown-run', 'unknown-context');
+        return yield* Effect.promise(() =>
+          plane.history({ runId: 'unknown-run', contextId: 'unknown-context' }).run(),
+        );
       });
 
       const events = await Effect.runPromise(program.pipe(Effect.scoped));
       expect(events).toHaveLength(0);
     });
 
-    test('getContextEvents returns map of event arrays by runId', async () => {
+    test('history.context() returns the events of every run of the context', async () => {
       const network = AgentNetwork.setup(() => {});
 
       const program = Effect.gen(function* () {
@@ -892,13 +875,13 @@ describe('EventPlane', () => {
           payload: {},
         });
 
-        const contextEvents = plane.getContextEvents('ctx');
-        expect(contextEvents.map.size).toBe(2);
-        expect(contextEvents.map.has('run-1')).toBe(true);
-        expect(contextEvents.map.has('run-2')).toBe(true);
-
-        const run1Events = contextEvents.byRun('run-1');
-        const run2Events = contextEvents.byRun('run-2');
+        const read = (runId: string) =>
+          Effect.promise(() => plane.history({ runId, contextId: 'ctx' }).run());
+        const run1Events = yield* read('run-1');
+        const run2Events = yield* read('run-2');
+        const contextEvents = yield* Effect.promise(() =>
+          plane.history({ runId: 'run-1', contextId: 'ctx' }).context(),
+        );
 
         return { run1Events, run2Events, contextEvents };
       });
@@ -913,8 +896,7 @@ describe('EventPlane', () => {
       expect(run2Events).toHaveLength(1);
       expect(run2Events[0]).toMatchObject({ name: 'b' });
 
-      expect(contextEvents.all).toHaveLength(3);
-      expect(contextEvents.all.map((e) => e.name)).toEqual(expect.arrayContaining(['a', 'b', 'c']));
+      expect(contextEvents.events.map((e) => e.name)).toEqual(['a', 'b', 'c']);
     });
 
     test('records events on publishToChannels only once per envelope', async () => {
@@ -925,9 +907,8 @@ describe('EventPlane', () => {
 
       const program = Effect.gen(function* () {
         const plane = yield* createEventPlane({ network });
-        const channels = network.getChannels();
-        const clientCh = channels.get('client')!;
-        const logsCh = channels.get('logs')!;
+        const clientCh = requireChannel(network, 'client');
+        const logsCh = requireChannel(network, 'logs');
 
         yield* plane.publishToChannels([clientCh, logsCh], {
           name: 'multi-channel',
@@ -935,7 +916,7 @@ describe('EventPlane', () => {
           payload: { once: true },
         });
 
-        return plane.getRunEvents('r1', 'c1');
+        return yield* Effect.promise(() => plane.history({ runId: 'r1', contextId: 'c1' }).run());
       });
 
       const events = await Effect.runPromise(program.pipe(Effect.scoped));

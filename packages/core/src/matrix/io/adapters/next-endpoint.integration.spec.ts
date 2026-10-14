@@ -1,11 +1,10 @@
-import { describe, expect, test } from 'vitest';
-import { Effect } from 'effect';
-import { Schema as S } from 'effect';
+import { Effect, Schema as S } from 'effect';
+import { describe, expect, expectTypeOf, test } from 'vitest';
+import { AgentFactory } from '../../agent-factory.js';
 import { AgentNetwork } from '../../agent-network/agent-network.js';
 import { AgentNetworkEvent } from '../../agent-network/agent-network-event.js';
-import { AgentFactory } from '../../agent-factory.js';
 import { registerSSEStream } from '../proxy-consumer.js';
-import { NextEndpoint } from './next-endpoint.js';
+import { NextEndpoint, type NextEndpointOptions } from './next-endpoint.js';
 
 /** Consume a ReadableStream<Uint8Array> collecting at most `maxEvents` SSE data payloads */
 async function readSSEEvents(
@@ -70,7 +69,62 @@ const defaultIdOptions = {
   requestToRunId: (): string => crypto.randomUUID(),
 };
 
+/** request -> response carrying the run's ids; the run ends with the response. */
+function idEchoNetwork() {
+  const requestEvent = AgentNetworkEvent.of('request', S.Struct({ x: S.Number }));
+  const responseEvent = AgentNetworkEvent.of(
+    'response',
+    S.Struct({ runId: S.String, contextId: S.String }),
+  );
+  const network = AgentNetwork.setup(
+    ({ mainChannel, createChannel, proxy, registerAgent, endsOn }) => {
+      const client = createChannel('client').proxy(proxy.sse());
+      registerAgent(
+        AgentFactory.run()
+          .listensTo([requestEvent])
+          .emits([responseEvent])
+          .logic(async ({ triggerEvent, emit }) => {
+            emit(responseEvent.make({ ...triggerEvent.meta }));
+          })
+          .produce({}),
+      )
+        .subscribe(mainChannel)
+        .publishTo(client);
+      endsOn(responseEvent);
+    },
+  );
+  return { network, requestEvent };
+}
+
 describe('NextEndpoint integration', () => {
+  test('without options each request gets fresh run and context ids', async () => {
+    const { network, requestEvent } = idEchoNetwork();
+    const api = network.expose(registerSSEStream({ triggerEvents: [requestEvent] }));
+    const handler = NextEndpoint.from(api).handler();
+    const post = (): Request =>
+      new Request('http://test/api', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ x: 1 }),
+      });
+
+    const [first, second] = await Promise.all(
+      [post(), post()].map(async (request) => {
+        const response = await handler(request);
+        if (!response.body) throw new Error('no response body');
+        const events = await readSSEEvents(response.body, 2);
+        return events[0] as { name: string; payload: { runId: string; contextId: string } };
+      }),
+    );
+
+    expect(first?.name).toBe('response');
+    expect(first?.payload.runId).toMatch(/^[\w-]{36}$/);
+    expect(first?.payload.contextId).toMatch(/^[\w-]{36}$/);
+    expect(second?.payload.runId).not.toBe(first?.payload.runId);
+    expect(second?.payload.contextId).not.toBe(first?.payload.contextId);
+    expectTypeOf(NextEndpoint.from).parameter(1).toEqualTypeOf<NextEndpointOptions | undefined>();
+  });
+
   test('POST handler streams SSE response with correct headers', async () => {
     const { network, requestEvent } = setupEchoNetwork();
 

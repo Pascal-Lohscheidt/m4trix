@@ -1,9 +1,12 @@
 import { Effect, Schema as S } from 'effect';
 import { describe, expect, expectTypeOf, test } from 'vitest';
 import {
-  assertDepedencyMatch,
+  assertDependencyMatch,
   assertLayersProvided,
-  DepedencyLayer,
+  DependencyLayer,
+  type DependencyLayerDef,
+  DependencyLayerInstanceTypeId,
+  isDependencyLayerInstance,
   LayerName,
 } from './dependency-layer.js';
 
@@ -22,20 +25,20 @@ describe('LayerName', () => {
   });
 });
 
-describe('DepedencyLayer', () => {
+describe('DependencyLayer', () => {
   test('creates a dependency with name and config', () => {
-    const dep = DepedencyLayer.of({
+    const dep = DependencyLayer.of({
       name: 'MyLayerFoo',
       config: S.Struct({ foo: S.String }),
     });
 
-    expect(dep._tag).toBe('SkillDependencyDef');
+    expect(dep._tag).toBe('DependencyLayerDef');
     expect(dep._name).toBe('MyLayerFoo');
     expect(dep.config).toBeDefined();
   });
 
   test('decodeConfig validates and returns typed value', () => {
-    const dep = DepedencyLayer.of({
+    const dep = DependencyLayer.of({
       name: 'MyLayerFoo',
       config: S.Struct({ foo: S.String }),
     });
@@ -45,7 +48,7 @@ describe('DepedencyLayer', () => {
   });
 
   test('decodeConfig throws on invalid input', () => {
-    const dep = DepedencyLayer.of({
+    const dep = DependencyLayer.of({
       name: 'MyLayerFoo',
       config: S.Struct({ foo: S.String }),
     });
@@ -55,12 +58,12 @@ describe('DepedencyLayer', () => {
   });
 
   test('DepType with config property causes type error', () => {
-    DepedencyLayer.of({
+    DependencyLayer.of({
       name: 'Ok',
       config: S.Struct({ x: S.Number }),
     });
 
-    const badDep = DepedencyLayer.of({
+    const badDep = DependencyLayer.of({
       name: 'Ok',
       config: S.Struct({ x: S.Number }),
     }).define<{ config: string }>();
@@ -70,7 +73,7 @@ describe('DepedencyLayer', () => {
   });
 
   test('make creates a typed layer instance and decodes config', () => {
-    const OpenAi = DepedencyLayer.of({
+    const OpenAi = DependencyLayer.of({
       name: 'OpenAi',
       config: S.Struct({ model: S.String }),
     }).define<{ client: { complete: (prompt: string) => Promise<string> } }>();
@@ -84,8 +87,24 @@ describe('DepedencyLayer', () => {
     expectTypeOf(instance.client.complete).parameters.toEqualTypeOf<[string]>();
   });
 
+  test('layer instances are branded under the m4trix symbol namespace', () => {
+    const dep = DependencyLayer.of({
+      name: 'MyLayerFoo',
+      config: S.Struct({ foo: S.String }),
+    }).define<{ ping: () => string }>();
+    const instance = dep.make({ config: { foo: 'x' }, ping: () => 'pong' });
+
+    expect(DependencyLayerInstanceTypeId).toBe(Symbol.for('m4trix/DependencyLayerInstance'));
+    expect(isDependencyLayerInstance(instance)).toBe(true);
+    expect(instance[DependencyLayerInstanceTypeId]).toEqual({ name: 'MyLayerFoo' });
+    expect(isDependencyLayerInstance({ config: { foo: 'x' } })).toBe(false);
+    expectTypeOf(dep).toMatchTypeOf<
+      DependencyLayerDef<'MyLayerFoo', { ping: () => string }, S.Struct<{ foo: typeof S.String }>>
+    >();
+  });
+
   test('make rejects invalid config', () => {
-    const OpenAi = DepedencyLayer.of({
+    const OpenAi = DependencyLayer.of({
       name: 'OpenAi',
       config: S.Struct({ model: S.String }),
     }).define<{ client: object }>();
@@ -99,20 +118,20 @@ describe('DepedencyLayer', () => {
   });
 });
 
-describe('assertDepedencyMatch', () => {
-  const openAiLayer = DepedencyLayer.of({
+describe('assertDependencyMatch', () => {
+  const openAiLayer = DependencyLayer.of({
     name: 'OpenAi',
     config: S.Struct({ model: S.String }),
   });
 
-  const dbLayer = DepedencyLayer.of({
+  const dbLayer = DependencyLayer.of({
     name: 'Db',
     config: S.Struct({}),
   });
 
   test('passes when agent dependencies are declared by the network', () => {
     expect(() =>
-      assertDepedencyMatch({
+      assertDependencyMatch({
         agentId: 'agent-1',
         agentLayers: [openAiLayer],
         networkLayers: [openAiLayer, dbLayer],
@@ -122,7 +141,7 @@ describe('assertDepedencyMatch', () => {
 
   test('throws when agent requires layers missing from the network', () => {
     expect(() =>
-      assertDepedencyMatch({
+      assertDependencyMatch({
         agentId: 'agent-1',
         agentLayers: [openAiLayer],
         networkLayers: [dbLayer],
@@ -132,7 +151,7 @@ describe('assertDepedencyMatch', () => {
 });
 
 describe('assertLayersProvided', () => {
-  const openAiLayer = DepedencyLayer.of({
+  const openAiLayer = DependencyLayer.of({
     name: 'OpenAi',
     config: S.Struct({ model: S.String }),
   }).define<{ client: object }>();

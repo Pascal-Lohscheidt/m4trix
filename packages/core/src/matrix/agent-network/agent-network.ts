@@ -1,28 +1,48 @@
 import type { Schema as S } from 'effect';
 import { Effect, type Layer, type Scope } from 'effect';
-import type { AgentFactory } from '../agent-factory.js';
+import type { EventEnvelope } from '../agent-factory.js';
 import { consoleTracerLayer } from '../console-tracer.js';
+import type { FoldSource } from '../context/context-fold.js';
+import { type FoldCacheOptions, resolveFoldCacheOptions } from '../context/fold-cache.js';
 import {
-  assertDepedencyMatch,
+  assertDependencyMatch,
   assertLayersProvided,
   assertUniqueLayerNames,
-  type DepedencyLayerDef,
+  type DependencyLayerDef,
   type LayerInstancesFromDeps,
   toLayerArray,
 } from '../dependency-layer.js';
 import { expose } from '../io/expose.js';
 import type { InteractiveProxyHandle, ProxyConsumer } from '../io/proxy-consumer.js';
+import { consoleNetworkLogger, type NetworkLogger, resolveLogger } from '../logger.js';
+import { guardMetricHandler, type NetworkMetric, type NetworkMetricHandler } from '../metrics.js';
 import {
   consoleNetworkTracer,
   type NetworkTracer,
   noopNetworkTracer,
 } from '../tracing/network-tracer.js';
 import type { AgentNetworkEventDef } from './agent-network-event.js';
-import { ChannelName, ConfiguredChannel, Proxy as ChannelProxy } from './channel.js';
+import { ChannelName, Proxy as ChannelProxy, ConfiguredChannel } from './channel.js';
 import type { Envelope, EventPlane } from './event-plane.js';
-import { createEventPlane, run } from './event-plane.js';
+import { createEventPlane, startAgents } from './event-plane.js';
+import type { EventTransport } from './event-transport.js';
+import {
+  type AgentErrorPolicy,
+  pickRunLimits,
+  type ResolvedRunLimits,
+  type RunLimitOptions,
+  resolveRunLimits,
+} from './run-lifecycle.js';
 import type { AgentNetworkStore } from './stores/agent-network-store.js';
 import { createInMemoryNetworkStore } from './stores/inmemory-network-store.js';
+import {
+  assertWiring,
+  type NetworkValidationResult,
+  type NetworkWiringOptions,
+  validateWiring,
+} from './wiring.js';
+
+export { consoleNetworkLogger, type NetworkLogger } from '../logger.js';
 
 /* ─── Helper Types ─── */
 
@@ -36,7 +56,25 @@ export interface AnyAgent {
   /** Event names this agent listens to. Empty = listen to all. */
   getListensTo?(): readonly string[];
   /** Dependency layer definitions declared by this agent */
-  getDependencyLayers?(): ReadonlyArray<DepedencyLayerDef<string, unknown, S.Schema.Any>>;
+  getDependencyLayers?(): ReadonlyArray<DependencyLayerDef<string, unknown, S.Schema.Any>>;
+  /** Max concurrent invocations across runs. Absent or `Infinity` = uncapped. */
+  getConcurrency?(): number;
+  /** Names of transient events this agent listens to or emits. */
+  getTransientEvents?(): readonly string[];
+  /**
+   * Events this agent (and its tools) may emit. Used by the network's wiring check
+   * (`network.validate()`); agents without it are left out of the emit-related checks.
+   */
+  getEmits?(): ReadonlyArray<EventDef>;
+  /** Definitions of the events this agent listens to. */
+  getListensToEvents?(): ReadonlyArray<EventDef>;
+  /**
+   * Emitted events that only answer an `emitAndAwait` (`.emits([...], { reply: true })`): the
+   * wiring check does not report them as unconsumed.
+   */
+  getReplyEvents?(): readonly string[];
+  /** The fold sources the agent reads (`.folds([...])`); the wiring check looks at their events. */
+  getFolds?(): ReadonlyArray<FoldSource>;
 }
 
 /* ─── Agent Binding (returned by registerAgent) ─── */
@@ -44,41 +82,6 @@ export interface AnyAgent {
 export type AgentBinding = {
   subscribe(channel: ConfiguredChannel): AgentBinding;
   publishTo(channel: ConfiguredChannel): AgentBinding;
-};
-
-/* ─── Spawner Builder ─── */
-
-export type SpawnFn = (
-  agent: AnyAgent,
-  bindings?: { subscribe?: string[]; publishTo?: string[] },
-) => void;
-
-export type SpawnCallbackContext<
-  TRegistry extends Record<string, AgentFactory> = Record<string, AgentFactory>,
-> = {
-  kind: keyof TRegistry & string;
-  factory: TRegistry[keyof TRegistry & string];
-  payload: {
-    id: string;
-    params: Record<string, unknown>;
-    subscribe?: string[];
-    publishTo?: string[];
-  };
-  spawn: SpawnFn;
-};
-
-export type SpawnerBuilder<
-  TRegistry extends Record<string, AgentFactory> = Record<string, AgentFactory>,
-> = {
-  listen(channel: ConfiguredChannel, event: EventDef): SpawnerBuilder<TRegistry>;
-  registry<R extends Record<string, AgentFactory>>(reg: R): SpawnerBuilder<R>;
-  defaultBinding(
-    fn: (ctx: { kind: string }) => {
-      subscribe: string[];
-      publishTo: string[];
-    },
-  ): SpawnerBuilder<TRegistry>;
-  onSpawn(fn: (ctx: SpawnCallbackContext<TRegistry>) => AnyAgent): SpawnerBuilder<TRegistry>;
 };
 
 /* ─── Setup Options ─── */
@@ -90,13 +93,58 @@ export type AgentNetworkSetupOptions = {
   networkTracer?: NetworkTracer;
   /** Effect layer for event plane span logging. */
   tracingLayer?: Layer.Layer<never>;
+  /**
+   * What happens to a run when one of its agents throws. `'fail'` (default) ends the run with
+   * `m4trix:run.failed` and aborts its other agents; `'continue'` publishes `m4trix:agent.error`
+   * and keeps the run going.
+   */
+  onAgentError?: AgentErrorPolicy;
+  /**
+   * Where the network keeps event history (`ctx.history`). Shared by every plane of the network
+   * (`run()`, `expose()`). Defaults to a bounded in-memory store (`createInMemoryNetworkStore`).
+   */
+  store?: AgentNetworkStore;
+  /**
+   * Receives what the network reports without failing on it: wiring warnings, refused publishes,
+   * store and tracer failures, stream errors (see `NetworkLogger`). Defaults to `console`.
+   */
+  logger?: NetworkLogger;
+  /**
+   * Carries channel events and `emitAndAwait` replies between the network's planes (see
+   * `EventTransport`). Without it each plane gets its own in-memory transport. One
+   * `createInMemoryTransport()` connects all planes of the network in this process; a
+   * distributed transport would connect several instances.
+   */
+  transport?: EventTransport;
+  /**
+   * Receives the network's metrics: run durations and outcomes, agent invocation latencies,
+   * mailbox depths, events per run, store writes and usage (see `NetworkMetric`). A throwing
+   * handler never breaks the network.
+   */
+  onMetric?: (metric: NetworkMetric) => void;
+  /** Options of the wiring check run at setup (see `network.validate()`). */
+  wiring?: NetworkWiringOptions;
+  /**
+   * Bounds of the cache of folded state behind `ctx.folds` (one per event plane): default 1000
+   * states, each kept 30 minutes after its last read (see `FoldCacheOptions`). Only memory depends
+   * on them: a dropped state is rebuilt on its next read. Invalid values throw here.
+   */
+  foldCache?: FoldCacheOptions;
+} & RunLimitOptions;
+
+/** An event that completes the run it is published in (see `endsOn`). */
+export type RunTerminalEvent = {
+  readonly name: string;
+  readonly when?: (envelope: Envelope) => boolean;
 };
 
 export type NetworkRunOptions<
-  TDeps extends DepedencyLayerDef<string, unknown, S.Schema.Any> = never,
-> = [TDeps] extends [never]
+  TDeps extends DependencyLayerDef<string, unknown, S.Schema.Any> = never,
+> = ([TDeps] extends [never]
   ? { capacity?: number; layers?: Record<string, never> }
-  : { capacity?: number; layers: LayerInstancesFromDeps<TDeps> };
+  : { capacity?: number; layers: LayerInstancesFromDeps<TDeps> }) &
+  /** Limits for every run on the returned plane; they override the network's. */
+  RunLimitOptions;
 
 function resolveSetupTracing(options?: AgentNetworkSetupOptions): {
   networkTracer: NetworkTracer;
@@ -118,7 +166,12 @@ export type AgentNetworkSetupContext = {
   proxy: typeof ChannelProxy;
   registerAgent: (agent: AnyAgent) => AgentBinding;
   registerAggregator: (aggregator: AnyAgent) => AgentBinding;
-  spawner: (factory: typeof AgentFactory) => SpawnerBuilder;
+  /**
+   * Declares a terminal event: when it is published in a run (and `when` accepts it, if given),
+   * the run completes with `m4trix:run.completed`, its in-flight agents are aborted and its
+   * stream closes. Call it once per terminal event.
+   */
+  endsOn: <E extends EventDef>(event: E, when?: (envelope: EventEnvelope<E>) => boolean) => void;
 };
 
 /* ─── Internal Registration Records ─── */
@@ -129,27 +182,15 @@ type AgentRegistration = {
   publishesTo: ConfiguredChannel[];
 };
 
-type SpawnerRegistration = {
-  factoryClass: typeof AgentFactory;
-  listenChannel?: ConfiguredChannel;
-  listenEvent?: EventDef;
-  registry: Record<string, AgentFactory>;
-  defaultBindingFn?: (ctx: { kind: string }) => {
-    subscribe: string[];
-    publishTo: string[];
-  };
-  onSpawnFn?: (ctx: SpawnCallbackContext<Record<string, AgentFactory>>) => AnyAgent;
-};
-
 /* ─── AgentNetworkBuilder ─── */
 
 export class AgentNetworkBuilder<
-  TDeps extends DepedencyLayerDef<string, unknown, S.Schema.Any> = never,
+  TDeps extends DependencyLayerDef<string, unknown, S.Schema.Any> = never,
 > {
-  private _dependencyLayers: ReadonlyArray<DepedencyLayerDef<string, unknown, S.Schema.Any>>;
+  private _dependencyLayers: ReadonlyArray<DependencyLayerDef<string, unknown, S.Schema.Any>>;
 
   private constructor(
-    dependencyLayers: ReadonlyArray<DepedencyLayerDef<string, unknown, S.Schema.Any>>,
+    dependencyLayers: ReadonlyArray<DependencyLayerDef<string, unknown, S.Schema.Any>>,
   ) {
     this._dependencyLayers = dependencyLayers;
   }
@@ -158,14 +199,14 @@ export class AgentNetworkBuilder<
     return new AgentNetworkBuilder([]);
   }
 
-  static fromLayers<D extends DepedencyLayerDef<string, unknown, S.Schema.Any>>(
+  static fromLayers<D extends DependencyLayerDef<string, unknown, S.Schema.Any>>(
     layers: ReadonlyArray<D>,
   ): AgentNetworkBuilder<D> {
     assertUniqueLayerNames(layers);
     return new AgentNetworkBuilder(layers);
   }
 
-  dependsOn<D extends DepedencyLayerDef<string, unknown, S.Schema.Any>>(
+  dependsOn<D extends DependencyLayerDef<string, unknown, S.Schema.Any>>(
     ...layers: [D, ...D[]] | [ReadonlyArray<D>]
   ): AgentNetworkBuilder<TDeps | D> {
     const normalized = toLayerArray(layers);
@@ -174,6 +215,10 @@ export class AgentNetworkBuilder<
     return new AgentNetworkBuilder<TDeps | D>(allLayers);
   }
 
+  /**
+   * Builds the network with `callback`, then checks its wiring (see `network.validate()`): throws
+   * `NetworkWiringError` listing every contradiction, and logs smells as warnings.
+   */
   setup(
     callback: (ctx: AgentNetworkSetupContext) => void,
     options?: AgentNetworkSetupOptions,
@@ -182,6 +227,8 @@ export class AgentNetworkBuilder<
     const ctx = network.createSetupContext();
 
     callback(ctx);
+    // Registrations only happen in the callback, so the wiring is final here.
+    assertWiring(network);
 
     return network;
   }
@@ -189,30 +236,46 @@ export class AgentNetworkBuilder<
 
 /* ─── AgentNetwork ─── */
 
-export class AgentNetwork<TDeps extends DepedencyLayerDef<string, unknown, S.Schema.Any> = never> {
+export class AgentNetwork<TDeps extends DependencyLayerDef<string, unknown, S.Schema.Any> = never> {
   private _mainChannel: ConfiguredChannel | undefined;
   private channels: Map<ChannelName, ConfiguredChannel> = new Map();
   private agentRegistrations: Map<string, AgentRegistration> = new Map();
-  private spawnerRegistrations: SpawnerRegistration[] = [];
-  private _store: AgentNetworkStore<Envelope>;
+  private _store: AgentNetworkStore;
   private _networkTracer: NetworkTracer;
   private _tracingLayer: Layer.Layer<never> | undefined;
-  private _dependencyLayers: ReadonlyArray<DepedencyLayerDef<string, unknown, S.Schema.Any>>;
+  private _dependencyLayers: ReadonlyArray<DependencyLayerDef<string, unknown, S.Schema.Any>>;
+  private _terminalEvents: RunTerminalEvent[] = [];
+  private _agentErrorPolicy: AgentErrorPolicy;
+  private _runLimits: ResolvedRunLimits;
+  private _logger: Required<NetworkLogger>;
+  private _transport: EventTransport | undefined;
+  private _metricHandler: NetworkMetricHandler | undefined;
+  private _wiring: NetworkWiringOptions;
+  private _foldCache: FoldCacheOptions;
 
   constructor(
     options?: AgentNetworkSetupOptions,
-    dependencyLayers: ReadonlyArray<DepedencyLayerDef<string, unknown, S.Schema.Any>> = [],
+    dependencyLayers: ReadonlyArray<DependencyLayerDef<string, unknown, S.Schema.Any>> = [],
   ) {
-    this._store = createInMemoryNetworkStore<Envelope>();
+    this._store = options?.store ?? createInMemoryNetworkStore();
     const tracing = resolveSetupTracing(options);
     this._networkTracer = tracing.networkTracer;
     this._tracingLayer = tracing.tracingLayer;
     this._dependencyLayers = dependencyLayers;
+    this._agentErrorPolicy = options?.onAgentError ?? 'fail';
+    this._runLimits = resolveRunLimits(pickRunLimits(options, 'AgentNetwork.setup'));
+    this._logger = resolveLogger(options?.logger ?? consoleNetworkLogger);
+    this._transport = options?.transport;
+    this._metricHandler = guardMetricHandler(options?.onMetric, this._logger);
+    this._wiring = options?.wiring ?? {};
+    this._foldCache = options?.foldCache ?? {};
+    // Throws on invalid values now rather than when the first plane starts.
+    resolveFoldCacheOptions(this._foldCache);
   }
 
   /* ─── Public Static Factory ─── */
 
-  static dependsOn<D extends DepedencyLayerDef<string, unknown, S.Schema.Any>>(
+  static dependsOn<D extends DependencyLayerDef<string, unknown, S.Schema.Any>>(
     ...layers: [D, ...D[]] | [ReadonlyArray<D>]
   ): AgentNetworkBuilder<D> {
     return AgentNetworkBuilder.fromLayers(toLayerArray(layers));
@@ -237,7 +300,12 @@ export class AgentNetwork<TDeps extends DepedencyLayerDef<string, unknown, S.Sch
       proxy: ChannelProxy,
       registerAgent: (agent) => this.registerAgentInternal(agent),
       registerAggregator: (aggregator) => this.registerAggregatorInternal(aggregator),
-      spawner: (factory) => this.createSpawnerInternal(factory),
+      endsOn: (event, when) => {
+        this._terminalEvents.push({
+          name: event.name,
+          ...(when && { when: when as (envelope: Envelope) => boolean }),
+        });
+      },
     };
   }
 
@@ -256,7 +324,7 @@ export class AgentNetwork<TDeps extends DepedencyLayerDef<string, unknown, S.Sch
   }
 
   private registerAgentInternal(agent: AnyAgent): AgentBinding {
-    assertDepedencyMatch({
+    assertDependencyMatch({
       agentId: agent.getId(),
       agentLayers: agent.getDependencyLayers?.() ?? [],
       networkLayers: this._dependencyLayers,
@@ -287,43 +355,6 @@ export class AgentNetwork<TDeps extends DepedencyLayerDef<string, unknown, S.Sch
     return this.registerAgentInternal(aggregator);
   }
 
-  private createSpawnerInternal(factoryClass: typeof AgentFactory): SpawnerBuilder {
-    const reg: SpawnerRegistration = {
-      factoryClass,
-      registry: {},
-    };
-
-    this.spawnerRegistrations.push(reg);
-
-    const builder: SpawnerBuilder = {
-      listen(channel: ConfiguredChannel, event: EventDef) {
-        reg.listenChannel = channel;
-        reg.listenEvent = event;
-        return builder;
-      },
-      registry(registry: Record<string, AgentFactory>) {
-        reg.registry = registry;
-        // biome-ignore lint/suspicious/noExplicitAny: needed for builder pattern
-        return builder as SpawnerBuilder<any>;
-      },
-      defaultBinding(
-        fn: (ctx: { kind: string }) => {
-          subscribe: string[];
-          publishTo: string[];
-        },
-      ) {
-        reg.defaultBindingFn = fn;
-        return builder;
-      },
-      onSpawn(fn: (ctx: SpawnCallbackContext<Record<string, AgentFactory>>) => AnyAgent) {
-        reg.onSpawnFn = fn;
-        return builder;
-      },
-    };
-
-    return builder;
-  }
-
   /* ─── Accessors ─── */
 
   getChannels(): Map<string, ConfiguredChannel> {
@@ -338,22 +369,71 @@ export class AgentNetwork<TDeps extends DepedencyLayerDef<string, unknown, S.Sch
     return this.agentRegistrations;
   }
 
-  getSpawnerRegistrations(): ReadonlyArray<SpawnerRegistration> {
-    return this.spawnerRegistrations;
-  }
-
-  getDependencyLayers(): ReadonlyArray<DepedencyLayerDef<string, unknown, S.Schema.Any>> {
+  getDependencyLayers(): ReadonlyArray<DependencyLayerDef<string, unknown, S.Schema.Any>> {
     return this._dependencyLayers;
   }
 
   /** Store defined at network setup time. Shared across all event planes created for this network. */
-  getStore(): AgentNetworkStore<Envelope> {
+  getStore(): AgentNetworkStore {
     return this._store;
+  }
+
+  /** Options of the wiring check configured at setup time (`wiring`). */
+  getWiringOptions(): NetworkWiringOptions {
+    return this._wiring;
+  }
+
+  /** Bounds of each plane's fold cache, as configured at setup (`foldCache`). */
+  getFoldCacheOptions(): FoldCacheOptions {
+    return this._foldCache;
+  }
+
+  /** @internal The `onMetric` handler, guarded; `undefined` without one. */
+  getMetricHandler(): NetworkMetricHandler | undefined {
+    return this._metricHandler;
+  }
+
+  /** Transport configured at setup time (`transport`); `undefined` for per-plane in-memory ones. */
+  getTransport(): EventTransport | undefined {
+    return this._transport;
   }
 
   /** NetworkTracer configured at setup time. Used by run() and expose() unless overridden. */
   getNetworkTracer(): NetworkTracer {
     return this._networkTracer;
+  }
+
+  /** Terminal events declared with `endsOn` at setup time. */
+  getTerminalEvents(): ReadonlyArray<RunTerminalEvent> {
+    return this._terminalEvents;
+  }
+
+  /** Agent failure policy configured at setup time (`onAgentError`, default `'fail'`). */
+  getAgentErrorPolicy(): AgentErrorPolicy {
+    return this._agentErrorPolicy;
+  }
+
+  /** Per-run limits configured at setup time, defaults filled in (see `RunLimitOptions`). */
+  getRunLimits(): ResolvedRunLimits {
+    return { ...this._runLimits };
+  }
+
+  /**
+   * Checks the network's wiring: which agents emit and listen to which events on which channels,
+   * against what the channels accept (`channel.events([...])`). `errors` are contradictions
+   * (setup throws `NetworkWiringError` on them); `warnings` are smells (logged at setup), minus
+   * the codes in `wiring.ignore`.
+   */
+  validate(): NetworkValidationResult {
+    return validateWiring(this);
+  }
+
+  /**
+   * Logger configured at setup time (`logger`, default `console`), with every level: `error`
+   * falls back to `warn`, and a throwing logger is ignored.
+   */
+  getLogger(): Required<NetworkLogger> {
+    return this._logger;
   }
 
   /** Effect tracing layer configured at setup time. Used by run() and expose() unless overridden. */
@@ -379,8 +459,9 @@ export class AgentNetwork<TDeps extends DepedencyLayerDef<string, unknown, S.Sch
    * loops for each (agent, channel) pair. Agents subscribed to a channel are
    * invoked concurrently when events are published to that channel.
    *
-   * Returns the EventPlane for publishing. Use `Effect.scoped` so the run is
-   * interrupted when the scope ends.
+   * Returns the EventPlane for publishing once every agent is subscribed, so events
+   * published right away are not missed. Use `Effect.scoped` so the run is interrupted
+   * when the scope ends.
    */
   run(options?: NetworkRunOptions<TDeps>): Effect.Effect<EventPlane, never, Scope.Scope> {
     assertLayersProvided(this._dependencyLayers, options?.layers as Record<string, unknown>);
@@ -398,13 +479,12 @@ export class AgentNetwork<TDeps extends DepedencyLayerDef<string, unknown, S.Sch
         capacity: options?.capacity,
         store: network.getStore(),
         networkTracer,
+        limits: pickRunLimits(options, 'network.run'),
       });
-      yield* Effect.fork(
-        run(network, plane, {
-          networkTracer,
-          layers: options?.layers as unknown as Record<string, unknown> | undefined,
-        }),
-      );
+      yield* startAgents(network, plane, {
+        networkTracer,
+        layers: options?.layers as unknown as Record<string, unknown> | undefined,
+      });
       return plane;
     });
     const tracingLayer = network.getTracingLayer();

@@ -1,7 +1,7 @@
 import { Schema as S } from 'effect';
-import { describe, expect, test } from 'vitest';
+import { describe, expect, expectTypeOf, test } from 'vitest';
 import { AgentNetworkEvent } from './agent-network-event.js';
-import { Channel, ChannelName, ConfiguredChannel, Proxy as ChannelProxy } from './channel.js';
+import { ChannelName, Proxy as ChannelProxy, ConfiguredChannel } from './channel.js';
 
 describe('Channel', () => {
   describe('ChannelName (branded, kebab-case)', () => {
@@ -17,15 +17,6 @@ describe('Channel', () => {
       expect(() => ChannelName('my_channel')).toThrow();
       expect(() => ChannelName('my-channel-')).toThrow();
       expect(() => ChannelName('-my-channel')).toThrow();
-    });
-  });
-
-  describe('Channel.of', () => {
-    test('creates channel with branded name', () => {
-      const name = ChannelName('my-channel');
-      const ch = Channel.of(name);
-
-      expect(ch.name).toBe('my-channel');
     });
   });
 
@@ -47,13 +38,13 @@ describe('Channel', () => {
 
     test('.proxy() attaches a proxy definition', () => {
       const ch = new ConfiguredChannel(ChannelName('main')).proxy(
-        ChannelProxy.kafka({ topic: 'my-topic' }),
+        ChannelProxy.custom('queue', { topic: 'my-topic' }),
       );
 
       expect(ch.getProxies()).toEqual([
         {
           _tag: 'ProxyDef',
-          kind: 'kafka',
+          kind: 'queue',
           config: { topic: 'my-topic' },
           direction: 'outbound',
         },
@@ -63,12 +54,12 @@ describe('Channel', () => {
     test('.proxy() sets multiple proxies', () => {
       const ch = new ConfiguredChannel(ChannelName('main')).proxy(
         ChannelProxy.sse(),
-        ChannelProxy.kafka({ topic: 'events' }),
+        ChannelProxy.custom('queue', { topic: 'events' }),
       );
 
       expect(ch.getProxies()).toHaveLength(2);
       expect(ch.getProxies()[0]?.kind).toBe('sse');
-      expect(ch.getProxies()[1]?.kind).toBe('kafka');
+      expect(ch.getProxies()[1]?.kind).toBe('queue');
     });
 
     test('builder methods are chainable', () => {
@@ -89,15 +80,10 @@ describe('Channel', () => {
   });
 
   describe('Proxy', () => {
-    test('Proxy.kafka creates a kafka proxy definition', () => {
-      const s = ChannelProxy.kafka({ topic: 'orders' });
-
-      expect(s).toEqual({
-        _tag: 'ProxyDef',
-        kind: 'kafka',
-        config: { topic: 'orders' },
-        direction: 'outbound',
-      });
+    test('offers only sse and custom (Kafka / Socket.IO are not built in)', () => {
+      expect(Object.keys(ChannelProxy).sort()).toEqual(['custom', 'sse']);
+      expectTypeOf(ChannelProxy).not.toHaveProperty('kafka');
+      expectTypeOf(ChannelProxy).not.toHaveProperty('socketIo');
     });
 
     test('Proxy.sse creates an sse proxy definition', () => {
@@ -111,14 +97,18 @@ describe('Channel', () => {
       });
     });
 
-    test('Proxy.socketIo creates a bidirectional proxy definition', () => {
-      const s = ChannelProxy.socketIo({ namespace: '/agent' });
-
-      expect(s).toEqual({
+    test('Proxy.custom creates a proxy definition of any kind and direction', () => {
+      expect(ChannelProxy.custom('socket-io', { namespace: '/agent' }, 'bidirectional')).toEqual({
         _tag: 'ProxyDef',
         kind: 'socket-io',
         config: { namespace: '/agent' },
         direction: 'bidirectional',
+      });
+      expect(ChannelProxy.custom('queue')).toEqual({
+        _tag: 'ProxyDef',
+        kind: 'queue',
+        config: {},
+        direction: 'outbound',
       });
     });
   });

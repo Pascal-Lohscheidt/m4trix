@@ -1,69 +1,104 @@
 {
   "name": "@m4trix/core",
   "version": "0.7.0",
-  "description": "A powerful TypeScript library for building AI-driven web applications",
+  "description": "Typed agent networks for TypeScript: events, tools and dependency layers on Effect, streamed to clients over SSE",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "require": "./dist/index.cjs",
-      "default": "./dist/index.js"
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
     },
     "./matrix": {
-      "types": "./dist/matrix/index.d.ts",
-      "import": "./dist/matrix/index.js",
-      "require": "./dist/matrix/index.cjs",
-      "default": "./dist/matrix/index.js"
+      "import": {
+        "types": "./dist/matrix/index.d.ts",
+        "default": "./dist/matrix/index.js"
+      },
+      "require": {
+        "types": "./dist/matrix/index.d.cts",
+        "default": "./dist/matrix/index.cjs"
+      }
+    },
+    "./testing": {
+      "import": {
+        "types": "./dist/testing/index.d.ts",
+        "default": "./dist/testing/index.js"
+      },
+      "require": {
+        "types": "./dist/testing/index.d.cts",
+        "default": "./dist/testing/index.cjs"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "typesVersions": {
+    "*": {
+      "matrix": [
+        "./dist/matrix/index.d.ts"
+      ],
+      "testing": [
+        "./dist/testing/index.d.ts"
+      ]
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "CHANGELOG.md"
   ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "build": "tsup",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.spec.json",
     "dev": "tsup --watch",
     "lint": "biome lint .",
     "format": "biome format --write .",
     "prepare": "pnpm run build",
     "publish-package": "npm publish --no-git-checks",
-    "release": "pnpm -C ../.. run release:bump:core"
+    "release": "pnpm -C ../.. run release:bump:core",
+    "api:check": "node scripts/api-report.mjs",
+    "api:update": "node scripts/api-report.mjs --update",
+    "check:runtime": "node scripts/check-runtime-neutral.mjs"
   },
   "keywords": [
     "ai",
-    "web",
-    "typescript",
-    "visualization"
+    "agents",
+    "agent-network",
+    "llm",
+    "tools",
+    "effect",
+    "sse",
+    "streaming",
+    "typescript"
   ],
   "author": "Pascal Lohscheidt",
   "license": "MIT",
   "devDependencies": {
+    "@microsoft/api-extractor": "^7.59.4",
     "@types/node": "^20.0.0",
     "@vitest/coverage-v8": "^4.0.0",
+    "ai": "^5.0.28",
+    "effect": "^3.20.0",
+    "esbuild": "^0.28.0",
     "tsup": "^8.0.0",
     "typescript": "^5.0.0",
-    "vitest": "^4.0.0",
-    "@langchain/community": "^0.3.59",
-    "@langchain/core": "^0.3.80",
-    "@langchain/langgraph": "^0.3.12",
-    "@langchain/langgraph-sdk": "^0.0.84",
-    "@langchain/openai": "^0.5.16",
-    "ai": "^5.0.28"
+    "vitest": "^4.0.0"
   },
   "publishConfig": {
     "access": "public"
   },
-  "dependencies": {
-    "effect": "^3.20.0",
-    "socket.io": "^4.8.0",
-    "socket.io-client": "^4.8.0"
-  },
   "peerDependencies": {
-    "effect": ">=3.0.0"
+    "effect": "^3.20.0"
   },
-  "browser": {},
   "type": "module",
   "repository": {
     "type": "git",

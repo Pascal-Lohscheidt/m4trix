@@ -2,7 +2,7 @@ import { Effect, Queue, Schema as S } from 'effect';
 import { describe, expect, test, vitest } from 'vitest';
 import { AgentFactory } from '../agent-factory.js';
 import { registerSSEStream } from '../io/proxy-consumer.js';
-import { AgentNetwork } from './agent-network.js';
+import { AgentNetwork, type AgentNetworkSetupOptions } from './agent-network.js';
 import type { EventMeta } from './agent-network-event.js';
 import { AgentNetworkEvent } from './agent-network-event.js';
 import { ChannelName } from './channel.js';
@@ -14,6 +14,9 @@ async function takeFirst(stream: AsyncIterable<unknown>): Promise<unknown> {
   for await (const e of stream) return e;
   return undefined;
 }
+
+/** These networks are read with `plane.subscribe` on their output channels, not by agents. */
+const directSubscribers: AgentNetworkSetupOptions = { wiring: { ignore: ['unconsumed-event'] } };
 
 describe('AgentNetwork integration', () => {
   describe('single agent flow', () => {
@@ -53,7 +56,7 @@ describe('AgentNetwork integration', () => {
         )
           .subscribe(main)
           .publishTo(client);
-      });
+      }, directSubscribers);
 
       const program = Effect.gen(function* () {
         const plane = yield* network.run();
@@ -154,7 +157,7 @@ describe('AgentNetwork integration', () => {
         )
           .subscribe(main)
           .publishTo(orderOut);
-      });
+      }, directSubscribers);
 
       const program = Effect.gen(function* () {
         const plane = yield* network.run();
@@ -243,7 +246,7 @@ describe('AgentNetwork integration', () => {
         )
           .subscribe(main)
           .publishTo(out);
-      });
+      }, directSubscribers);
 
       const program = Effect.gen(function* () {
         const plane = yield* network.run();
@@ -345,7 +348,7 @@ describe('AgentNetwork integration', () => {
         )
           .subscribe(enriched)
           .publishTo(finalized);
-      });
+      }, directSubscribers);
 
       const program = Effect.gen(function* () {
         const plane = yield* network.run();
@@ -418,7 +421,7 @@ describe('AgentNetwork integration', () => {
           .subscribe(main)
           .subscribe(logs)
           .publishTo(out);
-      });
+      }, directSubscribers);
 
       const program = Effect.gen(function* () {
         const plane = yield* network.run();
@@ -503,7 +506,7 @@ describe('AgentNetwork integration', () => {
         )
           .subscribe(main)
           .publishTo(out);
-      });
+      }, directSubscribers);
 
       const program = Effect.gen(function* () {
         const plane = yield* network.run();
@@ -582,7 +585,7 @@ describe('AgentNetwork integration', () => {
         )
           .subscribe(main)
           .publishTo(out);
-      });
+      }, directSubscribers);
 
       const program = Effect.gen(function* () {
         const plane = yield* network.run();
@@ -733,7 +736,7 @@ describe('AgentNetwork integration', () => {
       const network = AgentNetwork.setup(({ createChannel, proxy }) => {
         createChannel('out')
           .proxy(proxy.sse())
-          .proxy(proxy.kafka({ topic: 'events' }));
+          .proxy(proxy.custom('queue', { topic: 'events' }));
       });
 
       const program = Effect.gen(function* () {

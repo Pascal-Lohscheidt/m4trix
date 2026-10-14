@@ -87,6 +87,7 @@ describe('expose integration', () => {
 
         const api = network.expose(
           registerSSEStream({
+            reconnectWindow: 0,
             plane,
             channel: 'client',
             triggerEvents: [requestEvent],
@@ -141,6 +142,7 @@ describe('expose integration', () => {
 
         const api = network.expose(
           registerSSEStream({
+            reconnectWindow: 0,
             plane,
             channel: 'client',
             onRequest: ({ emitStartEvent, req, payload }) =>
@@ -194,6 +196,7 @@ describe('expose integration', () => {
 
       const api = network.expose(
         registerSSEStream({
+          reconnectWindow: 0,
           channel: 'client',
           triggerEvents: [requestEvt],
         }),
@@ -240,6 +243,7 @@ describe('expose integration', () => {
 
         const api = network.expose(
           registerSSEStream({
+            reconnectWindow: 0,
             plane,
             channel: 'client',
             triggerEvents: [requestEvent],
@@ -298,6 +302,7 @@ describe('expose integration', () => {
 
         const api = network.expose(
           registerSSEStream({
+            reconnectWindow: 0,
             plane,
             channel: 'client',
             triggerEvents: [requestEvent],
@@ -441,6 +446,7 @@ describe('expose integration', () => {
 
         const api = network.expose(
           registerSSEStream({
+            reconnectWindow: 0,
             plane,
             channel: 'client',
             auth: () => ({ allowed: true }),
@@ -498,6 +504,7 @@ describe('expose integration', () => {
 
         const api = network.expose(
           registerSSEStream({
+            reconnectWindow: 0,
             plane,
             channel: 'client',
             triggerEvents: [requestEvt],
@@ -557,6 +564,7 @@ describe('expose integration', () => {
 
         const api = network.expose(
           registerSSEStream({
+            reconnectWindow: 0,
             plane,
             channel: 'client',
             onRequest: ({ emitStartEvent, req, payload }) =>
@@ -620,6 +628,7 @@ describe('expose integration', () => {
 
         const api = network.expose(
           registerSSEStream({
+            reconnectWindow: 0,
             plane,
             channel: 'client',
             onRequest: ({ setRunId, setContextId, emitStartEvent, payload }) => {
@@ -685,6 +694,7 @@ describe('expose integration', () => {
 
         const api = network.expose(
           registerSSEStream({
+            reconnectWindow: 0,
             plane,
             channel: 'client',
             onRequest: ({ emitStartEvent, payload }) =>
@@ -736,6 +746,7 @@ describe('expose integration', () => {
 
         const api = network.expose(
           registerSSEStream({
+            reconnectWindow: 0,
             plane,
             channel: 'client',
             triggerEvents: [aEvt, bEvt],
@@ -793,6 +804,7 @@ describe('expose integration', () => {
 
         const api = network.expose(
           registerSSEStream({
+            reconnectWindow: 0,
             plane,
             channel: 'client',
             events: ['b'],

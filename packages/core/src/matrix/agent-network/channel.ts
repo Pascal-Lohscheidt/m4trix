@@ -1,6 +1,7 @@
 import type { Schema as S } from 'effect';
 import type { ChannelName } from '../identifiers/channel-name.js';
 import type { AgentNetworkEventDef } from './agent-network-event.js';
+import { isReservedEventName } from './run-lifecycle.js';
 
 export { ChannelName } from '../identifiers/channel-name.js';
 
@@ -15,15 +16,15 @@ export type ProxyDef = {
   readonly direction: ProxyDirection;
 };
 
+/**
+ * Proxies a channel declares (`channel.proxy(...)`): where its events go beyond the network.
+ * `sse()` is built in (see `registerSSEStream`); other kinds are declared with `custom(kind)` or
+ * `defineProxyKind(kind)` and exposed with `registerCustomProxy`. Kafka or Socket.IO bridges can
+ * be built that way on top of `EventTransport`.
+ */
 const ChannelProxy = {
   sse(): ProxyDef {
     return { _tag: 'ProxyDef', kind: 'sse', config: {}, direction: 'outbound' };
-  },
-  kafka(config: { topic: string }): ProxyDef {
-    return { _tag: 'ProxyDef', kind: 'kafka', config, direction: 'outbound' };
-  },
-  socketIo(config: { namespace?: string } = {}): ProxyDef {
-    return { _tag: 'ProxyDef', kind: 'socket-io', config, direction: 'bidirectional' };
   },
   custom(kind: string, config: unknown = {}, direction: ProxyDirection = 'outbound'): ProxyDef {
     return { _tag: 'ProxyDef', kind, config, direction };
@@ -35,11 +36,6 @@ export { ChannelProxy as Proxy };
 /* ─── Channel Definitions ─── */
 
 type EventDef = AgentNetworkEventDef<string, S.Schema.Any>;
-
-export type ChannelDef = {
-  readonly _tag: 'ChannelDef';
-  readonly name: ChannelName;
-};
 
 /**
  * A channel configured via the builder pattern inside `AgentNetwork.setup()`.
@@ -55,6 +51,12 @@ export class ConfiguredChannel {
     this.name = name;
   }
 
+  /**
+   * Declares the events this channel carries. Publishing any other event to it is refused: an
+   * agent's emit throws `EmitValidationError` (reason `channel`), an external publish resolves
+   * `false`. Runtime `m4trix:*` events always pass. Without a declaration a channel carries
+   * every event.
+   */
   events(events: ReadonlyArray<EventDef>): this {
     this._events = [...events];
     return this;
@@ -74,15 +76,17 @@ export class ConfiguredChannel {
   }
 }
 
+/**
+ * True when `channel` carries events named `name`: it declares no events, declares this one, or
+ * `name` is a runtime `m4trix:*` event.
+ */
+export function channelAcceptsEvent(channel: ConfiguredChannel, name: string): boolean {
+  const declared = channel.getEvents();
+  return (
+    declared.length === 0 || isReservedEventName(name) || declared.some((e) => e.name === name)
+  );
+}
+
 export function channelHasProxy(channel: ConfiguredChannel, kind: string): boolean {
   return channel.getProxies().some((proxy) => proxy.kind === kind);
 }
-
-export const Channel = {
-  of(name: ChannelName): ChannelDef {
-    return {
-      _tag: 'ChannelDef' as const,
-      name,
-    };
-  },
-};

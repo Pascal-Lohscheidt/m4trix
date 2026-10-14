@@ -1,4 +1,4 @@
-import { Schema as S } from 'effect';
+import { Effect, Schema as S } from 'effect';
 import { describe, expect, test } from 'vitest';
 import { AgentNetwork } from '../agent-network/agent-network.js';
 import { AgentNetworkEvent } from '../agent-network/agent-network-event.js';
@@ -30,7 +30,7 @@ describe('proxy consumer', () => {
 
   test('explicit channel without matching proxy throws', () => {
     const network = AgentNetwork.setup(({ createChannel, proxy }) => {
-      createChannel('client').proxy(proxy.kafka({ topic: 'events' }));
+      createChannel('client').proxy(proxy.custom('queue', { topic: 'events' }));
     });
 
     expect(() => resolveChannelsForProxyKind(network, 'sse', 'client')).toThrow(
@@ -80,7 +80,7 @@ describe('proxy consumer', () => {
     const trpcStream = defineProxyKind('trpc-stream');
     const network = AgentNetwork.setup(({ createChannel }) => {
       createChannel('client').proxy(trpcStream.onChannel());
-      createChannel('events').proxy(ChannelProxy.kafka({ topic: 'events' }));
+      createChannel('events').proxy(ChannelProxy.custom('queue', { topic: 'events' }));
     });
 
     expect(resolveChannelsForProxyKind(network, 'trpc-stream')).toEqual(['client']);
@@ -98,5 +98,29 @@ describe('proxy consumer', () => {
     await expect(api.publish(event.make({ approved: true }), { target: 'main' })).rejects.toThrow(
       'proxy.publish requires a shared event plane',
     );
+  });
+
+  test('withMeta publishes inbound events with the meta it was given', async () => {
+    const event = AgentNetworkEvent.of('human-approved', S.Struct({ approved: S.Boolean }));
+    const network = AgentNetwork.setup(({ createChannel, proxy }) => {
+      createChannel('client').proxy(proxy.sse());
+    });
+
+    const stored = await Effect.runPromise(
+      Effect.gen(function* () {
+        const plane = yield* network.run();
+        const api = network.expose(registerSSEStream({ channel: 'client', plane }));
+        yield* Effect.promise(() =>
+          api
+            .withMeta({ runId: 'run-1', contextId: 'ctx', eventId: 'evt-1', depth: 2, ts: 5 })
+            .publish(event.make({ approved: true }), 'main'),
+        );
+        return yield* Effect.promise(() =>
+          plane.history({ runId: 'run-1', contextId: 'ctx' }).run(),
+        );
+      }).pipe(Effect.scoped),
+    );
+
+    expect(stored[0]?.meta).toMatchObject({ eventId: 'evt-1', depth: 2, ts: 5 });
   });
 });

@@ -1,11 +1,16 @@
-import { randomUUID } from 'crypto';
 import type { Schema as S } from 'effect';
-import type {
-  AgentNetworkEventDef,
-  ContextEvents,
-  EventMeta,
-  RunEvents,
-} from './agent-network-event.js';
+import type { FoldSource } from '../context/context-fold.js';
+import {
+  addFoldSources,
+  createFoldReader,
+  type FoldAccessors,
+  type FoldReader,
+  foldAccessors,
+  type UniqueFoldSources,
+} from '../context/fold-reader.js';
+import { type EmitValidationError, guardEmit } from '../validation.js';
+import type { AgentNetworkEventDef, EventMeta } from './agent-network-event.js';
+import { type EventHistory, emptyEventHistory } from './history.js';
 
 type EventDef = AgentNetworkEventDef<string, S.Schema.Any>;
 
@@ -19,92 +24,159 @@ type EmitPayload<E extends EventDef> =
     ? { name: N; payload: S.Schema.Type<PS> }
     : never;
 
-type EmitWhenFn<TTriggerEvent> = (ctx: {
+type EmitWhenFn<TTriggerEvent, TFolds extends FoldSource = never> = (ctx: {
   triggerEvent: TTriggerEvent;
-  runEvents: RunEvents;
-  contextEvents: ContextEvents;
+  /** Durable event history of the run and its context (see `EventHistory`). */
+  history: EventHistory;
+  /** The `.folds([...])` sources, by name (see `AgentFactory.folds`). */
+  folds: FoldAccessors<TFolds>;
 }) => boolean | Promise<boolean>;
 
-type MapToEmitFn<TTriggerEvent, TEmitEvent> = (ctx: {
+type MapToEmitFn<TTriggerEvent, TEmitEvent, TFolds extends FoldSource = never> = (ctx: {
   triggerEvent: TTriggerEvent;
   emit: (event: TEmitEvent) => void;
-  runEvents: RunEvents;
-  contextEvents: ContextEvents;
+  /** Durable event history of the run and its context (see `EventHistory`). */
+  history: EventHistory;
+  /** The `.folds([...])` sources, by name (see `AgentFactory.folds`). */
+  folds: FoldAccessors<TFolds>;
 }) => void | Promise<void>;
 
 type ConstructorParams<TListensTo extends EventDef, TEmits extends EventDef> = {
   listensTo?: ReadonlyArray<TListensTo>;
   emits?: ReadonlyArray<TEmits>;
-  emitWhen?: EmitWhenFn<EventEnvelope<TListensTo>>;
+  // Declared for fewer folds than later `.folds()` calls add: its ctx then has extra accessors.
+  emitWhen?: EmitWhenFn<EventEnvelope<TListensTo>, never>;
+  folds?: ReadonlyArray<FoldSource>;
 };
 
-export class EventAggregator<TListensTo extends EventDef = never, TEmits extends EventDef = never> {
+export class EventAggregator<
+  TListensTo extends EventDef = never,
+  TEmits extends EventDef = never,
+  TFolds extends FoldSource = never,
+> {
   private _listensTo: ReadonlyArray<TListensTo>;
   private _emits: ReadonlyArray<TEmits>;
-  private _emitWhen: EmitWhenFn<EventEnvelope<TListensTo>> | undefined;
+  private _emitWhen: EmitWhenFn<EventEnvelope<TListensTo>, never> | undefined;
+  private _folds: ReadonlyArray<FoldSource>;
 
   private constructor({
     listensTo = [],
     emits = [],
     emitWhen,
+    folds = [],
   }: ConstructorParams<TListensTo, TEmits>) {
     this._listensTo = listensTo;
     this._emits = emits;
     this._emitWhen = emitWhen;
+    this._folds = folds;
   }
 
-  static listensTo<E extends EventDef>(events: Array<E>): EventAggregator<E, never> {
-    return new EventAggregator<E, never>({ listensTo: [...events] });
-  }
-
-  emits<E extends EventDef>(events: Array<E>): EventAggregator<TListensTo, TEmits | E> {
-    return new EventAggregator<TListensTo, TEmits | E>({
+  private state(): ConstructorParams<TListensTo, TEmits> {
+    return {
       listensTo: this._listensTo,
+      emits: this._emits,
+      emitWhen: this._emitWhen,
+      folds: this._folds,
+    };
+  }
+
+  static listensTo<E extends EventDef>(events: Array<E>): EventAggregator<E, never, never> {
+    return new EventAggregator<E, never, never>({ listensTo: [...events] });
+  }
+
+  emits<E extends EventDef>(events: Array<E>): EventAggregator<TListensTo, TEmits | E, TFolds> {
+    return new EventAggregator<TListensTo, TEmits | E, TFolds>({
+      ...this.state(),
       emits: [...this._emits, ...events] as ReadonlyArray<TEmits | E>,
-      emitWhen: this._emitWhen as EmitWhenFn<EventEnvelope<TListensTo>>,
     });
   }
 
-  emitWhen(fn: EmitWhenFn<EventEnvelope<TListensTo>>): EventAggregator<TListensTo, TEmits> {
-    return new EventAggregator<TListensTo, TEmits>({
-      listensTo: this._listensTo,
-      emits: this._emits,
-      emitWhen: fn,
+  /**
+   * Adds context folds (and views) that `emitWhen` and `mapToEmit` read through `ctx.folds`, by
+   * name. Accumulates; rejects what `AgentFactory.folds` rejects.
+   */
+  folds<const Sources extends ReadonlyArray<FoldSource>>(
+    sources: Sources & UniqueFoldSources<Sources, TFolds['name']>,
+  ): EventAggregator<TListensTo, TEmits, TFolds | Sources[number]> {
+    return new EventAggregator<TListensTo, TEmits, TFolds | Sources[number]>({
+      ...this.state(),
+      folds: addFoldSources(this._folds, sources, 'EventAggregator.folds'),
+    });
+  }
+
+  emitWhen(
+    fn: EmitWhenFn<EventEnvelope<TListensTo>, TFolds>,
+  ): EventAggregator<TListensTo, TEmits, TFolds> {
+    return new EventAggregator<TListensTo, TEmits, TFolds>({
+      ...this.state(),
+      emitWhen: fn as EmitWhenFn<EventEnvelope<TListensTo>, never>,
     });
   }
 
   mapToEmit(
-    fn: MapToEmitFn<EventEnvelope<TListensTo>, EmitPayload<TEmits>>,
-  ): EventAggregatorInstance<EventEnvelope<TListensTo>, EmitPayload<TEmits>> {
-    return new EventAggregatorInstance<EventEnvelope<TListensTo>, EmitPayload<TEmits>>({
+    fn: MapToEmitFn<EventEnvelope<TListensTo>, EmitPayload<TEmits>, TFolds>,
+  ): EventAggregatorInstance<EventEnvelope<TListensTo>, EmitPayload<TEmits>, TFolds> {
+    const transientEvents = [...this._listensTo, ...this._emits]
+      .filter((eventDef) => eventDef.transient)
+      .map((eventDef) => eventDef.name);
+    return new EventAggregatorInstance<EventEnvelope<TListensTo>, EmitPayload<TEmits>, TFolds>({
       listensTo: this._listensTo.map((eventDef) => eventDef.name),
+      listensToEvents: this._listensTo,
+      emits: this._emits,
+      transientEvents: [...new Set(transientEvents)],
       emitWhen: this._emitWhen ?? (() => true),
       mapToEmit: fn,
+      folds: this._folds,
     });
   }
 }
 
-type EventAggregatorInstanceCtor<TTriggerEvent, TEmitEvent> = {
+type EventAggregatorInstanceCtor<TTriggerEvent, TEmitEvent, TFolds extends FoldSource> = {
   listensTo: ReadonlyArray<string>;
-  emitWhen: EmitWhenFn<TTriggerEvent>;
-  mapToEmit: MapToEmitFn<TTriggerEvent, TEmitEvent>;
+  /** Definitions of the events the aggregator listens to. */
+  listensToEvents?: ReadonlyArray<EventDef>;
+  /** The events the aggregator may emit; its emits are checked against them. */
+  emits?: ReadonlyArray<EventDef>;
+  /** Names of the transient events the aggregator listens to or emits. */
+  transientEvents?: ReadonlyArray<string>;
+  emitWhen: EmitWhenFn<TTriggerEvent, TFolds>;
+  mapToEmit: MapToEmitFn<TTriggerEvent, TEmitEvent, TFolds>;
+  /** The `.folds([...])` sources, read through `ctx.folds`. */
+  folds?: ReadonlyArray<FoldSource>;
 };
 
-export class EventAggregatorInstance<TTriggerEvent, TEmitEvent> {
+export class EventAggregatorInstance<TTriggerEvent, TEmitEvent, TFolds extends FoldSource = never> {
   #id: string;
   #listensTo: ReadonlyArray<string>;
-  #emitWhen: EmitWhenFn<TTriggerEvent>;
-  #mapToEmit: MapToEmitFn<TTriggerEvent, TEmitEvent>;
+  #listensToEvents: ReadonlyArray<EventDef>;
+  #emits: ReadonlyArray<EventDef>;
+  #transientEvents: ReadonlyArray<string>;
+  #emitWhen: EmitWhenFn<TTriggerEvent, TFolds>;
+  #mapToEmit: MapToEmitFn<TTriggerEvent, TEmitEvent, TFolds>;
+  #folds: ReadonlyArray<FoldSource>;
 
   constructor({
     listensTo,
+    listensToEvents = [],
+    emits = [],
+    transientEvents = [],
     emitWhen,
     mapToEmit,
-  }: EventAggregatorInstanceCtor<TTriggerEvent, TEmitEvent>) {
-    this.#id = `event-aggregator-${randomUUID()}`;
+    folds = [],
+  }: EventAggregatorInstanceCtor<TTriggerEvent, TEmitEvent, TFolds>) {
+    this.#id = `event-aggregator-${crypto.randomUUID()}`;
     this.#listensTo = listensTo;
+    this.#listensToEvents = listensToEvents;
+    this.#emits = emits;
+    this.#transientEvents = transientEvents;
     this.#emitWhen = emitWhen;
     this.#mapToEmit = mapToEmit;
+    this.#folds = folds;
+  }
+
+  /** The sources `ctx.folds` reads (`.folds([...])`), in declaration order. */
+  getFolds(): ReadonlyArray<FoldSource> {
+    return this.#folds;
   }
 
   getId(): string {
@@ -115,46 +187,66 @@ export class EventAggregatorInstance<TTriggerEvent, TEmitEvent> {
     return this.#listensTo;
   }
 
+  /** Definitions of the events this aggregator listens to. */
+  getListensToEvents(): ReadonlyArray<EventDef> {
+    return this.#listensToEvents;
+  }
+
+  /** Events this aggregator may emit (its declared `emits`). */
+  getEmits(): ReadonlyArray<EventDef> {
+    return this.#emits;
+  }
+
+  /** Names of the transient events this aggregator listens to or emits. */
+  getTransientEvents(): readonly string[] {
+    return this.#transientEvents;
+  }
+
   async invoke(options?: {
     triggerEvent?: TTriggerEvent;
     emit?: (event: TEmitEvent) => void;
-    runEvents?: RunEvents;
-    contextEvents?: ContextEvents;
+    history?: EventHistory;
+    /** Reads `ctx.folds`; a network passes a cached one. Without it, reads fold `history`. */
+    foldReader?: FoldReader;
   }): Promise<void> {
-    const { triggerEvent, emit, runEvents, contextEvents } = options ?? {};
+    const { triggerEvent, emit } = options ?? {};
+    const history = options?.history ?? emptyEventHistory;
+    const folds = foldAccessors(
+      this.#folds as ReadonlyArray<TFolds>,
+      options?.foldReader ?? createFoldReader({ history }),
+    );
 
     if (triggerEvent == null) {
       return;
     }
 
-    const emitFn =
+    // An invalid emit fails the invocation even when `mapToEmit` catches it.
+    let invalidEmit: EmitValidationError | undefined;
+    const emitFn = guardEmit(
       emit ??
-      ((_event: TEmitEvent): void => {
-        // no-op – will be wired by the network at runtime
-      });
+        ((_event: TEmitEvent): void => {
+          // no-op – will be wired by the network at runtime
+        }),
+      {
+        emits: this.#emits,
+        source: { agentId: this.#id },
+        onInvalidEmit: (error) => {
+          invalidEmit ??= error;
+        },
+      },
+    );
 
-    const runEventsValue = runEvents ?? [];
-    const contextEventsValue = contextEvents ?? {
-      all: [],
-      byRun: () => [],
-      map: new Map(),
-    };
-
-    const shouldEmit = await this.#emitWhen({
-      triggerEvent,
-      runEvents: runEventsValue,
-      contextEvents: contextEventsValue,
-    });
+    const shouldEmit = await this.#emitWhen({ triggerEvent, history, folds });
 
     if (!shouldEmit) {
       return;
     }
 
-    await this.#mapToEmit({
-      triggerEvent,
-      emit: emitFn,
-      runEvents: runEventsValue,
-      contextEvents: contextEventsValue,
-    });
+    try {
+      await this.#mapToEmit({ triggerEvent, emit: emitFn, history, folds });
+    } catch (error) {
+      throw invalidEmit ?? error;
+    }
+    if (invalidEmit) throw invalidEmit;
   }
 }

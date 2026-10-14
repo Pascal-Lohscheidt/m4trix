@@ -1,5 +1,5 @@
 import { Effect, Queue, Schema as S } from 'effect';
-import { describe, expect, test, vitest } from 'vitest';
+import { describe, expect, expectTypeOf, test, vitest } from 'vitest';
 import { AgentFactory } from '../agent-factory.js';
 import { consoleNetworkTracer, noopNetworkTracer } from '../tracing/network-tracer.js';
 import { AgentNetwork } from './agent-network.js';
@@ -24,14 +24,16 @@ describe('AgentNetwork', () => {
       const weatherSet = AgentNetworkEvent.of('weather-set', S.Struct({ temp: S.Number }));
 
       const network = AgentNetwork.setup(({ mainChannel, proxy }) => {
-        const main = mainChannel.events([weatherSet]).proxy(proxy.kafka({ topic: 'main' }));
+        const main = mainChannel
+          .events([weatherSet])
+          .proxy(proxy.custom('queue', { topic: 'main' }));
 
         expect(main.getEvents()).toHaveLength(1);
         expect(main.getEvents()[0]?.name).toBe('weather-set');
         expect(main.getProxies()).toEqual([
           {
             _tag: 'ProxyDef',
-            kind: 'kafka',
+            kind: 'queue',
             config: { topic: 'main' },
             direction: 'outbound',
           },
@@ -119,7 +121,7 @@ describe('AgentNetwork', () => {
 
       const store = network.getStore();
       expect(store).toBeDefined();
-      expect(store.getEvents('ctx', 'run')).toEqual([]);
+      expect(await store.readRun({ namespace: 'anonymous', contextId: 'ctx' }, 'run')).toEqual([]);
 
       const program = network.run().pipe(
         Effect.flatMap((plane) =>
@@ -139,7 +141,7 @@ describe('AgentNetwork', () => {
       const { plane, store: storeAfter } = await Effect.runPromise(program.pipe(Effect.scoped));
 
       expect(storeAfter).toBe(store);
-      const events = plane.getRunEvents('run-1', 'ctx-1');
+      const events = await plane.history({ runId: 'run-1', contextId: 'ctx-1' }).run();
       expect(events.length).toBeGreaterThanOrEqual(1);
       expect(events[0]).toMatchObject({ name: 'ping', payload: { n: 0 } });
     });
@@ -173,44 +175,28 @@ describe('AgentNetwork', () => {
     });
   });
 
-  describe('setup - spawner', () => {
-    test('configures a spawner with listen, registry, defaultBinding, and onSpawn', () => {
-      const spawnEvent = AgentNetworkEvent.of('daemon-spawn', S.Struct({ kind: S.String }));
-      const weatherEvent = AgentNetworkEvent.of('weather-set', S.Struct({ temp: S.Number }));
-
-      const WeatherFactory = AgentFactory.run()
-        .listensTo([weatherEvent])
-        .logic(() => Promise.resolve());
-
-      const defaultBindingSpy = vitest.fn(({ kind }: { kind: string }) => ({
-        subscribe: ['main'],
-        publishTo: kind === 'Weather' ? ['client'] : [],
-      }));
-
-      const onSpawnSpy = vitest.fn();
-
-      const network = AgentNetwork.setup(({ mainChannel, createChannel, spawner }) => {
-        const main = mainChannel;
-        createChannel('client');
-
-        spawner(AgentFactory)
-          .listen(main, spawnEvent)
-          .registry({ Weather: WeatherFactory as AgentFactory })
-          .defaultBinding(defaultBindingSpy)
-          .onSpawn(onSpawnSpy);
+  describe('setup context', () => {
+    test('offers channels, proxies, registration and endsOn (no spawner)', () => {
+      let keys: string[] = [];
+      AgentNetwork.setup((ctx) => {
+        keys = Object.keys(ctx).sort();
+        expectTypeOf(ctx).not.toHaveProperty('spawner');
       });
 
-      const spawners = network.getSpawnerRegistrations();
-      expect(spawners).toHaveLength(1);
-      expect(spawners[0]!.listenChannel?.name).toBe('main');
-      expect(spawners[0]!.listenEvent?.name).toBe('daemon-spawn');
-      expect(spawners[0]!.registry).toHaveProperty('Weather');
+      expect(keys).toEqual([
+        'createChannel',
+        'endsOn',
+        'mainChannel',
+        'proxy',
+        'registerAgent',
+        'registerAggregator',
+      ]);
+      expectTypeOf<AgentNetwork>().not.toHaveProperty('getSpawnerRegistrations');
     });
   });
 
   describe('full setup - mirrors target API', () => {
-    test('complete network definition with channels, agents, and spawner', () => {
-      const daemon_spawn = AgentNetworkEvent.of('daemon-spawn', S.Struct({ kind: S.String }));
+    test('complete network definition with channels and agents', () => {
       const weather_set = AgentNetworkEvent.of('weather-set', S.Struct({ temp: S.Number }));
       const weather_forecast_created = AgentNetworkEvent.of(
         'weather-forecast-created',
@@ -222,52 +208,23 @@ describe('AgentNetwork', () => {
         .emits([weather_forecast_created])
         .logic(() => Promise.resolve());
 
-      const AirplaneControlFactory = AgentFactory.run().logic(() => Promise.resolve());
+      const network = AgentNetwork.setup(({ mainChannel, createChannel, proxy, registerAgent }) => {
+        // 1) channels
+        const main = mainChannel.events([weather_set, weather_forecast_created]);
 
-      const network = AgentNetwork.setup(
-        ({ mainChannel, createChannel, proxy, registerAgent, spawner }) => {
-          // 1) channels
-          const main = mainChannel
-            .events([daemon_spawn, weather_set, weather_forecast_created])
-            .proxy(proxy.kafka({ topic: 'main' }));
+        const client = createChannel('client')
+          .events([weather_forecast_created])
+          .proxy(proxy.sse());
 
-          const client = createChannel('client')
-            .events([weather_forecast_created])
-            .proxy(proxy.sse());
-
-          // 2) static agents
-          const weatherAgent = WeatherFactory.produce({});
-          registerAgent(weatherAgent).subscribe(main).publishTo(client);
-
-          // 3) spawner
-          spawner(AgentFactory)
-            .listen(main, daemon_spawn)
-            .registry({
-              Weather: WeatherFactory as AgentFactory,
-              AirplaneControl: AirplaneControlFactory as AgentFactory,
-            })
-            .defaultBinding(({ kind }) => ({
-              subscribe: ['main'],
-              publishTo: kind === 'Weather' ? ['client'] : [],
-            }))
-            .onSpawn(({ factory, payload, spawn }) => {
-              const agent = (factory as AgentFactory).produce({
-                ...payload.params,
-              });
-              spawn(agent, {
-                subscribe: payload.subscribe,
-                publishTo: payload.publishTo,
-              });
-              return agent;
-            });
-        },
-      );
+        // 2) agents
+        const weatherAgent = WeatherFactory.produce({});
+        registerAgent(weatherAgent).subscribe(main).publishTo(client);
+      });
 
       // Verify the full setup
       expect(network.getChannels().size).toBe(2);
       expect(network.getMainChannel()?.name).toBe('main');
       expect(network.getAgentRegistrations().size).toBe(1);
-      expect(network.getSpawnerRegistrations()).toHaveLength(1);
     });
   });
 

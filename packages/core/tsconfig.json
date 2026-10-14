@@ -23,7 +23,7 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "types": ["node"],
+    "types": [],
     "isolatedModules": true
   },
   "include": ["src/**/*.ts"],

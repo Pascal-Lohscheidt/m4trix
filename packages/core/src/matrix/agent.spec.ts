@@ -1,8 +1,8 @@
 import { Schema as S } from 'effect';
-import { describe, expect, test, vitest } from 'vitest';
+import { describe, expect, expectTypeOf, test, vitest } from 'vitest';
 import { AgentFactory } from './agent-factory.js';
 import { AgentNetworkEvent } from './agent-network/agent-network-event.js';
-import { DepedencyLayer } from './dependency-layer.js';
+import { DependencyLayer } from './dependency-layer.js';
 import { Tool } from './tool.js';
 
 describe('Agent', () => {
@@ -150,7 +150,7 @@ describe('Agent', () => {
   });
 
   test('invoke provides dependency-injected tool collection to logic', async () => {
-    const dbLayer = DepedencyLayer.of({
+    const dbLayer = DependencyLayer.of({
       name: 'Db',
       config: S.Struct({ url: S.String }),
     }).define<{ query: (sql: string) => Promise<string> }>();
@@ -226,6 +226,63 @@ describe('Agent', () => {
         toolName: 'echo',
         phase: 'start',
       },
+    });
+  });
+
+  describe('run controls', () => {
+    test('logic ctx exposes signal, complete and fail', () => {
+      AgentFactory.run().logic(async ({ signal, complete, fail }) => {
+        expectTypeOf(signal).toEqualTypeOf<AbortSignal>();
+        expectTypeOf(complete).toEqualTypeOf<() => void>();
+        expectTypeOf(fail).toEqualTypeOf<(error: unknown) => void>();
+      });
+    });
+
+    test('standalone invoke passes the given signal to logic and bound tools', async () => {
+      const seen: AbortSignal[] = [];
+      const probe = Tool.of({ name: 'probe', description: 'Records its signal' })
+        .input(S.Struct({}))
+        .output(S.Struct({}))
+        .define(({ signal }) => {
+          seen.push(signal);
+          return {};
+        });
+      const agent = AgentFactory.run()
+        .tools(probe)
+        .logic(async ({ signal, tools }) => {
+          seen.push(signal);
+          await tools.toTools()[0]?.execute({});
+        })
+        .produce({});
+      const controller = new AbortController();
+
+      await agent.invoke({ signal: controller.signal });
+
+      expect(seen).toEqual([controller.signal, controller.signal]);
+    });
+
+    test('standalone invoke without a signal gets one that never aborts', async () => {
+      let signal: AbortSignal | undefined;
+      await AgentFactory.run()
+        .logic(async (ctx) => {
+          signal = ctx.signal;
+          ctx.complete();
+        })
+        .produce({})
+        .invoke();
+
+      expect(signal?.aborted).toBe(false);
+    });
+
+    test('standalone fail() rejects the invocation with the error', async () => {
+      const error = new Error('nope');
+      const agent = AgentFactory.run()
+        .logic(async ({ fail }) => {
+          fail(error);
+        })
+        .produce({});
+
+      await expect(agent.invoke()).rejects.toBe(error);
     });
   });
 });

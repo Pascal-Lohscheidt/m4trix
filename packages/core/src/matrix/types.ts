@@ -1,3 +1,3 @@
 import type { Schema as S } from 'effect';
 
-export type BaseSchemaDefintion = S.Schema.Any;
+export type BaseSchemaDefinition = S.Schema.Any;

@@ -4,8 +4,8 @@ import type { ParseError } from 'effect/ParseResult';
 /** Regex: PascalCase (e.g. MyLayerFoo) */
 const PASCAL_CASE_REGEX = /^[A-Z][a-zA-Z0-9]*$/;
 
-export const DepedencyLayerInstanceTypeId: unique symbol = Symbol.for(
-  'sunken-trove/DependencyLayerInstance',
+export const DependencyLayerInstanceTypeId: unique symbol = Symbol.for(
+  'm4trix/DependencyLayerInstance',
 );
 
 /**
@@ -22,44 +22,44 @@ export const LayerName = Brand.refined<LayerName>(
 /** Error type when DepType contains reserved 'config' - produces explicit type error */
 type ReservedConfigError = "DepType must not contain 'config' - it is reserved by the layer";
 
-export type DepedencyLayerValue<DepType, ConfigSchema extends S.Schema.Any> = Omit<
+export type DependencyLayerValue<DepType, ConfigSchema extends S.Schema.Any> = Omit<
   DepType,
   'config'
 > & {
   config: S.Schema.Type<ConfigSchema>;
 };
 
-export type DepedencyLayerInstance<
+export type DependencyLayerInstance<
   N extends string,
   DepType,
   ConfigSchema extends S.Schema.Any,
-> = DepedencyLayerValue<DepType, ConfigSchema> & {
-  readonly [DepedencyLayerInstanceTypeId]: {
+> = DependencyLayerValue<DepType, ConfigSchema> & {
+  readonly [DependencyLayerInstanceTypeId]: {
     readonly name: N;
   };
 };
 
-type DepedencyLayerMakeInput<DepType> = Omit<DepType, 'config'> & { config: unknown };
+type DependencyLayerMakeInput<DepType> = Omit<DepType, 'config'> & { config: unknown };
 
 /** Definition of a single dependency layer with a branded name and config schema */
-export type DepedencyLayerDef<N extends string, DepType, ConfigSchema extends S.Schema.Any> = {
-  readonly _tag: 'SkillDependencyDef';
+export type DependencyLayerDef<N extends string, DepType, ConfigSchema extends S.Schema.Any> = {
+  readonly _tag: 'DependencyLayerDef';
   readonly name: LayerName;
   readonly _name: N;
   readonly config: ConfigSchema;
   readonly decodeConfig: (u: unknown) => Effect.Effect<S.Schema.Type<ConfigSchema>, ParseError>;
-  make(value: DepedencyLayerMakeInput<DepType>): DepedencyLayerInstance<N, DepType, ConfigSchema>;
+  make(value: DependencyLayerMakeInput<DepType>): DependencyLayerInstance<N, DepType, ConfigSchema>;
 };
 
 /** Build layers object type from a tuple of dependency definitions */
 type DependenciesToLayers<T> =
-  T extends DepedencyLayerDef<infer N, infer DepType, infer ConfigSchema>
-    ? { [K in N]: DepedencyLayerValue<DepType, ConfigSchema> }
+  T extends DependencyLayerDef<infer N, infer DepType, infer ConfigSchema>
+    ? { [K in N]: DependencyLayerValue<DepType, ConfigSchema> }
     : never;
 
 type DependenciesToLayerInstances<T> =
-  T extends DepedencyLayerDef<infer N, infer DepType, infer ConfigSchema>
-    ? { [K in N]: DepedencyLayerInstance<N, DepType, ConfigSchema> }
+  T extends DependencyLayerDef<infer N, infer DepType, infer ConfigSchema>
+    ? { [K in N]: DependencyLayerInstance<N, DepType, ConfigSchema> }
     : never;
 
 type UnionToIntersection<U> = (U extends unknown ? (k: U) => void : never) extends (
@@ -69,53 +69,52 @@ type UnionToIntersection<U> = (U extends unknown ? (k: U) => void : never) exten
   : never;
 
 /** Build layers object from union of dependency types */
-export type LayersFromDeps<T extends DepedencyLayerDef<string, unknown, S.Schema.Any>> = [
+export type LayersFromDeps<T extends DependencyLayerDef<string, unknown, S.Schema.Any>> = [
   T,
 ] extends [never]
   ? Record<string, never>
   : UnionToIntersection<DependenciesToLayers<T>>;
 
 /** Build runtime layer instance object from union of dependency types */
-export type LayerInstancesFromDeps<T extends DepedencyLayerDef<string, unknown, S.Schema.Any>> = [
+export type LayerInstancesFromDeps<T extends DependencyLayerDef<string, unknown, S.Schema.Any>> = [
   T,
 ] extends [never]
   ? Record<string, never>
   : UnionToIntersection<DependenciesToLayerInstances<T>>;
 
-type DepedencyLayerBuilder<N extends string, ConfigSchema extends S.Schema.Any> = DepedencyLayerDef<
-  N,
-  object,
-  ConfigSchema
-> & {
+type DependencyLayerBuilder<
+  N extends string,
+  ConfigSchema extends S.Schema.Any,
+> = DependencyLayerDef<N, object, ConfigSchema> & {
   define<_DepType>(): 'config' extends keyof _DepType
     ? ReservedConfigError
-    : DepedencyLayerDef<N, _DepType, ConfigSchema>;
+    : DependencyLayerDef<N, _DepType, ConfigSchema>;
 };
 
-export const DepedencyLayer = {
+export const DependencyLayer = {
   of<const N extends string, ConfigSchema extends S.Schema.Any>(def: {
     name: N;
     config: ConfigSchema;
-  }): DepedencyLayerBuilder<N, ConfigSchema> {
+  }): DependencyLayerBuilder<N, ConfigSchema> {
     const name = LayerName(def.name as string);
     const decodeConfig = S.decodeUnknown(def.config);
     const typedDecodeConfig = decodeConfig as (
       u: unknown,
     ) => Effect.Effect<S.Schema.Type<ConfigSchema>, ParseError>;
     const dep = {
-      _tag: 'SkillDependencyDef' as const,
+      _tag: 'DependencyLayerDef' as const,
       name,
       _name: def.name,
       config: def.config,
       decodeConfig: typedDecodeConfig,
-      make(value: DepedencyLayerMakeInput<unknown>) {
+      make(value: DependencyLayerMakeInput<unknown>) {
         const decodedConfig = Effect.runSync(typedDecodeConfig(value.config));
         const instance = {
           ...value,
           config: decodedConfig,
-        } as DepedencyLayerInstance<N, unknown, ConfigSchema>;
+        } as DependencyLayerInstance<N, unknown, ConfigSchema>;
 
-        Object.defineProperty(instance, DepedencyLayerInstanceTypeId, {
+        Object.defineProperty(instance, DependencyLayerInstanceTypeId, {
           value: { name: def.name },
           enumerable: false,
         });
@@ -125,12 +124,12 @@ export const DepedencyLayer = {
     };
     return Object.assign(dep, {
       define: () => dep,
-    }) as unknown as DepedencyLayerBuilder<N, ConfigSchema>;
+    }) as unknown as DependencyLayerBuilder<N, ConfigSchema>;
   },
 };
 
 /** Normalize single or array of layers to readonly array */
-export function toLayerArray<D extends DepedencyLayerDef<string, unknown, S.Schema.Any>>(
+export function toLayerArray<D extends DependencyLayerDef<string, unknown, S.Schema.Any>>(
   layers: [D, ...D[]] | [ReadonlyArray<D>],
 ): ReadonlyArray<D> {
   if (layers.length === 1 && Array.isArray(layers[0])) {
@@ -140,7 +139,7 @@ export function toLayerArray<D extends DepedencyLayerDef<string, unknown, S.Sche
 }
 
 /** Check for duplicate layer names and throw if found */
-export function assertUniqueLayerNames<D extends DepedencyLayerDef<string, unknown, S.Schema.Any>>(
+export function assertUniqueLayerNames<D extends DependencyLayerDef<string, unknown, S.Schema.Any>>(
   layers: ReadonlyArray<D>,
 ): void {
   const seen = new Set<string>();
@@ -154,7 +153,7 @@ export function assertUniqueLayerNames<D extends DepedencyLayerDef<string, unkno
 }
 
 /** Merge layer lists, keeping the first definition when names repeat (e.g. shared tool deps). */
-export function mergeDependencyLayers<D extends DepedencyLayerDef<string, unknown, S.Schema.Any>>(
+export function mergeDependencyLayers<D extends DependencyLayerDef<string, unknown, S.Schema.Any>>(
   layers: ReadonlyArray<D>,
 ): ReadonlyArray<D> {
   const seen = new Set<string>();
@@ -169,17 +168,17 @@ export function mergeDependencyLayers<D extends DepedencyLayerDef<string, unknow
   return merged;
 }
 
-export function isDepedencyLayerInstance(
+export function isDependencyLayerInstance(
   u: unknown,
-): u is DepedencyLayerInstance<string, unknown, S.Schema.Any> {
-  return typeof u === 'object' && u !== null && DepedencyLayerInstanceTypeId in u;
+): u is DependencyLayerInstance<string, unknown, S.Schema.Any> {
+  return typeof u === 'object' && u !== null && DependencyLayerInstanceTypeId in u;
 }
 
 /** Ensure an agent's declared dependencies are covered by the network contract */
-export function assertDepedencyMatch(options: {
+export function assertDependencyMatch(options: {
   agentId: string;
-  agentLayers: ReadonlyArray<DepedencyLayerDef<string, unknown, S.Schema.Any>>;
-  networkLayers: ReadonlyArray<DepedencyLayerDef<string, unknown, S.Schema.Any>>;
+  agentLayers: ReadonlyArray<DependencyLayerDef<string, unknown, S.Schema.Any>>;
+  networkLayers: ReadonlyArray<DependencyLayerDef<string, unknown, S.Schema.Any>>;
 }): void {
   const networkNames = new Set(options.networkLayers.map((layer) => layer._name));
   const missing = options.agentLayers
@@ -195,7 +194,7 @@ export function assertDepedencyMatch(options: {
 
 /** Ensure runtime injection includes all network-declared dependency layers */
 export function assertLayersProvided(
-  networkLayers: ReadonlyArray<DepedencyLayerDef<string, unknown, S.Schema.Any>>,
+  networkLayers: ReadonlyArray<DependencyLayerDef<string, unknown, S.Schema.Any>>,
   injected: Record<string, unknown> | undefined,
 ): void {
   if (networkLayers.length === 0) {
@@ -216,10 +215,10 @@ export function assertLayersProvided(
     .map((layer) => layer._name)
     .filter((name) => {
       const value = injected[name];
-      if (!isDepedencyLayerInstance(value)) {
+      if (!isDependencyLayerInstance(value)) {
         return true;
       }
-      return value[DepedencyLayerInstanceTypeId].name !== name;
+      return value[DependencyLayerInstanceTypeId].name !== name;
     });
 
   if (invalid.length > 0) {

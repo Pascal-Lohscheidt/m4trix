@@ -1,12 +1,11 @@
-import { describe, expect, test } from 'vitest';
-import { Effect } from 'effect';
-import { Schema as S } from 'effect';
+import { Effect, Schema as S } from 'effect';
+import { describe, expect, expectTypeOf, test } from 'vitest';
+import { AgentFactory } from '../../agent-factory.js';
 import { AgentNetwork } from '../../agent-network/agent-network.js';
 import { AgentNetworkEvent } from '../../agent-network/agent-network-event.js';
-import { AgentFactory } from '../../agent-factory.js';
 import { registerSSEStream } from '../proxy-consumer.js';
+import type { ExpressEndpointOptions, ExpressRequest } from './express-endpoint.js';
 import { ExpressEndpoint } from './express-endpoint.js';
-import type { ExpressRequest } from './express-endpoint.js';
 
 type MockExpressReq = ExpressRequest & {
   body?: unknown;
@@ -19,10 +18,10 @@ function mockExpressReq(opts?: { body?: unknown }): MockExpressReq {
   return {
     body: opts?.body,
     on(event: string, fn: () => void) {
-      (listeners[event] ??= []).push(fn);
+      listeners[event] = [...(listeners[event] ?? []), fn];
     },
     _triggerClose() {
-      listeners['close']?.forEach((fn) => fn());
+      for (const fn of listeners.close ?? []) fn();
     },
   } as MockExpressReq;
 }
@@ -127,7 +126,57 @@ const defaultIdOptions = {
   requestToRunId: (): string => crypto.randomUUID(),
 };
 
+/** request -> response carrying the run's ids; the run ends with the response. */
+function idEchoNetwork() {
+  const requestEvent = AgentNetworkEvent.of('request', S.Struct({ x: S.Number }));
+  const responseEvent = AgentNetworkEvent.of(
+    'response',
+    S.Struct({ runId: S.String, contextId: S.String }),
+  );
+  const network = AgentNetwork.setup(
+    ({ mainChannel, createChannel, proxy, registerAgent, endsOn }) => {
+      const client = createChannel('client').proxy(proxy.sse());
+      registerAgent(
+        AgentFactory.run()
+          .listensTo([requestEvent])
+          .emits([responseEvent])
+          .logic(async ({ triggerEvent, emit }) => {
+            emit(responseEvent.make({ ...triggerEvent.meta }));
+          })
+          .produce({}),
+      )
+        .subscribe(mainChannel)
+        .publishTo(client);
+      endsOn(responseEvent);
+    },
+  );
+  return { network, requestEvent };
+}
+
 describe('ExpressEndpoint integration', () => {
+  test('without options each request gets fresh run and context ids', async () => {
+    const { network, requestEvent } = idEchoNetwork();
+    const api = network.expose(registerSSEStream({ triggerEvents: [requestEvent] }));
+    const handler = ExpressEndpoint.from(api).handler();
+
+    const responses = await Promise.all(
+      [1, 2].map(async () => {
+        const res = mockExpressRes();
+        await handler(mockExpressReq({ body: { x: 1 } }), res);
+        return parseSSE(res._body)[0] as { payload: { runId: string; contextId: string } };
+      }),
+    );
+
+    const [first, second] = responses;
+    expect(first?.payload.runId).toMatch(/^[\w-]{36}$/);
+    expect(first?.payload.contextId).toMatch(/^[\w-]{36}$/);
+    expect(second?.payload.runId).not.toBe(first?.payload.runId);
+    expect(second?.payload.contextId).not.toBe(first?.payload.contextId);
+    expectTypeOf(ExpressEndpoint.from)
+      .parameter(1)
+      .toEqualTypeOf<ExpressEndpointOptions | undefined>();
+  });
+
   test('streams SSE response with correct headers from req.body', async () => {
     const { network, requestEvent } = setupEchoNetwork();
 
@@ -137,6 +186,7 @@ describe('ExpressEndpoint integration', () => {
 
       const api = network.expose(
         registerSSEStream({
+          reconnectWindow: 0,
           plane,
           channel: 'client',
           triggerEvents: [requestEvent],
@@ -210,6 +260,7 @@ describe('ExpressEndpoint integration', () => {
 
       const api = network.expose(
         registerSSEStream({
+          reconnectWindow: 0,
           plane,
           channel: 'client',
           triggerEvents: [requestEvent],
@@ -274,6 +325,7 @@ describe('ExpressEndpoint integration', () => {
 
       const api = network.expose(
         registerSSEStream({
+          reconnectWindow: 0,
           plane,
           channel: 'client',
           triggerEvents: [requestEvent],
@@ -317,6 +369,7 @@ describe('ExpressEndpoint integration', () => {
 
       const api = network.expose(
         registerSSEStream({
+          reconnectWindow: 0,
           plane,
           channel: 'client',
           triggerEvents: [requestEvent],

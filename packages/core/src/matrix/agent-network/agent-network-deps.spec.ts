@@ -1,7 +1,7 @@
 import { Effect, Schema as S } from 'effect';
 import { describe, expect, expectTypeOf, test, vi } from 'vitest';
 import { AgentFactory } from '../agent-factory.js';
-import { DepedencyLayer } from '../dependency-layer.js';
+import { DependencyLayer } from '../dependency-layer.js';
 import { AgentNetwork } from './agent-network.js';
 import { AgentNetworkEvent } from './agent-network-event.js';
 import { ChannelName } from './channel.js';
@@ -10,14 +10,14 @@ describe('AgentNetwork dependency layers', () => {
   const pingEvent = AgentNetworkEvent.of('ping', S.Struct({ n: S.Number }));
   const pongEvent = AgentNetworkEvent.of('pong', S.Struct({ n: S.Number }));
 
-  const openAiLayer = DepedencyLayer.of({
+  const openAiLayer = DependencyLayer.of({
     name: 'OpenAi',
     config: S.Struct({ model: S.String }),
   }).define<{
     client: { chat: { completions: { create: (opts: unknown) => Promise<unknown> } } };
   }>();
 
-  const dbLayer = DepedencyLayer.of({
+  const dbLayer = DependencyLayer.of({
     name: 'Db',
     config: S.Struct({}),
   }).define<{ pool: { query: (sql: string) => Promise<unknown> } }>();
@@ -31,9 +31,13 @@ describe('AgentNetwork dependency layers', () => {
       .produce({});
 
     expect(() =>
-      AgentNetwork.dependsOn(openAiLayer).setup(({ mainChannel, registerAgent }) => {
-        registerAgent(agent).subscribe(mainChannel);
-      }),
+      AgentNetwork.dependsOn(openAiLayer).setup(
+        ({ mainChannel, registerAgent }) => {
+          registerAgent(agent).subscribe(mainChannel);
+        },
+        // Only the dependency check matters here; the agent's emits go nowhere on purpose.
+        { wiring: { ignore: ['agent-publishes-nowhere'] } },
+      ),
     ).not.toThrow();
   });
 
@@ -88,9 +92,13 @@ describe('AgentNetwork dependency layers', () => {
       })
       .produce({});
 
-    const network = AgentNetwork.dependsOn(openAiLayer).setup(({ mainChannel, registerAgent }) => {
-      registerAgent(agent).subscribe(mainChannel).publishTo(mainChannel);
-    });
+    // The test reads the pong from the run's history: nothing listens to it.
+    const network = AgentNetwork.dependsOn(openAiLayer).setup(
+      ({ mainChannel, registerAgent }) => {
+        registerAgent(agent).subscribe(mainChannel).publishTo(mainChannel);
+      },
+      { wiring: { ignore: ['unconsumed-event'] } },
+    );
     const openAiInstance = openAiLayer.make({
       client: {
         chat: {
@@ -137,7 +145,9 @@ describe('AgentNetwork dependency layers', () => {
               payload: { n: 1 },
             });
             yield* Effect.sleep('50 millis');
-            return plane.getRunEvents('run-1', 'ctx-1');
+            return yield* Effect.promise(() =>
+              plane.history({ runId: 'run-1', contextId: 'ctx-1' }).run(),
+            );
           }),
         ),
       );
@@ -162,9 +172,13 @@ describe('AgentNetwork dependency layers', () => {
       })
       .produce({});
 
-    const network = AgentNetwork.setup(({ mainChannel, registerAgent }) => {
-      registerAgent(agent).subscribe(mainChannel).publishTo(mainChannel);
-    });
+    // The test reads the pong from the run's history: nothing listens to it.
+    const network = AgentNetwork.setup(
+      ({ mainChannel, registerAgent }) => {
+        registerAgent(agent).subscribe(mainChannel).publishTo(mainChannel);
+      },
+      { wiring: { ignore: ['unconsumed-event'] } },
+    );
 
     const program = network.run().pipe(
       Effect.flatMap((plane) =>
@@ -176,7 +190,9 @@ describe('AgentNetwork dependency layers', () => {
             payload: { n: 3 },
           });
           yield* Effect.sleep('50 millis');
-          return plane.getRunEvents('run-1', 'ctx-1');
+          return yield* Effect.promise(() =>
+            plane.history({ runId: 'run-1', contextId: 'ctx-1' }).run(),
+          );
         }),
       ),
     );

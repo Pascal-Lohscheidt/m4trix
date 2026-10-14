@@ -2,8 +2,9 @@ import { Schema as S } from 'effect';
 import { describe, expect, expectTypeOf, test } from 'vitest';
 import { AgentFactory } from './agent-factory.js';
 import { AgentNetworkEvent } from './agent-network/agent-network-event.js';
-import { DepedencyLayer } from './dependency-layer.js';
+import { DependencyLayer } from './dependency-layer.js';
 import { Tool } from './tool.js';
+import { AgentParamsError, type ValidationIssue } from './validation.js';
 
 describe('AgentFactory', () => {
   test('should create an agent that works with basic setup', () => {
@@ -76,15 +77,15 @@ describe('AgentFactory', () => {
 
     const agent = factory.produce({ maxLoops: 3, model: 'gpt-4o' });
 
-    // @ts-expect-error - produce is typed from params()
-    factory.produce({ maxLoops: '3', model: 'gpt-4o' });
+    // @ts-expect-error - produce is typed from params() (and validates at runtime)
+    expect(() => factory.produce({ maxLoops: '3', model: 'gpt-4o' })).toThrow(AgentParamsError);
 
     expect(agent).toBeDefined();
   });
 
   test('dependsOn infers layers and accumulates dependency definitions', () => {
     const openAiConfig = S.Struct({ model: S.String });
-    const openAiLayer = DepedencyLayer.of({
+    const openAiLayer = DependencyLayer.of({
       name: 'OpenAi',
       config: openAiConfig,
     }).define<{ client: { complete: (prompt: string) => Promise<string> } }>();
@@ -104,7 +105,7 @@ describe('AgentFactory', () => {
   });
 
   test('dependsOn throws on duplicate layer names', () => {
-    const layer = DepedencyLayer.of({
+    const layer = DependencyLayer.of({
       name: 'Db',
       config: S.Struct({}),
     });
@@ -116,7 +117,7 @@ describe('AgentFactory', () => {
 
   test('produce retains listened event names and dependency layers', () => {
     const taskRequested = AgentNetworkEvent.of('task-requested', S.Struct({ title: S.String }));
-    const dbLayer = DepedencyLayer.of({
+    const dbLayer = DependencyLayer.of({
       name: 'Db',
       config: S.Struct({ url: S.String }),
     });
@@ -132,7 +133,7 @@ describe('AgentFactory', () => {
   });
 
   test('tools accumulates tool definitions and promotes dependency layers', () => {
-    const dbLayer = DepedencyLayer.of({
+    const dbLayer = DependencyLayer.of({
       name: 'Db',
       config: S.Struct({ url: S.String }),
     }).define<{ query: (sql: string) => Promise<string> }>();
@@ -160,7 +161,7 @@ describe('AgentFactory', () => {
   });
 
   test('tools deduplicates shared dependency layers across multiple tools', () => {
-    const dbLayer = DepedencyLayer.of({
+    const dbLayer = DependencyLayer.of({
       name: 'Db',
       config: S.Struct({ url: S.String }),
     }).define<{ query: (sql: string) => Promise<string> }>();
@@ -202,7 +203,7 @@ describe('AgentFactory', () => {
   test('builder methods return new factories without mutating previous instances', () => {
     const taskRequested = AgentNetworkEvent.of('task-requested', S.Struct({ title: S.String }));
     const taskCreated = AgentNetworkEvent.of('task-created', S.Struct({ title: S.String }));
-    const dbLayer = DepedencyLayer.of({
+    const dbLayer = DependencyLayer.of({
       name: 'Db',
       config: S.Struct({}),
     });
@@ -229,7 +230,7 @@ describe('AgentFactory', () => {
     const taskRequested = AgentNetworkEvent.of('task-requested', S.Struct({ title: S.String }));
     const taskCreated = AgentNetworkEvent.of('task-created', S.Struct({ id: S.String }));
     const dbConfig = S.Struct({ url: S.String });
-    const dbLayer = DepedencyLayer.of({
+    const dbLayer = DependencyLayer.of({
       name: 'Db',
       config: dbConfig,
     }).define<{ pool: { query: (sql: string) => Promise<unknown> } }>();
@@ -253,5 +254,74 @@ describe('AgentFactory', () => {
 
     const agent = factory.produce({ tenantId: 'tenant-1' });
     expect(agent.getListensTo()).toEqual(['task-requested']);
+  });
+});
+
+describe('AgentFactory.produce params validation', () => {
+  const paramsSchema = S.Struct({ model: S.Trim, maxLoops: S.Number });
+  const factory = AgentFactory.run()
+    .params(paramsSchema)
+    .logic(async () => {});
+
+  test('throws AgentParamsError with path-level issues when params do not match paramsSchema', () => {
+    const invalid = { model: 'gpt', maxLoops: 'three' } as unknown as typeof paramsSchema.Type;
+
+    let thrown: unknown;
+    try {
+      factory.produce(invalid);
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect(thrown).toBeInstanceOf(AgentParamsError);
+    const error = thrown as AgentParamsError;
+    expect(error._tag).toBe('AgentParamsError');
+    expect(error.issues).toEqual([{ path: 'maxLoops', message: expect.any(String) }]);
+    expect(error.message).toMatch(/maxLoops/);
+  });
+
+  test('the agent receives the decoded params (schema transformations applied)', async () => {
+    let received: unknown;
+    const agent = AgentFactory.run()
+      .params(paramsSchema)
+      .logic(async ({ params }) => {
+        received = params;
+      })
+      .produce({ model: '  gpt-4o  ', maxLoops: 3 });
+
+    await agent.invoke();
+
+    expect(received).toEqual({ model: 'gpt-4o', maxLoops: 3 });
+  });
+
+  test('values already of the schema type pass, also for transforming schemas', async () => {
+    let received: unknown;
+    const agent = AgentFactory.run()
+      .params(S.Struct({ count: S.NumberFromString }))
+      .logic(async ({ params }) => {
+        received = params;
+      })
+      .produce({ count: 3 });
+
+    await agent.invoke();
+
+    expect(received).toEqual({ count: 3 });
+  });
+
+  test('factories without paramsSchema accept any params', () => {
+    expect(() =>
+      AgentFactory.run()
+        .logic(async () => {})
+        .produce({ anything: 1 }),
+    ).not.toThrow();
+  });
+
+  test('AgentParamsError types', () => {
+    expectTypeOf<AgentParamsError['issues']>().toEqualTypeOf<ReadonlyArray<ValidationIssue>>();
+    expectTypeOf<AgentParamsError['_tag']>().toEqualTypeOf<'AgentParamsError'>();
+    expectTypeOf<ValidationIssue>().toEqualTypeOf<{
+      readonly path: string;
+      readonly message: string;
+    }>();
   });
 });

@@ -2,14 +2,14 @@ import { Effect, Schema as S } from 'effect';
 import type { ParseError } from 'effect/ParseResult';
 import {
   assertUniqueLayerNames,
-  type DepedencyLayerDef,
+  type DependencyLayerDef,
   type LayersFromDeps,
   toLayerArray,
 } from './dependency-layer.js';
 
 export {
-  DepedencyLayer,
-  type DepedencyLayerDef,
+  DependencyLayer,
+  type DependencyLayerDef,
   LayerName,
   type LayersFromDeps,
 } from './dependency-layer.js';
@@ -34,7 +34,7 @@ export {
  */
 
 /** Unique brand symbol for Done, following Effect's branded-type pattern */
-const DoneTypeId: unique symbol = Symbol.for('sunken-trove/Done');
+const DoneTypeId: unique symbol = Symbol.for('m4trix/Done');
 type DoneTypeId = typeof DoneTypeId;
 
 export interface Done<A> {
@@ -65,7 +65,12 @@ export type SkillDefineContext<TIn, TChunk, TLayers> = {
   input: TIn;
   emit: (chunk: TChunk) => void;
   layers: TLayers;
+  /** The `signal` passed to `invoke`/`invokeStream`; never aborts when none was passed. */
+  signal: AbortSignal;
 };
+
+/** Per-call runtime for a skill: its layers and an optional abort signal (e.g. an agent's `signal`). */
+export type SkillRuntime<TLayers> = { layers: TLayers; signal?: AbortSignal } & SkillRuntimeOptions;
 
 /** Define function signature */
 type DefineFn<TIn, TChunk, TDone, TLayers> = (
@@ -76,12 +81,12 @@ type DefineFn<TIn, TChunk, TDone, TLayers> = (
 export type SkillInstance<TInput, TChunk, TDone, TLayers> = {
   invokeStream: (
     input: TInput,
-    runtime?: { layers: TLayers } & SkillRuntimeOptions,
+    runtime?: SkillRuntime<TLayers>,
   ) => AsyncIterable<TChunk | Done<TDone>>;
   /** Input is decoded to TInput before being passed to the skill logic */
   invoke: (
     input: TInput,
-    runtime?: { layers: TLayers } & SkillRuntimeOptions,
+    runtime?: SkillRuntime<TLayers>,
   ) => Promise<{ chunks: TChunk[]; done: TDone }>;
 } & { readonly _input?: TInput };
 
@@ -89,7 +94,7 @@ type ConstructorParams<
   TInput,
   TChunk,
   TDone,
-  TDeps extends DepedencyLayerDef<string, unknown, S.Schema.Any>,
+  TDeps extends DependencyLayerDef<string, unknown, S.Schema.Any>,
 > = {
   inputSchema?: S.Schema<TInput>;
   chunkSchema?: S.Schema<TChunk>;
@@ -102,19 +107,21 @@ export class Skill<
   TInput = unknown,
   TChunk = unknown,
   TDone = unknown,
-  TDeps extends DepedencyLayerDef<string, unknown, S.Schema.Any> = never,
+  TDeps extends DependencyLayerDef<string, unknown, S.Schema.Any> = never,
 > {
   private _inputSchema: S.Schema<TInput> | undefined;
   private _chunkSchema: S.Schema<TChunk> | undefined;
   private _doneSchema: S.Schema<TDone> | undefined;
-  private _layers: ReadonlyArray<DepedencyLayerDef<string, unknown, S.Schema.Any>>;
+  private _layers: ReadonlyArray<DependencyLayerDef<string, unknown, S.Schema.Any>>;
   private _defineFn: DefineFn<TInput, TChunk, TDone, LayersFromDeps<TDeps>> | undefined;
 
   private constructor(params: ConstructorParams<TInput, TChunk, TDone, TDeps>) {
     this._inputSchema = params.inputSchema;
     this._chunkSchema = params.chunkSchema;
     this._doneSchema = params.doneSchema;
-    this._layers = params.layers as ReadonlyArray<DepedencyLayerDef<string, unknown, S.Schema.Any>>;
+    this._layers = params.layers as ReadonlyArray<
+      DependencyLayerDef<string, unknown, S.Schema.Any>
+    >;
     this._defineFn = params.defineFn;
   }
 
@@ -176,7 +183,7 @@ export class Skill<
     });
   }
 
-  dependsOn<D extends DepedencyLayerDef<string, unknown, S.Schema.Any>>(
+  dependsOn<D extends DependencyLayerDef<string, unknown, S.Schema.Any>>(
     ...layers: [D, ...D[]] | [ReadonlyArray<D>]
   ): Skill<TInput, TChunk, TDone, TDeps | D> {
     const normalized = toLayerArray(layers);
@@ -209,9 +216,11 @@ export class Skill<
 
     const runDefine = async (
       input: TInput,
-      runtime?: { layers: LayersFromDeps<TDeps> } & SkillRuntimeOptions,
+      runtime?: SkillRuntime<LayersFromDeps<TDeps>>,
     ): Promise<{ chunks: TChunk[]; done: TDone }> => {
       const layersObj = runtime?.layers ?? ({} as LayersFromDeps<TDeps>);
+      const signal = runtime?.signal ?? new AbortController().signal;
+      signal.throwIfAborted();
       const chunks: TChunk[] = [];
       const emit = (chunk: TChunk): void => {
         const decoded = Effect.runSync(decodeChunk(chunk) as Effect.Effect<TChunk, ParseError>);
@@ -221,6 +230,7 @@ export class Skill<
         input,
         emit,
         layers: layersObj,
+        signal,
       });
       const decodedDone = Effect.runSync(decodeDone(done) as Effect.Effect<TDone, ParseError>);
       return { chunks, done: decodedDone };
@@ -229,31 +239,75 @@ export class Skill<
     return {
       invokeStream: async function* (
         input: unknown,
-        runtime?: { layers: LayersFromDeps<TDeps> } & SkillRuntimeOptions,
+        runtime?: SkillRuntime<LayersFromDeps<TDeps>>,
       ): AsyncGenerator<TChunk | Done<TDone>, void, undefined> {
         const decodedInput = Effect.runSync(
           decodeInput(input) as Effect.Effect<TInput, ParseError>,
         );
         const layersObj = runtime?.layers ?? ({} as LayersFromDeps<TDeps>);
-        const chunks: TChunk[] = [];
+        runtime?.signal?.throwIfAborted();
+        // The skill gets its own signal: it follows the caller's, and also aborts when the
+        // consumer stops iterating early, without aborting the caller.
+        const controller = new AbortController();
+        const callerSignal = runtime?.signal;
+        const followCaller = (): void => controller.abort(callerSignal?.reason);
+        callerSignal?.addEventListener('abort', followCaller, { once: true });
+
+        const queue: TChunk[] = [];
+        let outcome: { ok: true; done: TDone } | { ok: false; error: unknown } | undefined;
+        let wake: (() => void) | undefined;
+        const notify = (): void => {
+          wake?.();
+          wake = undefined;
+        };
         const emit = (chunk: TChunk): void => {
           const decoded = Effect.runSync(decodeChunk(chunk) as Effect.Effect<TChunk, ParseError>);
-          chunks.push(decoded);
+          queue.push(decoded);
+          notify();
         };
-        const done = await defineFn({
-          input: decodedInput,
-          emit,
-          layers: layersObj,
-        });
-        const decodedDone = Effect.runSync(decodeDone(done) as Effect.Effect<TDone, ParseError>);
-        for (const c of chunks) {
-          yield c;
+        // Runs alongside the loop below, which yields chunks while define is still working.
+        void (async () => {
+          try {
+            const done = await defineFn({
+              input: decodedInput,
+              emit,
+              layers: layersObj,
+              signal: controller.signal,
+            });
+            outcome = {
+              ok: true,
+              done: Effect.runSync(decodeDone(done) as Effect.Effect<TDone, ParseError>),
+            };
+          } catch (error) {
+            outcome = { ok: false, error };
+          } finally {
+            notify();
+          }
+        })();
+
+        try {
+          while (true) {
+            if (queue.length > 0) {
+              yield queue.shift() as TChunk;
+              continue;
+            }
+            if (outcome) break;
+            await new Promise<void>((resolve) => {
+              wake = resolve;
+            });
+          }
+          const final = outcome as NonNullable<typeof outcome>;
+          if (!final.ok) throw final.error;
+          yield Done.of(final.done);
+        } finally {
+          callerSignal?.removeEventListener('abort', followCaller);
+          // Consumer stopped early (break/return/throw): stop the skill's work.
+          if (!outcome) controller.abort();
         }
-        yield Done.of(decodedDone);
       },
       invoke: async (
         input: unknown,
-        runtime?: { layers: LayersFromDeps<TDeps> } & SkillRuntimeOptions,
+        runtime?: SkillRuntime<LayersFromDeps<TDeps>>,
       ): Promise<{ chunks: TChunk[]; done: TDone }> => {
         const decodedInput = Effect.runSync(
           decodeInput(input) as Effect.Effect<TInput, ParseError>,

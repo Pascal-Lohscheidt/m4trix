@@ -52,6 +52,7 @@ describe('proxy integration', () => {
 
       const api = network.expose(
         registerSSEStream({
+          reconnectWindow: 0,
           channel: 'client',
           plane,
           triggerEvents: [request],
@@ -164,6 +165,7 @@ describe('proxy integration', () => {
           createInteractiveStream({
             plane,
             triggerEvents: [request],
+            reconnectWindow: 0,
             onRequest: ({ emitStartEvent, req, payload }) =>
               emitStartEvent({
                 contextId: req.contextId ?? crypto.randomUUID(),

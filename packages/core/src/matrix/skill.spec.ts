@@ -1,6 +1,6 @@
 import { Schema as S } from 'effect';
 import { describe, expect, expectTypeOf, test } from 'vitest';
-import { DepedencyLayer } from './dependency-layer.js';
+import { DependencyLayer } from './dependency-layer.js';
 import { Done, Skill, type SkillInstance } from './skill.js';
 
 describe('Skill', () => {
@@ -55,11 +55,12 @@ describe('Skill', () => {
     expect(results).toEqual([1, 2, Done.of({ sum: 13 })]);
     expect(Done.is(results[2])).toBe(true);
     expect(Done.is(results[0])).toBe(false);
+    expect(Object.getOwnPropertySymbols(results[2])).toContain(Symbol.for('m4trix/Done'));
   });
 
   test('use accepts single layer', async () => {
     type DepType = { bar: string };
-    const myLayer = DepedencyLayer.of({
+    const myLayer = DependencyLayer.of({
       name: 'MyLayerFoo',
       config: S.Struct({ foo: S.String }),
     }).define<DepType>();
@@ -83,7 +84,7 @@ describe('Skill', () => {
   });
 
   test('use accepts array of layers (same type)', async () => {
-    const layer = DepedencyLayer.of({
+    const layer = DependencyLayer.of({
       name: 'LayerA',
       config: S.Struct({ a: S.Number }),
     });
@@ -103,11 +104,11 @@ describe('Skill', () => {
   });
 
   test('use accepts multiple layers via chaining', async () => {
-    const layerA = DepedencyLayer.of({
+    const layerA = DependencyLayer.of({
       name: 'LayerA',
       config: S.Struct({ a: S.Number }),
     });
-    const layerB = DepedencyLayer.of({
+    const layerB = DependencyLayer.of({
       name: 'LayerB',
       config: S.Struct({ b: S.String }),
     });
@@ -137,7 +138,7 @@ describe('Skill', () => {
   });
 
   test('throws on duplicate layer names', () => {
-    const layer = DepedencyLayer.of({
+    const layer = DependencyLayer.of({
       name: 'Dup',
       config: S.Struct({ x: S.Number }),
     });
@@ -201,7 +202,7 @@ describe('Skill type tests', () => {
   test('define callback receives typed layers from use()', () => {
     type LayerDepType = { bar: string };
     const layerConfigShape = S.Struct({ foo: S.String });
-    const myLayerFoo = DepedencyLayer.of({
+    const myLayerFoo = DependencyLayer.of({
       name: 'MyLayerFoo',
       config: layerConfigShape,
     }).define<LayerDepType>();
@@ -268,5 +269,184 @@ describe('Skill type tests', () => {
       Record<string, never>
     > = skill;
     expect(instance.invoke).toBeDefined();
+  });
+});
+
+describe('Skill signal', () => {
+  const echo = Skill.of()
+    .input(S.Struct({ text: S.String }))
+    .chunk(S.String)
+    .done(S.String)
+    .define(({ input, signal }) => {
+      expectTypeOf(signal).toEqualTypeOf<AbortSignal>();
+      return signal.aborted ? 'aborted' : input.text;
+    });
+
+  test('define receives the runtime signal', async () => {
+    const controller = new AbortController();
+    let seen: AbortSignal | undefined;
+    const probe = Skill.of()
+      .input(S.Struct({}))
+      .chunk(S.String)
+      .done(S.Boolean)
+      .define(({ signal }) => {
+        seen = signal;
+        return true;
+      });
+
+    await probe.invoke({}, { layers: {}, signal: controller.signal });
+
+    expect(seen).toBe(controller.signal);
+  });
+
+  test('invoke without a signal runs with one that never aborts', async () => {
+    await expect(echo.invoke({ text: 'hi' })).resolves.toEqual({ chunks: [], done: 'hi' });
+  });
+
+  test('invoke and invokeStream reject when the signal is already aborted', async () => {
+    const controller = new AbortController();
+    controller.abort(new Error('gone'));
+
+    await expect(
+      echo.invoke({ text: 'hi' }, { layers: {}, signal: controller.signal }),
+    ).rejects.toThrow('gone');
+    const stream = echo.invokeStream({ text: 'hi' }, { layers: {}, signal: controller.signal });
+    await expect(stream[Symbol.asyncIterator]().next()).rejects.toThrow('gone');
+  });
+});
+
+describe('Skill invokeStream streaming', () => {
+  const deferred = <T = void>() => {
+    let resolve: (value: T) => void = () => {};
+    const promise = new Promise<T>((r) => {
+      resolve = r;
+    });
+    return { promise, resolve };
+  };
+  const pendingMarker = Symbol('pending');
+  const settleSoon = <T>(promise: Promise<T>) =>
+    Promise.race([
+      promise,
+      new Promise<typeof pendingMarker>((r) => setTimeout(r, 50, pendingMarker)),
+    ]);
+
+  test('yields each chunk as soon as it is emitted, before define resolves', async () => {
+    const gate = deferred();
+    const skill = Skill.of()
+      .input(S.Struct({}))
+      .chunk(S.String)
+      .done(S.Number)
+      .define(async ({ emit }) => {
+        emit('first');
+        await gate.promise;
+        emit('second');
+        return 2;
+      });
+
+    const iterator = skill.invokeStream({})[Symbol.asyncIterator]();
+
+    await expect(settleSoon(iterator.next())).resolves.toEqual({ done: false, value: 'first' });
+    const next = iterator.next();
+    await expect(settleSoon(next)).resolves.toBe(pendingMarker);
+    gate.resolve();
+    await expect(next).resolves.toEqual({ done: false, value: 'second' });
+    await expect(iterator.next()).resolves.toEqual({ done: false, value: Done.of(2) });
+    await expect(iterator.next()).resolves.toEqual({ done: true, value: undefined });
+  });
+
+  test('an error thrown in define reaches the consumer after the chunks before it', async () => {
+    const skill = Skill.of()
+      .input(S.Struct({}))
+      .chunk(S.String)
+      .done(S.Number)
+      .define(async ({ emit }) => {
+        emit('partial');
+        await Promise.resolve();
+        throw new Error('model failed');
+      });
+
+    const seen: unknown[] = [];
+    const consume = async () => {
+      for await (const item of skill.invokeStream({})) seen.push(item);
+    };
+
+    await expect(consume()).rejects.toThrow('model failed');
+    expect(seen).toEqual(['partial']);
+  });
+
+  test('an invalid chunk or done value surfaces to the consumer', async () => {
+    const badChunk = Skill.of()
+      .input(S.Struct({}))
+      .chunk(S.String)
+      .done(S.Number)
+      .define(({ emit }) => {
+        emit(1 as unknown as string);
+        return 1;
+      });
+    const badDone = Skill.of()
+      .input(S.Struct({}))
+      .chunk(S.String)
+      .done(S.Number)
+      .define(() => 'nope' as unknown as number);
+
+    const drain = async (stream: AsyncIterable<unknown>) => {
+      for await (const _ of stream) {
+        // consume
+      }
+    };
+    await expect(drain(badChunk.invokeStream({}))).rejects.toThrow(/Expected string/);
+    await expect(drain(badDone.invokeStream({}))).rejects.toThrow(/Expected number/);
+  });
+
+  test('stopping iteration early aborts the skill signal but not the caller signal', async () => {
+    const callerController = new AbortController();
+    const stopped = deferred<boolean>();
+    const skill = Skill.of()
+      .input(S.Struct({}))
+      .chunk(S.Number)
+      .done(S.Number)
+      .define(async ({ emit, signal }) => {
+        emit(1);
+        await new Promise<void>((resolve) => signal.addEventListener('abort', () => resolve()));
+        stopped.resolve(signal.aborted);
+        emit(2);
+        return 2;
+      });
+
+    for await (const item of skill.invokeStream(
+      {},
+      { layers: {}, signal: callerController.signal },
+    )) {
+      expect(item).toBe(1);
+      break;
+    }
+
+    await expect(stopped.promise).resolves.toBe(true);
+    expect(callerController.signal.aborted).toBe(false);
+  });
+
+  test('aborting the caller signal mid-stream aborts the skill signal', async () => {
+    const controller = new AbortController();
+    let skillSignal: AbortSignal | undefined;
+    const skill = Skill.of()
+      .input(S.Struct({}))
+      .chunk(S.String)
+      .done(S.String)
+      .define(({ emit, signal }) => {
+        skillSignal = signal;
+        emit('started');
+        return new Promise<string>((_, reject) => {
+          signal.addEventListener('abort', () => reject(signal.reason));
+        });
+      });
+
+    const iterator = skill
+      .invokeStream({}, { layers: {}, signal: controller.signal })
+      [Symbol.asyncIterator]();
+    await expect(iterator.next()).resolves.toEqual({ done: false, value: 'started' });
+    controller.abort(new Error('cancelled'));
+
+    await expect(iterator.next()).rejects.toThrow('cancelled');
+    expect(skillSignal?.aborted).toBe(true);
   });
 });
