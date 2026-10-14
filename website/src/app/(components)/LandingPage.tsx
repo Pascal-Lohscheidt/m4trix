@@ -171,7 +171,7 @@ function SiteFooter() {
         <div className="mx-auto flex max-w-6xl flex-col gap-4 py-8 text-sm text-text-3 sm:flex-row sm:items-center sm:justify-between">
           <p>MIT licensed. Built by Pascal Lohscheidt.</p>
           <div className="flex items-center gap-6">
-            <a href="https://docs.m4trix.dev" className="transition-colors hover:text-text-1">
+            <a href="/docs" className="transition-colors hover:text-text-1">
               Docs
             </a>
             <a

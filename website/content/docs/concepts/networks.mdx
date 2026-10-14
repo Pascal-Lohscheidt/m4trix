@@ -1,0 +1,68 @@
+---
+title: "Networks (Wiring)"
+---
+
+The `AgentNetwork` wires everything together. You declare channels, register agents with their subscriptions and publish targets, and the network manages the event plane at runtime.
+
+![Anatomy of a network: loggerAgent on main, plannerAgent where main and processing overlap, executorAgent where processing and client overlap, and the client channel leaving the network through proxy.sse().](/docs/visuals/network-anatomy.png)
+
+## Setting Up a Network
+
+```ts
+import { AgentNetwork } from '@m4trix/core/matrix';
+
+const network = AgentNetwork.setup(
+  ({ mainChannel, createChannel, proxy, registerAgent }) => {
+    const main = mainChannel;
+    const client = createChannel('client').proxy(proxy.sse());
+
+    registerAgent(myAgent).subscribe(main).publishTo(client);
+  },
+);
+```
+
+## Setup Context
+
+| Tool | Description |
+|------|-------------|
+| `mainChannel` | The `main` channel, where start events are published (a channel, not a function) |
+| `createChannel(name)` | Creates additional named channels |
+| `proxy` | Provides proxy factories (`sse()`, `custom(kind)`) |
+| `registerAgent(agent)` | Registers an agent and returns a binding builder |
+| `registerAggregator(aggregator)` | Registers an event aggregator and returns a binding builder |
+| `endsOn(event, when?)` | Declares a terminal event that completes the run |
+
+## Multi-Agent Patterns
+
+### Agent Chain
+
+Events flow through a series of agents:
+
+```ts
+registerAgent(plannerAgent).subscribe(main).publishTo(processing);
+registerAgent(executorAgent).subscribe(processing).publishTo(client);
+```
+
+### Fan-Out
+
+One event triggers multiple agents in parallel:
+
+![Fan-out: one user-message on main is delivered to agentA, agentB and agentC; each runs for a different time and publishes its response to client as soon as it is ready.](/docs/visuals/fan-out.gif)
+
+```ts
+registerAgent(agentA).subscribe(main).publishTo(client);
+registerAgent(agentB).subscribe(main).publishTo(client);
+registerAgent(agentC).subscribe(main).publishTo(client);
+```
+
+### Multi-Channel Routing
+
+Different agents on different channels:
+
+```ts
+registerAgent(routerAgent).subscribe(main).publishTo(internal);
+registerAgent(workerAgent).subscribe(internal).publishTo(client);
+registerAgent(loggerAgent).subscribe(main).subscribe(internal);
+```
+
+See [AgentNetwork API](../api-reference/agent-network.md) and [Patterns guide](../guides/patterns.md) for more.

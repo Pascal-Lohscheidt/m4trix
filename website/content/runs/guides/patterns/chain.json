@@ -1,0 +1,102 @@
+{
+  "version": 1,
+  "id": "guides/patterns/chain",
+  "snippet": "guides/patterns/chain.ts",
+  "topology": {
+    "mainChannel": "main",
+    "channels": [
+      {
+        "name": "main",
+        "events": null,
+        "proxies": []
+      },
+      {
+        "name": "plans",
+        "events": ["plan"],
+        "proxies": []
+      },
+      {
+        "name": "client",
+        "events": ["answer"],
+        "proxies": ["sse"]
+      }
+    ],
+    "agents": [
+      {
+        "name": "planner",
+        "listensTo": ["user-message"],
+        "emits": ["plan"],
+        "subscribes": ["main"],
+        "publishesTo": ["plans"]
+      },
+      {
+        "name": "executor",
+        "listensTo": ["plan"],
+        "emits": ["answer"],
+        "subscribes": ["plans"],
+        "publishesTo": ["client"]
+      }
+    ],
+    "terminalEvents": ["answer"]
+  },
+  "events": [
+    {
+      "i": 0,
+      "name": "user-message",
+      "channels": ["main"],
+      "by": null,
+      "cause": null,
+      "payload": {
+        "text": "What changed in the last release?"
+      },
+      "deliveredTo": ["planner"],
+      "line": 46
+    },
+    {
+      "i": 1,
+      "name": "plan",
+      "channels": ["plans"],
+      "by": "planner",
+      "cause": 0,
+      "payload": {
+        "steps": ["search \"What changed in the last release?\"", "summarize"]
+      },
+      "deliveredTo": ["executor"],
+      "line": 14
+    },
+    {
+      "i": 2,
+      "name": "answer",
+      "channels": ["client"],
+      "by": "executor",
+      "cause": 1,
+      "payload": {
+        "text": "Ran search \"What changed in the last release?\" → summarize"
+      },
+      "deliveredTo": [],
+      "line": 25
+    },
+    {
+      "i": 3,
+      "name": "m4trix:run.completed",
+      "channels": ["main", "plans", "client"],
+      "by": null,
+      "cause": 2,
+      "payload": {
+        "reason": "terminal-event",
+        "event": "answer"
+      },
+      "deliveredTo": [],
+      "line": null
+    }
+  ],
+  "end": {
+    "name": "m4trix:run.completed"
+  },
+  "walkthrough": [
+    "`user-message` is published on `main` from outside the network; `planner` picks it up.",
+    "`planner` receives it and emits `plan` on `plans`, a channel that only carries `plan`; `executor` takes it from there.",
+    "`executor` receives it and emits `answer` on `client`, a channel that only carries `answer`; no agent subscribes to `client`, so `answer` leaves the network through its `sse` proxy and, as a terminal event, ends the run.",
+    "The runtime then publishes `m4trix:run.completed` on every channel (`main`, `plans` and `client`) to close the run."
+  ]
+}

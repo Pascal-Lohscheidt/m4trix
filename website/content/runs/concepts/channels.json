@@ -1,0 +1,109 @@
+{
+  "version": 1,
+  "id": "concepts/channels",
+  "snippet": "concepts/channels.ts",
+  "topology": {
+    "mainChannel": "main",
+    "channels": [
+      {
+        "name": "main",
+        "events": null,
+        "proxies": []
+      },
+      {
+        "name": "work",
+        "events": ["task"],
+        "proxies": []
+      },
+      {
+        "name": "client",
+        "events": ["answer"],
+        "proxies": ["sse"]
+      }
+    ],
+    "agents": [
+      {
+        "name": "router",
+        "listensTo": ["user-message"],
+        "emits": ["task"],
+        "subscribes": ["main"],
+        "publishesTo": ["work"]
+      },
+      {
+        "name": "worker",
+        "listensTo": ["task"],
+        "emits": ["answer"],
+        "subscribes": ["work"],
+        "publishesTo": ["client"]
+      },
+      {
+        "name": "auditLog",
+        "listensTo": null,
+        "emits": [],
+        "subscribes": ["main", "work"],
+        "publishesTo": []
+      }
+    ],
+    "terminalEvents": ["answer"]
+  },
+  "events": [
+    {
+      "i": 0,
+      "name": "user-message",
+      "channels": ["main"],
+      "by": null,
+      "cause": null,
+      "payload": {
+        "text": "Why did checkout get slower?"
+      },
+      "deliveredTo": ["router", "auditLog"],
+      "line": 52
+    },
+    {
+      "i": 1,
+      "name": "task",
+      "channels": ["work"],
+      "by": "router",
+      "cause": 0,
+      "payload": {
+        "topic": "Why did checkout get slower?"
+      },
+      "deliveredTo": ["worker", "auditLog"],
+      "line": 14
+    },
+    {
+      "i": 2,
+      "name": "answer",
+      "channels": ["client"],
+      "by": "worker",
+      "cause": 1,
+      "payload": {
+        "text": "Looked into: Why did checkout get slower?"
+      },
+      "deliveredTo": [],
+      "line": 22
+    },
+    {
+      "i": 3,
+      "name": "m4trix:run.completed",
+      "channels": ["main", "work", "client"],
+      "by": null,
+      "cause": 2,
+      "payload": {
+        "reason": "terminal-event",
+        "event": "answer"
+      },
+      "deliveredTo": [],
+      "line": null
+    }
+  ],
+  "end": {
+    "name": "m4trix:run.completed"
+  },
+  "walkthrough": [
+    "`user-message` is published on `main` from outside the network; `router` picks it up, and `auditLog`, which has no `listensTo` and so takes every event on `main`, gets a copy too.",
+    "`router` receives it and emits `task` on `work`, a channel that only carries `task`; `worker` takes it from there, and `auditLog` gets a copy too because it also subscribes to `work`.",
+    "`worker` receives it and emits `answer` on `client`, a channel that only carries `answer`; no agent subscribes to `client`, so `answer` leaves the network through its `sse` proxy and, as a terminal event, ends the run.",
+    "The runtime then publishes `m4trix:run.completed` on every channel (`main`, `work` and `client`) to close the run; runtime events never invoke agents, so not even `auditLog` receives it."
+  ]
+}

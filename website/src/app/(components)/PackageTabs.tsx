@@ -152,7 +152,7 @@ function EvalsSection() {
                 <InstallBlock pkg="@m4trix/evals" />
               </div>
               <div className="mt-7 flex flex-wrap justify-center gap-3 lg:justify-start">
-                <a href="https://docs.m4trix.dev/evals" className="btn-primary group">
+                <a href="/docs/evals/overview" className="btn-primary group">
                   Get Started
                   <span className="opacity-0 transition group-hover:opacity-100">→</span>
                 </a>

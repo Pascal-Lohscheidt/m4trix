@@ -462,7 +462,7 @@ function commitChangelogs(): void {
     return;
   }
 
-  const message = `docs(changelog): update Mintlify changelogs [skip ci]`;
+  const message = `docs(changelog): update docs changelogs [skip ci]`;
   run(`git commit -m "${message}"`);
   console.log(`Committed: ${message}`);
 }

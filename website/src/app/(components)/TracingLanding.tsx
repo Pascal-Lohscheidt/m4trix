@@ -30,7 +30,7 @@ import {
 } from './LandingSections';
 import TracingPrimitivesExplorer from './TracingPrimitivesExplorer';
 
-const DOCS_HREF = 'https://docs.m4trix.dev/tracing';
+const DOCS_HREF = '/docs/tracing/overview';
 
 /* ─── Hero ─────────────────────────────────────────────────────────────── */
 

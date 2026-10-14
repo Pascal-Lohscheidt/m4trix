@@ -1,0 +1,122 @@
+{
+  "version": 1,
+  "id": "guides/patterns/join",
+  "snippet": "guides/patterns/join.ts",
+  "topology": {
+    "mainChannel": "main",
+    "channels": [
+      {
+        "name": "main",
+        "events": null,
+        "proxies": []
+      },
+      {
+        "name": "drafts",
+        "events": ["finding", "critique"],
+        "proxies": []
+      },
+      {
+        "name": "client",
+        "events": ["report"],
+        "proxies": ["sse"]
+      }
+    ],
+    "agents": [
+      {
+        "name": "researcher",
+        "listensTo": ["user-message"],
+        "emits": ["finding"],
+        "subscribes": ["main"],
+        "publishesTo": ["drafts"]
+      },
+      {
+        "name": "critic",
+        "listensTo": ["user-message"],
+        "emits": ["critique"],
+        "subscribes": ["main"],
+        "publishesTo": ["drafts"]
+      },
+      {
+        "name": "editor",
+        "listensTo": ["finding", "critique"],
+        "emits": ["report"],
+        "subscribes": ["drafts"],
+        "publishesTo": ["client"]
+      }
+    ],
+    "terminalEvents": ["report"]
+  },
+  "events": [
+    {
+      "i": 0,
+      "name": "user-message",
+      "channels": ["main"],
+      "by": null,
+      "cause": null,
+      "payload": {
+        "text": "the new caching layer"
+      },
+      "deliveredTo": ["researcher", "critic"],
+      "line": 80
+    },
+    {
+      "i": 1,
+      "name": "finding",
+      "channels": ["drafts"],
+      "by": "researcher",
+      "cause": 0,
+      "payload": {
+        "text": "Notes on the new caching layer"
+      },
+      "deliveredTo": ["editor"],
+      "line": 22
+    },
+    {
+      "i": 2,
+      "name": "critique",
+      "channels": ["drafts"],
+      "by": "critic",
+      "cause": 0,
+      "payload": {
+        "text": "Check the sample size"
+      },
+      "deliveredTo": ["editor"],
+      "line": 30
+    },
+    {
+      "i": 3,
+      "name": "report",
+      "channels": ["client"],
+      "by": "editor",
+      "cause": 2,
+      "payload": {
+        "text": "Notes on the new caching layer (Check the sample size)"
+      },
+      "deliveredTo": [],
+      "line": 56
+    },
+    {
+      "i": 4,
+      "name": "m4trix:run.completed",
+      "channels": ["main", "drafts", "client"],
+      "by": null,
+      "cause": 3,
+      "payload": {
+        "reason": "terminal-event",
+        "event": "report"
+      },
+      "deliveredTo": [],
+      "line": null
+    }
+  ],
+  "end": {
+    "name": "m4trix:run.completed"
+  },
+  "walkthrough": [
+    "`user-message` is published on `main` from outside the network; `researcher` and `critic` each receive a copy.",
+    "`researcher` receives it and emits `finding` on `drafts`, a channel declared for `finding` and `critique`; `editor` picks it up.",
+    "In response to `user-message`, `critic` emits `critique` on `drafts`; `editor` takes it from there.",
+    "`editor` receives it and emits `report` on `client`, a channel that only carries `report`; no agent subscribes to `client`, so `report` leaves the network through its `sse` proxy and, as a terminal event, ends the run.",
+    "The runtime then publishes `m4trix:run.completed` on every channel (`main`, `drafts` and `client`) to close the run."
+  ]
+}

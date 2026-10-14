@@ -1,0 +1,116 @@
+{
+  "version": 1,
+  "id": "guides/patterns/emit-and-await",
+  "snippet": "guides/patterns/emit-and-await.ts",
+  "topology": {
+    "mainChannel": "main",
+    "channels": [
+      {
+        "name": "main",
+        "events": null,
+        "proxies": []
+      },
+      {
+        "name": "work",
+        "events": ["task", "task-result"],
+        "proxies": []
+      },
+      {
+        "name": "client",
+        "events": ["answer"],
+        "proxies": ["sse"]
+      }
+    ],
+    "agents": [
+      {
+        "name": "coordinator",
+        "listensTo": ["user-message"],
+        "emits": ["task", "answer"],
+        "subscribes": ["main"],
+        "publishesTo": ["work", "client"]
+      },
+      {
+        "name": "worker",
+        "listensTo": ["task"],
+        "emits": ["task-result"],
+        "subscribes": ["work"],
+        "publishesTo": ["work"]
+      }
+    ],
+    "terminalEvents": ["answer"]
+  },
+  "events": [
+    {
+      "i": 0,
+      "name": "user-message",
+      "channels": ["main"],
+      "by": null,
+      "cause": null,
+      "payload": {
+        "text": "orders from last week"
+      },
+      "deliveredTo": ["coordinator"],
+      "line": 53
+    },
+    {
+      "i": 1,
+      "name": "task",
+      "channels": ["work"],
+      "by": "coordinator",
+      "cause": 0,
+      "payload": {
+        "query": "orders from last week"
+      },
+      "deliveredTo": ["worker"],
+      "line": 16
+    },
+    {
+      "i": 2,
+      "name": "task-result",
+      "channels": ["work"],
+      "by": "worker",
+      "cause": 1,
+      "payload": {
+        "rows": 42
+      },
+      "deliveredTo": [],
+      "line": 32,
+      "replyTo": "coordinator"
+    },
+    {
+      "i": 3,
+      "name": "answer",
+      "channels": ["client"],
+      "by": "coordinator",
+      "cause": 0,
+      "payload": {
+        "text": "Found 42 rows"
+      },
+      "deliveredTo": [],
+      "line": 23
+    },
+    {
+      "i": 4,
+      "name": "m4trix:run.completed",
+      "channels": ["main", "work", "client"],
+      "by": null,
+      "cause": 3,
+      "payload": {
+        "reason": "terminal-event",
+        "event": "answer"
+      },
+      "deliveredTo": [],
+      "line": null
+    }
+  ],
+  "end": {
+    "name": "m4trix:run.completed"
+  },
+  "walkthrough": [
+    "`user-message` is published on `main` from outside the network; `coordinator` picks it up.",
+    "`coordinator` receives it and emits `task` on `work`, a channel declared for `task` and `task-result`; `worker` takes it from there.",
+    "`worker` receives it and emits `task-result` on `work`; `coordinator`, waiting in `emitAndAwait`, receives it as its reply (same `meta.correlationId`).",
+    "In response to `user-message`, `coordinator` emits `answer` on `client`, a channel that only carries `answer`; no agent subscribes to `client`, so `answer` leaves the network through its `sse` proxy and, as a terminal event, ends the run.",
+    "The runtime then publishes `m4trix:run.completed` on every channel (`main`, `work` and `client`) to close the run."
+  ]
+}

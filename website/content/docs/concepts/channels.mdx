@@ -1,0 +1,94 @@
+---
+title: "Channels"
+description: "Named streams of events that agents subscribe to and publish into: what they carry, who receives what, and how events leave the network."
+sidebarTitle: "Channels"
+---
+
+A channel is a named stream of events inside a network: agents subscribe to channels to receive events and publish to channels to send them.
+
+## Mental model
+
+<NetworkDiagram run="concepts/channels" />
+
+Each lane is a channel, `main` first. An agent sits where the channel it subscribes to meets the channel it publishes to, and a proxy is a port on the network's border where a channel's events leave it (here `sse` on `client`).
+
+## Wiring
+
+This setup adds a `work` and a `client` channel next to `main` and wires three agents to them:
+
+<Snippet file="concepts/channels.ts" region="wiring" />
+
+The events and agents it wires live in the same file; the player below shows them next to this code.
+
+## How a run flows
+
+One run of this network, recorded from the real runtime, starting with a `user-message` published on `main`:
+
+<RunPlayer run="concepts/channels" region="agents,wiring,scenario" />
+
+<RunWalkthrough run="concepts/channels" />
+
+## Rules and guarantees
+
+### Defining channels
+
+- **Names are kebab-case:** lowercase letters and digits in hyphen-separated segments, such as `work` or `client-output`. Any other name makes `AgentNetwork.setup()` throw. Names are typed as the branded `ChannelName`.
+- **`main` always exists.** The network creates it, and `mainChannel` in the setup context is that channel, not a function: pass it straight to `subscribe` or `publishTo`. `expose()` publishes start events to it.
+- **One channel per name.** `createChannel(name)` returns the existing channel when the name is taken, so `createChannel('main')` is `mainChannel`.
+- **Agents choose their channels.** Each `subscribe(channel)` or `publishTo(channel)` call on the binding from `registerAgent` adds one channel; an agent can have several of each.
+
+### What a channel carries
+
+- **Everything, unless declared.** `.events([...])` limits a channel to those events. Calling it again replaces the list, and an empty list carries everything again. See [`.events()`](../api-reference/channel-api.md#events).
+- **An agent's emit goes where it is accepted.** The event is published to each of the agent's `publishTo` channels that accepts it and skips the others. If the agent has `publishTo` channels and none of them accepts it, `emit` throws `EmitValidationError` (`reason: 'channel'`): the invocation fails even if the agent catches the error, and the network's [`onAgentError`](../api-reference/agent-network.md#setup-options) policy applies (run failure kind `invalid-emit`). An agent without any `publishTo` channel publishes nowhere instead (see [Common mistakes](#common-mistakes)).
+- **Outside publishes are dropped, not thrown.** `plane.publish`, or a proxy's `publish` / `publishInbound`, of an event the channel does not accept resolves `false`, delivers nothing and logs a warning through the network's `logger`. The run keeps going.
+- **Start events must fit `main`.** `expose()` throws at setup when `main` declares events that exclude one of its `triggerEvents`.
+
+### Delivery
+
+- **Broadcast, not a work queue.** Every agent subscribed to the channel whose `listensTo` names the event gets it, and so does every reader of the channel (`plane.subscribe`, SSE streams).
+- **Catch-all agents.** An agent without `.listensTo()`, like `auditLog`, receives every event on the channels it subscribes to, except the runtime's `m4trix:*` events.
+- **Once per agent.** An event published to several channels at once reaches each agent once, even when the agent subscribes to more than one of them.
+- **One at a time, in order, per run.** Each agent has one inbox per run, merged across its channels, and handles that run's events one at a time in publish order. Different agents handle the same event concurrently, runs proceed in parallel, and nothing orders one agent's work against another's. See [Concurrency model](../api-reference/agent-network.md#concurrency-model).
+- **Emits keep their order.** Everything one invocation emits is published in the order it called `emit`.
+
+### Runtime events
+
+- **Every channel gets them.** When a run ends, the runtime publishes `m4trix:run.completed`, `m4trix:run.failed` or `m4trix:run.cancelled` to every channel of the network (and `m4trix:agent.error` under `onAgentError: 'continue'`). They pass any `.events()` declaration and never trigger agents. The `m4trix:` prefix is reserved: `AgentNetworkEvent.of()` rejects it. See [Run Lifecycle](../api-reference/io-adapters.md#run-lifecycle).
+
+### Proxies
+
+- **A proxy is a declaration.** `.proxy(...)` marks a channel whose events cross the network's border; `network.expose(...)` creates the stream that reads it. A channel can declare several proxies.
+- **`proxy.sse()` is built in.** `registerSSEStream()` streams one channel: the one passed as `channel` (it must declare `sse`, or `expose()` throws), else the only channel with an `sse` proxy, else `client`, else `main`. With several `sse` channels and no `channel`, `expose()` throws. See [registerSSEStream() options](../api-reference/io-adapters.md#registerssestream-options).
+- **Other kinds are your own.** Declare one with `proxy.custom(kind, config?, direction?)` or `defineProxyKind(kind)` and expose it with `registerCustomProxy` or the kind's `.register()`. The direction defaults to `'outbound'`. Kafka and Socket.IO bridges are not built in. See [Custom Proxies](../api-reference/io-adapters.md#custom-proxies).
+
+### Setup-time check
+
+- **Contradictions throw.** When the setup callback returns, `AgentNetwork.setup()` compares what each agent (and its tools) emits and listens to with what its channels accept. It throws a `NetworkWiringError` listing every `emit-not-accepted` (no `publishTo` channel accepts an event from `.emits()`) and `listen-not-accepted` (no subscribed channel accepts an event from `.listensTo()`).
+- **Smells are logged.** `unconsumed-event`, `agent-publishes-nowhere`, `agent-not-subscribed`, `agent-unreachable` and `terminal-event-not-emitted` go to the network's `logger`, and the network runs.
+- **What counts as the border.** The check treats `main` and channels with an `'inbound'` or `'bidirectional'` proxy as fed from outside, and channels with a proxy that is not `'inbound'`, or named `client`, as streamed out.
+- `network.validate()` runs the same check without throwing. See [Wiring check](../api-reference/agent-network.md#wiring-check).
+
+## Common mistakes
+
+<Warning>
+
+- **Calling `mainChannel('main')`.** `mainChannel` is already the `main` channel: write `subscribe(mainChannel)`.
+- **Wiring an event to a channel that does not declare it.** With `work` declared as `.events([Task])`, an agent that emits `answer` and publishes only to `work` makes setup throw `emit-not-accepted`; one that listens to `answer` and subscribes only to `work` gets `listen-not-accepted`. Add the event to `.events([...])` or wire the agent to a channel that carries it.
+- **Forgetting `publishTo`.** `registerAgent(worker).subscribe(work)` only logs `agent-publishes-nowhere`. The run still ends on `answer` (`endsOn`), but `answer` lands on no channel, so the stream on `client` only receives `m4trix:run.completed`.
+- **Reading a quiet check as a correct one.** Subscribe `worker` to `mainChannel` instead of `work` and it never runs, yet setup reports nothing: `auditLog` listens to everything on `work`, so `task` counts as consumed, and `main` counts as fed from outside. Without `auditLog`, setup warns `unconsumed-event`.
+
+</Warning>
+
+## What next
+
+| Goal | Page |
+| --- | --- |
+| Define the events channels carry | [Events](events.md) |
+| Declare what agents listen to and emit | [Agents](agents.md) |
+| Wire agents and channels into a network | [Networks](networks.md) |
+| Fan out, chain agents, wait for replies | [Patterns](../guides/patterns.md) |
+| Stream a channel to the browser | [Streaming](../guides/streaming.md) |
+| End runs and handle `m4trix:*` events | [Run Lifecycle](../api-reference/io-adapters.md#run-lifecycle) |
+| Look up `.events()` and `.proxy()` | [Channel API](../api-reference/channel-api.md) |
+| Read every wiring-check code | [Wiring check](../api-reference/agent-network.md#wiring-check) |

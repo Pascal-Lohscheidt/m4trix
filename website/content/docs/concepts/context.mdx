@@ -1,0 +1,515 @@
+---
+title: "Context (Folds and Views)"
+description: "Turn a conversation's event history into typed, incrementally folded state, trim it to a model's token budget with views and strategies, and compact it with checkpoints."
+sidebarTitle: "Context"
+---
+
+An agent that calls a model needs the conversation as model input: the user's prompts, its own earlier steps, the tool results, maybe a summary of what came before. A **context fold** builds that input from the network's event history. You declare how each event changes a typed state. The runtime folds the events into it, caches it, and on each read only folds the events published since the last one. A **view** trims a fold's state to a token budget.
+
+- **History is the source of truth.** A fold is derived from durable events and can always be rebuilt from them. Nothing besides the events is persisted: no snapshots, no extra store writes.
+- **Incremental.** Reading a fold does not replay the whole conversation every step. The plane caches the folded state and reads only newer events from the store.
+- **Budgeted.** A view counts tokens and applies strategies (elide old tool outputs, drop old turns) until the state fits, without separating a tool call from its result.
+
+## A fold
+
+```ts title="conversation.ts"
+import { AgentNetworkEvent, ContextFold, S } from '@m4trix/core';
+
+const UserPrompt = AgentNetworkEvent.of('user-prompt', S.Struct({ text: S.String }));
+const AssistantMessage = AgentNetworkEvent.of('assistant-message', S.Struct({ text: S.String }));
+
+type Turn = { readonly role: 'user' | 'assistant'; readonly text: string };
+
+const Conversation = ContextFold.of('conversation', { version: 1 })
+  .over([UserPrompt, AssistantMessage])
+  .initial((): readonly Turn[] => [])
+  .on(UserPrompt, (turns, { payload }) => [...turns, { role: 'user', text: payload.text }])
+  .on(AssistantMessage, (turns, { payload }) => [
+    ...turns,
+    { role: 'assistant', text: payload.text },
+  ]);
+```
+
+- **`ContextFold.of(name, { version })`.** The name is also the accessor in `ctx.folds` (`folds.conversation()`), so it must be a JS identifier: letters, digits, `_` and `$`, not starting with a digit. A literal name that isn't one is a type error as well as a `ContextFoldDefinitionError`. `version` is a positive integer. Name and version together identify the cached state, so bump the version whenever the handlers or the state shape change.
+- **`.over([...events])`** lists the events the fold reads. Every one of them needs an `.on()` handler (or must be the [checkpoint](#checkpoints-and-compaction) event). A fold with a missing handler is a type error wherever it is used, and throws `ContextFoldDefinitionError` at runtime.
+- **`.initial(() => state)`** creates the state before any event, on every cold start, so return a fresh value. Its return type is the fold's state type, so annotate it when inference would be too narrow.
+- **`.on(event, (state, envelope) => next)`** gets the typed envelope (`payload`, `meta`). Handlers must be **pure**: no I/O, no clock or randomness, and no mutation of `state` (return a new value). The cache relies on the same events always folding to the same state.
+- **`.scope('run')`** folds only the current run instead of every run of the conversation (the default `'context'`), e.g. for the progress of one request. A run-scoped state is dropped when its run ends.
+
+A fold is plain data and pure functions, so you can test it without a network: `Conversation.applyAll(Conversation.initialState(), events)`.
+
+## Reading folds in agents
+
+Declare the folds an agent reads with `.folds([...])`; the logic reads each one through `ctx.folds`, by name:
+
+```ts
+const assistant = AgentFactory.run()
+  .listensTo([UserPrompt])
+  .emits([AssistantMessage])
+  .dependsOn(Llm)
+  .folds([Conversation])
+  .logic(async ({ folds, emit, layers, signal }) => {
+    const turns = await folds.conversation(); // readonly Turn[], the trigger included
+    emit(AssistantMessage.make({ text: await layers.Llm.reply(turns, signal) }));
+  })
+  .produce({});
+```
+
+`EventAggregator` takes `.folds([...])` the same way, with `folds` in both `emitWhen` and `mapToEmit`:
+
+```ts
+const Progress = ContextFold.of('progress', { version: 1 })
+  .scope('run')
+  .over([ModelStep])
+  .initial(() => 0)
+  .on(ModelStep, (steps) => steps + 1);
+
+const stepLimit = EventAggregator.listensTo([ModelStep])
+  .emits([StepLimitReached])
+  .folds([Progress])
+  .emitWhen(async ({ folds }) => (await folds.progress()) >= 20)
+  .mapToEmit(async ({ folds, emit }) => {
+    emit(StepLimitReached.make({ steps: await folds.progress() }));
+  });
+```
+
+Calls to `.folds()` accumulate. Each source needs its own name on one agent: two sources with the same name are a type error and throw at build time. See [`.folds(sources)`](../api-reference/agent-factory.md#foldssources) for the full reference.
+
+## Checkpoints and compaction
+
+A conversation grows without bound, while a model's context window does not. To compact it, an agent publishes a **checkpoint event** that carries everything the state keeps, such as a summary of the dropped turns and the turns kept as they are. Declare it with `.checkpointOn()`:
+
+```ts
+const ContextCompacted = AgentNetworkEvent.of(
+  'context-compacted',
+  S.Struct({ summary: S.String, kept: S.Array(S.Struct({ role: S.Literal('user', 'assistant'), text: S.String })) }),
+);
+
+type Context = { readonly summary?: string; readonly turns: readonly Turn[] };
+
+const Conversation = ContextFold.of('conversation', { version: 1 })
+  .over([UserPrompt, AssistantMessage, ContextCompacted])
+  .initial((): Context => ({ turns: [] }))
+  .on(UserPrompt, (state, { payload }) => ({
+    ...state,
+    turns: [...state.turns, { role: 'user', text: payload.text }],
+  }))
+  .on(AssistantMessage, (state, { payload }) => ({
+    ...state,
+    turns: [...state.turns, { role: 'assistant', text: payload.text }],
+  }))
+  .checkpointOn(ContextCompacted, ({ payload }) => ({
+    summary: payload.summary,
+    turns: payload.kept,
+  }));
+```
+
+- Applying the checkpoint event **replaces** the state with what `restore(envelope)` returns: the checkpoint must be self-contained.
+- A cold read (nothing cached yet, after a restart, after eviction) starts at the **newest checkpoint** (`history.latest([...])`) and folds only the events after it. Compaction therefore also shortens every later rebuild.
+- A fold has at most one checkpoint event. It is one of the `over()` events and has no `.on()` handler.
+
+Compaction is explicit: an agent asks for it, typically when a [view](#views-and-contextstrategy) reports `overBudget`. A recipe that works well is a **compactor agent** that answers an `emitAndAwait`:
+
+```ts
+const CompactionRequested = AgentNetworkEvent.of('compaction-requested', S.Struct({}));
+
+// In the model agent's logic:
+let chat = await folds.chat();
+if (chat.overBudget) {
+  await emitAndAwait(CompactionRequested.make({}), ContextCompacted.is);
+  chat = await folds.chat(); // starts from the checkpoint the compactor published
+}
+
+// The compactor answers with the checkpoint:
+const compactor = AgentFactory.run()
+  .listensTo([CompactionRequested])
+  .emits([ContextCompacted], { reply: true })
+  .dependsOn(Llm)
+  .folds([Conversation])
+  .logic(async ({ folds, emit, layers, signal }) => {
+    const { summary, turns } = await folds.conversation();
+    const kept = turns.slice(-4);
+    const dropped = turns.slice(0, -4);
+    emit(
+      ContextCompacted.make({
+        summary: await layers.Llm.summarize({ summary, turns: dropped }, signal),
+        kept,
+      }),
+    );
+  })
+  .produce({});
+```
+
+A read after `emitAndAwait` sees the checkpoint, because every event is stored before it is delivered, the reply included. `{ reply: true }` tells the [wiring check](../api-reference/agent-network.md#wiring-check) that nothing needs to listen to the checkpoint event.
+
+**Compact while the context is quiet.** The checkpoint replaces the state, so events published between the compactor reading the fold and its checkpoint being published are not in it. Compact from the only active agent, as above: the model agent waits in `emitAndAwait` and publishes nothing meanwhile.
+
+## Segmented folds
+
+For model input, a plain list of turns is not enough: a model step and the results of its tool calls belong together. Chat APIs reject a tool call without its result, so trimming must never separate them. A **segmented fold** keeps its state as a list of **segments**, each an atomic unit (a prompt, a model step with all of its tool results, an answer), plus an optional checkpoint:
+
+```ts
+import { SegmentedFold } from '@m4trix/core';
+
+const Conversation = SegmentedFold.of('conversation', { version: 1 })
+  .over([UserPrompt, ModelStep, ToolResult, AssistantMessage, ContextCompacted])
+  .segments<Entry, string>() // segment data, checkpoint (a summary)
+  .on(UserPrompt, (state, { meta, payload }) =>
+    SegmentedFold.open(state, `prompt:${meta.runId}`, { kind: 'user', text: payload.text }),
+  )
+  .on(ModelStep, (state, { payload }) =>
+    SegmentedFold.open(state, payload.stepId, {
+      kind: 'step',
+      text: payload.text,
+      toolCalls: payload.toolCalls,
+      results: [],
+    }),
+  )
+  .on(ToolResult, (state, { payload }) =>
+    SegmentedFold.attach(state, payload.stepId, (data) =>
+      data.kind === 'step'
+        ? { ...data, results: [...data.results, { callId: payload.callId, output: payload.output }] }
+        : data,
+    ),
+  )
+  .on(AssistantMessage, (state, { meta, payload }) =>
+    SegmentedFold.open(state, `answer:${meta.runId}`, { kind: 'answer', text: payload.text }),
+  )
+  .checkpointOn(ContextCompacted, ({ payload }) => ({
+    checkpoint: payload.summary,
+    segments: payload.kept,
+  }));
+```
+
+- **`.segments<T, C>()`** replaces `.initial()`: the state is `SegmentedState<T, C>` = `{ checkpoint?: C; segments: readonly Segment<T>[] }`, starting with no segments. Each `Segment<T>` is `{ id, data }`.
+- **`SegmentedFold.open(state, id, data)`** appends a new segment (newest last).
+- **`SegmentedFold.attach(state, id, update)`** updates the newest segment with that `id` in place. An unknown id leaves the state unchanged, e.g. a late tool result of a step that a checkpoint already compacted away. Both helpers are pure.
+- Segment ids address segments in views (`dropped`) and strategies (`pin`), so keep them unique: a payload id like a step id, or one derived from the event, such as `prompt:${meta.runId}`.
+- `SegmentOf<State>`, `SegmentDataOf<State>` and `CheckpointOf<State>` extract the parts of a segmented state type.
+
+## Views and `ContextStrategy`
+
+A view is a named, budgeted reading of a fold. `fold.view(name, options)` returns a source of its own, which you pass to `.folds()` and read by its name:
+
+```ts
+import { ContextStrategy } from '@m4trix/core';
+
+const ChatView = Conversation.view('chat', {
+  budget: 30_000, // tokens
+  strategies: [
+    // First, shorten the tool outputs of all but the newest four segments...
+    ContextStrategy.elide({
+      olderThan: 4,
+      where: (segment) => segment.data.kind === 'step',
+      map: (data) =>
+        data.kind === 'step'
+          ? {
+              ...data,
+              results: data.results.map((r) => ({ ...r, output: `${r.output.slice(0, 200)}… [elided]` })),
+            }
+          : data,
+    }),
+    // ...then drop whole segments, oldest first, never those of the current turn.
+    ContextStrategy.dropOldest({ pin: inCurrentTurn }),
+  ],
+});
+
+// .folds([ChatView]) → const { state, tokens, budget, overBudget, dropped } = await folds.chat();
+```
+
+Reading a view folds its base fold (cached as usual), counts the tokens and runs the strategies **in order, each at most once, and only while the state is over budget**, recounting after each one. It resolves to a `ViewResult`:
+
+| Field | Meaning |
+|-------|---------|
+| `state` | The state after the strategies that ran: the fold's own state when it already fit |
+| `tokens` | Tokens of `state`: for a segmented state, its checkpoint plus every segment |
+| `budget` | The view's budget (`Infinity`: no budget) |
+| `overBudget` | `tokens > budget`: the strategies could not trim enough, e.g. every remaining segment is pinned. A good moment to compact |
+| `dropped` | Ids of the segments the strategies removed, oldest first |
+
+Options of a view of a segmented fold:
+
+- **`budget`**: a positive integer, or `Infinity` for none.
+- **`count(segment)`**: tokens of one segment. The default `approxTokenCount` is ⌈JSON length / 4⌉, a cheap, dependency-free heuristic. Inject a real tokenizer when precision matters. It must be pure: the view counts each segment once and caches the count.
+- **`countCheckpoint(checkpoint)`**: tokens of the checkpoint (default `approxTokenCount`).
+- **`strategies`**: default none, in which case the view only measures, e.g. to decide when to compact.
+
+The built-in strategies work on segmented state and never split a segment:
+
+- **`ContextStrategy.elide({ olderThan, where?, map })`** transforms the data of the segments older than the newest `olderThan` that match `where`, e.g. truncates old tool outputs. It never removes a segment.
+- **`ContextStrategy.dropOldest({ pin? })`** drops whole segments, oldest first, until the tokens fit, skipping pinned ones. The checkpoint is never dropped.
+
+A strategy is any pure function `ContextStrategy<State>`: `(state, { budget, tokens, count }) => state`. Return the same state when nothing changes. To write your own:
+
+```ts
+import type { ContextStrategy } from '@m4trix/core';
+
+type Chat = FoldStateOf<typeof Conversation>;
+
+/** Keeps only the newest 50 segments. */
+const keepNewest: ContextStrategy<Chat> = (state) =>
+  state.segments.length <= 50 ? state : { ...state, segments: state.segments.slice(-50) };
+```
+
+A view of a fold without segments has no per-segment counting: pass `measure(state)` (tokens of the whole state, e.g. `(state) => approxTokenCount(state)`) and strategies of that state type. The built-in strategies are a type error there.
+
+Views of one fold share its cached state: the runtime caches the fold, not the view's result, so a `chat` view and a `summary` view of `Conversation` fold the events once.
+
+## Caching and consistency
+
+In a network, each event plane caches folded state, so reads are cheap, and they stay correct:
+
+- **Lazy.** Nothing is folded on publish. A fold is brought up to date when an agent reads it, and only folds an agent declares are ever read.
+- **Incremental.** A context-scoped state is cached per `(principal namespace, contextId, fold name, version)` with a cursor into the store. A read asks the store only for events after the cursor (`history.context({ names, after })`). A run-scoped state is cached per run and dropped when the run ends.
+- **Up to date, not memoized.** Every call reads again, so it includes the trigger event and everything stored before it, also what another agent published while you waited in `emitAndAwait`.
+- **Read-your-writes.** A read also includes every event the invocation itself emitted before the read: with `emit`, `emitAndAwait` or its tools. Emits are stored asynchronously, so the read first waits until those are stored. It does not wait for other agents' emits, nor for transient events (never stored, so never folded), and a read with nothing pending starts right away. When one of them is never stored, because the run went over a [limit](../guides/error-handling-observability.md#run-limits-usage-and-budgets), the store failed, or the run ended (or the network stopped) before it was published, the read rejects with `AgentAbortedError`, and so does every later read of the invocation. `runStatus` is the run's status (`'cancelled'` when the network stopped): the run is over by then, so stop as you would on an aborted `signal`.
+- **Single-flight.** Concurrent reads of the same state, from one agent or several, run one at a time, each continuing from the state the previous one left, so an event is never folded twice.
+- **Stale cursors reset.** When a context is deleted (`deleteContext`) or expires in the store, a cached cursor no longer belongs to its history. The store returns the current history from its start with `reset: true`, and the state is rebuilt instead of continued.
+- **Bounded.** The `foldCache` setup option caps the cache per plane: `{ maxEntries?: number /* 1000 */, ttl?: DurationInput /* '30 minutes' after the last read */ }`, where `Infinity` lifts either bound. Expiry is lazy, without timers. The bounds only cost a rebuild: an evicted state is folded again on its next read, from the newest checkpoint.
+- **Read-only state.** A read may hand out the cached state object itself, and several agents may hold it at once. Never mutate a fold's state or a view's result; derive new values instead.
+- **Identity is name + version.** Two different folds with the same name and version on one agent throw at build time, since they would share cached state. Keep names unique across the network, and bump `version` when a fold's handlers change, so state folded by the old definition is not reused.
+
+```ts
+const network = AgentNetwork.setup(setup, {
+  foldCache: { maxEntries: 10_000, ttl: '1 hour' },
+});
+```
+
+Outside a network, `agent.invoke({ history })` folds the given history on every read, without a cache. Without a history, each source returns its view of the initial state.
+
+**Observability.** The `m4trix.fold.read.events` [metric](../guides/error-handling-observability.md#metrics) reports the events each read folded, by `fold` and `start`: `cold` (nothing cached), `warm` (continued the cached state) or `reset` (rebuilt after a stale cursor). Many cold reads point at a `foldCache` that is too small for the traffic. The [wiring check](../api-reference/agent-network.md#wiring-check) warns with `fold-event-unpublished` when a folded event can never be published: no agent emits it and no channel that carries it is fed from outside.
+
+## Full example
+
+A coding assistant, modeled on `examples/m4trix-code`. The model agent reads a budgeted view of the conversation on every step. A tools agent runs the tool calls. A compactor summarizes old turns when the view no longer fits.
+
+```ts title="assistant-network.ts"
+import {
+  AgentFactory,
+  AgentNetwork,
+  AgentNetworkEvent,
+  ContextStrategy,
+  DependencyLayer,
+  type FoldStateOf,
+  S,
+  type Segment,
+  SegmentedFold,
+} from '@m4trix/core';
+
+/* ─── Events ─── */
+
+const ToolCall = S.Struct({ id: S.String, name: S.String, arguments: S.String });
+type ToolCall = typeof ToolCall.Type;
+
+const UserPrompt = AgentNetworkEvent.of('user-prompt', S.Struct({ text: S.String }));
+const ModelStep = AgentNetworkEvent.of(
+  'model-step',
+  S.Struct({ stepId: S.String, text: S.String, toolCalls: S.Array(ToolCall) }),
+);
+const ToolResult = AgentNetworkEvent.of(
+  'tool-result',
+  S.Struct({ stepId: S.String, callId: S.String, output: S.String }),
+);
+const ToolsDone = AgentNetworkEvent.of('tools-done', S.Struct({ stepId: S.String }));
+const AssistantMessage = AgentNetworkEvent.of('assistant-message', S.Struct({ text: S.String }));
+
+/** One segment: a prompt, a model step with its tool results, or a final answer. */
+const Entry = S.Union(
+  S.Struct({ kind: S.Literal('user'), text: S.String }),
+  S.Struct({
+    kind: S.Literal('step'),
+    text: S.String,
+    toolCalls: S.Array(ToolCall),
+    results: S.Array(S.Struct({ callId: S.String, output: S.String })),
+  }),
+  S.Struct({ kind: S.Literal('answer'), text: S.String }),
+);
+type Entry = typeof Entry.Type;
+
+const CompactionRequested = AgentNetworkEvent.of('compaction-requested', S.Struct({}));
+/** The checkpoint: a summary of what was dropped, and the segments kept as they are. */
+const ContextCompacted = AgentNetworkEvent.of(
+  'context-compacted',
+  S.Struct({ summary: S.String, kept: S.Array(S.Struct({ id: S.String, data: Entry })) }),
+);
+
+/* ─── The fold and its view ─── */
+
+const Conversation = SegmentedFold.of('conversation', { version: 1 })
+  .over([UserPrompt, ModelStep, ToolResult, AssistantMessage, ContextCompacted])
+  .segments<Entry, string>()
+  .on(UserPrompt, (state, { meta, payload }) =>
+    SegmentedFold.open(state, `prompt:${meta.runId}`, { kind: 'user', text: payload.text }),
+  )
+  .on(ModelStep, (state, { payload }) =>
+    SegmentedFold.open(state, payload.stepId, {
+      kind: 'step',
+      text: payload.text,
+      toolCalls: payload.toolCalls,
+      results: [],
+    }),
+  )
+  .on(ToolResult, (state, { payload }) =>
+    SegmentedFold.attach(state, payload.stepId, (data) =>
+      data.kind === 'step'
+        ? { ...data, results: [...data.results, { callId: payload.callId, output: payload.output }] }
+        : data,
+    ),
+  )
+  .on(AssistantMessage, (state, { meta, payload }) =>
+    SegmentedFold.open(state, `answer:${meta.runId}`, { kind: 'answer', text: payload.text }),
+  )
+  .checkpointOn(ContextCompacted, ({ payload }) => ({
+    checkpoint: payload.summary,
+    segments: payload.kept,
+  }));
+
+type Conversation = FoldStateOf<typeof Conversation>;
+
+/** Segments from the newest user prompt on: the current turn, which the view always keeps. */
+const inCurrentTurn = (
+  _segment: Segment<Entry>,
+  index: number,
+  segments: ReadonlyArray<Segment<Entry>>,
+) => {
+  let turnStart = 0;
+  segments.forEach((segment, at) => {
+    if (segment.data.kind === 'user') turnStart = at;
+  });
+  return index >= turnStart;
+};
+
+const ChatView = Conversation.view('chat', {
+  budget: 30_000,
+  strategies: [
+    ContextStrategy.elide({
+      olderThan: 4,
+      map: (data) =>
+        data.kind === 'step'
+          ? {
+              ...data,
+              results: data.results.map((r) => ({ ...r, output: `${r.output.slice(0, 200)}… [elided]` })),
+            }
+          : data,
+    }),
+    ContextStrategy.dropOldest({ pin: inCurrentTurn }),
+  ],
+});
+
+/* ─── Rendering for a chat API ─── */
+
+type ChatMessage =
+  | { role: 'system' | 'user' | 'assistant'; content: string }
+  | { role: 'assistant'; content: string; tool_calls: ReadonlyArray<ToolCall> }
+  | { role: 'tool'; tool_call_id: string; content: string };
+
+function toMessages(state: Conversation): ChatMessage[] {
+  const messages: ChatMessage[] = [];
+  if (state.checkpoint !== undefined) {
+    messages.push({ role: 'system', content: `Earlier in this conversation: ${state.checkpoint}` });
+  }
+  for (const { data } of state.segments) {
+    if (data.kind === 'user') messages.push({ role: 'user', content: data.text });
+    else if (data.kind === 'answer') messages.push({ role: 'assistant', content: data.text });
+    else {
+      // A step and its results stay together: every tool call is answered.
+      messages.push({ role: 'assistant', content: data.text, tool_calls: data.toolCalls });
+      for (const call of data.toolCalls) {
+        const result = data.results.find((r) => r.callId === call.id);
+        messages.push({
+          role: 'tool',
+          tool_call_id: call.id,
+          content: result?.output ?? 'No result: the turn was interrupted.',
+        });
+      }
+    }
+  }
+  return messages;
+}
+
+/* ─── Agents ─── */
+
+const Llm = DependencyLayer.of({
+  name: 'Llm',
+  config: S.Struct({ model: S.String }),
+}).define<{
+  complete(
+    messages: ChatMessage[],
+    signal: AbortSignal,
+  ): Promise<{ text: string; toolCalls: ToolCall[] }>;
+  summarize(messages: ChatMessage[], signal: AbortSignal): Promise<string>;
+}>();
+
+/** One model call per invocation: on the prompt, then after each step's tool results. */
+const model = AgentFactory.run()
+  .listensTo([UserPrompt, ToolsDone])
+  .emits([ModelStep, AssistantMessage, CompactionRequested])
+  .dependsOn(Llm)
+  .folds([ChatView])
+  .logic(async ({ folds, emit, emitAndAwait, layers, signal }) => {
+    let chat = await folds.chat(); // includes the trigger and every tool result before it
+    if (chat.overBudget) {
+      await emitAndAwait(CompactionRequested.make({}), ContextCompacted.is);
+      chat = await folds.chat();
+    }
+    const { text, toolCalls } = await layers.Llm.complete(toMessages(chat.state), signal);
+    if (toolCalls.length === 0) emit(AssistantMessage.make({ text }));
+    else emit(ModelStep.make({ stepId: crypto.randomUUID(), text, toolCalls }));
+  })
+  .produce({});
+
+/** Your tool runner, e.g. a switch over `call.name`. */
+declare function runTool(call: ToolCall): Promise<string>;
+
+const tools = AgentFactory.run()
+  .listensTo([ModelStep])
+  .emits([ToolResult, ToolsDone])
+  .logic(async ({ triggerEvent, emit }) => {
+    const { stepId, toolCalls } = triggerEvent.payload;
+    for (const call of toolCalls) {
+      emit(ToolResult.make({ stepId, callId: call.id, output: await runTool(call) }));
+    }
+    emit(ToolsDone.make({ stepId })); // delivered after the results: the model sees them all
+  })
+  .produce({});
+
+/** Summarizes what the view drops and keeps the rest: the checkpoint. */
+const compactor = AgentFactory.run()
+  .listensTo([CompactionRequested])
+  .emits([ContextCompacted], { reply: true })
+  .dependsOn(Llm)
+  .folds([Conversation, ChatView])
+  .logic(async ({ folds, emit, layers, signal }) => {
+    const [conversation, chat] = await Promise.all([folds.conversation(), folds.chat()]);
+    const dropped = conversation.segments.filter(({ id }) => chat.dropped.includes(id));
+    const summary = await layers.Llm.summarize(
+      toMessages({ checkpoint: conversation.checkpoint, segments: dropped }),
+      signal,
+    );
+    emit(ContextCompacted.make({ summary, kept: chat.state.segments }));
+  })
+  .produce({});
+
+export const network = AgentNetwork.dependsOn(Llm).setup(
+  ({ mainChannel, createChannel, proxy, registerAgent, endsOn }) => {
+    const client = createChannel('client').proxy(proxy.sse()); // the UI sees every step
+    for (const agent of [model, tools, compactor]) {
+      registerAgent(agent).subscribe(mainChannel).publishTo(mainChannel).publishTo(client);
+    }
+    endsOn(AssistantMessage);
+  },
+  { foldCache: { maxEntries: 10_000, ttl: '1 hour' } },
+);
+```
+
+How it plays out:
+
+- **Every step reads incrementally.** The `chat` view's base fold is cached per conversation, so each model call folds only the events since the previous one: the new prompt, or the step and its tool results.
+- **The budget holds without breaking tool calls.** Old tool outputs shrink first. Then whole old segments go, while the current turn stays pinned. A step never loses its results, so the chat API never sees an unanswered tool call.
+- **Compaction is a checkpoint.** When even that does not fit, the compactor summarizes the dropped segments into a `context-compacted` event. From then on, the conversation starts at that checkpoint, in this process and after a restart alike.
+
+## See Also
+
+- [`.folds(sources)`](../api-reference/agent-factory.md#foldssources) in the AgentFactory reference
+- [Event history and stores](../api-reference/agent-network.md#event-history-and-stores): `history.context({ names, after })`, `history.latest()` and what a store must implement
+- [Agents](agents.md) · [Networks](networks.md)

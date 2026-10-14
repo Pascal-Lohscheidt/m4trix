@@ -7,7 +7,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "record:agents": "pnpm --filter @m4trix/core exec tsx ../../website/scripts/record-agent-run.mts"
+    "record:agents": "pnpm --filter @m4trix/core exec tsx ../../website/scripts/record-agent-run.mts",
+    "docs:snippets": "tsc -p content/snippets/tsconfig.json",
+    "docs:record": "tsx --tsconfig content/snippets/tsconfig.json scripts/record-docs-runs.mts",
+    "docs:record:check": "tsx --tsconfig content/snippets/tsconfig.json scripts/record-docs-runs.mts --check"
   },
   "browserslist": "defaults, not ie <= 11",
   "dependencies": {
@@ -15,7 +18,9 @@
     "@headlessui/react": "^2.1.0",
     "@markdoc/markdoc": "^0.4.0",
     "@markdoc/next.js": "^0.3.4",
+    "@modelcontextprotocol/sdk": "^1.32.0",
     "@phosphor-icons/react": "^2.1.10",
+    "@shikijs/twoslash": "^3.13.0",
     "@sindresorhus/slugify": "^2.1.0",
     "@tailwindcss/postcss": "^4.1.4",
     "@tailwindcss/typography": "^0.5.7",
@@ -25,25 +30,33 @@
     "@types/react-highlight-words": "^0.16.4",
     "animejs": "^4.0.1",
     "clsx": "^2.1.0",
+    "docs-visual-gen": "workspace:*",
     "fast-glob": "^3.2.12",
     "flexsearch": "^0.7.31",
+    "github-slugger": "^2.0.0",
     "js-yaml": "^4.1.0",
     "next": "^14.0.4",
+    "next-mdx-remote": "^5.0.0",
     "next-themes": "^0.2.1",
     "prism-react-renderer": "^2.0.6",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-highlight-words": "^0.20.0",
+    "rehype-slug": "^6.0.0",
+    "remark-gfm": "^4.0.1",
+    "shiki": "^3.13.0",
     "simple-functional-loader": "^1.2.1",
     "simple-icons": "^16.34.0",
     "tailwindcss": "^4.1.4",
-    "typescript": "^5.3.3"
+    "typescript": "^5.3.3",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "eslint": "^8.56.0",
     "eslint-config-next": "^14.0.4",
     "prettier": "^3.3.2",
     "prettier-plugin-tailwindcss": "^0.6.11",
-    "sharp": "0.33.1"
+    "sharp": "0.33.1",
+    "tsx": "^4.21.0"
   }
 }

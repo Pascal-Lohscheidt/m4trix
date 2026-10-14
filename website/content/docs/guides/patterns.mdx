@@ -1,0 +1,91 @@
+---
+title: "Patterns: Request/Response, Fan-Out, Join, Retries"
+description: "The common shapes of an m4trix network: one agent answering, fan-out, chains, waiting for a reply, joining results and retrying tool calls. Each with a recorded run."
+sidebarTitle: "Patterns: Request/Response, Fan-Out, Join, Retries"
+---
+
+Every pattern below is a real network, typechecked and recorded with the runtime. Step through a run to see where each event goes.
+
+| Pattern | Use it when |
+| --- | --- |
+| [Request/Response](#requestresponse-single-agent) | One agent turns a request into an answer |
+| [Fan-out](#fan-out) | Several agents react to the same event |
+| [Agent chain](#agent-chain-sequential) | Work passes through steps in order |
+| [Emit-and-await](#loopback--emit-and-await) | An agent needs another agent's answer before it continues |
+| [Join](#join-multiple-inputs) | One result needs several events first |
+| [Retries](#retries) | A tool call can fail and is worth trying again |
+
+## Request/Response (Single Agent)
+
+The simplest pattern: one agent listens for a request on `main`, does its work and emits the response on a channel that streams to the client.
+
+<NetworkDiagram run="guides/patterns/request-response" />
+
+<Snippet file="guides/patterns/request-response.ts" region="wiring" />
+
+`endsOn(Answer)` ends the run when the answer is published, which closes the stream. See [Hello World](../getting-started/hello-world.md) for a full example.
+
+## Fan-Out
+
+One event, several agents: every agent subscribed to the channel that listens for the event gets its own copy. Agents handle it concurrently; each still handles its own events one at a time.
+
+<RunPlayer run="guides/patterns/fan-out" />
+
+<Snippet file="guides/patterns/fan-out.ts" region="wiring" />
+
+- **The first terminal event ends the run.** Once `answer` is published, the run completes and agents still working on it are aborted through their `signal`; their later emits are dropped. Side work that emits nothing (logging, metering) is fine here. When the run needs every branch's result, [join](#join-multiple-inputs) them and end on the joined event.
+- **No order between branches.** Nothing orders one agent's work against another's. See [Concurrency model](../api-reference/agent-network.md#concurrency-model).
+
+Use it for parallel processing: several analyzers, or logging and analytics next to the main work.
+
+## Agent Chain (Sequential)
+
+Events flow through a series of agents. Each agent subscribes to the channel the previous one publishes to.
+
+<RunPlayer run="guides/patterns/chain" />
+
+<Snippet file="guides/patterns/chain.ts" region="wiring" />
+
+`plans` carries only `plan`, so the [wiring check](../api-reference/agent-network.md#wiring-check) catches an agent wired to the wrong step at setup. Use it for multi-step workflows such as plan → execute → respond.
+
+## Loopback / Emit-and-Await
+
+Use `emitAndAwait` when an agent or tool needs to emit an event and pause until a later event on the network satisfies a matcher.
+
+<RunPlayer run="guides/patterns/emit-and-await" region="agents" />
+
+Each call is scoped with a generated `meta.correlationId`, and the matcher only runs for events that carry that same correlation id. Since emitted events copy the triggering event meta, a worker agent that handles the request and emits a reply will automatically echo the correlation id.
+
+The reply must be produced by a different subscriber while the caller is waiting. If an agent emits a request and waits for a reply that only the same blocked invocation can produce, the wait will time out.
+
+Declare the replying agent's event with `.emits([TaskResult], { reply: true })`: nothing listens to it (the waiting agent receives it as its reply), and the option tells the [wiring check](../api-reference/agent-network.md#wiring-check) so. The reply comes back as a plain envelope; narrow it with the event's `.is()` guard before reading its payload. A wait that times out rejects with `PublishAndAwaitTimeoutError`.
+
+Waits are held in memory by the waiting invocation. For waits on a human that can take minutes to days (approvals, reviews, deploys), end the run instead and continue in a new run of the same context: see [Long human waits](deployment.md#long-human-waits).
+
+## Join (Multiple Inputs)
+
+To combine several events into one, register an `EventAggregator` that listens to all of them and emits once the run's history has every part.
+
+<RunPlayer run="guides/patterns/join" region="join,wiring" />
+
+- **Read history, don't keep state.** `history.run()` returns the run's durable events, and every event is stored before it is delivered. A module-level `Map` would leak between runs and break once runs are spread over several processes.
+- **Look only up to the trigger.** The aggregator handles `finding` and `critique` one at a time, but by the time it handles the first, both may be stored. Cutting history at the trigger means only the invocation for whichever part arrives second sees both, so `report` is emitted exactly once.
+- **Durable events only.** [Transient](../api-reference/agent-network-event.md#transient-events) events never reach history, so don't join on them.
+
+`emitWhen` decides, `mapToEmit` builds the event. The same works with a plain agent: `listensTo([Finding, Critique])` and the same history check in its logic.
+
+## Retries
+
+Tools retry on their own: `.retry()` reruns a call when the tool throws, with an optional backoff.
+
+<Snippet file="guides/patterns/retries.ts" region="tool" />
+
+<RetryDiagram tool="getQuote" caller="quoteAgent" times="2" base="200" factor="2" result="{ price }" />
+
+- **What is retried.** Only the tool throwing (`ToolExecutionError`). Invalid input or output, a timeout (`.timeout()` applies per attempt), an invalid emit and cancellation are never retried.
+- **Backoff.** Retry *n* waits `base * factor^(n - 1)`, capped at `max`; without `backoff`, retries start immediately. Aborting the run cuts a wait short, and no attempt starts after it.
+- **When every attempt fails.** `execute()` rejects with the last `ToolExecutionError`; `executeForModel()` hands the failure to the model instead, so it can try something else.
+
+Agent logic has no built-in retry: loop inside `.logic()` if a step outside a tool needs one. When it finally gives up, call `fail(error)` (or let it throw) so the run ends with `m4trix:run.failed`, rather than emitting a homemade error event. See [Run Lifecycle](../api-reference/io-adapters.md#run-lifecycle).
+
+For more, see [Networks](../concepts/networks.md) and the [AgentNetwork API](../api-reference/agent-network.md).

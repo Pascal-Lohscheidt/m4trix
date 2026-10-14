@@ -59,7 +59,7 @@ export const SECTION_CONFIG: Record<
   }
 > = {
   agents: {
-    outputPath: 'docs/project/changelog.mdx',
+    outputPath: 'website/content/docs/project/changelog.mdx',
     title: 'Changelog',
     description: 'Release notes for @m4trix/core, stream, react, and ui.',
     pathPrefixes: ['packages/core/', 'packages/stream/', 'packages/react/', 'packages/ui/'],
@@ -67,7 +67,7 @@ export const SECTION_CONFIG: Record<
     npmPackage: '@m4trix/core',
   },
   evals: {
-    outputPath: 'docs/evals/changelog.mdx',
+    outputPath: 'website/content/docs/evals/changelog.mdx',
     title: 'Changelog',
     description: 'Release notes for @m4trix/evals.',
     pathPrefixes: ['packages/evals/'],
@@ -75,7 +75,7 @@ export const SECTION_CONFIG: Record<
     npmPackage: '@m4trix/evals',
   },
   tracing: {
-    outputPath: 'docs/tracing/changelog.mdx',
+    outputPath: 'website/content/docs/tracing/changelog.mdx',
     title: 'Changelog',
     description: 'Release notes for @m4trix/tracing and @m4trix/trace-viewer.',
     pathPrefixes: ['packages/tracing/', 'packages/trace-viewer/'],

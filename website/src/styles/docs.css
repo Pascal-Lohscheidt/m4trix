@@ -1,0 +1,1615 @@
+/*
+ * Docs chrome and content. Builds on the site tokens in tailwind.css (--bg, --text-*,
+ * --border*, accent tokens per [data-pkg]). The current product (Agents / Evals / Tracing)
+ * sets data-pkg on .docs-root, so every accent below follows the tab you are in.
+ */
+
+/* Light-mode accents when data-pkg sits below <html data-mode> (tailwind.css only covers
+   both attributes on the same element). */
+[data-mode="light"] [data-pkg="agents"] {
+  --accent: #0284c7;
+  --accent-solid: #0369a1;
+  --accent-dim: rgba(2, 132, 199, 0.08);
+  --accent-border: rgba(2, 132, 199, 0.25);
+  --accent-text: #075985;
+}
+[data-mode="light"] [data-pkg="evals"] {
+  --accent: #059669;
+  --accent-solid: #047857;
+  --accent-dim: rgba(5, 150, 105, 0.08);
+  --accent-border: rgba(5, 150, 105, 0.25);
+  --accent-text: #065f46;
+}
+[data-mode="light"] [data-pkg="tracing"] {
+  --accent: #7c3aed;
+  --accent-solid: #6d28d9;
+  --accent-dim: rgba(124, 58, 237, 0.08);
+  --accent-border: rgba(124, 58, 237, 0.25);
+  --accent-text: #5b21b6;
+}
+
+/* In the components layer, so Tailwind utilities (hidden, lg:hidden, …) still win. */
+@layer components {
+  .docs-root {
+    --docs-header-h: 60px;
+    position: relative;
+    isolation: isolate;
+    width: 100%;
+    min-height: 100vh;
+  }
+
+  /* Soft accent glow behind the top of the page. Fixed and inert, so it never repaints on scroll. */
+  .docs-root::before {
+    content: "";
+    position: fixed;
+    inset: 0 0 auto;
+    height: 520px;
+    z-index: -1;
+    pointer-events: none;
+    background:
+      radial-gradient(ellipse 60% 70% at 22% -10%, var(--glow-1, transparent), transparent 70%),
+      radial-gradient(ellipse 50% 60% at 85% -20%, var(--glow-2, transparent), transparent 70%);
+    transition: background 0.3s;
+  }
+  [data-mode="light"] .docs-root::before {
+    opacity: 0.6;
+  }
+
+  /* ─── Header ─────────────────────────────────────────────────────────── */
+
+  .docs-header {
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    height: var(--docs-header-h);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .docs-header-inner {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 1rem;
+    height: 100%;
+    max-width: 88rem;
+    margin: 0 auto;
+    padding: 0 1rem;
+  }
+  @media (min-width: 1024px) {
+    .docs-header-inner {
+      grid-template-columns: 1fr auto 1fr;
+      padding: 0 2rem;
+    }
+  }
+
+  .docs-header-label {
+    border-left: 1px solid var(--border-md);
+    padding-left: 0.75rem;
+    font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-3);
+    transition: color 0.2s;
+  }
+  .docs-header-label:hover {
+    color: var(--text-1);
+  }
+
+  .docs-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    flex-shrink: 0;
+    border-radius: 7px;
+    color: var(--text-3);
+    transition:
+      color 0.15s,
+      background 0.15s,
+      border-color 0.15s;
+    cursor: pointer;
+  }
+  .docs-icon-btn:hover {
+    color: var(--text-1);
+    background: color-mix(in srgb, var(--text-1) 6%, transparent);
+  }
+  .docs-icon-btn-lg {
+    width: 34px;
+    height: 34px;
+    border: 1px solid var(--border-md);
+    border-radius: 8px;
+  }
+
+  .docs-search-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    width: 15rem;
+    height: 34px;
+    padding: 0 0.5rem 0 0.75rem;
+    border: 1px solid var(--border-md);
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--bg-raised) 60%, transparent);
+    color: var(--text-3);
+    font-size: 13px;
+    cursor: pointer;
+    transition:
+      border-color 0.15s,
+      color 0.15s;
+  }
+  .docs-search-btn:hover {
+    border-color: var(--accent-border);
+    color: var(--text-2);
+  }
+
+  .docs-kbd {
+    display: inline-flex;
+    align-items: center;
+    height: 20px;
+    padding: 0 6px;
+    border: 1px solid var(--border-md);
+    border-radius: 5px;
+    background: var(--bg);
+    font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+    font-size: 10.5px;
+    color: var(--text-3);
+    white-space: nowrap;
+  }
+
+  /* ─── Frame and sidebar ──────────────────────────────────────────────── */
+
+  .docs-frame {
+    max-width: 88rem;
+    margin: 0 auto;
+  }
+  @media (min-width: 1024px) {
+    .docs-frame {
+      display: grid;
+      grid-template-columns: 17rem minmax(0, 1fr);
+      padding-left: 2rem;
+    }
+  }
+
+  .docs-sidebar {
+    display: none;
+  }
+  @media (min-width: 1024px) {
+    .docs-sidebar {
+      display: block;
+      position: sticky;
+      top: var(--docs-header-h);
+      height: calc(100vh - var(--docs-header-h));
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      padding: 2rem 1.25rem 3rem 0;
+      border-right: 1px solid var(--border);
+      scrollbar-width: thin;
+    }
+  }
+
+  .docs-drawer {
+    position: fixed;
+    inset: var(--docs-header-h) 0 0;
+    z-index: 30;
+    overflow-y: auto;
+    padding: 1.25rem 1rem 3rem;
+    background: var(--bg);
+    border-top: 1px solid var(--border);
+  }
+
+  .docs-nav-group {
+    margin-bottom: 0.5rem;
+    padding-left: 0.75rem;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--text-1);
+  }
+
+  .docs-nav-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+
+  .docs-nav-link {
+    display: block;
+    padding: 0.35rem 0.75rem;
+    border-radius: 7px;
+    border: 1px solid transparent;
+    font-size: 13.5px;
+    line-height: 1.4;
+    color: var(--text-3);
+    transition:
+      color 0.15s,
+      background 0.15s;
+  }
+  .docs-nav-link:hover {
+    color: var(--text-1);
+    background: color-mix(in srgb, var(--bg-raised) 70%, transparent);
+  }
+  .docs-nav-link-active,
+  .docs-nav-link-active:hover {
+    color: var(--accent-text);
+    background: var(--accent-dim);
+    border-color: var(--accent-border);
+    font-weight: 500;
+  }
+
+  /* ─── Page grid ──────────────────────────────────────────────────────── */
+
+  .docs-page {
+    display: grid;
+    gap: 3rem;
+    padding: 2rem 1.25rem 4rem;
+  }
+  @media (min-width: 768px) {
+    .docs-page {
+      padding: 2.75rem 2.5rem 5rem;
+    }
+  }
+  @media (min-width: 1280px) {
+    .docs-page {
+      grid-template-columns: minmax(0, 1fr) 13.5rem;
+      padding-right: 2rem;
+    }
+  }
+
+  .docs-article {
+    min-width: 0;
+    width: 100%;
+    max-width: 46rem;
+    margin: 0 auto;
+  }
+
+  .docs-toc-col {
+    display: none;
+  }
+  @media (min-width: 1280px) {
+    .docs-toc-col {
+      display: block;
+    }
+  }
+  .docs-toc-sticky {
+    position: sticky;
+    top: calc(var(--docs-header-h) + 2.75rem);
+    max-height: calc(100vh - var(--docs-header-h) - 4rem);
+    overflow-y: auto;
+    scrollbar-width: none;
+  }
+
+  .docs-toc {
+    border-left: 1px solid var(--border-md);
+  }
+  .docs-toc-link {
+    display: block;
+    margin-left: -1px;
+    padding-top: 0.3rem;
+    padding-bottom: 0.3rem;
+    padding-right: 0.25rem;
+    border-left: 1px solid transparent;
+    line-height: 1.4;
+    color: var(--text-3);
+    transition:
+      color 0.15s,
+      border-color 0.15s;
+  }
+  .docs-toc-link:hover {
+    color: var(--text-1);
+  }
+  .docs-toc-link-active {
+    color: var(--accent-text);
+    border-left-color: var(--accent);
+  }
+
+  /* ─── Page header and footer ─────────────────────────────────────────── */
+
+  .docs-page-head {
+    margin-bottom: 2rem;
+  }
+
+  .docs-eyebrow {
+    font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--accent);
+    transition: color 0.3s;
+  }
+
+  .docs-title {
+    margin-top: 0.6rem;
+    font-family: var(--font-lexend), var(--font-inter), sans-serif;
+    font-size: clamp(1.9rem, 1.4rem + 1.6vw, 2.4rem);
+    line-height: 1.15;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: var(--text-1);
+    text-wrap: balance;
+  }
+
+  .docs-lead {
+    margin-top: 0.85rem;
+    max-width: 65ch;
+    font-size: 1.075rem;
+    line-height: 1.7;
+    color: var(--text-2);
+  }
+
+  .docs-page-foot {
+    margin-top: 4rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border);
+  }
+
+  .docs-foot-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    transition: color 0.15s;
+  }
+  .docs-foot-link:hover {
+    color: var(--text-1);
+  }
+
+  .docs-pager-row {
+    display: grid;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
+  }
+  @media (min-width: 640px) {
+    .docs-pager-row {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+
+  .docs-pager {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    padding: 0.9rem 1.1rem;
+    border: 1px solid var(--border-md);
+    border-radius: 12px;
+    transition:
+      border-color 0.15s,
+      background 0.15s;
+  }
+  .docs-pager:hover {
+    border-color: var(--accent-border);
+    background: var(--accent-dim);
+  }
+  .docs-pager-dir {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 12px;
+    color: var(--text-3);
+  }
+  .docs-pager-title {
+    font-size: 14.5px;
+    font-weight: 500;
+    color: var(--text-1);
+  }
+
+  /* ─── Page actions (split button + menu) ─────────────────────────────── */
+
+  .docs-split {
+    display: inline-flex;
+    height: 32px;
+    border: 1px solid var(--border-md);
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--bg-raised) 70%, transparent);
+    overflow: hidden;
+  }
+  .docs-split-main,
+  .docs-split-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--text-2);
+    cursor: pointer;
+    transition:
+      color 0.15s,
+      background 0.15s;
+  }
+  .docs-split-main {
+    padding: 0 0.75rem;
+  }
+  .docs-split-toggle {
+    padding: 0 0.5rem;
+    border-left: 1px solid var(--border-md);
+  }
+  .docs-split-main:hover,
+  .docs-split-toggle:hover,
+  .docs-split-toggle[aria-expanded="true"] {
+    color: var(--text-1);
+    background: color-mix(in srgb, var(--text-1) 6%, transparent);
+  }
+
+  .docs-menu {
+    --glass-fill: color-mix(in srgb, var(--bg-raised) 88%, transparent);
+    --glass-shadow: 0 18px 48px -12px rgb(0 0 0 / 0.45);
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    z-index: 45;
+    width: 19.5rem;
+    padding: 0.35rem;
+    border: 1px solid var(--border-md);
+    border-radius: 12px;
+  }
+  [data-mode="light"] .docs-menu {
+    --glass-fill: rgb(255 255 255 / 0.9);
+    --glass-shadow: 0 18px 48px -14px rgb(30 30 60 / 0.22);
+  }
+  .docs-menu-section {
+    margin-top: 0.35rem;
+    padding-top: 0.35rem;
+    border-top: 1px solid var(--border);
+  }
+  .docs-menu-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.7rem;
+    width: 100%;
+    padding: 0.5rem 0.55rem;
+    border-radius: 8px;
+    text-align: left;
+    cursor: pointer;
+    outline: none;
+  }
+  .docs-menu-item:hover,
+  .docs-menu-item:focus-visible {
+    background: color-mix(in srgb, var(--text-1) 7%, transparent);
+  }
+  .docs-menu-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    border: 1px solid var(--border-md);
+    border-radius: 7px;
+    color: var(--text-2);
+  }
+  .docs-menu-label {
+    display: block;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-1);
+  }
+  .docs-menu-hint {
+    display: block;
+    margin-top: 1px;
+    font-size: 11.5px;
+    color: var(--text-3);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* ─── Search dialog ──────────────────────────────────────────────────── */
+
+  .docs-search-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 12vh 1rem 1rem;
+    background: rgb(0 0 0 / 0.45);
+  }
+  [data-mode="light"] .docs-search-overlay {
+    background: rgb(20 20 40 / 0.2);
+  }
+
+  .docs-search {
+    --glass-fill: color-mix(in srgb, var(--bg-raised) 90%, transparent);
+    --glass-shadow: 0 30px 80px -20px rgb(0 0 0 / 0.6);
+    width: 100%;
+    max-width: 40rem;
+    border: 1px solid var(--border-md);
+    border-radius: 14px;
+    overflow: hidden;
+  }
+  [data-mode="light"] .docs-search {
+    --glass-fill: rgb(255 255 255 / 0.94);
+    --glass-shadow: 0 30px 80px -24px rgb(30 30 60 / 0.3);
+  }
+
+  .docs-search-input {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    padding: 0 1rem;
+    height: 52px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-3);
+  }
+  .docs-search-input input {
+    flex: 1;
+    min-width: 0;
+    background: transparent;
+    outline: none;
+    font-size: 15px;
+    color: var(--text-1);
+  }
+  .docs-search-input input::placeholder {
+    color: var(--text-3);
+  }
+
+  .docs-search-results {
+    max-height: min(60vh, 30rem);
+    overflow-y: auto;
+    padding: 0.4rem;
+  }
+
+  .docs-hit {
+    display: flex;
+    gap: 0.75rem;
+    padding: 0.6rem 0.7rem;
+    border-radius: 9px;
+    cursor: pointer;
+  }
+  .docs-hit-active {
+    background: var(--accent-dim);
+  }
+  .docs-hit-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 26px;
+    height: 26px;
+    margin-top: 1px;
+    border: 1px solid var(--border-md);
+    border-radius: 7px;
+    color: var(--text-3);
+  }
+  .docs-hit-active .docs-hit-icon {
+    border-color: var(--accent-border);
+    color: var(--accent);
+  }
+  .docs-hit-title {
+    display: block;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-1);
+  }
+  .docs-hit-path {
+    display: block;
+    font-size: 11.5px;
+    color: var(--text-3);
+  }
+  .docs-hit-text {
+    display: -webkit-box;
+    margin-top: 0.25rem;
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: var(--text-2);
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* ─── Prose ──────────────────────────────────────────────────────────── */
+
+  .docs-prose {
+    font-size: 15.5px;
+    line-height: 1.75;
+    color: var(--text-2);
+  }
+
+  .docs-prose > * + * {
+    margin-top: 1.15em;
+  }
+
+  .docs-prose strong {
+    font-weight: 600;
+    color: var(--text-1);
+  }
+
+  .docs-prose a:not(:where(.not-prose, .not-prose *)) {
+    color: var(--accent-text);
+    text-decoration: underline;
+    text-decoration-color: var(--accent-border);
+    text-underline-offset: 3px;
+    transition: text-decoration-color 0.15s;
+  }
+  .docs-prose a:not(:where(.not-prose, .not-prose *)):hover {
+    text-decoration-color: var(--accent);
+  }
+
+  .docs-heading {
+    position: relative;
+    scroll-margin-top: calc(var(--docs-header-h) + 1.5rem);
+    font-family: var(--font-lexend), var(--font-inter), sans-serif;
+    color: var(--text-1);
+    letter-spacing: -0.015em;
+  }
+  h2.docs-heading {
+    margin-top: 2.2em;
+    font-size: 1.45rem;
+    line-height: 1.3;
+    font-weight: 600;
+  }
+  h3.docs-heading {
+    margin-top: 2em;
+    font-size: 1.15rem;
+    line-height: 1.4;
+    font-weight: 600;
+  }
+  h4.docs-heading {
+    margin-top: 1.6em;
+    font-size: 1rem;
+    font-weight: 600;
+  }
+  .docs-prose h5,
+  .docs-prose h6 {
+    margin-top: 1.4em;
+    font-weight: 600;
+    color: var(--text-1);
+  }
+  .docs-heading + * {
+    margin-top: 0.7em;
+  }
+  .docs-prose > .docs-heading:first-child {
+    margin-top: 0;
+  }
+
+  .docs-heading-anchor {
+    display: inline-flex;
+    margin-left: 0.4rem;
+    vertical-align: middle;
+    opacity: 0;
+    color: var(--text-3) !important;
+    text-decoration: none !important;
+    transition: opacity 0.15s;
+  }
+  .docs-heading:hover .docs-heading-anchor,
+  .docs-heading-anchor:focus-visible {
+    opacity: 1;
+  }
+
+  .docs-prose ul,
+  .docs-prose ol {
+    padding-left: 1.35rem;
+  }
+  .docs-prose ul {
+    list-style: disc;
+  }
+  .docs-prose ol {
+    list-style: decimal;
+  }
+  .docs-prose li {
+    margin-top: 0.4em;
+    padding-left: 0.2rem;
+  }
+  .docs-prose li::marker {
+    color: var(--text-4);
+  }
+  .docs-prose li > ul,
+  .docs-prose li > ol {
+    margin-top: 0.4em;
+  }
+
+  .docs-prose hr {
+    margin: 2.5em 0;
+    border-color: var(--border-md);
+  }
+
+  /* Inline code; fenced code is rendered by CodeFrame. */
+  .docs-prose :not(pre) > code {
+    padding: 0.1em 0.35em;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    background: color-mix(in srgb, var(--bg-raised) 80%, transparent);
+    font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+    font-size: 0.84em;
+    color: var(--text-1);
+    overflow-wrap: break-word;
+  }
+  .docs-prose a > code {
+    color: inherit;
+  }
+
+  /* Plain blockquotes read as notes. */
+  .docs-prose blockquote {
+    padding: 0.85rem 1rem;
+    border: 1px solid var(--accent-border);
+    border-left-width: 3px;
+    border-radius: 10px;
+    background: var(--accent-dim);
+    color: var(--text-1);
+  }
+  .docs-prose blockquote > * + * {
+    margin-top: 0.6em;
+  }
+
+  .docs-img {
+    display: block;
+    width: 100%;
+    height: auto;
+    border: 1px solid var(--border-md);
+    border-radius: 14px;
+  }
+
+  .docs-table {
+    overflow-x: auto;
+    border: 1px solid var(--border-md);
+    border-radius: 10px;
+  }
+  .docs-table table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+    line-height: 1.55;
+  }
+  .docs-table th {
+    padding: 0.6rem 0.85rem;
+    border-bottom: 1px solid var(--border-md);
+    background: color-mix(in srgb, var(--bg-raised) 70%, transparent);
+    text-align: left;
+    font-weight: 600;
+    color: var(--text-1);
+    white-space: nowrap;
+  }
+  .docs-table td {
+    padding: 0.6rem 0.85rem;
+    border-top: 1px solid var(--border);
+    vertical-align: top;
+  }
+  .docs-table tr:first-child td {
+    border-top: 0;
+  }
+
+  /* ─── Code ───────────────────────────────────────────────────────────── */
+
+  .docs-code {
+    border: 1px solid var(--border-md);
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--bg-raised) 55%, var(--bg));
+    overflow: hidden;
+  }
+  [data-mode="light"] .docs-code {
+    background: #fbfbfd;
+  }
+
+  .docs-code-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    height: 38px;
+    padding: 0 0.4rem 0 0.9rem;
+    border-bottom: 1px solid var(--border);
+    font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+    font-size: 12px;
+    color: var(--text-3);
+  }
+
+  .docs-code-tab {
+    height: 26px;
+    padding: 0 0.6rem;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+    font-size: 12px;
+    color: var(--text-3);
+    cursor: pointer;
+    transition:
+      color 0.15s,
+      background 0.15s;
+  }
+  .docs-code-tab:hover {
+    color: var(--text-1);
+  }
+  .docs-code-tab-active,
+  .docs-code-tab-active:hover {
+    border-color: var(--accent-border);
+    background: var(--accent-dim);
+    color: var(--accent-text);
+  }
+
+  .docs-code-body pre {
+    margin: 0;
+    padding: 0.95rem 1.1rem;
+    overflow-x: auto;
+    font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+    font-size: 13px;
+    line-height: 1.7;
+    tab-size: 2;
+    background: transparent !important;
+  }
+  .docs-code-body pre:focus-visible {
+    outline: 2px solid var(--accent-border);
+    outline-offset: -2px;
+  }
+  .docs-code-body .shiki,
+  .docs-code-body .shiki span {
+    color: var(--shiki-dark);
+    font-style: var(--shiki-dark-font-style);
+  }
+  [data-mode="light"] .docs-code-body .shiki,
+  [data-mode="light"] .docs-code-body .shiki span {
+    color: var(--shiki-light);
+    font-style: var(--shiki-light-font-style);
+  }
+
+  /* Highlighted lines (`<Snippet highlight="2,4-6" />`): full-width band with an accent edge. */
+  .docs-code-body .line.highlighted {
+    display: inline-block;
+    min-width: calc(100% + 2.2rem);
+    margin: 0 -1.1rem;
+    padding: 0 1.1rem;
+    background: color-mix(in srgb, var(--accent) 10%, transparent);
+    box-shadow: inset 2px 0 0 var(--accent);
+  }
+  [data-mode="light"] .docs-code-body .line.highlighted {
+    background: color-mix(in srgb, var(--accent) 8%, transparent);
+  }
+
+  /* ─── Twoslash (hover types in snippets) ─────────────────────────────── */
+
+  .docs-code-body .twoslash-hover {
+    position: relative;
+    border-radius: 2px;
+    text-decoration: underline dotted transparent;
+    text-underline-offset: 3px;
+    transition: text-decoration-color 0.15s;
+    cursor: help;
+  }
+  .docs-code-body .twoslash:hover .twoslash-hover {
+    text-decoration-color: color-mix(in srgb, var(--text-3) 70%, transparent);
+  }
+  .docs-code-body .twoslash-hover:focus-visible {
+    outline: 1px solid var(--accent-border);
+    outline-offset: 1px;
+    text-decoration-color: transparent;
+  }
+
+  /* Popup. `.shiki span` sets token colors, so these selectors carry `span` to win. */
+  .docs-code-body .shiki span.twoslash-popup-container {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    margin-top: 6px;
+    z-index: 30;
+    display: flex;
+    flex-direction: column;
+    width: max-content;
+    max-width: min(36rem, calc(100vw - 2rem));
+    max-height: min(22rem, 60vh);
+    overflow: auto;
+    border: 1px solid var(--border-md);
+    border-radius: 8px;
+    background: var(--bg-raised);
+    box-shadow:
+      0 10px 30px -10px rgb(0 0 0 / 0.5),
+      0 2px 6px rgb(0 0 0 / 0.25);
+    color: var(--text-2);
+    font-style: normal;
+    text-align: left;
+    white-space: normal;
+    cursor: auto;
+    visibility: hidden;
+    opacity: 0;
+    transition:
+      opacity 0.12s,
+      visibility 0.12s;
+  }
+  [data-mode="light"] .docs-code-body .shiki span.twoslash-popup-container {
+    background: #fff;
+    box-shadow:
+      0 10px 30px -12px rgb(15 15 30 / 0.22),
+      0 2px 6px rgb(15 15 30 / 0.08);
+  }
+  /* Invisible bridge over the gap, so the pointer can move into the popup. */
+  .docs-code-body .shiki span.twoslash-popup-container::before {
+    content: "";
+    position: absolute;
+    inset: -8px 0 auto;
+    height: 8px;
+  }
+  .docs-code-body .twoslash-hover:hover > .twoslash-popup-container,
+  .docs-code-body .twoslash-hover:focus-visible > .twoslash-popup-container {
+    visibility: visible;
+    opacity: 1;
+  }
+  /* Escape the code block's overflow: a fixed popup anchored to the active token. Without
+     anchor positioning the popup stays absolute (and may be cut off at the block's edge). */
+  @supports (anchor-name: --twoslash-token) {
+    .docs-code-body .twoslash-hover:is(:hover, :focus-visible) {
+      anchor-name: --twoslash-token;
+    }
+    .docs-code-body .shiki span.twoslash-popup-container {
+      position: fixed;
+      position-anchor: --twoslash-token;
+      top: anchor(bottom);
+      left: anchor(left);
+      margin-top: 6px;
+      position-try-fallbacks:
+        flip-block,
+        flip-inline,
+        flip-block flip-inline;
+    }
+  }
+  .docs-code-body .twoslash-popup-arrow {
+    display: none;
+  }
+  .docs-code-body .twoslash-popup-code {
+    display: block;
+    padding: 0.5rem 0.75rem;
+    font-size: 12px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+  }
+  /* Multi-line types come as a nested Shiki block: drop the code block's own spacing. */
+  .docs-code-body .twoslash-popup-code pre {
+    display: block;
+    padding: 0;
+    overflow: visible;
+    font-size: inherit;
+    line-height: inherit;
+    white-space: pre-wrap;
+  }
+  .docs-code-body .twoslash-popup-docs,
+  .docs-code-body .twoslash-popup-docs-tags {
+    display: block;
+    padding: 0.5rem 0.75rem;
+    border-top: 1px solid var(--border);
+    color: var(--text-3);
+    font-family: var(--font-sans, ui-sans-serif, system-ui, sans-serif);
+    font-size: 12.5px;
+    line-height: 1.55;
+    white-space: pre-wrap;
+  }
+  .docs-code-body .twoslash-popup-docs-tag {
+    display: block;
+  }
+  .docs-code-body .twoslash-popup-docs-tag-name {
+    margin-right: 0.4em;
+    color: var(--text-2);
+    font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  }
+
+  /* `// ^?` results: an in-flow line under the queried code. */
+  .docs-code-body .twoslash-query-line {
+    display: block;
+    margin: 0.15rem 0 0.35rem;
+  }
+  .docs-code-body .shiki .twoslash-query-line span.twoslash-popup-container {
+    position: relative;
+    inset: auto;
+    display: inline-flex;
+    max-height: none;
+    border-color: var(--accent-border);
+    background: var(--accent-dim);
+    box-shadow: none;
+    visibility: visible;
+    opacity: 1;
+    vertical-align: top;
+  }
+  .docs-code-body .twoslash-query-line .twoslash-popup-container::before {
+    display: none;
+  }
+  .docs-code-body .twoslash-query-line .twoslash-popup-code {
+    padding: 0.15rem 0.55rem;
+  }
+
+  /* Error lines (only with `// @errors`; plain type errors fail the render). */
+  .docs-code-body .twoslash-error-line {
+    display: block;
+    margin: 0.2rem 0;
+    padding: 0.35rem 0.75rem;
+    border-left: 2px solid var(--red);
+    background: color-mix(in srgb, var(--red) 10%, transparent);
+    color: var(--red);
+    white-space: pre-wrap;
+  }
+  .docs-code-body .twoslash-error {
+    text-decoration: underline wavy var(--red);
+    text-underline-offset: 3px;
+  }
+
+  /* ─── Callouts ───────────────────────────────────────────────────────── */
+
+  .docs-callout {
+    --callout: var(--accent);
+    display: flex;
+    gap: 0.75rem;
+    padding: 0.85rem 1rem;
+    border: 1px solid color-mix(in srgb, var(--callout) 30%, transparent);
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--callout) 8%, transparent);
+    color: var(--text-1);
+  }
+  .docs-callout-tip,
+  .docs-callout-check {
+    --callout: var(--green);
+  }
+  .docs-callout-warning {
+    --callout: var(--amber);
+  }
+  .docs-callout-icon {
+    flex-shrink: 0;
+    width: 18px;
+    height: 18px;
+    margin-top: 0.3rem;
+    color: var(--callout);
+  }
+  .docs-callout-body {
+    min-width: 0;
+  }
+  .docs-callout-body > * + * {
+    margin-top: 0.6em;
+  }
+  .docs-callout-title {
+    font-weight: 600;
+  }
+
+  /* ─── Cards ──────────────────────────────────────────────────────────── */
+
+  .docs-columns {
+    display: grid;
+    gap: 0.75rem;
+  }
+  @media (min-width: 640px) {
+    .docs-columns {
+      grid-template-columns: repeat(var(--cols, 2), minmax(0, 1fr));
+    }
+  }
+
+  .docs-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    padding: 1rem 1.1rem;
+    border: 1px solid var(--border-md);
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--bg-raised) 45%, transparent);
+    transition:
+      border-color 0.15s,
+      background 0.15s;
+  }
+  a.docs-card:hover {
+    border-color: var(--accent-border);
+    background: var(--accent-dim);
+  }
+  .docs-card-head {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+  }
+  .docs-card-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border: 1px solid var(--accent-border);
+    border-radius: 8px;
+    background: var(--accent-dim);
+    color: var(--accent);
+  }
+  .docs-card-title {
+    flex: 1;
+    font-family: var(--font-lexend), var(--font-inter), sans-serif;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-1);
+  }
+  .docs-card-arrow {
+    color: var(--text-4);
+    transition:
+      transform 0.15s,
+      color 0.15s;
+  }
+  a.docs-card:hover .docs-card-arrow {
+    color: var(--accent);
+    transform: translateX(2px);
+  }
+  .docs-card-body {
+    font-size: 13.5px;
+    line-height: 1.55;
+    color: var(--text-2);
+  }
+
+  /* ─── Run visuals: <NetworkDiagram>, <RunPlayer>, <RunWalkthrough> ─────── */
+
+  .docs-run-canvas {
+    border: 1px solid var(--border-md);
+    border-radius: 14px;
+  }
+
+  /* Arrowheads on the diagram's wires (inside the docs-visual-gen frame, so its tokens apply). */
+  .docs-run-arrows {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    pointer-events: none;
+  }
+  .docs-run-arrows path {
+    fill: var(--dv-ink-3);
+    opacity: 0.6;
+  }
+
+  .docs-run {
+    container-type: inline-size;
+    border: 1px solid var(--border-md);
+    border-radius: 14px;
+    background: color-mix(in srgb, var(--bg-raised) 55%, var(--bg));
+    overflow: hidden;
+  }
+  [data-mode="light"] .docs-run {
+    background: #fbfbfd;
+  }
+  .docs-run-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .docs-run-main {
+    min-width: 0;
+  }
+  .docs-run .docs-run-canvas {
+    border: 0;
+    border-bottom: 1px solid var(--border);
+    border-radius: 0;
+  }
+
+  .docs-run-bar {
+    min-width: 0;
+    margin: 0;
+    border: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    padding: 0.55rem 0.75rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .docs-run-buttons {
+    display: flex;
+    gap: 0.3rem;
+  }
+  .docs-run-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border: 1px solid var(--border-md);
+    border-radius: 8px;
+    color: var(--text-2);
+    cursor: pointer;
+    transition:
+      color 0.15s,
+      background 0.15s,
+      border-color 0.15s;
+  }
+  .docs-run-btn svg {
+    width: 14px;
+    height: 14px;
+  }
+  .docs-run-btn:hover:not([aria-disabled="true"]) {
+    color: var(--text-1);
+    background: color-mix(in srgb, var(--bg-raised) 80%, transparent);
+  }
+  .docs-run-btn[aria-disabled="true"] {
+    opacity: 0.4;
+    cursor: default;
+  }
+  .docs-run-btn:focus-visible,
+  .docs-run-dot:focus-visible {
+    outline: 2px solid var(--accent-border);
+    outline-offset: 1px;
+  }
+
+  /* Step scrubber: one segment per event. */
+  .docs-run-steps {
+    display: flex;
+    flex: 1;
+    gap: 5px;
+    min-width: 0;
+  }
+  .docs-run-dot {
+    position: relative;
+    flex: 1;
+    height: 24px;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  .docs-run-dot::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    height: 4px;
+    margin-top: -2px;
+    border-radius: 2px;
+    background: var(--border-md);
+    transition: background 0.2s;
+  }
+  .docs-run-dot:hover::before {
+    background: color-mix(in srgb, var(--accent) 40%, var(--border-md));
+  }
+  .docs-run-dot[data-state="past"]::before {
+    background: color-mix(in srgb, var(--accent) 45%, transparent);
+  }
+  .docs-run-dot[data-state="current"]::before {
+    background: var(--accent);
+  }
+  .docs-run-count {
+    font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-3);
+    white-space: nowrap;
+  }
+
+  /* Every caption sits in the same cell, so the player keeps the height of the longest one. */
+  .docs-run-captions {
+    display: grid;
+    padding: 0.8rem 1rem 0.35rem;
+    font-size: 14.5px;
+    line-height: 1.65;
+    color: var(--text-1);
+  }
+  .docs-run-captions > p {
+    grid-area: 1 / 1;
+  }
+  .docs-run-captions > p:not([data-current]) {
+    visibility: hidden;
+  }
+  .docs-run-caption-num {
+    font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+    font-size: 12.5px;
+    color: var(--text-3);
+  }
+
+  .docs-run-payload {
+    padding: 0.2rem 1rem 0.85rem;
+  }
+  .docs-run-payload > summary {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.15rem 0;
+    font-size: 12.5px;
+    color: var(--text-3);
+    cursor: pointer;
+    list-style: none;
+    user-select: none;
+  }
+  .docs-run-payload > summary::-webkit-details-marker {
+    display: none;
+  }
+  .docs-run-payload > summary::before {
+    content: "";
+    width: 0;
+    height: 0;
+    border-left: 4.5px solid currentColor;
+    border-top: 3.5px solid transparent;
+    border-bottom: 3.5px solid transparent;
+    transition: transform 0.15s;
+  }
+  .docs-run-payload[open] > summary::before {
+    transform: rotate(90deg);
+  }
+  .docs-run-payload > summary:hover {
+    color: var(--text-1);
+  }
+  .docs-run-payload > summary:focus-visible {
+    outline: 2px solid var(--accent-border);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+  .docs-run-payload > .docs-code-body {
+    margin-top: 0.45rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--bg) 50%, transparent);
+  }
+  .docs-run-payload > .docs-code-body pre {
+    padding: 0.6rem 0.85rem;
+    font-size: 12.5px;
+    line-height: 1.6;
+  }
+
+  .docs-run-code {
+    min-width: 0;
+    border-top: 1px solid var(--border);
+  }
+  .docs-run-code .docs-code-head {
+    height: 34px;
+    padding-right: 0.9rem;
+  }
+  .docs-run-line {
+    flex-shrink: 0;
+    font-size: 11.5px;
+    color: var(--text-4);
+  }
+  .docs-run-code .docs-code-body pre {
+    position: relative;
+    max-height: 19rem;
+    overflow: auto;
+    font-size: 12.5px;
+    line-height: 1.65;
+    scrollbar-width: thin;
+  }
+  .docs-run-code .docs-code-body .line {
+    transition: background 0.2s;
+  }
+
+  /* Wide: code beside the stage, as tall as the player. */
+  @container (min-width: 60rem) {
+    .docs-run-has-code .docs-run-grid {
+      grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+    }
+    .docs-run-code {
+      display: flex;
+      flex-direction: column;
+      border-top: 0;
+      border-left: 1px solid var(--border);
+    }
+    .docs-run-code .docs-code-body {
+      position: relative;
+      flex: 1;
+      min-height: 0;
+    }
+    .docs-run-code .docs-code-body pre {
+      position: absolute;
+      inset: 0;
+      max-height: none;
+    }
+  }
+
+  /* ─── Changelog entries ──────────────────────────────────────────────── */
+
+  .docs-update {
+    display: grid;
+    gap: 0.75rem 2rem;
+    padding-top: 2rem;
+    border-top: 1px solid var(--border);
+  }
+  .docs-update + .docs-update {
+    margin-top: 2.5rem;
+  }
+  @media (min-width: 768px) {
+    .docs-update {
+      grid-template-columns: 9.5rem minmax(0, 1fr);
+    }
+    .docs-update-meta {
+      position: sticky;
+      top: calc(var(--docs-header-h) + 1.5rem);
+      align-self: start;
+    }
+  }
+  .docs-update-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    scroll-margin-top: calc(var(--docs-header-h) + 1.5rem);
+  }
+  .docs-update-label {
+    scroll-margin-top: calc(var(--docs-header-h) + 1.5rem);
+    font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-1);
+  }
+  .docs-update-tag {
+    display: inline-flex;
+    padding: 0.05rem 0.5rem;
+    border: 1px solid var(--accent-border);
+    border-radius: 999px;
+    background: var(--accent-dim);
+    font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+    font-size: 11px;
+    color: var(--accent-text);
+  }
+  .docs-update-body {
+    min-width: 0;
+  }
+  .docs-update-body > * + * {
+    margin-top: 1.1em;
+  }
+  .docs-update-body > h3.docs-heading:first-of-type,
+  .docs-update-desc + h3.docs-heading {
+    margin-top: 1.2em;
+  }
+  .docs-update-desc {
+    font-size: 13.5px;
+    color: var(--text-3);
+  }
+
+  /* ─── Graphic frame: thin glass bezel + full screen (GraphicFrame) ─────── */
+  /* Web frosted glass (backdrop-filter, translucent fill, lit top edge), the same material as
+     the sticky nav. The content's radius is concentric with the frame: R_in = R_out - pad - 1px. */
+
+  .docs-graphic {
+    --gf-pad: 6px;
+    --gf-radius: 18px;
+    --glass-blur: 14px;
+    --gf-tint: color-mix(in srgb, var(--bg-raised) 70%, transparent);
+    --gf-edge: rgb(255 255 255 / 0.13);
+    --gf-sheen: rgb(255 255 255 / 0.07);
+    position: relative;
+    padding: var(--gf-pad);
+    border: 1px solid var(--gf-edge);
+    border-radius: var(--gf-radius);
+    background: linear-gradient(180deg, var(--gf-sheen), rgb(255 255 255 / 0) 45%), var(--gf-tint);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+    backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+    box-shadow:
+      inset 0 1px 0 var(--glass-highlight),
+      0 1px 2px rgb(0 0 0 / 0.25),
+      0 18px 40px -24px rgb(0 0 0 / 0.6);
+  }
+  [data-mode="light"] .docs-graphic {
+    --gf-tint: rgb(255 255 255 / 0.55);
+    --gf-edge: rgb(15 15 19 / 0.09);
+    --gf-sheen: rgb(255 255 255 / 0.6);
+    box-shadow:
+      inset 0 1px 0 var(--glass-highlight),
+      0 1px 2px rgb(40 40 80 / 0.06),
+      0 18px 40px -24px rgb(40 40 80 / 0.28);
+  }
+  .docs-graphic + .docs-graphic,
+  .docs-prose > .docs-graphic {
+    margin-top: 1.5em;
+  }
+
+  .docs-graphic-inner {
+    position: relative;
+    border-radius: calc(var(--gf-radius) - var(--gf-pad) - 1px);
+    overflow: hidden;
+  }
+  /* The frame owns the edge now: inner graphics drop their own borders and corners. */
+  .docs-graphic-inner .docs-img,
+  .docs-graphic-inner .docs-run,
+  .docs-graphic-inner > .docs-run-figure .docs-run-canvas {
+    border: 0;
+    border-radius: 0;
+  }
+  .docs-graphic-inner .docs-img {
+    display: block;
+  }
+
+  .docs-graphic-expand {
+    position: absolute;
+    top: calc(var(--gf-pad) + 10px);
+    right: calc(var(--gf-pad) + 10px);
+    z-index: 2;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border: 1px solid var(--glass-edge);
+    border-radius: 9px;
+    color: var(--text-2);
+    background: color-mix(in srgb, var(--bg-raised) 72%, transparent);
+    -webkit-backdrop-filter: blur(10px) saturate(150%);
+    backdrop-filter: blur(10px) saturate(150%);
+    box-shadow:
+      inset 0 1px 0 var(--glass-highlight),
+      0 6px 16px -8px rgb(0 0 0 / 0.5);
+    cursor: pointer;
+    opacity: 0;
+    transform: translateY(-2px);
+    transition:
+      opacity 0.18s cubic-bezier(0.16, 1, 0.3, 1),
+      transform 0.18s cubic-bezier(0.16, 1, 0.3, 1),
+      color 0.15s,
+      border-color 0.15s;
+  }
+  [data-mode="light"] .docs-graphic-expand {
+    background: rgb(255 255 255 / 0.8);
+    box-shadow:
+      inset 0 1px 0 var(--glass-highlight),
+      0 6px 16px -8px rgb(40 40 80 / 0.3);
+  }
+  .docs-graphic:hover > .docs-graphic-expand,
+  .docs-graphic:focus-within > .docs-graphic-expand,
+  .docs-graphic[data-expanded] > .docs-graphic-expand {
+    opacity: 1;
+    transform: none;
+  }
+  .docs-graphic-expand:hover {
+    color: var(--text-1);
+    border-color: var(--accent-border);
+  }
+  .docs-graphic-expand:active {
+    transform: scale(0.96);
+  }
+  .docs-graphic-expand:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  /* No hover on touch screens: keep the control visible. */
+  @media (hover: none) {
+    .docs-graphic-expand {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  /* Expanded: the same element fills the screen (Fullscreen API), or the viewport as a fixed
+     overlay where elements can't go full screen. The graphic fits both width and height. */
+  .docs-graphic[data-expanded] {
+    --gf-space: clamp(16px, 3vw, 40px);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: var(--gf-space);
+    border: 0;
+    border-radius: 0;
+    background: var(--bg);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    box-shadow: none;
+    overflow: auto;
+  }
+  .docs-graphic[data-expanded="overlay"] {
+    position: fixed;
+    inset: 0;
+    z-index: 55;
+    margin: 0;
+  }
+  .docs-graphic::backdrop {
+    background: #09090b;
+  }
+  [data-mode="light"] .docs-graphic::backdrop {
+    background: #f8f8fb;
+  }
+  .docs-graphic[data-expanded] > .docs-graphic-expand {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+  }
+  .docs-graphic[data-expanded] .docs-graphic-inner {
+    width: min(100%, 110rem);
+    max-height: 100%;
+    overflow: auto;
+    border: 1px solid var(--border-md);
+    border-radius: 14px;
+  }
+  /* Diagrams: as wide as the screen allows without overflowing its height. */
+  .docs-graphic[data-expanded] .docs-graphic-inner:has(> .docs-run-figure) {
+    width: min(100%, calc((100dvh - 2 * var(--gf-space)) * var(--graphic-aspect, 1.6)));
+  }
+  .docs-graphic[data-expanded] .docs-graphic-inner:has(> .docs-img) {
+    width: auto;
+    border: 0;
+  }
+  .docs-graphic[data-expanded] .docs-img {
+    width: auto;
+    max-width: 100%;
+    max-height: calc(100dvh - 2 * var(--gf-space));
+    margin: 0 auto;
+    border-radius: 14px;
+  }
+
+  @media (prefers-reduced-transparency: reduce) {
+    .docs-graphic,
+    .docs-graphic-expand {
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+      background: var(--bg-raised);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .docs-root *,
+    .docs-root::before {
+      transition: none !important;
+    }
+  }
+}

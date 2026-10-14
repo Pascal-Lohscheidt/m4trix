@@ -5,15 +5,15 @@ export const DEFAULT_PACKAGE: PackageId = 'tracing';
 export const PKG_NAV_META: Record<PackageId, { docsLabel: string; docsHref: string }> = {
   tracing: {
     docsLabel: 'Docs',
-    docsHref: 'https://docs.m4trix.dev/tracing',
+    docsHref: '/docs/tracing/overview',
   },
   evals: {
     docsLabel: 'Docs',
-    docsHref: 'https://docs.m4trix.dev/evals',
+    docsHref: '/docs/evals/overview',
   },
   agents: {
     docsLabel: 'Docs',
-    docsHref: 'https://docs.m4trix.dev',
+    docsHref: '/docs',
   },
 };
 
