@@ -1,0 +1,98 @@
+/* ── Retry timeline: a tool call's attempts and backoff waits ─────────── */
+
+.dv-retry-box {
+  border-radius: 26px;
+  background: var(--dv-network-fill);
+  border: 1px solid var(--dv-network-border);
+  box-shadow: var(--dv-network-shadow);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.dv-retry-attempt {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 16px 0 14px;
+  border-radius: 20px;
+  background: var(--dv-neu-surface);
+  box-shadow: var(--dv-neu-raised-sm);
+}
+.dv-retry-attempt[data-outcome="error"] {
+  background: var(--dv-neu-pressed);
+  box-shadow: var(--dv-neu-inset);
+}
+.dv-retry-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--dv-neu-well);
+  box-shadow: var(--dv-neu-inset);
+}
+.dv-retry-attempt[data-outcome="error"] .dv-retry-icon {
+  color: var(--dv-rose-ink);
+}
+.dv-retry-attempt[data-outcome="ok"] .dv-retry-icon {
+  color: var(--dv-mint-ink);
+}
+.dv-retry-text {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.dv-retry-title {
+  font-size: 14px;
+  font-weight: 650;
+  color: var(--dv-ink);
+}
+.dv-retry-detail {
+  font-size: 12px;
+  color: var(--dv-ink-3);
+  white-space: nowrap;
+}
+.dv-retry-attempt[data-outcome="error"] .dv-retry-title {
+  color: var(--dv-ink-2);
+}
+
+.dv-retry-wait {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 11px 0 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--dv-ink-2);
+  background: var(--dv-tag-fill);
+  border: 1px solid var(--dv-tag-border);
+  box-shadow: var(--dv-tag-shadow);
+}
+.dv-retry-wait-n {
+  position: absolute;
+  left: 50%;
+  top: 48px;
+  transform: translateX(-50%);
+  font-size: 11px;
+  color: var(--dv-ink-3);
+  white-space: nowrap;
+}
+
+.dv-retry-note {
+  position: absolute;
+  font-size: 12px;
+  color: var(--dv-ink-3);
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .dv-retry-box {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: var(--dv-glass-solid);
+  }
+}

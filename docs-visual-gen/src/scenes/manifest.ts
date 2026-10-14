@@ -15,6 +15,14 @@ export interface SceneMeta {
   output: SceneOutput;
 }
 
+/** Frame palette a scene is rendered in (`?theme=` in the app, `--theme` in the renderer). */
+export type SceneTheme = 'light' | 'dark';
+
+export interface SceneProps {
+  meta: SceneMeta;
+  theme?: SceneTheme;
+}
+
 export const sceneManifest: SceneMeta[] = [
   {
     id: 'network-anatomy',
@@ -39,6 +47,22 @@ export const sceneManifest: SceneMeta[] = [
     width: 1360,
     height: 560,
     output: { kind: 'gif', fps: 25, durationMs: 5600, posterAtMs: 3420 },
+  },
+  {
+    id: 'retry-timeline',
+    title: 'Tool retries',
+    doc: 'guides/patterns.md',
+    width: 1436,
+    height: 354,
+    output: { kind: 'png', scale: 2 },
+  },
+  {
+    id: 'logo-sheet',
+    title: 'Logo concepts',
+    doc: 'brand',
+    width: 1500,
+    height: 1220,
+    output: { kind: 'png', scale: 1 },
   },
 ];
 

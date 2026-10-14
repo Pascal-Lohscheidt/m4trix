@@ -1,15 +1,15 @@
 /* ── Connectors ────────────────────────────────────────────────────────── */
 
-.wires {
+.dv-wires {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
   overflow: visible;
 }
-.wire {
+.dv-wire {
   fill: none;
-  stroke: rgba(98, 108, 132, 0.42);
+  stroke: var(--dv-wire);
   stroke-width: 1.5;
   stroke-dasharray: 3 6;
   stroke-linecap: round;

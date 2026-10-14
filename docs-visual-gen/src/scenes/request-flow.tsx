@@ -17,7 +17,7 @@ import {
   Wires,
 } from '../lib';
 import { useSceneTimeline } from '../runtime/timeline';
-import type { SceneMeta } from './manifest';
+import type { SceneProps } from './manifest';
 
 /**
  * getting-started/whats-happening.md: one request through the hello-world network.
@@ -33,7 +33,7 @@ const AGENT = { x: 1110, y: 274 };
 const BROWSER_EDGE = 250;
 const CHUNKS = ['You asked:', ' what is', ' m4trix?'];
 
-export function RequestFlow({ meta }: { meta: SceneMeta }) {
+export function RequestFlow({ meta, theme }: SceneProps) {
   if (meta.output.kind !== 'gif') throw new Error('request-flow renders as a gif');
 
   const root = useSceneTimeline((tl) => {
@@ -66,7 +66,7 @@ export function RequestFlow({ meta }: { meta: SceneMeta }) {
   }, meta.output);
 
   return (
-    <Frame ref={root} width={meta.width} height={meta.height}>
+    <Frame ref={root} width={meta.width} height={meta.height} theme={theme}>
       <Network box={{ x: PORT_X, y: 70, w: 880, h: 480 }} />
       <Channel name="main" tone="sand" box={{ x: 470, y: 115, w: 780, h: 175 }} />
       <Channel

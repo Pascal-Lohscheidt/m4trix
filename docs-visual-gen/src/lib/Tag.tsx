@@ -26,20 +26,20 @@ export function Tag({
 }) {
   return (
     <div
-      className={className ? `tag ${className}` : 'tag'}
+      className={className ? `dv-tag ${className}` : 'dv-tag'}
       style={
         {
           position: 'absolute',
           left: box.x + offset,
           top: edge === 'top' ? box.y : box.y + box.h,
           transform: 'translateY(-50%)',
-          '--tag-ink': ink,
+          '--dv-tag-ink': ink,
         } as CSSProperties
       }
     >
       {icon}
-      {kind && <span className="tag-kind">{kind}</span>}
-      <span className="tag-name">{name}</span>
+      {kind && <span className="dv-tag-kind">{kind}</span>}
+      <span className="dv-tag-name">{name}</span>
     </div>
   );
 }

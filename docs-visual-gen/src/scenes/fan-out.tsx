@@ -14,7 +14,7 @@ import {
   Wires,
 } from '../lib';
 import { useSceneTimeline } from '../runtime/timeline';
-import type { SceneMeta } from './manifest';
+import type { SceneProps } from './manifest';
 
 /**
  * concepts/networks.md, "Fan-Out": three agents subscribe to main and publish to client.
@@ -36,7 +36,7 @@ const agents = [
   { id: 'c', name: 'agentC', x: 1040, workMs: 1300 },
 ];
 
-export function FanOut({ meta }: { meta: SceneMeta }) {
+export function FanOut({ meta, theme }: SceneProps) {
   if (meta.output.kind !== 'gif') throw new Error('fan-out renders as a gif');
 
   const root = useSceneTimeline((tl) => {
@@ -68,7 +68,7 @@ export function FanOut({ meta }: { meta: SceneMeta }) {
   }, meta.output);
 
   return (
-    <Frame ref={root} width={meta.width} height={meta.height}>
+    <Frame ref={root} width={meta.width} height={meta.height} theme={theme}>
       <Network box={{ x: 120, y: 60, w: 1100, h: 440 }} />
       <Channel name="main" tone="sand" box={{ x: 170, y: 110, w: 1000, h: 190 }} />
       <Channel

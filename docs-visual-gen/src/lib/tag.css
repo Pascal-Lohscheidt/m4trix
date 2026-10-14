@@ -1,6 +1,6 @@
 /* ── Glass: label tags that sit on a container border ──────────────────── */
 
-.tag {
+.dv-tag {
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -9,26 +9,24 @@
   border-radius: 999px;
   white-space: nowrap;
   font-size: 13px;
-  background: rgba(255, 255, 255, 0.78);
+  background: var(--dv-tag-fill);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.95);
-  box-shadow:
-    0 0 0 1px rgba(120, 128, 150, 0.12),
-    0 4px 10px -4px rgba(110, 118, 140, 0.35);
+  border: 1px solid var(--dv-tag-border);
+  box-shadow: var(--dv-tag-shadow);
 }
-.tag-kind {
-  color: var(--ink-3);
+.dv-tag-kind {
+  color: var(--dv-ink-3);
 }
-.tag-name {
+.dv-tag-name {
   font-weight: 650;
-  color: var(--tag-ink, var(--ink));
+  color: var(--dv-tag-ink, var(--dv-ink));
 }
 
 @media (prefers-reduced-transparency: reduce) {
-  .tag {
+  .dv-tag {
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
-    background: #f7f7fa;
+    background: var(--dv-glass-solid);
   }
 }

@@ -1,7 +1,7 @@
-import { EnvelopeSimple } from '@phosphor-icons/react';
-import type { Timeline } from 'animejs';
+import { EnvelopeSimple } from '@phosphor-icons/react/dist/ssr';
 import type { ReactNode } from 'react';
 import type { Point } from './geometry';
+import type { TimelineLike } from './motion';
 import './token.css';
 
 /**
@@ -14,17 +14,25 @@ export function Token({
   label,
   icon,
   neutral = false,
+  visible = false,
 }: {
   id: string;
   at: Point;
   label: string;
   icon?: ReactNode;
   neutral?: boolean;
+  /** Show it without a timeline (static diagrams, state-driven players). */
+  visible?: boolean;
 }) {
   return (
-    <div id={id} className="token-anchor" style={{ left: at.x, top: at.y }}>
-      <div className={neutral ? 'token neutral' : 'token'}>
-        <span className="token-icon">{icon ?? <EnvelopeSimple size={14} weight="fill" />}</span>
+    <div
+      id={id}
+      className="dv-token-anchor"
+      style={{ left: at.x, top: at.y }}
+      data-visible={visible || undefined}
+    >
+      <div className={neutral ? 'dv-token dv-neutral' : 'dv-token'}>
+        <span className="dv-token-icon">{icon ?? <EnvelopeSimple size={14} weight="fill" />}</span>
         {label}
       </div>
     </div>
@@ -34,7 +42,7 @@ export function Token({
 const TRAVEL_EASE = 'inOut(2.4)';
 
 /** Pop in at the anchor. `fromY` slides it in vertically (e.g. emerging from an agent). */
-export function tokenIn(tl: Timeline, selector: string, at: number, { fromY = 0 } = {}) {
+export function tokenIn(tl: TimelineLike, selector: string, at: number, { fromY = 0 } = {}) {
   tl.add(
     selector,
     fromY
@@ -46,7 +54,7 @@ export function tokenIn(tl: Timeline, selector: string, at: number, { fromY = 0 
 
 /** Travel along one axis, relative to the anchor. */
 export function tokenTravel(
-  tl: Timeline,
+  tl: TimelineLike,
   selector: string,
   at: number,
   { x, y, duration }: { x?: number; y?: number; duration: number },
@@ -65,7 +73,7 @@ export function tokenTravel(
 
 /** Get absorbed by whatever it arrived at. `dropY` nudges it into a target below. */
 export function tokenOut(
-  tl: Timeline,
+  tl: TimelineLike,
   selector: string,
   at: number,
   { dropY }: { dropY?: number } = {},

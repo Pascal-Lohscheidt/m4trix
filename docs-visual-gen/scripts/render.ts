@@ -1,8 +1,9 @@
 /**
- * Renders every scene (or the ids passed as args) to docs/images/visuals.
+ * Renders every scene (or the ids passed as args) to website/public/docs/visuals.
  *
  *   pnpm --filter docs-visual-gen render
  *   pnpm --filter docs-visual-gen render fan-out --out ./tmp
+ *   pnpm --filter docs-visual-gen render --theme dark --out ./tmp   (files get a `.dark` suffix)
  *
  * PNG scenes are screenshotted at `scale`x. GIF scenes are captured frame by frame by seeking
  * the paused anime.js timeline, then encoded with one global palette and frame-diff
@@ -15,7 +16,7 @@ import gifenc from 'gifenc';
 import { type Browser, chromium, type Page } from 'playwright-core';
 import { PNG } from 'pngjs';
 import { createServer } from 'vite';
-import { type SceneMeta, sceneManifest } from '../src/scenes/manifest';
+import { type SceneMeta, type SceneTheme, sceneManifest } from '../src/scenes/manifest';
 
 // gifenc ships CommonJS only.
 const { GIFEncoder, quantize } = gifenc;
@@ -23,12 +24,14 @@ const pkgDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 function parseArgs(argv: string[]) {
   const ids: string[] = [];
-  let out = path.resolve(pkgDir, '../docs/images/visuals');
+  let out = path.resolve(pkgDir, '../website/public/docs/visuals');
+  let theme: SceneTheme = 'light';
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--out') out = path.resolve(argv[++i]);
+    else if (argv[i] === '--theme') theme = argv[++i] === 'dark' ? 'dark' : 'light';
     else ids.push(argv[i]);
   }
-  return { ids, out };
+  return { ids, out, theme };
 }
 
 async function launchBrowser(): Promise<Browser> {
@@ -37,14 +40,20 @@ async function launchBrowser(): Promise<Browser> {
   return chromium.launch(executablePath ? { executablePath } : { channel: 'chrome' });
 }
 
-async function openScene(browser: Browser, baseUrl: string, meta: SceneMeta, scale: number) {
+async function openScene(
+  browser: Browser,
+  baseUrl: string,
+  meta: SceneMeta,
+  scale: number,
+  theme: SceneTheme,
+) {
   const context = await browser.newContext({
     viewport: { width: meta.width, height: meta.height },
     deviceScaleFactor: scale,
     reducedMotion: 'no-preference',
   });
   const page = await context.newPage();
-  await page.goto(`${baseUrl}?scene=${meta.id}&capture`);
+  await page.goto(`${baseUrl}?scene=${meta.id}&capture${theme === 'dark' ? '&theme=dark' : ''}`);
   await waitForReady(page);
   return page;
 }
@@ -205,7 +214,8 @@ async function renderGif(page: Page, meta: SceneMeta & { output: { kind: 'gif' }
 }
 
 async function main() {
-  const { ids, out } = parseArgs(process.argv.slice(2));
+  const { ids, out, theme } = parseArgs(process.argv.slice(2));
+  const suffix = theme === 'dark' ? '.dark' : '';
   const scenes = ids.length ? sceneManifest.filter((s) => ids.includes(s.id)) : sceneManifest;
   const unknown = ids.filter((id) => !sceneManifest.some((s) => s.id === id));
   if (unknown.length) throw new Error(`Unknown scene(s): ${unknown.join(', ')}`);
@@ -216,6 +226,8 @@ async function main() {
     configFile: path.join(pkgDir, 'vite.config.ts'),
     // No HMR socket: a dropped socket makes the client reload the page mid-capture.
     server: { port: 0, hmr: false, ws: false },
+    // Own dep cache: re-optimizing the shared one would break a running `pnpm dev` preview.
+    cacheDir: path.join(pkgDir, 'node_modules/.vite-render'),
     logLevel: 'error',
   });
   await server.listen();
@@ -228,17 +240,17 @@ async function main() {
       const started = Date.now();
       const { output } = meta;
       if (output.kind === 'png') {
-        const page = await openScene(browser, baseUrl, meta, output.scale);
-        const file = path.join(out, `${meta.id}.png`);
+        const page = await openScene(browser, baseUrl, meta, output.scale, theme);
+        const file = path.join(out, `${meta.id}${suffix}.png`);
         await renderPng(page, file);
         await page.context().close();
-        console.log(`✓ ${meta.id}.png  (${Date.now() - started}ms)`);
+        console.log(`✓ ${meta.id}${suffix}.png  (${Date.now() - started}ms)`);
       } else {
-        const page = await openScene(browser, baseUrl, meta, 1);
-        const file = path.join(out, `${meta.id}.gif`);
+        const page = await openScene(browser, baseUrl, meta, 1, theme);
+        const file = path.join(out, `${meta.id}${suffix}.gif`);
         await renderGif(page, { ...meta, output }, file);
         await page.context().close();
-        console.log(`✓ ${meta.id}.gif + poster  (${Date.now() - started}ms)`);
+        console.log(`✓ ${meta.id}${suffix}.gif + poster  (${Date.now() - started}ms)`);
       }
     }
   } finally {

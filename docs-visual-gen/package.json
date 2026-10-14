@@ -7,20 +7,21 @@
   "scripts": {
     "dev": "vite",
     "render": "tsx scripts/render.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "export:brand": "tsx scripts/export-brand.tsx"
   },
   "dependencies": {
     "@fontsource-variable/jetbrains-mono": "^5.2.5",
     "@phosphor-icons/react": "^2.1.10",
     "animejs": "^4.5.0",
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0"
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
     "@types/pngjs": "^6.0.5",
-    "@types/react": "^19.1.2",
-    "@types/react-dom": "^19.1.2",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.7.0",
     "gifenc": "^1.0.3",
     "playwright-core": "^1.63.0",
@@ -28,5 +29,10 @@
     "tsx": "^4.21.0",
     "typescript": "^5.8.3",
     "vite": "^6.4.3"
+  },
+  "exports": {
+    "./lib": "./src/lib/index.ts",
+    "./brand": "./src/lib/brand/marks.tsx",
+    "./package.json": "./package.json"
   }
 }

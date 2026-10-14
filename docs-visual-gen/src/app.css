@@ -1,3 +1,18 @@
+/* ── App shell (dev preview + capture page). The lib itself sets no global styles. ── */
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  background: #e8eaef;
+  color: #1d2230;
+  font-family: "JetBrains Mono Variable", ui-monospace, monospace;
+  -webkit-font-smoothing: antialiased;
+}
+
 /* ── Preview gallery (dev only, never captured) ────────────────────────── */
 
 .gallery {
@@ -11,8 +26,20 @@
   font-weight: 600;
 }
 .gallery a {
-  color: var(--ink-2);
+  color: #4a5265;
+}
+.gallery-note {
+  color: #7b8396;
+  font-weight: 400;
 }
 .gallery-item {
   transform-origin: 0 0;
+}
+
+:root:has(.gallery[data-theme="dark"]) body {
+  background: #09090b;
+  color: #ececf0;
+}
+.gallery[data-theme="dark"] a {
+  color: #b4b4bd;
 }

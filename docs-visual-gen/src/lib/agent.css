@@ -1,6 +1,6 @@
 /* ── Neumorphic: agent ─────────────────────────────────────────────────── */
 
-.agent {
+.dv-agent {
   position: relative;
   display: flex;
   align-items: center;
@@ -8,51 +8,67 @@
   height: 74px;
   padding: 0 24px 0 14px;
   border-radius: 22px;
-  background: var(--neu-surface);
-  box-shadow: var(--neu-raised);
+  background: var(--dv-neu-surface);
+  box-shadow: var(--dv-neu-raised);
   white-space: nowrap;
 }
-.agent-press {
+.dv-agent-press {
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background: linear-gradient(145deg, #e3e6ec 0%, #eef0f4 100%);
-  box-shadow: var(--neu-inset);
+  background: var(--dv-neu-pressed);
+  box-shadow: var(--dv-neu-inset);
   opacity: 0;
 }
-.agent-well {
+.dv-agent-well {
   position: relative;
   display: grid;
   place-items: center;
   width: 46px;
   height: 46px;
   border-radius: 50%;
-  background: linear-gradient(145deg, #e4e7ed, #f3f4f7);
-  box-shadow: var(--neu-inset);
-  color: var(--agent);
+  background: var(--dv-neu-well);
+  box-shadow: var(--dv-neu-inset);
+  color: var(--dv-agent);
 }
-.agent-glow {
+.dv-agent-glow {
   position: absolute;
   inset: 0;
   border-radius: 50%;
-  background: radial-gradient(circle, var(--agent-soft) 0%, rgba(47, 107, 234, 0) 72%);
+  background: radial-gradient(circle, var(--dv-agent-soft) 0%, rgba(47, 107, 234, 0) 72%);
   opacity: 0;
 }
-.agent-name {
+.dv-agent-name {
   position: relative;
   font-size: 15px;
   font-weight: 620;
   letter-spacing: -0.01em;
 }
-.agent-progress {
+.dv-agent-progress {
   position: absolute;
   left: 22px;
   right: 22px;
   bottom: 10px;
   height: 2px;
   border-radius: 2px;
-  background: var(--agent);
+  background: var(--dv-agent);
   transform-origin: 0 50%;
   transform: scaleX(0);
   opacity: 0.85;
+}
+
+/* State-driven variant (`<Agent active />`): pressed in, lit and running, no timeline needed. */
+.dv-agent[data-active] .dv-agent-press,
+.dv-agent[data-active] .dv-agent-glow {
+  opacity: 1;
+}
+.dv-agent[data-active] .dv-agent-progress {
+  transform: scaleX(1);
+}
+.dv-agent .dv-agent-press,
+.dv-agent .dv-agent-glow {
+  transition: opacity var(--dv-state-transition, 0ms) ease-out;
+}
+.dv-agent .dv-agent-progress {
+  transition: transform var(--dv-state-transition, 0ms) ease-out;
 }

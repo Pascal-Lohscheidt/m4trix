@@ -1,47 +1,50 @@
 /* ── Neumorphic: client / browser card ─────────────────────────────────── */
 
-.client {
+.dv-client {
   position: absolute;
   display: flex;
   flex-direction: column;
   gap: 14px;
   padding: 18px;
   border-radius: 26px;
-  background: var(--neu-surface);
-  box-shadow: var(--neu-raised);
+  background: var(--dv-neu-surface);
+  box-shadow: var(--dv-neu-raised);
 }
-.client-head {
+.dv-client-head {
   display: flex;
   align-items: center;
   gap: 10px;
   font-size: 14px;
   font-weight: 620;
 }
-.client-screen {
+.dv-client-screen {
   position: relative;
   flex: 1;
   padding: 14px;
   border-radius: 16px;
-  box-shadow: var(--neu-inset);
+  box-shadow: var(--dv-neu-inset);
   font-size: 14px;
   line-height: 1.55;
 }
 
-.client-line {
+.dv-client-line {
   opacity: 0;
 }
-.client-user {
-  margin-bottom: 10px;
-  color: var(--ink-3);
+.dv-client[data-revealed] .dv-client-line {
+  opacity: 1;
 }
-.client-answer {
+.dv-client-user {
+  margin-bottom: 10px;
+  color: var(--dv-ink-3);
+}
+.dv-client-answer {
   font-weight: 560;
 }
-.client-done {
+.dv-client-done {
   display: flex;
   align-items: center;
   gap: 6px;
   margin-top: 12px;
   font-size: 12px;
-  color: var(--ink-3);
+  color: var(--dv-ink-3);
 }

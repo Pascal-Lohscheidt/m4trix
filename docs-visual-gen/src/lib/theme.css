@@ -1,55 +1,199 @@
-@import "@fontsource-variable/jetbrains-mono";
-
 /*
  * Visual language for docs diagrams.
  *
- * Frame:   cool gray canvas with a gray dot grid.
+ * Frame:   dotted canvas (cool gray in light, near-black in dark).
  * Neumorphic (soft extruded) surfaces for things that *do* work: agents, proxies, clients.
  * Glass (frosted, backdrop-filter) for things that *contain*: the network, channels, events.
  * Accent:  brand violet for events, blue for agents. Channels stay low-saturation tints.
  *
  * Glass here is a web approximation (backdrop-filter + layered borders + highlights),
  * not Apple Liquid Glass.
+ *
+ * Nothing here touches the host page: every token lives on `.dv-frame`, every class is
+ * prefixed `dv-`. Pick the theme with `data-theme` on the frame (`<Frame theme>`):
+ * "light" (default), "dark", or "auto", which follows the nearest `[data-mode]` ancestor.
+ * The font is `--dv-font`, falling back to the host's `--font-jetbrains-mono` (next/font)
+ * and then to a JetBrains Mono the host has loaded (e.g. @fontsource).
  */
 
-:root {
-  --canvas: #e8eaef;
-  --dot: #bcc2cc;
-  --ink: #1d2230;
-  --ink-2: #4a5265;
-  --ink-3: #7b8396;
+.dv-frame {
+  /* Canvas */
+  --dv-canvas: #e8eaef;
+  --dv-dot: #bcc2cc;
+  --dv-canvas-glow: rgba(255, 255, 255, 0.75);
+  --dv-ink: #1d2230;
+  --dv-ink-2: #4a5265;
+  --dv-ink-3: #7b8396;
 
-  --neu-light: rgba(255, 255, 255, 0.95);
-  --neu-dark: rgba(140, 149, 170, 0.5);
-  --neu-surface: linear-gradient(145deg, #f4f5f8 0%, #e2e5eb 100%);
-  --neu-raised:
-    -7px -7px 16px var(--neu-light), 8px 9px 20px var(--neu-dark),
-    inset 0 1px 0 rgba(255, 255, 255, 0.9);
-  --neu-raised-sm:
-    -4px -4px 10px var(--neu-light), 5px 5px 12px var(--neu-dark),
-    inset 0 1px 0 rgba(255, 255, 255, 0.9);
-  --neu-inset:
+  /* Neumorphic surfaces */
+  --dv-neu-light: rgba(255, 255, 255, 0.95);
+  --dv-neu-dark: rgba(140, 149, 170, 0.5);
+  --dv-neu-rim: rgba(255, 255, 255, 0.9);
+  --dv-neu-surface: linear-gradient(145deg, #f4f5f8 0%, #e2e5eb 100%);
+  --dv-neu-pressed: linear-gradient(145deg, #e3e6ec 0%, #eef0f4 100%);
+  --dv-neu-well: linear-gradient(145deg, #e4e7ed, #f3f4f7);
+  --dv-neu-raised:
+    -7px -7px 16px var(--dv-neu-light), 8px 9px 20px var(--dv-neu-dark),
+    inset 0 1px 0 var(--dv-neu-rim);
+  --dv-neu-raised-sm:
+    -4px -4px 10px var(--dv-neu-light), 5px 5px 12px var(--dv-neu-dark),
+    inset 0 1px 0 var(--dv-neu-rim);
+  --dv-neu-inset:
     inset 3px 3px 7px rgba(140, 149, 170, 0.5), inset -3px -3px 7px rgba(255, 255, 255, 0.95);
 
-  --agent: #2f6bea;
-  --agent-soft: rgba(47, 107, 234, 0.16);
-  --event-a: #8b5cf6;
-  --event-b: #6d28d9;
-  --network-ink: #6d28d9;
-  --done: #2f8a66;
+  /* Glass: network */
+  --dv-network-fill: linear-gradient(140deg, rgba(255, 255, 255, 0.38), rgba(244, 240, 255, 0.14));
+  --dv-network-border: rgba(255, 255, 255, 0.85);
+  --dv-network-shadow:
+    0 0 0 1px rgba(109, 40, 217, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    inset 0 -1px 0 rgba(109, 40, 217, 0.06), 0 40px 80px -36px rgba(76, 60, 140, 0.35);
 
-  --font-mono: "JetBrains Mono Variable", ui-monospace, monospace;
+  /* Glass: tags (labels on borders) and event cards */
+  --dv-tag-fill: rgba(255, 255, 255, 0.78);
+  --dv-tag-border: rgba(255, 255, 255, 0.95);
+  --dv-tag-shadow: 0 0 0 1px rgba(120, 128, 150, 0.12), 0 4px 10px -4px rgba(110, 118, 140, 0.35);
+  --dv-card-fill: linear-gradient(140deg, rgba(255, 255, 255, 0.86), rgba(255, 255, 255, 0.58));
+  --dv-card-border: rgba(255, 255, 255, 0.95);
+  --dv-card-shadow:
+    0 0 0 1px rgba(109, 40, 217, 0.1), inset 0 1px 0 rgba(255, 255, 255, 1),
+    0 16px 30px -18px rgba(88, 56, 160, 0.55);
+  /* Opaque stand-in for glass under prefers-reduced-transparency. */
+  --dv-glass-solid: #f7f7fa;
+
+  /* Channels */
+  --dv-channel-rim: rgba(255, 255, 255, 0.6);
+  --dv-sand-fill: rgba(247, 224, 199, 0.42);
+  --dv-sand-line: rgba(176, 124, 74, 0.55);
+  --dv-sand-ink: #8a5426;
+  --dv-rose-fill: rgba(248, 214, 222, 0.4);
+  --dv-rose-line: rgba(178, 76, 102, 0.5);
+  --dv-rose-ink: #9c3552;
+  --dv-mint-fill: rgba(204, 236, 223, 0.45);
+  --dv-mint-line: rgba(58, 140, 108, 0.5);
+  --dv-mint-ink: #22694f;
+
+  /* Tokens (events in motion) */
+  --dv-token-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 10px 18px -8px rgba(109, 40, 217, 0.7);
+  --dv-token-neutral-fill: linear-gradient(
+    140deg,
+    rgba(255, 255, 255, 0.95),
+    rgba(255, 255, 255, 0.72)
+  );
+  --dv-token-neutral-shadow:
+    0 0 0 1px rgba(120, 128, 150, 0.16), 0 10px 18px -10px rgba(90, 98, 120, 0.55);
+
+  /* Accents */
+  --dv-agent: #2f6bea;
+  --dv-agent-soft: rgba(47, 107, 234, 0.16);
+  --dv-event-a: #8b5cf6;
+  --dv-event-b: #6d28d9;
+  --dv-event-glow: rgba(109, 40, 217, 0.8);
+  --dv-network-ink: #6d28d9;
+  --dv-flash: rgba(139, 92, 246, 0.55);
+  --dv-done: #2f8a66;
+  --dv-wire: rgba(98, 108, 132, 0.42);
+
+  /* Reset everything the host page could leak in. */
+  box-sizing: border-box;
+  color: var(--dv-ink);
+  font-family: var(
+    --dv-font,
+    var(--font-jetbrains-mono, "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, monospace)
+  );
+  font-size: 16px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: normal;
+  letter-spacing: normal;
+  text-align: left;
+  text-transform: none;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-* {
+.dv-frame *,
+.dv-frame *::before,
+.dv-frame *::after {
   box-sizing: border-box;
 }
 
-html,
-body {
-  margin: 0;
-  background: var(--canvas);
-  color: var(--ink);
-  font-family: var(--font-mono);
-  -webkit-font-smoothing: antialiased;
+/*
+ * Dark: neumorphism and glass on a near-black dotted canvas, sitting between the website's
+ * #09090b page and its #18181b raised surfaces. Neumorphic light comes from a faint white rim
+ * instead of a bright highlight; glass is a thin white veil with a hairline border.
+ *
+ * `:where()` keeps the selector list forgiving and the specificity equal to `.dv-frame`.
+ * "auto" follows the nearest [data-mode] ancestor: dark unless a light one sits closer.
+ */
+.dv-frame:where(
+    [data-theme="dark"],
+    [data-mode="dark"] [data-theme="auto"]:not([data-mode="dark"] [data-mode="light"] *)
+  ) {
+  --dv-canvas: #0f0f12;
+  --dv-dot: #2a2a31;
+  --dv-canvas-glow: rgba(139, 120, 220, 0.07);
+  --dv-ink: #ececf0;
+  --dv-ink-2: #b4b4bd;
+  --dv-ink-3: #80808b;
+
+  --dv-neu-light: rgba(255, 255, 255, 0.05);
+  --dv-neu-dark: rgba(0, 0, 0, 0.72);
+  --dv-neu-rim: rgba(255, 255, 255, 0.08);
+  --dv-neu-surface: linear-gradient(145deg, #2a2a31 0%, #1b1b20 100%);
+  --dv-neu-pressed: linear-gradient(145deg, #17171b 0%, #222228 100%);
+  --dv-neu-well: linear-gradient(145deg, #17171b, #26262d);
+  --dv-neu-inset:
+    inset 3px 3px 7px rgba(0, 0, 0, 0.6), inset -3px -3px 7px rgba(255, 255, 255, 0.045);
+
+  --dv-network-fill: linear-gradient(
+    140deg,
+    rgba(167, 139, 250, 0.075),
+    rgba(255, 255, 255, 0.015)
+  );
+  --dv-network-border: rgba(255, 255, 255, 0.09);
+  --dv-network-shadow:
+    0 0 0 1px rgba(139, 92, 246, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.09),
+    inset 0 -1px 0 rgba(139, 92, 246, 0.08), 0 40px 80px -36px rgba(0, 0, 0, 0.8);
+
+  --dv-tag-fill: rgba(30, 30, 36, 0.78);
+  --dv-tag-border: rgba(255, 255, 255, 0.1);
+  --dv-tag-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35), 0 4px 12px -4px rgba(0, 0, 0, 0.7);
+  --dv-card-fill: linear-gradient(140deg, rgba(42, 42, 50, 0.82), rgba(26, 26, 31, 0.66));
+  --dv-card-border: rgba(255, 255, 255, 0.1);
+  --dv-card-shadow:
+    0 0 0 1px rgba(139, 92, 246, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 16px 30px -16px rgba(0, 0, 0, 0.85);
+  --dv-glass-solid: #1d1d22;
+
+  --dv-channel-rim: rgba(255, 255, 255, 0.04);
+  --dv-sand-fill: rgba(222, 164, 104, 0.075);
+  --dv-sand-line: rgba(222, 164, 104, 0.42);
+  --dv-sand-ink: #e8b886;
+  --dv-rose-fill: rgba(236, 110, 146, 0.075);
+  --dv-rose-line: rgba(236, 110, 146, 0.42);
+  --dv-rose-ink: #f2a0b8;
+  --dv-mint-fill: rgba(84, 204, 156, 0.075);
+  --dv-mint-line: rgba(84, 204, 156, 0.4);
+  --dv-mint-ink: #82dcb7;
+
+  --dv-token-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 0 0 1px rgba(167, 139, 250, 0.25),
+    0 10px 20px -8px rgba(124, 58, 237, 0.75);
+  --dv-token-neutral-fill: linear-gradient(140deg, rgba(56, 56, 66, 0.96), rgba(36, 36, 43, 0.9));
+  --dv-token-neutral-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 10px 18px -10px rgba(0, 0, 0, 0.9);
+
+  --dv-agent: #6b9bff;
+  --dv-agent-soft: rgba(107, 155, 255, 0.28);
+  --dv-event-a: #9b6dff;
+  --dv-event-b: #6d28d9;
+  --dv-event-glow: rgba(124, 58, 237, 0.85);
+  --dv-network-ink: #b9a2ff;
+  --dv-flash: rgba(167, 139, 250, 0.75);
+  --dv-done: #4fc795;
+  --dv-wire: rgba(150, 156, 180, 0.32);
+
+  color-scheme: dark;
 }

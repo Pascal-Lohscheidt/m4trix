@@ -1,6 +1,6 @@
 /* ── Neumorphic: boundary adapters (expose(), proxies) ─────────────────── */
 
-.port {
+.dv-port {
   position: relative;
   display: inline-flex;
   align-items: center;
@@ -8,25 +8,31 @@
   height: 42px;
   padding: 0 16px 0 6px;
   border-radius: 999px;
-  background: var(--neu-surface);
-  box-shadow: var(--neu-raised-sm);
+  background: var(--dv-neu-surface);
+  box-shadow: var(--dv-neu-raised-sm);
   font-size: 13.5px;
   font-weight: 600;
   white-space: nowrap;
 }
-.port-well {
+.dv-port-well {
   display: grid;
   place-items: center;
   width: 30px;
   height: 30px;
   border-radius: 50%;
-  box-shadow: var(--neu-inset);
-  color: var(--ink-2);
+  box-shadow: var(--dv-neu-inset);
+  color: var(--dv-ink-2);
 }
-.port-flash {
+.dv-port-flash {
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.55);
+  box-shadow: 0 0 0 2px var(--dv-flash);
   opacity: 0;
+  transition: opacity var(--dv-state-transition, 0ms) ease-out;
+}
+
+/* State-driven variant (`<Port active />`). */
+.dv-port[data-active] .dv-port-flash {
+  opacity: 1;
 }

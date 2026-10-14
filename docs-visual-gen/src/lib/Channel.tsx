@@ -23,15 +23,15 @@ export function Channel({
 }) {
   return (
     <>
-      <div className={`channel tone-${tone}`} style={boxStyle(box)} />
+      <div className={`dv-channel dv-tone-${tone}`} style={boxStyle(box)} />
       <Tag
         box={box}
         edge={labelEdge}
         offset={labelOffset}
         kind="channel"
         name={name}
-        ink="var(--tone-ink)"
-        className={`tone-${tone}`}
+        ink="var(--dv-tone-ink)"
+        className={`dv-tone-${tone}`}
       />
     </>
   );

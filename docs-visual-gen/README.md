@@ -4,7 +4,7 @@ React + anime.js scenes rendered to PNG / GIF for the m4trix docs.
 
 ```bash
 pnpm --filter docs-visual-gen dev                  # live preview gallery at http://localhost:5199
-pnpm --filter docs-visual-gen render               # render every scene into docs/images/visuals
+pnpm --filter docs-visual-gen render               # render every scene into website/public/docs/visuals
 pnpm --filter docs-visual-gen render fan-out       # render one scene
 pnpm --filter docs-visual-gen render --out ./tmp   # render somewhere else
 ```
@@ -37,6 +37,18 @@ moves, change it in `src/lib` and re-render; every scene picks it up.
 | `Token`         | violet pill | event in motion (`tokenIn` / `tokenTravel` / `tokenOut`) |
 | `ClientCard`    | neumorphic  | browser receiving the stream                      |
 | `Wires`         | dashed SVG  | routes tokens travel along                        |
+
+## Brand
+
+`src/lib/brand/marks.tsx` holds the logo: `PinwheelMark` (a cube drawn as three hooked
+strokes, one weight, round caps, `currentColor`, so it works in any one shade; `shades` gives
+each face its own opacity) and `AppIcon` (the mark on a rounded tile). The `logo-sheet` scene
+shows every variant in light, dark, on the accent and at 48 / 32 / 20 / 16 px.
+
+```bash
+pnpm --filter docs-visual-gen render logo-sheet --out ./tmp   # contact sheet
+pnpm --filter docs-visual-gen export:brand                    # SVGs into website/public/brand
+```
 
 ## Adding a scene
 

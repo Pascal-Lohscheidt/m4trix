@@ -1,16 +1,37 @@
 /* ── Frame ─────────────────────────────────────────────────────────────── */
 
-.frame {
+.dv-frame {
   position: relative;
   overflow: hidden;
-  background-color: var(--canvas);
+  background-color: var(--dv-canvas);
   background-image:
-    radial-gradient(ellipse at 50% 42%, rgba(255, 255, 255, 0.75), rgba(255, 255, 255, 0) 62%),
-    radial-gradient(circle, var(--dot) 1.15px, transparent 1.6px);
+    radial-gradient(ellipse at 50% 42%, var(--dv-canvas-glow), rgba(255, 255, 255, 0) 62%),
+    radial-gradient(circle, var(--dv-dot) 1.15px, transparent 1.6px);
   background-size:
     100% 100%,
     22px 22px;
   background-position:
     0 0,
     11px 11px;
+}
+
+/* ── ScaledFrame: canvas-size frame scaled to the container's width ────── */
+
+.dv-scaled {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  container-type: inline-size;
+}
+.dv-scaled > .dv-frame {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 0 0;
+  /*
+   * scale = container width / canvas width, in pure CSS so it is right on the first
+   * (server-rendered) paint: tan(atan2(a, b)) turns the length ratio into a number.
+   * ScaledFrame sets --dv-scale from a ResizeObserver only where this isn't supported.
+   */
+  transform: scale(var(--dv-scale, tan(atan2(100cqw, var(--dv-canvas-width)))));
 }

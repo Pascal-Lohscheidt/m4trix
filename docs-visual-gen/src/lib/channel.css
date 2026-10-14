@@ -1,25 +1,25 @@
 /* ── Glass: channels ───────────────────────────────────────────────────── */
 
-.channel {
+.dv-channel {
   position: absolute;
   border-radius: 24px;
-  background: var(--tone-fill);
-  border: 1.5px dashed var(--tone-line);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  background: var(--dv-tone-fill);
+  border: 1.5px dashed var(--dv-tone-line);
+  box-shadow: inset 0 1px 0 var(--dv-channel-rim);
 }
 
-.tone-sand {
-  --tone-fill: rgba(247, 224, 199, 0.42);
-  --tone-line: rgba(176, 124, 74, 0.55);
-  --tone-ink: #8a5426;
+.dv-tone-sand {
+  --dv-tone-fill: var(--dv-sand-fill);
+  --dv-tone-line: var(--dv-sand-line);
+  --dv-tone-ink: var(--dv-sand-ink);
 }
-.tone-rose {
-  --tone-fill: rgba(248, 214, 222, 0.4);
-  --tone-line: rgba(178, 76, 102, 0.5);
-  --tone-ink: #9c3552;
+.dv-tone-rose {
+  --dv-tone-fill: var(--dv-rose-fill);
+  --dv-tone-line: var(--dv-rose-line);
+  --dv-tone-ink: var(--dv-rose-ink);
 }
-.tone-mint {
-  --tone-fill: rgba(204, 236, 223, 0.45);
-  --tone-line: rgba(58, 140, 108, 0.5);
-  --tone-ink: #22694f;
+.dv-tone-mint {
+  --dv-tone-fill: var(--dv-mint-fill);
+  --dv-tone-line: var(--dv-mint-line);
+  --dv-tone-ink: var(--dv-mint-ink);
 }

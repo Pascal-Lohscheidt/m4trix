@@ -1,4 +1,4 @@
-import { EnvelopeSimple } from '@phosphor-icons/react';
+import { EnvelopeSimple } from '@phosphor-icons/react/dist/ssr';
 import { Centered, type Point } from './geometry';
 import './event-stack.css';
 
@@ -17,24 +17,24 @@ export function EventStack({
   const ghosts = Array.from({ length: depth }, (_, i) => depth - i);
   return (
     <Centered at={at}>
-      <div className="event-stack">
+      <div className="dv-event-stack">
         {ghosts.map((level) => (
           <div
             key={level}
-            className="event-card ghost"
+            className="dv-event-card dv-ghost"
             style={{
               transform: `translate(${level * 9}px, ${-level * 9}px)`,
               opacity: 0.75 - level * 0.2,
             }}
           />
         ))}
-        <div className="event-card" style={{ position: 'relative' }}>
-          <span className="event-icon">
+        <div className="dv-event-card" style={{ position: 'relative' }}>
+          <span className="dv-event-icon">
             <EnvelopeSimple size={19} weight="fill" />
           </span>
           <span>
-            <div className="event-name">{name}</div>
-            <div className="event-payload">{payload}</div>
+            <div className="dv-event-name">{name}</div>
+            <div className="dv-event-payload">{payload}</div>
           </span>
         </div>
       </div>

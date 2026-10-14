@@ -1,6 +1,6 @@
 import { Broadcast, SignIn } from '@phosphor-icons/react';
 import { Agent, Channel, EventStack, Frame, Network, Port } from '../lib';
-import type { SceneMeta } from './manifest';
+import type { SceneProps } from './manifest';
 
 /**
  * concepts/networks.md: the static anatomy of a network.
@@ -8,9 +8,9 @@ import type { SceneMeta } from './manifest';
  * Agents sit where channels overlap: a planner in main ∩ processing subscribes to one and
  * publishes to the other. The client channel leaves the network through its sse() proxy.
  */
-export function NetworkAnatomy({ meta }: { meta: SceneMeta }) {
+export function NetworkAnatomy({ meta, theme }: SceneProps) {
   return (
-    <Frame width={meta.width} height={meta.height}>
+    <Frame width={meta.width} height={meta.height} theme={theme}>
       <Network box={{ x: 150, y: 110, w: 980, h: 670 }} />
 
       <Channel name="main" tone="sand" box={{ x: 200, y: 200, w: 900, h: 170 }} />
