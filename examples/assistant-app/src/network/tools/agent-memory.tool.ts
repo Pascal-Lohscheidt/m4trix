@@ -1,6 +1,6 @@
 import { S, Tool } from '@m4trix/core';
 
-import { WithAgentMemoryLayer } from '../depedency-layers/with-agent-memory.js';
+import { WithAgentMemoryLayer } from '../dependency-layers/with-agent-memory.js';
 import { ToolUsedEvent } from '../events.js';
 
 type ToolUsedEmit = (event: ReturnType<typeof ToolUsedEvent.make>) => void;

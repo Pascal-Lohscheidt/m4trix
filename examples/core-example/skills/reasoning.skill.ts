@@ -35,15 +35,18 @@ export const reasoningSkill = Skill.of()
   .input(S.Struct({ problemToSolve: S.String }))
   .chunk(S.String)
   .done(S.String)
-  .define(async ({ input, emit }) => {
+  .define(async ({ input, emit, signal }) => {
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     const messages = buildMessages(input.problemToSolve);
 
-    const stream = await openai.chat.completions.create({
-      model: 'o4-mini',
-      stream: true,
-      messages,
-    });
+    const stream = await openai.chat.completions.create(
+      {
+        model: 'o4-mini',
+        stream: true,
+        messages,
+      },
+      { signal },
+    );
 
     const fullResponse = await lastValueFrom(
       from(stream).pipe(

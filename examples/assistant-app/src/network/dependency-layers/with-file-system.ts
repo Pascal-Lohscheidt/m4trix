@@ -1,6 +1,6 @@
 import { mkdir, readdir, readFile, stat, writeFile } from 'node:fs/promises';
 import { basename, dirname, isAbsolute, relative, resolve } from 'node:path';
-import { DepedencyLayer, S } from '@m4trix/core';
+import { DependencyLayer, S } from '@m4trix/core';
 
 export type FileSystemEntry = {
   name: string;
@@ -16,7 +16,7 @@ export type FileSystemLayer = {
   fileExists: (path: string) => Promise<boolean>;
 };
 
-export const WithFileSystemLayer = DepedencyLayer.of({
+export const WithFileSystemLayer = DependencyLayer.of({
   name: 'WithFileSystemLayer',
   config: S.Struct({ rootDir: S.String }),
 }).define<FileSystemLayer>();

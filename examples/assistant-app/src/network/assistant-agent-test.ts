@@ -29,14 +29,16 @@ export const assistantAgentTest = AgentFactory.run()
   .listensTo([MessageEvent])
   .emits([MessageStreamChunkEvent, MessageEvent, ToolUsedEvent])
   .tools([...mainAssistantTools])
-  .logic(async ({ triggerEvent, emit, contextEvents, tracing, tools, layers }) => {
+  .logic(async ({ triggerEvent, emit, history, tracing, tools, layers }) => {
     if (!MessageEvent.is(triggerEvent)) {
       return;
     }
 
     const message = triggerEvent.payload.message;
     const role = triggerEvent.payload.role as 'user' | 'assistant';
-    const messageHistory = contextEvents.all
+    // The latest 50 events of this conversation (the trigger included), oldest first.
+    const { events: recentEvents } = await history.context({ limit: 50 });
+    const messageHistory = recentEvents
       .filter(MessageEvent.is)
       .filter((event) => event.payload.message !== message || event.payload.role !== role);
 

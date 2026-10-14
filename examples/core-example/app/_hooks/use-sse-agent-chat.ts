@@ -8,6 +8,8 @@ type AgentNetworkEvent = {
   payload?: {
     chunk?: string;
     isFinal?: boolean;
+    /** Set on `m4trix:run.failed`. */
+    error?: { message?: string };
   };
 };
 
@@ -82,6 +84,10 @@ export function useSseAgentChat() {
             event = JSON.parse(line.slice(6)) as AgentNetworkEvent;
           } catch {
             continue;
+          }
+
+          if (event.name === 'm4trix:run.failed') {
+            throw new Error(event.payload?.error?.message ?? 'The agent run failed');
           }
 
           if (event.name === 'reasoning-for-problem-thought-chunk-created') {

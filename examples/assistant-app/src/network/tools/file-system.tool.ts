@@ -1,6 +1,6 @@
 import { S, Tool } from '@m4trix/core';
 
-import { WithFileSystemLayer } from '../depedency-layers/with-file-system.js';
+import { WithFileSystemLayer } from '../dependency-layers/with-file-system.js';
 import { ToolUsedEvent } from '../events.js';
 
 const fileSystemEntrySchema = S.Struct({

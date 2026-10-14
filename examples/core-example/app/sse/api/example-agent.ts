@@ -7,41 +7,48 @@ import { MessageEvent, MessageStreamChunkEvent, ReasoningForProblemReuqested } f
 export const exampleAgent = AgentFactory.run()
   .listensTo([MessageEvent])
   .emits([MessageStreamChunkEvent, MessageEvent, ReasoningForProblemReuqested])
-  .logic(async ({ triggerEvent, emit, contextEvents }) => {
+  .logic(async ({ triggerEvent, emit, history, signal }) => {
     if (!MessageEvent.is(triggerEvent)) {
       return;
     }
 
     const message = triggerEvent.payload.message;
     const role = triggerEvent.payload.role as 'user' | 'assistant';
-    const messageHistory = contextEvents.all.filter(MessageEvent.is);
+    // Earlier messages of this conversation; the trigger is in history too, so leave it out.
+    const { events: recentEvents } = await history.context({ limit: 50 });
+    const messageHistory = recentEvents
+      .filter(MessageEvent.is)
+      .filter((event) => event.meta.eventId !== triggerEvent.meta.eventId);
 
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-    const stream = await openai.chat.completions.create({
-      model: 'gpt-4o',
-      stream: true,
-      tools: [
-        {
-          type: 'function',
-          function: {
-            name: 'get_current_time',
-            description: 'Get the current time',
+    const stream = await openai.chat.completions.create(
+      {
+        model: 'gpt-4o',
+        stream: true,
+        tools: [
+          {
+            type: 'function',
+            function: {
+              name: 'get_current_time',
+              description: 'Get the current time',
+            },
           },
-        },
-      ],
-      messages: [
-        {
-          role: 'system',
-          content: 'You are a helpful assistant. Think step by step and explain your reasoning.',
-        },
-        ...messageHistory.map((event) => ({
-          role: event.payload.role as 'user' | 'assistant',
-          content: event.payload.message,
-        })),
-        { role, content: message },
-      ],
-    });
+        ],
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a helpful assistant. Think step by step and explain your reasoning.',
+          },
+          ...messageHistory.map((event) => ({
+            role: event.payload.role as 'user' | 'assistant',
+            content: event.payload.message,
+          })),
+          { role, content: message },
+        ],
+      },
+      { signal },
+    );
 
     const finalResponse = await lastValueFrom(
       from(stream).pipe(

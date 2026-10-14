@@ -1,4 +1,4 @@
-import { DepedencyLayer, S } from '@m4trix/core';
+import { DependencyLayer, S } from '@m4trix/core';
 
 const TAVILY_SEARCH_URL = 'https://api.tavily.com/search';
 const TAVILY_EXTRACT_URL = 'https://api.tavily.com/extract';
@@ -192,7 +192,7 @@ async function tavilyExtract(
   return { pages, failed };
 }
 
-export const WithTavelyWebsearchLayer = DepedencyLayer.of({
+export const WithTavelyWebsearchLayer = DependencyLayer.of({
   name: 'WithTavelyWebsearchLayer',
   config: S.Struct({ apiKey: S.String }),
 }).define<{

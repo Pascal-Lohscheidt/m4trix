@@ -1,7 +1,7 @@
 import { AgentNetwork, EventAggregator } from '@m4trix/core/matrix';
 import { exampleAgent } from './example-agent';
 import { reasoningAgent } from './reasoning-agent';
-import { MessageEvent, MessageStreamChunkEvent } from './events';
+import { MessageEvent, MessageStreamChunkEvent, ReasoningForProblemCompleted } from './events';
 
 const eventAggregator = EventAggregator.listensTo([MessageStreamChunkEvent])
   .emits([MessageEvent])
@@ -19,12 +19,15 @@ const eventAggregator = EventAggregator.listensTo([MessageStreamChunkEvent])
   });
 
 export const network = AgentNetwork.setup(
-  ({ mainChannel, createChannel, proxy, registerAgent, registerAggregator }) => {
+  ({ mainChannel, createChannel, proxy, registerAgent, registerAggregator, endsOn }) => {
     const client = createChannel('client').proxy(proxy.sse());
 
     registerAgent(exampleAgent).subscribe(mainChannel).publishTo(client);
     registerAgent(reasoningAgent).subscribe(client).publishTo(client);
 
     registerAggregator(eventAggregator).subscribe(client).publishTo(client);
+
+    // The run (and the SSE response) ends once the reasoning agent has its final answer.
+    endsOn(ReasoningForProblemCompleted);
   },
 );

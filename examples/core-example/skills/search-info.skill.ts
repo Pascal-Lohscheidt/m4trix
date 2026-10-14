@@ -1,10 +1,10 @@
-import { Skill, DepedencyLayer, S } from '@m4trix/core';
+import { Skill, DependencyLayer, S } from '@m4trix/core';
 
 type LayerDepType = {
   subFoo: string;
 };
 
-const layer = DepedencyLayer.of({
+const layer = DependencyLayer.of({
   name: 'SearchInfo',
   config: S.Struct({
     query: S.String,

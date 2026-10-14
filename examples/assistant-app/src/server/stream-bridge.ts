@@ -1,4 +1,9 @@
-import type { ExposedAPI } from '@m4trix/core/matrix';
+import {
+  type ExposedAPI,
+  isRunEndEnvelope,
+  isRunLifecycleEnvelope,
+  RunLifecycleEvent,
+} from '@m4trix/core/matrix';
 import type { AgentEventChunk } from './context.js';
 
 export async function* streamAgentEvents(
@@ -12,6 +17,8 @@ export async function* streamAgentEvents(
 
   const { readable, writable } = new TransformStream<QueueItem>();
   const writer = writable.getWriter();
+  // Aborted when the tRPC consumer goes away mid-run, which cancels the run and its agents.
+  const controller = new AbortController();
 
   const runPromise = exposedApi.createStream(
     {
@@ -21,11 +28,19 @@ export async function* streamAgentEvents(
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ request: input.message }),
+        signal: controller.signal,
       }),
     },
     async (stream) => {
       try {
+        // The stream ends by itself once the run ends (the network declares `endsOn`).
         for await (const envelope of stream) {
+          if (isRunEndEnvelope(envelope) && envelope.name === RunLifecycleEvent.failed) {
+            const { error } = envelope.payload;
+            throw new Error(`Assistant run failed (${error.kind}): ${error.message}`);
+          }
+          if (isRunLifecycleEnvelope(envelope)) continue;
+
           await writer.write({
             kind: 'event',
             value: {
@@ -34,8 +49,6 @@ export async function* streamAgentEvents(
               meta: envelope.meta,
             },
           });
-
-          if (envelope.name === 'message') break;
         }
         await writer.write({ kind: 'done' });
       } catch (error) {
@@ -57,6 +70,7 @@ export async function* streamAgentEvents(
     }
     await runPromise;
   } finally {
+    controller.abort();
     reader.releaseLock();
   }
 }

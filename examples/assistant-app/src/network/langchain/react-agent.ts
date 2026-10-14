@@ -84,6 +84,8 @@ export async function streamReactAgentReply(options: {
   messages: ChatMessage[];
   onToken: (chunk: string) => void;
   tracing: RunTraceScope;
+  /** The agent's run signal: aborts the LLM call and tool loop when the run ends. */
+  signal?: AbortSignal;
 }): Promise<string> {
   let response = '';
 
@@ -92,6 +94,7 @@ export async function streamReactAgentReply(options: {
     {
       ...langChainStreamConfig(options.tracing),
       streamMode: 'messages',
+      signal: options.signal,
     },
   );
 

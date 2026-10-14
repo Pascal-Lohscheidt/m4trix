@@ -1,6 +1,6 @@
 import { S, Tool } from '@m4trix/core';
 
-import { WithTavelyWebsearchLayer } from '../depedency-layers/tavely-websearch.js';
+import { WithTavelyWebsearchLayer } from '../dependency-layers/tavely-websearch.js';
 import { ToolUsedEvent } from '../events.js';
 
 const searchResultSchema = S.Struct({

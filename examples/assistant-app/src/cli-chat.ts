@@ -112,10 +112,19 @@ function renderAssistantPrefix(state: RenderState): void {
   stdout.write(indented(`${style.dim('>')} `));
 }
 
+/**
+ * Tool calls of the background sub-agent carry the correlationId of the spawn request they work
+ * on (agents' emits inherit their trigger's); the assistant's own tool calls carry none.
+ */
+function isSubAgentEvent(event: AgentEventChunk): boolean {
+  return event.meta.correlationId !== undefined;
+}
+
 function renderToolEvent(event: AgentEventChunk, state: RenderState): void {
   const payload = getPayload(event);
   const toolCallId = typeof payload.toolCallId === 'string' ? payload.toolCallId : undefined;
-  const toolName = typeof payload.toolName === 'string' ? payload.toolName : 'unknown';
+  const name = typeof payload.toolName === 'string' ? payload.toolName : 'unknown';
+  const toolName = isSubAgentEvent(event) ? `sub-agent › ${name}` : name;
   const phase = payload.phase;
 
   ensureAssistantBlock(state);

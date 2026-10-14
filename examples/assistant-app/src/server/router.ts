@@ -52,6 +52,8 @@ const appRouterImpl = t.router({
           }),
           {
             target: 'channel',
+            // Runs here are anonymous. For a run of a principal, pass `principal` (from your own
+            // auth): proxy publishes never take it from meta, and others' runs refuse the event.
             meta: {
               runId: input.runId,
               contextId: input.contextId,

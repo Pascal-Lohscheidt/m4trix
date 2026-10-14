@@ -29,12 +29,16 @@ const SUB_AGENT_SYSTEM_NOTE = `You are a background sub-agent. Complete the task
 /**
  * Long-running worker agent: listens on the sub channel, runs the same tool surface as
  * the main assistant, and emits SubAgentTaskCompleted so the spawn tool's emitAndAwait resolves.
+ * Its tools' ToolUsedEvents stream to the client; they carry the spawn request's correlationId
+ * (emits inherit their trigger's), which is how the CLI tells them from the assistant's own.
  */
 export const backgroundSubAgent = AgentFactory.run()
   .listensTo([SubAgentTaskRequested])
-  .emits([SubAgentTaskCompleted, ToolUsedEvent])
+  .emits([ToolUsedEvent])
+  // Only the spawn tool's emitAndAwait waits for it: no listener expected.
+  .emits([SubAgentTaskCompleted], { reply: true })
   .tools([...coreAssistantTools])
-  .logic(async ({ triggerEvent, emit, tools, layers, tracing }) => {
+  .logic(async ({ triggerEvent, emit, tools, layers, tracing, signal }) => {
     if (!SubAgentTaskRequested.is(triggerEvent)) {
       return;
     }
@@ -52,6 +56,7 @@ export const backgroundSubAgent = AgentFactory.run()
         agent: reactAgent,
         messages: [{ role: 'user', content: prompt }],
         tracing,
+        signal,
         onToken: () => {},
       });
 

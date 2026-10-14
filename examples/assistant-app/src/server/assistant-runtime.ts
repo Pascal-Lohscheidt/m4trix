@@ -1,9 +1,9 @@
 import { resolve } from 'node:path';
 import { Effect, Scope } from 'effect';
 import type { EventPlane } from '@m4trix/core/matrix';
-import { withAgentMemory } from '../network/depedency-layers/with-agent-memory.js';
-import { withFileSystem } from '../network/depedency-layers/with-file-system.js';
-import { withTavelyWebsearch } from '../network/depedency-layers/tavely-websearch.js';
+import { withAgentMemory } from '../network/dependency-layers/with-agent-memory.js';
+import { withFileSystem } from '../network/dependency-layers/with-file-system.js';
+import { withTavelyWebsearch } from '../network/dependency-layers/tavely-websearch.js';
 import { network } from '../network/network.js';
 
 let planeInstance: EventPlane | undefined;

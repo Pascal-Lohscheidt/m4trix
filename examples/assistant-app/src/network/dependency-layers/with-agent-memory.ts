@@ -1,6 +1,6 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
-import { DepedencyLayer, S } from '@m4trix/core';
+import { DependencyLayer, S } from '@m4trix/core';
 
 const DEFAULT_SYSTEM_PROMPT = `# Assistant Memory
 
@@ -43,7 +43,7 @@ export type AgentMemoryAdapter = {
   loadSnapshot: () => Promise<AgentMemorySnapshot>;
 };
 
-export const WithAgentMemoryLayer = DepedencyLayer.of({
+export const WithAgentMemoryLayer = DependencyLayer.of({
   name: 'WithAgentMemoryLayer',
   config: S.Struct({ rootDir: S.String }),
 }).define<AgentMemoryAdapter>();

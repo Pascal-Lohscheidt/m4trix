@@ -10,10 +10,10 @@ import { reasoningSkill } from '@/skills/reasoning.skill';
 export const reasoningAgent = AgentFactory.run()
   .listensTo([ReasoningForProblemReuqested])
   .emits([ReasoningForProblemThoughtChunkCreated, ReasoningForProblemCompleted])
-  .logic(async ({ triggerEvent, emit }) => {
+  .logic(async ({ triggerEvent, emit, signal }) => {
     const { problemToSolve } = triggerEvent.payload;
 
-    const stream = reasoningSkill.invokeStream({ problemToSolve });
+    const stream = reasoningSkill.invokeStream({ problemToSolve }, { layers: {}, signal });
 
     const notDone = (chunk: string | Done<string>): chunk is string => !Done.is(chunk);
 
