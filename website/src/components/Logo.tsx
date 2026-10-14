@@ -1,36 +1,26 @@
-import Image from 'next/image';
+import { PinwheelMark } from 'docs-visual-gen/brand';
 import Link from 'next/link';
-
-const LOGO_SRC = '/m4trix_logo_tr.png';
 
 type LogoSize = 'sm' | 'md' | 'lg';
 
-const LOGO_SIZES: Record<LogoSize, { px: number; className: string }> = {
-  sm: { px: 28, className: 'h-7 w-7' },
-  md: { px: 32, className: 'h-8 w-8' },
-  lg: { px: 40, className: 'h-10 w-10' },
+const LOGO_SIZES: Record<LogoSize, { px: number; weight: number }> = {
+  sm: { px: 28, weight: 8.5 },
+  md: { px: 32, weight: 8 },
+  lg: { px: 40, weight: 7.5 },
 };
 
-export function Logo({
-  size = 'md',
-  priority = false,
-  className = '',
-}: {
-  size?: LogoSize;
-  priority?: boolean;
-  className?: string;
-}) {
-  const { px, className: sizeClass } = LOGO_SIZES[size];
-
+/**
+ * The m4trix mark (a pinwheel cube, drawn in docs-visual-gen/src/lib/brand). It strokes in
+ * `currentColor`, so it follows the text color in light and dark mode.
+ */
+export function Logo({ size = 'md', className = '' }: { size?: LogoSize; className?: string }) {
+  const { px, weight } = LOGO_SIZES[size];
   return (
-    <Image
-      src={LOGO_SRC}
-      alt=""
-      width={px}
-      height={px}
-      priority={priority}
-      className={`shrink-0 ${sizeClass} ${className}`.trim()}
+    <PinwheelMark
+      size={px}
+      weight={weight}
       aria-hidden
+      className={`shrink-0 text-text-1 ${className}`.trim()}
     />
   );
 }
@@ -47,10 +37,10 @@ export function Wordmark(props: React.ComponentPropsWithoutRef<'span'>) {
   );
 }
 
-export function Brand({ priority = true }: { priority?: boolean }) {
+export function Brand() {
   return (
     <Link href="/" className="inline-flex items-center gap-2.5 transition-opacity hover:opacity-90">
-      <Logo size="md" priority={priority} />
+      <Logo size="md" />
       <Wordmark />
     </Link>
   );

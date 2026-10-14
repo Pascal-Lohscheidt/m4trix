@@ -31,10 +31,6 @@ export const metadata: Metadata = {
   },
   description:
     'Open-source tracing for LangGraph and LangChain. Traces stay in your files or your AWS account, with a local viewer and an MCP server for coding agents.',
-  icons: {
-    icon: '/m4trix_logo_tr.png',
-    apple: '/m4trix_logo_tr.png',
-  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
