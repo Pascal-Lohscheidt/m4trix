@@ -8,9 +8,458 @@ rss: true
 
 Product updates for **@m4trix/tracing**, generated from [conventional commits](https://www.conventionalcommits.org/) in the monorepo. Scopes in commit messages route entries to the Agents, Evals, or Tracing changelogs.
 
-_Last regenerated 2026-06-05 (UTC)._
+_Last regenerated 2026-10-14 (UTC)._
 
-<Update label="June 3, 2026" description="Unreleased · latest tracing v0.9.2" tags={["Features"]} rss={{ title: "June 3, 2026 — @m4trix/tracing updates", description: "add toM4trixTracer adapter for matrix NetworkTracer" }}>
+<Update label="October 14, 2026" description="Unreleased · latest trace-viewer v0.19.0, tracing v0.11.1" tags={["Features"]} rss={{ title: "October 14, 2026 — @m4trix/tracing updates", description: "cancelled runs, session filters and recorded models; production-safe tracer that records cost, sessions and scores" }}>
+
+### Breaking changes
+
+- production-safe tracer that records cost, sessions and scores (`tracing`) **BREAKING** ([bd3c767](https://github.com/Pascal-Lohscheidt/m4trix/commit/bd3c7677b704a5ef44fe408b577966f4b690fd9f))
+
+  The tracer never throws into the app and records much more per run. Upgrade notes are in the
+  package README (\"Upgrading to 0.12\"); no storage migration is needed.
+  
+  - Failures go to `onError` and `tracer.stats()` instead of rejecting; traces flush on their own
+    once their last run ends, failed flushes are retried, and buffered runs are bounded
+    (`maxBufferedRuns`).
+  - Payloads are capped (`maxPayloadBytes`) and redactable (`redact`); payloads with cycles,
+    BigInts or Errors are stored safely.
+  - Sampling (`ratioSampler`, `parentBasedSampler`), W3C `traceparent` propagation and an
+    OpenTelemetry export (`@m4trix/tracing/otel`).
+  - Model calls record the served model, provider, token details (cache reads and writes,
+    reasoning) and time to first token; `priceTable` / `costOf` compute cost.
+  - Traces carry `sessionId`, `userId` and `tags`; errors carry stack, status, code and cause;
+    scores can be attached as annotations (`scoreAnnotationPatch`, `readScores`).
+  - `toM4trixTracer` records cancelled runs with status `cancelled` and `ctx.reportUsage()` calls
+    as LLM runs, and follows the @m4trix/core 0.18 tracer hooks.
+  
+  BREAKING CHANGE: `flush()` no longer rejects (use `onError`); `toM4trixTracer` records a
+  network's context id as `sessionId` instead of `projectId` (pass `{ projectId }` to set one);
+  run tags move from `run.extra.tags` to `run.tags`; `TraceStatus` gains `'cancelled'`.
+
+### New features
+
+- cancelled runs, session filters and recorded models (`trace-viewer`) ([4925cfb](https://github.com/Pascal-Lohscheidt/m4trix/commit/4925cfbb4b271233732cb70acc450c56086c6b81))
+
+  - Show cancelled runs and traces with their own status (⊘, neutral style) and filter by it.
+  - Filter traces by `sessionId` and `userId` in the API and the MCP tools, to list every turn of
+    one conversation.
+  - Prefer the model the tracer recorded on a run when resolving LangGraph model names.
+
+</Update>
+
+<Update label="October 9, 2026" description="Unreleased · latest trace-viewer v0.19.0" tags={["Features"]} rss={{ title: "October 9, 2026 — @m4trix/tracing updates", description: "waterfall run view, plumbing hidden by default, URL state" }}>
+
+### New features
+
+- waterfall run view, plumbing hidden by default, URL state (`trace-viewer`) ([2f8c8f5](https://github.com/Pascal-Lohscheidt/m4trix/commit/2f8c8f5acd58ee8e68e64403035e502073754f21))
+
+  Waterfall: the run tree gets a time column. Each run shows a bar
+  positioned on the trace's timeline (earliest run start to latest run
+  end), coloured by run kind (LLM, tool, chain, other; errors rose), with
+  a right-aligned duration. A sticky axis with nice-step ticks and grid
+  lines sits above the rows. Unfinished runs extend to the end of the
+  timeline and pulse; runs outside the window are clamped. The column
+  width uses container query units so it lines up at every nesting
+  level. A Waterfall | Tree toggle on the card switches back to the
+  plain tree with full run names; waterfall is the default.
+  
+  Plumbing: the LangGraph plumbing pattern (ChannelWrite&lt;…>, Branch&lt;…>,
+  __start__, __end__) moves to src/shared so the UI and the MCP
+  get_trace outline hide the same runs. First-time users start with a
+  \"LangGraph plumbing\" hide group; users with saved groups get a one-click
+  \"Hide LangGraph plumbing\" chip instead. Hide groups no longer hide
+  error runs, matching the MCP rule that a filter cannot mask a failure.
+  
+  URL state: trace, run and view live in the query string
+  (?trace=…&run=…&view=tree), so reloads and shared links land on the
+  same run. Selecting a trace pushes a history entry (Back returns to the
+  previous trace and run); run and view changes replace it. A linked
+  trace that is not in the sidebar list stays selected; it is only
+  cleared when the list filters exclude it. The tree hook now drops the
+  previous trace immediately, so a stale tree never pairs with a new
+  selection.
+  
+  Also fixes the anime.js easing: v4 removed string easings, so
+  'cubicBezier(...)' logged a warning per animation and fell back to the
+  default curve. It now passes cubicBezier() from animejs.
+
+</Update>
+
+<Update label="October 6, 2026" description="v0.19.0" tags={["Features"]} rss={{ title: "October 6, 2026 — @m4trix/tracing updates", description: "serve the trace MCP over localhost HTTP" }}>
+
+### New features
+
+- serve the trace MCP over localhost HTTP (`trace-viewer`) ([1820146](https://github.com/Pascal-Lohscheidt/m4trix/commit/18201460647fedf431d5f37e0800eb2d5a3314bc))
+
+  The viewer server now exposes the trace MCP as a Streamable HTTP
+  endpoint at /mcp, next to the UI. Coding agents connect to the running
+  viewer by URL instead of spawning their own process with a trace path:
+  
+      claude mcp add --transport http m4trix-traces http://127.0.0.1:4319/mcp
+  
+  - Stateless endpoint (POST only). All requests share one tool instance,
+    so payloads loaded by one call stay searchable for later calls and
+    for other agents.
+  - Only accepts requests whose Host (and Origin, if sent) is loopback,
+    so web pages cannot reach it through the browser (DNS rebinding /
+    cross-site requests).
+  - On by default; disable with `--no-mcp` or `mcp: false` on
+    startTraceViewerServer. The startup log prints the endpoint URL.
+  - New exports: createTraceMcpHttpHandler, isAllowedMcpRequest,
+    MCP_HTTP_PATH. createTraceMcpServer accepts a shared `tools` instance.
+  - The stdio `mcp --path` subcommand remains for clients without HTTP
+    support.
+  
+  Docs: the README and --help now lead with the HTTP setup and fix the
+  stdio example, which used `npx m4trix-trace-viewer`, an npm package name
+  that does not exist, instead of `npx -y @m4trix/trace-viewer`.
+  
+  Co-Authored-By: Claude Opus 5.5 (1M context) &lt;noreply@anthropic.com>
+
+</Update>
+
+<Update label="October 4, 2026" description="tracing v0.11.0 · trace-viewer v0.18.0" tags={["Features","Fixes"]} rss={{ title: "October 4, 2026 — @m4trix/tracing updates", description: "resolve @m4trix/tracing/aws types under moduleResolution node; require a @m4trix/tracing release with the aws entry; move AWS adapters to @m4trix/tracing/aws; self-contained sidecar image" }}>
+
+### Breaking changes
+
+- move AWS adapters to @m4trix/tracing/aws; self-contained sidecar image (`tracing`) **BREAKING** ([8912a20](https://github.com/Pascal-Lohscheidt/m4trix/commit/8912a2041e845c0364c4997e725eab335493f022))
+
+  The AWS SDK was a hard dependency, and the root entry imported the DynamoDB
+  and S3 adapters eagerly. Every user downloaded and loaded three AWS SDK
+  clients, even with filesystem-only storage. The sidecar image ran end-of-life
+  Node 20 as root, installed the SDK with unpinned `^` ranges at image build
+  time, and could not build: the package's `prepare` script ran tsup before the
+  sources were copied.
+  
+  BREAKING CHANGE: DynamoStructureStoreAdapter, S3PayloadStoreAdapter and their
+  resolve*OptionsFromEnv helpers are now imported from `@m4trix/tracing/aws`,
+  and the `@aws-sdk/*` packages are optional peer dependencies that users of
+  that entry install themselves.
+  
+  - The root entry no longer loads the AWS SDK; a spec fails if it ever does
+    again (checked by re-adding the export).
+  - The sidecar CLI is one self-contained ESM file
+    (`dist/trace-shipper-cli.mjs`) with the AWS SDK bundled, so
+    `m4trix-tracing-sidecar` works without the optional peers. A separate
+    `build:sidecar` script builds only it.
+  - Dockerfile: node:24-slim, the frozen lockfile, `--ignore-scripts`, and a
+    runtime stage holding only the CLI bundle, running as the non-root `node`
+    user with /traces owned by it. A Dockerfile-scoped ignore file keeps the
+    build context at ~0.7 MB.
+  - trace-viewer imports the adapters from the new entry.
+  
+  Verified by building the image and running it as the sidecar against
+  DynamoDB (dynalite) and S3 (s3rver): it shipped the traces, the viewer API
+  read them back, and the shipped local files were removed.
+  
+  Co-Authored-By: Claude Opus 5.5 (1M context) &lt;noreply@anthropic.com>
+
+### New features
+
+- spread DynamoDB trace listing over shards and a project index (`tracing`) ([f62bc66](https://github.com/Pascal-Lohscheidt/m4trix/commit/f62bc66c68b53c69f6637144d65eee3e548a9af8))
+
+  Every trace item wrote the same GSI key (`PROJECT#_all`), a hot partition at
+  high trace rates. projectId and time ranges were filters, so a selective query
+  could read the whole index to fill one page.
+  
+  - Time ranges are now a key condition on `listSk` (exclusive bounds kept with
+    a filter when both are given).
+  - Opt-in `listShards` / TRACE_DYNAMO_LIST_SHARDS spreads trace writes over
+    `PROJECT#_all#<n>` (stable hash of the trace id). Listing queries every
+    shard plus the unsharded key, so older traces stay listed, and merges them
+    newest first. The cursor is per partition; cursors from before keep working.
+  - Opt-in `projectIndexName` / TRACE_DYNAMO_PROJECT_INDEX queries a GSI on
+    `projectPk` + `listSk` instead of filtering. `projectPk` is written on every
+    trace upsert.
+  - resolveDynamoStructureStoreOptionsFromEnv keeps overrides it does not map
+    from the environment (e.g. maxConcurrentWrites), which it used to drop.
+  
+  The fake DynamoDB in the spec now applies `Limit` before the filter and treats
+  indexes as sparse, like the real engine. It caught an unused `#listSk`
+  placeholder that would have made every plain listing fail. Also checked
+  against dynalite: sharded paging with a legacy item, the project index, time
+  ranges and filtered paging.
+  
+  Co-Authored-By: Claude Opus 5.5 (1M context) &lt;noreply@anthropic.com>
+- let the sidecar clean up shipped traces on local disk (`tracing`) ([f9fe143](https://github.com/Pascal-Lohscheidt/m4trix/commit/f9fe143dfd2a331514b4eb06244ec9ac19d60e5d))
+
+  The sidecar deleted payloads after upload but kept trace.json/runs.ndjson and
+  the trace folders forever, so the shared volume (often an emptyDir) kept
+  growing with every trace.
+  
+  After each pass, a trace folder is removed once it is fully replicated: every
+  structure file was shipped at its current mtime, no payload is left, nothing
+  is mid-write, it holds no unknown files, and it has been idle for the
+  retention period. Its state entries are dropped too, keeping state.json small.
+  
+  - `--retain <dur>` (default 5m, `0` = right away) for finished traces.
+  - `--retain-running <dur>` (default 24h) for traces never marked finished,
+    e.g. after an app crash. Folders the app never flushed structure into are
+    judged by the folder's own mtime.
+  - `--keep-shipped` turns cleanup off. Library users opt in through
+    `TraceShipperDeps.retention`; omitting it keeps everything.
+  - Durations now also accept hours (`24h`). Pass results report
+    `removedTraces`, and cleanup errors land in `failures` like other items.
+  
+  Co-Authored-By: Claude Opus 5.5 (1M context) &lt;noreply@anthropic.com>
+- add MCP server for coding agents (`trace-viewer`) ([18ee995](https://github.com/Pascal-Lohscheidt/m4trix/commit/18ee9958e3246bda49e5809cabc26bcc48203cd6))
+
+  Add an `mcp` subcommand to the trace viewer CLI that serves the trace
+  store as a local Model Context Protocol server over stdio, so coding
+  agents can inspect, search and compare traces while debugging.
+  
+      claude mcp add m4trix-traces -- \\
+        npx m4trix-trace-viewer mcp --path \"$PWD/tmp/tracing-example\"
+  
+  It reuses the viewer's storage adapters (`--adapter fs | aws-stack`).
+  
+  Tools:
+  - list_traces: newest-first traces filtered by status, project, name,
+    metadata, time range, latency and annotation
+  - get_trace: run tree as a compact outline; LangGraph plumbing spans are
+    hidden by default and error runs are never hidden
+  - find_runs: runs by type, name, status, error text, latency, tokens or
+    metadata across traces, without loading payloads
+  - get_run: ancestry, timing, full error, children and payload previews
+  - get_payload: payload as outline or JSON, narrowed by JSONPath, paged
+    by offset
+  - load_trace_payloads: load payloads into an in-memory search index;
+    payloads are immutable, so reloads only fetch new refs; LRU eviction
+  - search_payloads: text/regex search; identical values are grouped and
+    attributed to the run where they first appeared (inputs at run start,
+    outputs at run end) with its ancestry
+  - analyze_trace: root-cause errors, unfinished and orphan runs, critical
+    path and self time, token hotspots, repeated identical calls, and
+    error-like values in successful runs
+  - get_conversation: chat transcript for OpenAI, Anthropic and LangChain
+    message shapes, including tool calls
+  - compare: diff two runs field by field and payload by payload, or
+    align two traces run by run
+  - annotate: write trace/run annotations; the tool description asks
+    agents to get the user's permission first
+  
+  Trace ids accept \"latest\" or a unique prefix, and run ids a unique
+  prefix. Strings holding serialized JSON are decoded so paths and search
+  reach into tool arguments. Every response has a size budget and says how
+  to fetch the rest.
+  
+  The programmatic API exports createTraceMcpServer,
+  startTraceMcpStdioServer and TraceTools.
+  
+  Note: the CLI now rejects unknown positional arguments (previously
+  ignored) and accepts `serve` (default) or `mcp`.
+  
+  Co-Authored-By: Claude Opus 5.5 (1M context) &lt;noreply@anthropic.com>
+
+### Bug fixes
+
+- resolve @m4trix/tracing/aws types under moduleResolution node (`tracing`) ([a50628a](https://github.com/Pascal-Lohscheidt/m4trix/commit/a50628ae3b6dcedc66d70b0bc00c854431c6863e))
+
+  TypeScript's legacy `moduleResolution: "node"` ignores `exports`, so projects
+  still on it (common for CommonJS setups) could not find the types for
+  `@m4trix/tracing/aws`. A `typesVersions` entry maps the subpath to
+  dist/aws.d.ts.
+  
+  Checked by installing the packed tarball: node10, nodenext and bundler
+  resolution all typecheck, root imports are unaffected, and unknown subpaths
+  are still rejected.
+  
+  Co-Authored-By: Claude Opus 5.5 (1M context) &lt;noreply@anthropic.com>
+- require a @m4trix/tracing release with the aws entry (`trace-viewer`) ([026d489](https://github.com/Pascal-Lohscheidt/m4trix/commit/026d489f08aa25959e039dac8594a0d020d1ced3))
+
+  The viewer CLI imports the DynamoDB/S3 adapters from `@m4trix/tracing/aws` at
+  startup, but its peer range still allowed `^0.8.0`, where that entry does not
+  exist. npm installs missing peers automatically, so users would have got a
+  0.8.x tracing and a viewer that fails on launch in every mode.
+  
+  The peer range is now `^0.11.0`, the first tracing release with the entry.
+  Release tracing before the viewer. A contract spec checks both the import and
+  the range.
+  
+  Co-Authored-By: Claude Opus 5.5 (1M context) &lt;noreply@anthropic.com>
+- use path-style S3 requests for custom endpoints (`tracing`) ([e9b94d4](https://github.com/Pascal-Lohscheidt/m4trix/commit/e9b94d4ec0e547659002190fe4329ca03b9bb275))
+
+  With AWS_ENDPOINT_URL pointing at LocalStack or MinIO by hostname, the S3
+  client addressed buckets virtual-hosted (`<bucket>.localhost`), which those
+  servers answer with NoSuchBucket. The README's LocalStack setup therefore
+  never worked for payloads. Found while running the sidecar end to end against
+  local emulators.
+  
+  - New `forcePathStyle` option. It defaults to true when a custom endpoint is
+    in play (option, AWS_ENDPOINT_URL_S3 or AWS_ENDPOINT_URL) and stays false
+    against AWS itself. Override with TRACE_S3_FORCE_PATH_STYLE.
+  - An empty AWS_ENDPOINT_URL now counts as unset.
+  
+  The tests capture the HTTP request a real S3Client would send. Also confirmed
+  against the s3rver emulator with a hostname endpoint.
+  
+  Co-Authored-By: Claude Opus 5.5 (1M context) &lt;noreply@anthropic.com>
+- release finished traces and add up token usage per trace (`tracing`) ([bce43f4](https://github.com/Pascal-Lohscheidt/m4trix/commit/bce43f44d67cb8a818ec0675e820f611209dcbf0))
+
+  The Tracer kept every run it had ever seen and, on every callback, rebuilt the
+  trace summary by scanning all of them. A long-lived tracer grew without bound
+  and slowed down quadratically: 10,000 callbacks on one 5,000-run trace took
+  5.2 s, and now take 29 ms. Trace-level tokens came only from the root run,
+  which for LangGraph is a chain without usage, so traces never showed totals.
+  
+  - Runs are grouped per trace, and the trace summary is built once per flush
+    instead of on every callback.
+  - A trace is released after a successful flush once none of its runs is still
+    running, so late child runs are still recorded. New `activeTraceCount`
+    reports how many traces are held in memory.
+  - `trace.tokens` adds up input/output tokens across all runs of the trace.
+  
+  Co-Authored-By: Claude Opus 5.5 (1M context) &lt;noreply@anthropic.com>
+- stop the sidecar from stranding traces and crash-looping (`tracing`) ([f309818](https://github.com/Pascal-Lohscheidt/m4trix/commit/f30981801b3e24c8744f45e8933c51918264eace))
+
+  A transient S3 error part-way through a pass left a trace stuck forever: the
+  payloads uploaded earlier in that pass were already deleted locally, but the
+  state recording them was only saved at the end, so the runs that referenced
+  them never qualified for upload again. A single bad item (malformed file,
+  oversized DynamoDB item) also failed every pass and crash-looped the
+  container, state.json was written non-atomically, and shutdown skipped
+  whatever the app flushed last.
+  
+  - A payload now counts as pending exactly while its local file exists.
+    Payload refs are no longer kept in state, which also stops state.json from
+    growing without bound. Old state files and already-stranded traces recover
+    on the next pass.
+  - Each item is attempted on its own. Failures are reported in
+    `result.failures`, logged by the CLI and retried on the next pass, and no
+    longer block other traces.
+  - runs.ndjson is read once per ship, so the payload refs checked are the ones
+    shipped.
+  - State is written atomically, and an unreadable state file triggers a safe
+    re-ship instead of a permanent failure.
+  - The loop survives failed passes (reported via onError). After SIGTERM or
+    SIGINT it makes one final pass before exiting. `--once` exits non-zero when
+    any item failed.
+  - Annotations are stripped before shipping, so the sidecar never overwrites
+    review edits made in the hosted store.
+  
+  Co-Authored-By: Claude Opus 5.5 (1M context) &lt;noreply@anthropic.com>
+- keep DynamoDB annotations safe from ingest and read whole traces (`tracing`) ([43dbf02](https://github.com/Pascal-Lohscheidt/m4trix/commit/43dbf0279900d2fa4ba92214635b7f6887f546c2))
+
+  Ingest replaced whole items with PutItem, so any re-ship of a trace (a later
+  write, or the sidecar's state being reset) wiped annotations made in the
+  hosted viewer. Annotation patches were unconditional read-modify-writes, so
+  concurrent reviewers overwrote each other. getTrace ran a single Query and
+  silently returned a partial trace once its runs exceeded one 1 MB page.
+  
+  - Annotations move to a top-level `annotation` attribute with an
+    `annotationVersion` counter. Ingest uses UpdateItem to SET only
+    `trace` / `run` (plus the GSI keys), so it never touches annotations.
+  - Patches are version-checked conditional updates, retried on conflict and
+    failing loudly after repeated conflicts. They also migrate annotations that
+    0.8.0 stored inside `trace` / `run`; reads fall back to that location.
+  - getTrace follows LastEvaluatedKey across pages.
+  - upsertRunBatch caps concurrent writes (maxConcurrentWrites, default 16)
+    instead of firing one request per run at once.
+  
+  Ingest now needs dynamodb:UpdateItem instead of dynamodb:PutItem.
+  
+  The spec's mock client is replaced by a fake that evaluates the SET/REMOVE and
+  condition expressions and rejects unknown or unused placeholders like
+  DynamoDB. The adapter was also checked against dynalite, including real
+  1 MB query paging.
+  
+  Co-Authored-By: Claude Opus 5.5 (1M context) &lt;noreply@anthropic.com>
+- serialize flushes and keep annotations on the filesystem store (`tracing`) ([24aa2ad](https://github.com/Pascal-Lohscheidt/m4trix/commit/24aa2add9bdbf879dc42f3600eb4b537da0bcac3))
+
+  Overlapping Tracer.flush() calls (e.g. parallel agents ending through
+  toM4trixTracer) raced on the read-modify-write of runs.ndjson and lost runs
+  (16 of 31 in a reproduction). A failed flush also dropped its pending records,
+  and every flush rewrote trace.json/runs.ndjson without annotations, wiping
+  reviews added while a trace was still running.
+  
+  - Tracer.flush() now runs flushes one at a time, so an older snapshot can never
+    land after a newer one, and re-queues records when a store write fails
+    (without replacing newer versions queued meanwhile).
+  - FsStructureStoreAdapter runs every read-modify-write of a trace under a
+    per-trace lock (new KeyedMutex), and upserts that omit `annotation` keep the
+    stored one. An explicit `annotation` on an upsert still replaces it.
+  
+  Co-Authored-By: Claude Opus 5.5 (1M context) &lt;noreply@anthropic.com>
+
+</Update>
+
+<Update label="October 3, 2026" description="trace-viewer v0.16.0 · tracing v0.10.0" tags={["Features","Fixes"]} rss={{ title: "October 3, 2026 — @m4trix/tracing updates", description: "liquid-glass redesign with anime.js motion; override vulnerable transitive dependencies to clear high-severity audit findings; add custom mapped profiles and AI payload mapper" }}>
+
+### New features
+
+- liquid-glass redesign with anime.js motion (`trace-viewer`) ([d23be94](https://github.com/Pascal-Lohscheidt/m4trix/commit/d23be94b01a6a0003f8b3ab0cd58faa791ae5a07))
+
+  Restyle the trace viewer after a soft, glassy dashboard reference while
+  keeping the dark theme:
+  
+  - Floating glass sidebar with brand, filter chips, status-dot trace list
+    and live auto-update indicator
+  - Centered search pill in the top bar; glass layout toggle and settings
+  - Hero trace header with large title and aggregate stat tiles
+  - Run tree and run detail as rounded glass cards with own scroll areas;
+    run detail gets status/latency/start/end tiles and an error callout
+  - Violet-tinted neutral scale, violet accent, Geist + Geist Mono fonts,
+    aurora backdrop with grain, reduced-transparency fallback
+  - anime.js v4 motion: spring selection pill (Segmented), reveal on
+    trace/run change and tree expand, animated layout-focus columns; all
+    disabled under prefers-reduced-motion
+  - Dialogs, popovers and mapper views migrated to translucent glass tones
+  - Enable Biome tailwindDirectives so @theme parses
+  
+  Co-Authored-By: Claude Opus 5.5 (1M context) &lt;noreply@anthropic.com>
+- add custom mapped profiles and AI payload mapper (`trace-viewer`) ([73dac12](https://github.com/Pascal-Lohscheidt/m4trix/commit/73dac1256a33df720a1a82732e9c08be90503134))
+
+  Custom profiles (✦) render run payloads from a declarative JSON mapping
+  instead of hardcoded logic and sit next to the built-in Raw and LangGraph
+  profiles. They are stored in localStorage and can be enabled, selected,
+  edited, duplicated, exported/imported and restored from version history.
+  
+  - Mapping engine: JSONPath subset, first-match rules on run type/name/side/
+    metadata/required paths, and views for messages, tool calls, tool
+    results, key/value, markdown, code, tables, JSON and stacks, with
+    per-block fallback to raw JSON. Optional usage rules feed token/cost
+    aggregates and run-tree subtree rollups.
+  - AI mapper: sample payloads from the current or last N traces, review
+    and redact what is sent, generate a mapping, validate and dry-run it
+    against the full payloads with automatic repair rounds, then preview
+    before/after and save.
+  - Improve: re-sample unmatched/broken groups (or a pinned run), check
+    stored samples for regressions, show coverage before/after and a rule
+    diff, and save as a new version. Header shows profile coverage.
+  - Bring-your-own-key providers called directly from the browser: Claude
+    API (@anthropic-ai/sdk), OpenAI Responses API, Amazon Bedrock Converse
+    (API key or SigV4) and Amazon Bedrock Mantle (@anthropic-ai/bedrock-sdk).
+    Keys stay in memory unless explicitly remembered; a route diagram shows
+    where the key and samples go. Provider SDKs are lazy-loaded.
+  - LangGraph rollups now accept a pluggable per-run usage function so
+    mapped profiles reuse the same aggregates and pricing.
+  
+  Co-Authored-By: Claude Opus 5.5 (1M context) &lt;noreply@anthropic.com>
+
+### Bug fixes
+
+- override vulnerable transitive dependencies to clear high-severity audit findings (`tracing, trace-viewer`) ([f5b079d](https://github.com/Pascal-Lohscheidt/m4trix/commit/f5b079d40fbb3369e5e8e7bc28a5b6b84927771b))
+
+  `pnpm audit` (scripts/audit-deployed-packages.ts) reported high/critical
+  advisories reachable from published packages, which blocks the release
+  pipeline. Pin patched versions via pnpm overrides, staying within each
+  dependency's current major line:
+  
+  - brace-expansion@5 >=5.0.11, nanoid@3 >=3.3.18, ws@8 >=8.21.0,
+    js-yaml@4 >=4.3.2 (version-scoped so other majors are untouched)
+  - browserslist >=4.28.7, engine.io >=6.6.10, postcss >=8.5.18,
+    @grpc/grpc-js >=1.13.6
+  - raise existing floors: axios >=1.20.0, form-data >=4.0.6,
+    socket.io-parser >=4.2.7
+  - trace-viewer: vite ^6.4.3; vitest's auto-installed vite peer now
+    resolves to the same patched 6.4.3 instead of 7.3.3
+  
+  Co-Authored-By: Claude Opus 5.5 (1M context) &lt;noreply@anthropic.com>
+
+</Update>
+
+<Update label="June 3, 2026" description="v0.10.0" tags={["Features"]} rss={{ title: "June 3, 2026 — @m4trix/tracing updates", description: "add toM4trixTracer adapter for matrix NetworkTracer" }}>
 
 ### New features
 

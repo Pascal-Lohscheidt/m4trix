@@ -8,7 +8,31 @@ rss: true
 
 Product updates for **@m4trix/evals**, generated from [conventional commits](https://www.conventionalcommits.org/) in the monorepo. Scopes in commit messages route entries to the Agents, Evals, or Tracing changelogs.
 
-_Last regenerated 2026-06-05 (UTC)._
+_Last regenerated 2026-10-14 (UTC)._
+
+<Update label="October 3, 2026" description="Unreleased · latest evals v0.34.3" tags={["Fixes"]} rss={{ title: "October 3, 2026 — @m4trix/evals updates", description: "override vulnerable transitive dependencies to clear high-severity audit findings" }}>
+
+### Bug fixes
+
+- override vulnerable transitive dependencies to clear high-severity audit findings (`evals`) ([f5b079d](https://github.com/Pascal-Lohscheidt/m4trix/commit/f5b079d40fbb3369e5e8e7bc28a5b6b84927771b))
+
+  `pnpm audit` (scripts/audit-deployed-packages.ts) reported high/critical
+  advisories reachable from published packages, which blocks the release
+  pipeline. Pin patched versions via pnpm overrides, staying within each
+  dependency's current major line:
+  
+  - brace-expansion@5 >=5.0.11, nanoid@3 >=3.3.18, ws@8 >=8.21.0,
+    js-yaml@4 >=4.3.2 (version-scoped so other majors are untouched)
+  - browserslist >=4.28.7, engine.io >=6.6.10, postcss >=8.5.18,
+    @grpc/grpc-js >=1.13.6
+  - raise existing floors: axios >=1.20.0, form-data >=4.0.6,
+    socket.io-parser >=4.2.7
+  - trace-viewer: vite ^6.4.3; vitest's auto-installed vite peer now
+    resolves to the same patched 6.4.3 instead of 7.3.3
+  
+  Co-Authored-By: Claude Opus 5.5 (1M context) &lt;noreply@anthropic.com>
+
+</Update>
 
 <Update label="May 28, 2026" description="v0.34.3" tags={["Fixes"]} rss={{ title: "May 28, 2026 — @m4trix/evals updates", description: "upgrade dependencies to clear high-severity audit findings" }}>
 
