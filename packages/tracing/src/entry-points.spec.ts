@@ -36,6 +36,13 @@ describe('package entry points', () => {
     expect(Object.keys(dependencies)).not.toContain('@opentelemetry/api');
   });
 
+  it('keeps @m4trix/core an optional peer that has the tracer hooks toM4trixTracer uses', () => {
+    // NetworkUsageEvent (reportUsage) and NetworkTraceEndOptions (cancelled runs) are new in 0.18.
+    // On 0.x a caret range covers one minor only, so this is bumped with every breaking core release.
+    expect(pkg.peerDependencies['@m4trix/core']).toBe('^0.18.0');
+    expect(pkg.peerDependenciesMeta['@m4trix/core']).toEqual({ optional: true });
+  });
+
   it('publishes the aws entry and keeps the AWS SDK an optional peer', () => {
     expect(pkg.exports['./aws']).toEqual({
       types: './dist/aws.d.ts',

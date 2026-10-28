@@ -65,6 +65,10 @@ migration is needed; older readers ignore the new fields.
   onto the trace, like `projectId`.
 - **Core:** `@m4trix/core` now guards every `NetworkTracer` hook (a failing tracer no longer fails
   the network) and starts a network run's trace under the run id of its start event.
+- **Versions:** `toM4trixTracer` needs `@m4trix/core` 0.18 (the optional peer range is now
+  `^0.18.0`; 0.11 declared `^0.7.0`, which npm rejects next to newer cores). Upgrade
+  `@m4trix/trace-viewer` to 0.20 together with this release; it requires `@m4trix/tracing` 0.12 to
+  show cancelled runs.
 
 ## Upgrading to 0.11
 

@@ -4,6 +4,8 @@ import { describe, expect, it } from 'vitest';
 
 /** First @m4trix/tracing release that ships the `@m4trix/tracing/aws` entry. */
 const TRACING_AWS_ENTRY_SINCE = { major: 0, minor: 11 };
+/** First @m4trix/tracing release that records runs with status `'cancelled'`, which the viewer shows. */
+const TRACING_CANCELLED_STATUS_SINCE = { major: 0, minor: 12 };
 
 describe('package contract', () => {
   it('imports the AWS adapters from the @m4trix/tracing/aws entry', async () => {
@@ -21,5 +23,16 @@ describe('package contract', () => {
     const [major, minor] = [Number(match?.[1]), Number(match?.[2])];
     expect(major).toBe(TRACING_AWS_ENTRY_SINCE.major);
     expect(minor).toBeGreaterThanOrEqual(TRACING_AWS_ENTRY_SINCE.minor);
+  });
+
+  it('only accepts @m4trix/tracing releases that record cancelled runs', async () => {
+    const { default: pkg } = await import('../package.json');
+    const range: string = pkg.peerDependencies['@m4trix/tracing'];
+
+    const match = /^\^(\d+)\.(\d+)\.\d+$/.exec(range);
+    expect(match, `expected a caret range, got "${range}"`).not.toBeNull();
+    const [major, minor] = [Number(match?.[1]), Number(match?.[2])];
+    expect(major).toBe(TRACING_CANCELLED_STATUS_SINCE.major);
+    expect(minor).toBeGreaterThanOrEqual(TRACING_CANCELLED_STATUS_SINCE.minor);
   });
 });
