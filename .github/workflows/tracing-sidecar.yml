@@ -2,6 +2,8 @@
 # release. CircleCI pushes the release tag only after `npm publish` succeeded
 # (scripts/push-release-tag.ts), so a tag means "this version is on npm" and the image gets the
 # same version. Run it by hand to (re)build an existing release, e.g. one whose image is missing.
+#
+# The job can push images, so every action is pinned to a commit (the comment names its version).
 name: Tracing sidecar image
 
 on:
@@ -59,22 +61,48 @@ jobs:
           } >> "$GITHUB_OUTPUT"
           echo "Tracing sidecar $VERSION (newest release: $NEWEST) → $TAGS"
 
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: refs/tags/${{ steps.release.outputs.tag }}
 
-      - uses: docker/setup-qemu-action@v4
-      - uses: docker/setup-buildx-action@v4
+      - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
-      - uses: docker/login-action@v4
+      - uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: docker/build-push-action@v7
+      - name: Build the image to scan (linux/amd64)
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           # The checked-out tag, so packages/tracing/Dockerfile.dockerignore applies.
+          context: .
+          file: packages/tracing/Dockerfile
+          platforms: linux/amd64
+          load: true
+          tags: m4trix-tracing-sidecar:scan
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Nothing is pushed while a HIGH or CRITICAL vulnerability with a fix is found, like the npm
+      # audit gate in CircleCI. Covers the Debian packages, the npm that ships with Node, and the npm
+      # packages bundled into the CLI (listed in trace-shipper-cli.cdx.json). Findings without a fix
+      # cannot be acted on and are skipped.
+      - name: Scan the image for vulnerabilities
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: m4trix-tracing-sidecar:scan
+          scanners: vuln
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+
+      # Same build from the cache, for both platforms; the arm64 image has the same packages.
+      - name: Build and push the image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
           context: .
           file: packages/tracing/Dockerfile
           platforms: linux/amd64,linux/arm64

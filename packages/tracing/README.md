@@ -592,7 +592,10 @@ over OTLP, with no change to the app.
 
 Image: `ghcr.io/pascal-lohscheidt/m4trix-tracing-sidecar`, for `linux/amd64` and `linux/arm64`.
 Every `@m4trix/tracing` release publishes a tag with its version (e.g. `:0.12.0`); `:latest` is
-the newest release. Pin the version that matches the `@m4trix/tracing` your app uses.
+the newest release. Pin the version that matches the `@m4trix/tracing` your app uses. Each image is
+scanned for vulnerabilities before it is published. `/app/trace-shipper-cli.cdx.json` (also in the
+npm package's `dist/`) is a CycloneDX SBOM of the npm packages bundled into the CLI, so your own
+scanners see them too.
 
 Build from the repository root:
 

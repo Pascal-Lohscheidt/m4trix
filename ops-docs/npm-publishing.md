@@ -109,6 +109,14 @@ is a version on npm:
 - The image gets the tag's version (`@m4trix/tracing@0.12.0` → `:0.12.0`) and `:latest`, but
   `:latest` only when it is the newest tracing tag, so rebuilding an older release does not move it.
 - The workflow refuses tags that are not tracing release tags and versions that are not on npm.
+- Before anything is pushed, Trivy scans the amd64 image and fails the run on HIGH/CRITICAL
+  vulnerabilities that have a fix (same bar as the npm audit job). It covers the Debian packages,
+  the npm that ships with Node, and the npm packages bundled into the CLI: the sidecar build writes
+  them to `trace-shipper-cli.cdx.json` (CycloneDX, `src/sidecar-sbom.ts`), which the image ships
+  next to the CLI. Without it no scanner would see the bundled AWS SDK, and `pnpm audit --prod`
+  skips it too (it is a devDependency of `@m4trix/tracing`). A failing scan usually means a
+  rebuild picks up the fix: newer `node:24-slim`, or `pnpm update` of the bundled package.
+- Every action in the job is pinned to a commit, since the job can push images.
 - Images are multi-platform (`linux/amd64`, `linux/arm64`). The bundle is built once on the
   runner's platform (`FROM --platform=$BUILDPLATFORM` in `packages/tracing/Dockerfile`).
 - It pushes with the workflow's `GITHUB_TOKEN` (`packages: write`); no secret is stored.

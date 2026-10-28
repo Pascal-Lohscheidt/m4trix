@@ -16,9 +16,10 @@ COPY packages/tracing packages/tracing
 RUN pnpm --filter @m4trix/tracing run build:sidecar
 
 # The CLI is a single self-contained file (AWS SDK bundled), so the runtime image needs no install.
+# Its SBOM (trace-shipper-cli.cdx.json) lists the bundled npm packages for vulnerability scanners.
 FROM node:24-slim
 WORKDIR /app
-COPY --from=build /app/packages/tracing/dist/trace-shipper-cli.mjs ./
+COPY --from=build /app/packages/tracing/dist/trace-shipper-cli.mjs /app/packages/tracing/dist/trace-shipper-cli.cdx.json ./
 RUN mkdir /traces && chown node:node /traces
 USER node
 ENV NODE_ENV=production \
