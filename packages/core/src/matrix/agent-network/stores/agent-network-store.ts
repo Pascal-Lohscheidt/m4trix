@@ -1,9 +1,13 @@
 import type { EnvelopeLike } from '../agent-network-event.js';
 
 /**
- * An event as the store keeps it: name, meta (including `runId` and `eventId`), a JSON-compatible
- * payload, and the channels it was published to. Keep `channels`: resumed SSE streams
- * (`Last-Event-ID`) replay only the events of their own channel.
+ * An event as the store keeps it: name, meta (including `runId` and `eventId`), its payload, and
+ * the channels it was published to. The runtime appends a deep-frozen JSON copy: the payload
+ * encoded with its event's schema (`S.encode`: a `Date` as an ISO string, an `Option` as
+ * `{ _tag, value }`), so it shares no object with what agents received and survives a JSON round
+ * trip unchanged. Reads (`history`, folds, resumed streams) return it in that encoded form; folds
+ * decode it with the event's schema. Keep `channels`: resumed SSE streams (`Last-Event-ID`) replay
+ * only the events of their own channel.
  */
 export type StoredEvent = EnvelopeLike & {
   /** The channels the event was published to; absent on events stored before it existed. */
@@ -68,8 +72,9 @@ export type EventPage = {
   /**
    * Set on a page read with an `after` cursor that does not belong to the context's current
    * history: the context was deleted, expired or evicted since the cursor was handed out (and
-   * may have started over). The page then holds the current history from its start, as if read
-   * without `after`. Anything derived from pages before the cursor is stale; folds rebuild.
+   * may have started over), or the store does not recognise the cursor at all (another store's,
+   * e.g. in a migrated history). The page then holds the current history from its start, as if
+   * read without `after`. Anything derived from pages before the cursor is stale; folds rebuild.
    */
   readonly reset?: true;
 };
@@ -81,6 +86,17 @@ export type EventPage = {
  *
  * The runtime appends each durable event before delivering it, and never has two appends for the
  * same run in flight; appends to different runs or contexts may run concurrently.
+ *
+ * What the runtime relies on:
+ * - Events are JSON-compatible (see `StoredEvent`): store them as JSON and return them unchanged,
+ *   `channels` included, without turning values into others (e.g. reviving date strings).
+ * - Positions only grow: an appended event becomes visible after every cursor already handed out,
+ *   never before one (a store that numbers events before its transaction commits must not let a
+ *   lower number commit after a higher one was read). Folds read only the events after their
+ *   cursor, so an event that lands before it is never folded.
+ * - Cursors are persisted (fold checkpoints keep the cursor of the read they were computed from):
+ *   keep their format stable across versions and restarts of the store; a cursor the store does
+ *   not recognise reads as a `reset` page (see `readContext`).
  */
 export interface AgentNetworkStore {
   /**
@@ -98,8 +114,15 @@ export interface AgentNetworkStore {
    *
    * An `after` cursor of a history that is gone (deleted, expired, evicted, also when the context
    * has started over since) must not be read as a position in the current one: return the
-   * current history from its start with `reset: true` (see `EventPage.reset`). Folds rely on it
-   * to never add new events onto state derived from a deleted history.
+   * current history from its start with `reset: true` (see `EventPage.reset`). The same for an
+   * `after` cursor the store does not recognise: a reset page, not an error. Folds rely on it to
+   * never add new events onto state derived from a deleted history, and to stay readable when a
+   * stored checkpoint carries a foreign cursor.
+   *
+   * Cursors are persisted (fold checkpoints keep the cursor of the read they were computed
+   * from), so keep their format stable across versions of the store, and keep each event's
+   * `channels`: they decide which streams an event is replayed to. An event appended while a
+   * cursor is out must show up after it, never before it.
    */
   readContext(key: AgentNetworkStoreKey, options?: ReadContextOptions): Promise<EventPage>;
   /**

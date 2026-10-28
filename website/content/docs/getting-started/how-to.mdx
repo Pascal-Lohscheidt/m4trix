@@ -503,7 +503,7 @@ Use `contextId` from the request (or a header like `x-correlation-id`) to group 
 })
 ```
 
-`history.run()` returns the current run's events only; `history.context()` spans the whole conversation. Page back with `history.context({ limit, before: page.cursor })`. History is scoped to the request's principal, and transient events (token deltas) are never in it. See [Event history and stores](../api-reference/agent-network.md#event-history-and-stores).
+`history.run()` returns the current run's events only; `history.context()` spans the whole conversation. Page back with `history.context({ limit, before: page.cursor })`. History is scoped to the request's principal, and transient events (token deltas) are never in it. History events are read-only and hold payloads as stored, encoded with their event's schema: `MessageEvent.is` works here because its fields are plain strings. For an event with transforming fields (`S.Date`, `S.NumberFromString`), decode instead (`S.decodeUnknownSync(Event.payload)(event.payload)`), or read the conversation through a [context fold](../concepts/context.md), which decodes for you. See [Event history and stores](../api-reference/agent-network.md#event-history-and-stores).
 
 ---
 

@@ -2,7 +2,7 @@ import { Schema as S } from 'effect';
 import { describe, expect, expectTypeOf, test, vi } from 'vitest';
 import type { EmitsOptions } from '../agent-factory.js';
 import { AgentFactory } from '../agent-factory.js';
-import { ContextFold, type FoldSource } from '../context/context-fold.js';
+import { type AnyContextFold, ContextFold } from '../context/context-fold.js';
 import { Tool } from '../tool.js';
 import {
   AgentNetwork,
@@ -271,22 +271,21 @@ describe('network wiring check', () => {
   });
 
   describe('fold events', () => {
-    const Conversation = ContextFold.of('conversation', { version: 1 })
-      .over([start, answer, note, done])
+    const Conversation = ContextFold.of('conversation')
       .initial(() => 0)
       .on(start, (n) => n + 1)
       .on(answer, (n) => n + 1)
       .on(note, (n) => n + 1)
       .on(done, (n) => n + 1);
-    const Count: FoldSource<'count', number> = {
-      name: 'count',
-      fold: Conversation,
-      select: (state) => state as number,
-    };
-    const reader = (sources: ReadonlyArray<FoldSource> = [Conversation]) =>
+    /** A second fold of the same agent, over some of the same events. */
+    const Notes = ContextFold.of('notes')
+      .initial(() => 0)
+      .on(note, (n) => n + 1)
+      .on(done, (n) => n + 1);
+    const reader = (folds: ReadonlyArray<AnyContextFold> = [Conversation]) =>
       AgentFactory.run()
         .listensTo([start])
-        .folds(sources as [typeof Conversation])
+        .folds(folds as [typeof Conversation])
         .logic(async () => {})
         .produce({});
     const foldWarnings = (result: NetworkValidationResult) =>
@@ -294,7 +293,7 @@ describe('network wiring check', () => {
 
     test('warns about a folded event nothing can publish', () => {
       const logger = recordingLogger();
-      const folder = reader([Conversation, Count]);
+      const folder = reader([Conversation, Notes]);
       const network = AgentNetwork.setup(
         ({ mainChannel, createChannel, registerAgent }) => {
           mainChannel.events([start]);
@@ -308,7 +307,7 @@ describe('network wiring check', () => {
       );
 
       // `start` comes from outside (main), `answer` from an agent; nothing publishes the others.
-      // The fold and its view read the same events: each is reported once.
+      // Both folds read note and done: each event is reported once per agent.
       expect(foldWarnings(network.validate())).toEqual([
         {
           code: 'fold-event-unpublished',
@@ -403,7 +402,7 @@ describe('network wiring check', () => {
           ({ mainChannel, createChannel, registerAgent }) => {
             registerAgent(noter()).subscribe(mainChannel).publishTo(createChannel('work'));
             // Subscribed to main only, yet its fold reads the notes published to `work`.
-            registerAgent(reader([Count])).subscribe(mainChannel);
+            registerAgent(reader([Conversation])).subscribe(mainChannel);
           },
           { logger },
         );
@@ -429,8 +428,7 @@ describe('network wiring check', () => {
       });
 
       test('events no fold reads are still reported', () => {
-        const Answers = ContextFold.of('answers', { version: 1 })
-          .over([answer])
+        const Answers = ContextFold.of('answers')
           .initial(() => 0)
           .on(answer, (n) => n + 1);
         const network = AgentNetwork.setup(
@@ -454,8 +452,7 @@ describe('network wiring check', () => {
 
       test('a transient event is never stored, so a fold does not consume it', () => {
         const tick = AgentNetworkEvent.of('tick', S.Struct({}), { transient: true });
-        const Ticks = ContextFold.of('ticks', { version: 1 })
-          .over([tick])
+        const Ticks = ContextFold.of('ticks')
           .initial(() => 0)
           .on(tick, (n) => n + 1);
         const ticker = AgentFactory.run()
@@ -475,6 +472,453 @@ describe('network wiring check', () => {
           expect.objectContaining({ event: 'tick', agentId: ticker.getId() }),
         ]);
       });
+    });
+  });
+
+  describe('folds sharing a name', () => {
+    // Without a state schema: such folds can never compact, so they have no checkpoints.
+    const makeCount = () =>
+      ContextFold.of('conversation')
+        .initial(() => 0)
+        .on(start, (n) => n + 1);
+    // With one, in context scope: they compact, and their checkpoints are stored by name+version.
+    const makeLog = (version = 1) =>
+      ContextFold.of('conversation', { state: S.Array(S.String), version })
+        .initial(() => [])
+        .on(start, (lines) => [...lines, 'start']);
+    const Conversation = makeCount();
+    const issues = (result: NetworkValidationResult) =>
+      [...result.errors, ...result.warnings].filter((issue) =>
+        ['fold-name-shared', 'fold-checkpoint-shared'].includes(issue.code),
+      );
+    const reads = (fold: AnyContextFold) =>
+      AgentFactory.run()
+        .listensTo([start])
+        .folds([fold as typeof Conversation])
+        .logic(async () => {})
+        .produce({});
+    const reader = (id: string) => `agent "${id}" (listens to "start"; emits nothing)`;
+
+    test('folds that would share checkpoints fail setup: compactable, one name and version', () => {
+      const logger = recordingLogger();
+      // A factory-built copy: the same definition, but another fold object.
+      const model = reads(makeLog());
+      const auditor = reads(makeLog());
+      const aggregator = EventAggregator.listensTo([start])
+        .folds([makeLog()])
+        .mapToEmit(() => {});
+      const error = setupError(() =>
+        AgentNetwork.setup(
+          ({ mainChannel, registerAgent, registerAggregator }) => {
+            registerAgent(model).subscribe(mainChannel);
+            registerAgent(auditor).subscribe(mainChannel);
+            registerAggregator(aggregator).subscribe(mainChannel);
+          },
+          { logger },
+        ),
+      );
+
+      const message =
+        `3 different folds named "conversation" would share the checkpoints ` +
+        `"m4trix:fold.checkpoint:conversation@1": #1 read by ${reader(model.getId())}, ` +
+        `#2 read by ${reader(auditor.getId())}, #3 read by ${reader(aggregator.getId())}. ` +
+        'Checkpoints are stored by fold name and version, so each would restore states the ' +
+        'others wrote: give each fold its own name (or version), or define it once and share ' +
+        'that object';
+      expect(error.errors).toEqual([{ code: 'fold-checkpoint-shared', message }]);
+      expect(error.message).toContain(message);
+      expect(logger.warn).not.toHaveBeenCalled();
+    });
+
+    test('folds that share a name but no checkpoints only warn, by agents and aggregators', () => {
+      const logger = recordingLogger();
+      // A schema-less copy: it can never compact, so nothing is shared in the store.
+      const Copy = makeCount();
+      const model = reads(Conversation);
+      const auditor = reads(Copy);
+      const aggregator = EventAggregator.listensTo([start])
+        .folds([Copy])
+        .mapToEmit(() => {});
+      const network = AgentNetwork.setup(
+        ({ mainChannel, registerAgent, registerAggregator }) => {
+          registerAgent(model).subscribe(mainChannel);
+          registerAgent(auditor).subscribe(mainChannel);
+          registerAggregator(aggregator).subscribe(mainChannel);
+        },
+        { logger },
+      );
+
+      const message =
+        `2 different folds are named "conversation": #1 read by ${reader(model.getId())}, ` +
+        `#2 read by ${reader(auditor.getId())} and ${reader(aggregator.getId())}. Each one is ` +
+        'folded and cached on its own, and the m4trix.fold.read.events metric reports them as ' +
+        'one fold: give each fold its own name, or define it once and share that object';
+      expect(issues(network.validate())).toEqual([{ code: 'fold-name-shared', message }]);
+      expect(logger.warn).toHaveBeenCalledWith(`[m4trix] ${message}`, {
+        code: 'fold-name-shared',
+        message,
+      });
+    });
+
+    test.each([
+      ['two versions of a compactable fold', () => [makeLog(1), makeLog(2)]],
+      ['a compactable fold and a schema-less one', () => [makeLog(), makeCount()]],
+      [
+        'a context-scoped and a run-scoped fold',
+        () => [
+          makeLog(),
+          ContextFold.of('conversation', { state: S.Array(S.String), scope: 'run' })
+            .initial(() => [])
+            .on(start, (lines) => lines),
+        ],
+      ],
+    ])('%s share no checkpoints: a warning', (_, folds) => {
+      const network = AgentNetwork.setup(
+        ({ mainChannel, registerAgent }) => {
+          for (const fold of folds()) registerAgent(reads(fold)).subscribe(mainChannel);
+        },
+        { logger: recordingLogger() },
+      );
+
+      expect(issues(network.validate()).map((issue) => issue.code)).toEqual(['fold-name-shared']);
+    });
+
+    test('one fold object shared by agents and aggregators is fine', () => {
+      const Replies = ContextFold.of('replies')
+        .initial(() => 0)
+        .on(answer, (n) => n + 1);
+      const Log = makeLog();
+      const network = AgentNetwork.setup(
+        ({ mainChannel, registerAgent, registerAggregator }) => {
+          registerAgent(
+            AgentFactory.run()
+              .listensTo([start])
+              .folds([Conversation, Replies])
+              .logic(async () => {})
+              .produce({}),
+          ).subscribe(mainChannel);
+          registerAgent(reads(Conversation)).subscribe(mainChannel);
+          registerAgent(
+            AgentFactory.run()
+              .listensTo([start])
+              .folds([Log])
+              .logic(async () => {})
+              .produce({}),
+          );
+          registerAggregator(
+            EventAggregator.listensTo([start])
+              .folds([Conversation, Replies])
+              .mapToEmit(() => {}),
+          ).subscribe(mainChannel);
+        },
+        { logger: recordingLogger(), wiring: { ignore: ['agent-not-subscribed'] } },
+      );
+
+      // The name "conversation" is still read through two folds (Conversation and Log): a warning.
+      expect(issues(network.validate()).map((issue) => issue.code)).toEqual(['fold-name-shared']);
+    });
+
+    test('wiring.ignore silences the warning, never the error', () => {
+      const logger = recordingLogger();
+      const network = AgentNetwork.setup(
+        ({ mainChannel, registerAgent }) => {
+          registerAgent(reads(Conversation)).subscribe(mainChannel);
+          registerAgent(reads(makeCount())).subscribe(mainChannel);
+        },
+        { logger, wiring: { ignore: ['fold-name-shared'] } },
+      );
+      const error = setupError(() =>
+        AgentNetwork.setup(
+          ({ mainChannel, registerAgent }) => {
+            registerAgent(reads(makeLog())).subscribe(mainChannel);
+            registerAgent(reads(makeLog())).subscribe(mainChannel);
+          },
+          // @ts-expect-error - errors cannot be ignored
+          { logger: recordingLogger(), wiring: { ignore: ['fold-checkpoint-shared'] } },
+        ),
+      );
+
+      expect(issues(network.validate())).toEqual([]);
+      expect(logger.warn).not.toHaveBeenCalled();
+      expect(error.errors.map((e) => e.code)).toEqual(['fold-checkpoint-shared']);
+    });
+  });
+
+  describe('event definitions', () => {
+    const StampText = AgentNetworkEvent.of('stamp', S.Struct({ at: S.String }));
+    const StampDate = AgentNetworkEvent.of('stamp', S.Struct({ at: S.Date }));
+    const Stamps = ContextFold.of('stamps')
+      .initial(() => 0)
+      .on(StampDate, (count) => count + 1);
+    const stamper = (emits: typeof StampDate | typeof StampText = StampDate) =>
+      AgentFactory.run()
+        .listensTo([start])
+        .emits([emits])
+        .folds([Stamps])
+        .logic(async () => {})
+        .produce({});
+    const warningsOf = (
+      setup: Parameters<typeof AgentNetwork.setup>[0],
+      code: WiringWarningCode,
+      options: AgentNetworkSetupOptions = {},
+    ) =>
+      AgentNetwork.setup(setup, { logger: recordingLogger(), ...options })
+        .validate()
+        .warnings.filter((warning) => warning.code === code);
+
+    test('one event name with different payload schemas is a warning naming each definition', () => {
+      const agent = stamper();
+
+      const warnings = warningsOf(({ mainChannel, registerAgent }) => {
+        mainChannel.events([start, StampText]);
+        registerAgent(agent).subscribe(mainChannel).publishTo(mainChannel);
+      }, 'event-schema-mismatch');
+
+      expect(warnings).toEqual([
+        {
+          code: 'event-schema-mismatch',
+          event: 'stamp',
+          message:
+            '"stamp" has 2 different payload schemas: { readonly at: string } (channel ' +
+            `"main"); { readonly at: Date } (emitted by agent "${agent.getId()}", handled by fold ` +
+            '"stamps"). Events published from outside are encoded with the first, emits with the ' +
+            "emitter's own definition and folds decode with their handler's, so a payload stored " +
+            'with one may not decode with another (folds skip it and report it): give the event ' +
+            'one definition and share it',
+        },
+      ]);
+    });
+
+    test('one definition everywhere, or equal schemas made twice, are fine', () => {
+      const Again = AgentNetworkEvent.of('stamp', S.Struct({ at: S.Date }));
+
+      const warnings = warningsOf(({ mainChannel, registerAgent }) => {
+        mainChannel.events([start, Again]);
+        registerAgent(stamper()).subscribe(mainChannel).publishTo(mainChannel);
+      }, 'event-schema-mismatch');
+
+      expect(warnings).toEqual([]);
+    });
+
+    test('schemas with bigint annotations (e.g. a bound) are compared like any other', () => {
+      const positive = (min: bigint) => S.Struct({ n: S.BigInt.pipe(S.greaterThanBigInt(min)) });
+      const One = AgentNetworkEvent.of('big', positive(0n));
+      const OneAgain = AgentNetworkEvent.of('big', positive(0n));
+      const Two = AgentNetworkEvent.of('big', positive(1n));
+      const listener = (event: typeof One) =>
+        AgentFactory.run()
+          .listensTo([event])
+          .logic(async () => {})
+          .produce({});
+
+      const mismatchesWith = (other: typeof One) =>
+        warningsOf(({ mainChannel, registerAgent }) => {
+          mainChannel.events([One]);
+          registerAgent(listener(other)).subscribe(mainChannel);
+        }, 'event-schema-mismatch');
+
+      expect(mismatchesWith(OneAgain)).toEqual([]);
+      expect(mismatchesWith(Two)).toEqual([
+        expect.objectContaining({ code: 'event-schema-mismatch', event: 'big' }),
+      ]);
+    });
+
+    test('a schema JSON cannot describe (a cyclic annotation) never fails setup, nor warns', () => {
+      const cyclic: Record<string, unknown> = { a: 'x' };
+      cyclic.self = cyclic;
+      const Odd = AgentNetworkEvent.of(
+        'odd',
+        S.Struct({ a: S.String }).annotations({ examples: [cyclic as never] }),
+      );
+      const Plain = AgentNetworkEvent.of('odd', S.Struct({ a: S.String }));
+      const listener = (event: typeof Plain) =>
+        AgentFactory.run()
+          .listensTo([event])
+          .logic(async () => {})
+          .produce({});
+      const mismatchesWith = (other: typeof Plain) =>
+        warningsOf(({ mainChannel, registerAgent }) => {
+          mainChannel.events([Odd]);
+          registerAgent(listener(other)).subscribe(mainChannel);
+        }, 'event-schema-mismatch');
+
+      // The same definition everywhere is one; another cannot be compared with it: no warning.
+      expect(mismatchesWith(Odd)).toEqual([]);
+      expect(mismatchesWith(Plain)).toEqual([]);
+    });
+
+    test('a durable event whose schema encodes to something JSON cannot hold is a warning', () => {
+      const Raw = AgentNetworkEvent.of('raw', S.Struct({ at: S.DateFromSelf }));
+      const Live = AgentNetworkEvent.of('live', S.Struct({ at: S.DateFromSelf }), {
+        transient: true,
+      });
+      const Fine = AgentNetworkEvent.of('fine', S.Struct({ at: S.Date }));
+      const emitter = AgentFactory.run()
+        .listensTo([start])
+        .emits([Raw, Live, Fine])
+        .logic(async () => {})
+        .produce({});
+
+      const warnings = warningsOf(
+        ({ mainChannel, registerAgent }) => {
+          registerAgent(emitter).subscribe(mainChannel).publishTo(mainChannel);
+        },
+        'event-not-storable',
+        { wiring: { ignore: ['unconsumed-event'] } },
+      );
+
+      // Transient events are never stored: `live` is fine.
+      expect(warnings).toEqual([
+        {
+          code: 'event-not-storable',
+          event: 'raw',
+          message:
+            '"raw" cannot be stored with a value at at: its schema encodes it as DateFromSelf, ' +
+            'which JSON cannot hold (durable events are stored as JSON, encoded with their ' +
+            'schema), so publishing one fails. Give it a schema that encodes to JSON (e.g. S.Date ' +
+            'instead of S.DateFromSelf), or make the event transient. Defined by: emitted by ' +
+            `agent "${emitter.getId()}"`,
+        },
+      ]);
+    });
+
+    test('at the root of a payload, by a fold, a listener or a channel alike', () => {
+      const Raw = AgentNetworkEvent.of('raw', S.DateFromSelf);
+      const Read = ContextFold.of('read')
+        .initial(() => 0)
+        .on(Raw, (count) => count + 1);
+      const reader = AgentFactory.run()
+        .listensTo([Raw])
+        .folds([Read])
+        .logic(async () => {})
+        .produce({});
+
+      const [warning] = warningsOf(({ mainChannel, registerAgent }) => {
+        mainChannel.events([Raw]);
+        registerAgent(reader).subscribe(mainChannel);
+      }, 'event-not-storable');
+
+      expect(warning?.message).toContain('"raw" cannot be stored with a value at (root)');
+      expect(warning?.message).toContain(
+        `Defined by: channel "main", listened to by agent "${reader.getId()}", handled by fold ` +
+          '"read"',
+      );
+    });
+
+    test('wiring.ignore silences both', () => {
+      const Raw = AgentNetworkEvent.of('stamp', S.Struct({ at: S.DateFromSelf }));
+      const setup: Parameters<typeof AgentNetwork.setup>[0] = ({ mainChannel, registerAgent }) => {
+        mainChannel.events([start, Raw]);
+        registerAgent(stamper()).subscribe(mainChannel).publishTo(mainChannel);
+      };
+      const ignore = {
+        wiring: { ignore: ['event-schema-mismatch', 'event-not-storable'] },
+      } as const;
+
+      expect(warningsOf(setup, 'event-schema-mismatch')).toHaveLength(1);
+      expect(warningsOf(setup, 'event-not-storable')).toHaveLength(1);
+      expect(warningsOf(setup, 'event-schema-mismatch', ignore)).toEqual([]);
+      expect(warningsOf(setup, 'event-not-storable', ignore)).toEqual([]);
+    });
+  });
+
+  describe('S.Redacted in durable events', () => {
+    const redactedErrors = (setup: Parameters<typeof AgentNetwork.setup>[0]) =>
+      setupError(() =>
+        AgentNetwork.setup(setup, {
+          logger: recordingLogger(),
+          wiring: { ignore: ['unconsumed-event', 'fold-event-unpublished'] },
+        }),
+      ).errors.filter((error) => error.code === 'durable-event-redacted');
+
+    test.each<[string, S.Schema.Any, string]>([
+      [
+        'a nested field',
+        S.Struct({ creds: S.Struct({ password: S.Redacted(S.String) }) }),
+        'creds.password',
+      ],
+      ['an optional field', S.Struct({ token: S.optional(S.Redacted(S.String)) }), 'token'],
+      ['a union member', S.Struct({ key: S.Union(S.Null, S.Redacted(S.String)) }), 'key'],
+      [
+        'behind a suspension',
+        S.Struct({ inner: S.suspend(() => S.Struct({ pin: S.Redacted(S.String) })) }),
+        'inner.pin',
+      ],
+      ['the payload itself', S.RedactedFromSelf(S.String), '(root)'],
+    ])('fail setup, in %s', (_label, schema, at) => {
+      const Login = AgentNetworkEvent.of('login', schema);
+      const emitter = AgentFactory.run()
+        .listensTo([start])
+        .emits([Login])
+        .logic(async () => {})
+        .produce({});
+
+      const errors = redactedErrors(({ mainChannel, registerAgent }) => {
+        registerAgent(emitter).subscribe(mainChannel).publishTo(mainChannel);
+      });
+
+      expect(errors).toEqual([
+        {
+          code: 'durable-event-redacted',
+          event: 'login',
+          message:
+            `"login" is durable, but its schema holds S.Redacted (at ${at}): durable events are ` +
+            'stored and streamed encoded with their schema, which puts the secret in clear. Mark ' +
+            'the event transient (AgentNetworkEvent.of(name, schema, { transient: true }) in the ' +
+            'listensTo or emits of its agents: never stored, and streamed as "<redacted>"; a ' +
+            'transient definition only on a channel or a fold does not count, the plane stores ' +
+            'the event), or remove the secret from its payload. Defined by: emitted by agent ' +
+            `"${emitter.getId()}"`,
+        },
+      ]);
+    });
+
+    test('a transient event may hold one: it is never stored', () => {
+      const Typing = AgentNetworkEvent.of(
+        'typing',
+        S.Struct({ token: S.Redacted(S.String), text: S.String }),
+        { transient: true },
+      );
+      const emitter = AgentFactory.run()
+        .listensTo([start])
+        .emits([Typing])
+        .logic(async () => {})
+        .produce({});
+
+      const network = AgentNetwork.setup(
+        ({ mainChannel, registerAgent }) => {
+          registerAgent(emitter).subscribe(mainChannel).publishTo(mainChannel);
+        },
+        { logger: recordingLogger(), wiring: { ignore: ['unconsumed-event'] } },
+      );
+
+      expect(network.validate().errors).toEqual([]);
+    });
+
+    test('durable unless an agent declares it transient: a channel or a fold alone does not', () => {
+      const Secret = AgentNetworkEvent.of('secret', S.Struct({ key: S.Redacted(S.String) }));
+      // Transient on the channel only: no agent declares it, so the plane stores it.
+      const Marked = AgentNetworkEvent.of('marked', S.Struct({ key: S.Redacted(S.String) }), {
+        transient: true,
+      });
+      const Seen = ContextFold.of('seen')
+        .initial(() => 0)
+        .on(Secret, (count) => count + 1);
+      const reader = AgentFactory.run()
+        .listensTo([start])
+        .folds([Seen])
+        .logic(async () => {})
+        .produce({});
+
+      const errors = redactedErrors(({ mainChannel, registerAgent }) => {
+        mainChannel.events([start, Marked]);
+        registerAgent(reader).subscribe(mainChannel);
+      });
+
+      expect(errors.map((error) => [error.event, error.message.split('Defined by: ')[1]])).toEqual([
+        ['marked', 'channel "main"'],
+        ['secret', 'handled by fold "seen"'],
+      ]);
     });
   });
 
@@ -552,7 +996,12 @@ describe('network wiring check', () => {
       readonly errors: ReadonlyArray<WiringIssue<WiringErrorCode>>;
       readonly warnings: ReadonlyArray<WiringIssue<WiringWarningCode>>;
     }>();
-    expectTypeOf<WiringErrorCode>().toEqualTypeOf<'emit-not-accepted' | 'listen-not-accepted'>();
+    expectTypeOf<WiringErrorCode>().toEqualTypeOf<
+      | 'emit-not-accepted'
+      | 'listen-not-accepted'
+      | 'fold-checkpoint-shared'
+      | 'durable-event-redacted'
+    >();
     expectTypeOf<WiringWarningCode>().toEqualTypeOf<
       | 'unconsumed-event'
       | 'agent-publishes-nowhere'
@@ -560,6 +1009,9 @@ describe('network wiring check', () => {
       | 'agent-unreachable'
       | 'terminal-event-not-emitted'
       | 'fold-event-unpublished'
+      | 'fold-name-shared'
+      | 'event-schema-mismatch'
+      | 'event-not-storable'
     >();
     expectTypeOf<AgentNetworkSetupOptions['wiring']>().toEqualTypeOf<
       NetworkWiringOptions | undefined

@@ -38,6 +38,12 @@ type Metric<
  *   `cold` (nothing cached: from the newest checkpoint or the start), `warm` (continued the cached
  *   state) or `reset` (the cached state belonged to a deleted or expired history and was rebuilt).
  *   Many cold reads point at a `foldCache` too small for the traffic.
+ * - `m4trix.fold.read.skipped`: an event a `ctx.folds` read left out of a fold, by fold name and
+ *   `reason`: `decode` (a stored event whose payload no longer decodes with its event's schema),
+ *   `checkpoint` (a checkpoint that cannot be restored) or `missing-segment` (an event a segmented
+ *   fold's `attach` found no segment for, with `onMissing: 'report'`, the default). Counted (and
+ *   logged) once per event, fold and reason while the event plane remembers it: the last 1000
+ *   it reported, the least recently seen forgotten first. Old history never breaks a read.
  */
 export type NetworkMetric =
   | Metric<
@@ -78,6 +84,12 @@ export type NetworkMetric =
       'histogram',
       '{event}',
       { readonly fold: string; readonly start: 'cold' | 'warm' | 'reset' }
+    >
+  | Metric<
+      'm4trix.fold.read.skipped',
+      'counter',
+      '{event}',
+      { readonly fold: string; readonly reason: 'decode' | 'checkpoint' | 'missing-segment' }
     >;
 
 export type NetworkMetricName = NetworkMetric['name'];

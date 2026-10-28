@@ -1,12 +1,12 @@
 import type { Schema as S } from 'effect';
-import type { FoldSource } from '../context/context-fold.js';
+import type { AnyContextFold } from '../context/context-fold.js';
 import {
-  addFoldSources,
+  addFolds,
   createFoldReader,
-  type FoldAccessors,
+  type FoldReadAccessors,
   type FoldReader,
   foldAccessors,
-  type UniqueFoldSources,
+  type UniqueFolds,
 } from '../context/fold-reader.js';
 import { type EmitValidationError, guardEmit } from '../validation.js';
 import type { AgentNetworkEventDef, EventMeta } from './agent-network-event.js';
@@ -24,21 +24,21 @@ type EmitPayload<E extends EventDef> =
     ? { name: N; payload: S.Schema.Type<PS> }
     : never;
 
-type EmitWhenFn<TTriggerEvent, TFolds extends FoldSource = never> = (ctx: {
+type EmitWhenFn<TTriggerEvent, TFolds extends AnyContextFold = never> = (ctx: {
   triggerEvent: TTriggerEvent;
   /** Durable event history of the run and its context (see `EventHistory`). */
   history: EventHistory;
-  /** The `.folds([...])` sources, by name (see `AgentFactory.folds`). */
-  folds: FoldAccessors<TFolds>;
+  /** The `.folds([...])` folds, by name, read-only (see `AgentFactory.folds`; no `compact`). */
+  folds: FoldReadAccessors<TFolds>;
 }) => boolean | Promise<boolean>;
 
-type MapToEmitFn<TTriggerEvent, TEmitEvent, TFolds extends FoldSource = never> = (ctx: {
+type MapToEmitFn<TTriggerEvent, TEmitEvent, TFolds extends AnyContextFold = never> = (ctx: {
   triggerEvent: TTriggerEvent;
   emit: (event: TEmitEvent) => void;
   /** Durable event history of the run and its context (see `EventHistory`). */
   history: EventHistory;
-  /** The `.folds([...])` sources, by name (see `AgentFactory.folds`). */
-  folds: FoldAccessors<TFolds>;
+  /** The `.folds([...])` folds, by name, read-only (see `AgentFactory.folds`; no `compact`). */
+  folds: FoldReadAccessors<TFolds>;
 }) => void | Promise<void>;
 
 type ConstructorParams<TListensTo extends EventDef, TEmits extends EventDef> = {
@@ -46,18 +46,18 @@ type ConstructorParams<TListensTo extends EventDef, TEmits extends EventDef> = {
   emits?: ReadonlyArray<TEmits>;
   // Declared for fewer folds than later `.folds()` calls add: its ctx then has extra accessors.
   emitWhen?: EmitWhenFn<EventEnvelope<TListensTo>, never>;
-  folds?: ReadonlyArray<FoldSource>;
+  folds?: ReadonlyArray<AnyContextFold>;
 };
 
 export class EventAggregator<
   TListensTo extends EventDef = never,
   TEmits extends EventDef = never,
-  TFolds extends FoldSource = never,
+  TFolds extends AnyContextFold = never,
 > {
   private _listensTo: ReadonlyArray<TListensTo>;
   private _emits: ReadonlyArray<TEmits>;
   private _emitWhen: EmitWhenFn<EventEnvelope<TListensTo>, never> | undefined;
-  private _folds: ReadonlyArray<FoldSource>;
+  private _folds: ReadonlyArray<AnyContextFold>;
 
   private constructor({
     listensTo = [],
@@ -92,15 +92,15 @@ export class EventAggregator<
   }
 
   /**
-   * Adds context folds (and views) that `emitWhen` and `mapToEmit` read through `ctx.folds`, by
-   * name. Accumulates; rejects what `AgentFactory.folds` rejects.
+   * Adds context folds that `emitWhen` and `mapToEmit` read through `ctx.folds`, by name.
+   * Accumulates; rejects what `AgentFactory.folds` rejects (views included).
    */
-  folds<const Sources extends ReadonlyArray<FoldSource>>(
-    sources: Sources & UniqueFoldSources<Sources, TFolds['name']>,
-  ): EventAggregator<TListensTo, TEmits, TFolds | Sources[number]> {
-    return new EventAggregator<TListensTo, TEmits, TFolds | Sources[number]>({
+  folds<const Folds extends ReadonlyArray<AnyContextFold>>(
+    folds: Folds & UniqueFolds<Folds, TFolds['name']>,
+  ): EventAggregator<TListensTo, TEmits, TFolds | Folds[number]> {
+    return new EventAggregator<TListensTo, TEmits, TFolds | Folds[number]>({
       ...this.state(),
-      folds: addFoldSources(this._folds, sources, 'EventAggregator.folds'),
+      folds: addFolds(this._folds, folds, 'EventAggregator.folds'),
     });
   }
 
@@ -131,7 +131,7 @@ export class EventAggregator<
   }
 }
 
-type EventAggregatorInstanceCtor<TTriggerEvent, TEmitEvent, TFolds extends FoldSource> = {
+type EventAggregatorInstanceCtor<TTriggerEvent, TEmitEvent, TFolds extends AnyContextFold> = {
   listensTo: ReadonlyArray<string>;
   /** Definitions of the events the aggregator listens to. */
   listensToEvents?: ReadonlyArray<EventDef>;
@@ -141,11 +141,15 @@ type EventAggregatorInstanceCtor<TTriggerEvent, TEmitEvent, TFolds extends FoldS
   transientEvents?: ReadonlyArray<string>;
   emitWhen: EmitWhenFn<TTriggerEvent, TFolds>;
   mapToEmit: MapToEmitFn<TTriggerEvent, TEmitEvent, TFolds>;
-  /** The `.folds([...])` sources, read through `ctx.folds`. */
-  folds?: ReadonlyArray<FoldSource>;
+  /** The `.folds([...])` folds, read through `ctx.folds`. */
+  folds?: ReadonlyArray<AnyContextFold>;
 };
 
-export class EventAggregatorInstance<TTriggerEvent, TEmitEvent, TFolds extends FoldSource = never> {
+export class EventAggregatorInstance<
+  TTriggerEvent,
+  TEmitEvent,
+  TFolds extends AnyContextFold = never,
+> {
   #id: string;
   #listensTo: ReadonlyArray<string>;
   #listensToEvents: ReadonlyArray<EventDef>;
@@ -153,7 +157,7 @@ export class EventAggregatorInstance<TTriggerEvent, TEmitEvent, TFolds extends F
   #transientEvents: ReadonlyArray<string>;
   #emitWhen: EmitWhenFn<TTriggerEvent, TFolds>;
   #mapToEmit: MapToEmitFn<TTriggerEvent, TEmitEvent, TFolds>;
-  #folds: ReadonlyArray<FoldSource>;
+  #folds: ReadonlyArray<AnyContextFold>;
 
   constructor({
     listensTo,
@@ -174,8 +178,8 @@ export class EventAggregatorInstance<TTriggerEvent, TEmitEvent, TFolds extends F
     this.#folds = folds;
   }
 
-  /** The sources `ctx.folds` reads (`.folds([...])`), in declaration order. */
-  getFolds(): ReadonlyArray<FoldSource> {
+  /** The folds `ctx.folds` reads (`.folds([...])`), in declaration order. */
+  getFolds(): ReadonlyArray<AnyContextFold> {
     return this.#folds;
   }
 
@@ -214,6 +218,7 @@ export class EventAggregatorInstance<TTriggerEvent, TEmitEvent, TFolds extends F
     const folds = foldAccessors(
       this.#folds as ReadonlyArray<TFolds>,
       options?.foldReader ?? createFoldReader({ history }),
+      { compact: false },
     );
 
     if (triggerEvent == null) {

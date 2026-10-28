@@ -297,6 +297,7 @@ describe('metrics hook (onMetric)', () => {
       | 'm4trix.store.append.duration_ms'
       | 'm4trix.store.append.errors'
       | 'm4trix.fold.read.events'
+      | 'm4trix.fold.read.skipped'
     >();
     expectTypeOf<AgentNetworkSetupOptions['onMetric']>().toEqualTypeOf<
       ((metric: NetworkMetric) => void) | undefined

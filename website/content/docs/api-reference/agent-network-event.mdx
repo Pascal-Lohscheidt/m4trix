@@ -26,6 +26,12 @@ const tokenDelta = AgentNetworkEvent.of('token-delta', S.Struct({ text: S.String
 
 A plane knows an event is transient when an agent or aggregator started on it declares its definition (with `transient: true`) in `listensTo` or `emits`. An event only published from outside (e.g. `plane.publish`) whose definition no agent or aggregator of the network declares is treated as durable.
 
+Only a transient event may carry a secret (`S.Redacted`): it is never stored, and streams send each `Redacted` value as `"<redacted>"`, the rest of the payload encoded with its schema as usual (a payload the schema cannot encode is sent as `"<redacted>"` as a whole). A durable event whose schema holds `S.Redacted` anywhere fails `AgentNetwork.setup()` ([`durable-event-redacted`](agent-network.md#wiring-check)), since its encoded form, the one stored and streamed, is the secret in clear.
+
+## Stored and streamed form
+
+Inside the network a payload is a value of the schema's type: what `make` returns, what agents emit and receive as `triggerEvent`, what fold handlers get. The store, and everything that leaves the network (SSE streams, outbound proxies, `ctx.history`), carry it **encoded** with the schema (`S.encode`), as JSON: a `Date` under `S.Date` as an ISO string, `S.NumberFromString` as a string, an `Option` as `{ _tag, value }`. For a schema without transformations (strings, numbers, booleans, literals, structs, arrays) both forms are the same. So an emitted payload must encode to JSON, as `JSON.stringify` writes it: a value with a `toJSON` method in an `S.Unknown` field is stored as what that returns (a `Date` from a database row as its ISO string, which is what folds, history and streams see), but a `Map`, `Set`, `Error` or class instance without one, and a field typed `S.DateFromSelf` (its ISO string is no `Date`), make the emit throw `EmitValidationError`; give such values a schema that encodes them, or convert them first. `.is` checks the decoded form, so for events read from history or a stream it **silently returns `false`** when the schema transforms (no error): decode them with `.decode` (or `S.decodeUnknownSync(myEvent.payload)(event.payload)`). In the encoded form a field renamed with `S.fromKey` is under its encoded key and an `Option` is `{ _tag, value }` (no `_id`). `S.Redacted` would be the secret itself, in clear, so only [transient events](#transient-events) may hold it.
+
 ## Methods
 
 ### `.make(payload)`

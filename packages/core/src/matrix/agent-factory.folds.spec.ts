@@ -5,11 +5,14 @@ import { AgentNetworkEvent } from './agent-network/agent-network-event.js';
 import { createEventHistory, type EventHistory } from './agent-network/history.js';
 import { createInMemoryNetworkStore } from './agent-network/stores/inmemory-network-store.js';
 import {
+  type AnyContextFold,
   ContextFold,
   ContextFoldDefinitionError,
-  type FoldSource,
+  type DeepReadonly,
 } from './context/context-fold.js';
+import type { FoldAccessor } from './context/fold-compaction.js';
 import type { FoldAccessors, FoldReader } from './context/fold-reader.js';
+import { ContextView } from './context/view.js';
 import { DependencyLayer } from './dependency-layer.js';
 import { Tool } from './tool.js';
 
@@ -18,23 +21,20 @@ const Reply = AgentNetworkEvent.of('reply', S.Struct({ text: S.String }));
 
 type Lines = readonly string[];
 
-const Conversation = ContextFold.of('conversation', { version: 1 })
-  .over([UserPrompt, Reply])
+const Conversation = ContextFold.of('conversation')
   .initial((): Lines => [])
   .on(UserPrompt, (lines, { payload }) => [...lines, `user: ${payload.text}`])
   .on(Reply, (lines, { payload }) => [...lines, `model: ${payload.text}`]);
 
-const Replies = ContextFold.of('replies', { version: 1 })
-  .scope('run')
-  .over([Reply])
+const Replies = ContextFold.of('replies', { scope: 'run' })
   .initial(() => 0)
   .on(Reply, (count) => count + 1);
 
-const LastLine: FoldSource<'lastLine', string | undefined> = {
-  name: 'lastLine',
-  fold: Conversation,
-  select: async (state) => (state as Lines).at(-1),
-};
+/** The latest line only: a second context fold over the same events. */
+const LastLine = ContextFold.of('lastLine')
+  .initial((): string | undefined => undefined)
+  .on(UserPrompt, (_line, { payload }) => `user: ${payload.text}`)
+  .on(Reply, (_line, { payload }) => `model: ${payload.text}`);
 
 const meta = { runId: 'run-1', contextId: 'ctx-1' };
 
@@ -49,7 +49,7 @@ const historyOf = async (
 };
 
 describe('AgentFactory.folds', () => {
-  test('ctx.folds reads each source over the invocation history', async () => {
+  test('ctx.folds reads each fold over the invocation history', async () => {
     let seen: unknown[] = [];
     const agent = AgentFactory.run()
       .listensTo([UserPrompt])
@@ -72,7 +72,7 @@ describe('AgentFactory.folds', () => {
     expect(agent.getFolds()).toEqual([Conversation, LastLine, Replies]);
   });
 
-  test('without a history, every source selects the initial state', async () => {
+  test('without a history, every fold reads its initial state', async () => {
     let seen: unknown[] = [];
     const agent = AgentFactory.run()
       .folds([Conversation, LastLine, Replies])
@@ -105,7 +105,7 @@ describe('AgentFactory.folds', () => {
     expect(reads).toEqual([['user: one'], ['user: one', 'model: two']]);
   });
 
-  test('the factory lists its sources', () => {
+  test('the factory lists its folds', () => {
     const factory = AgentFactory.run().folds([Conversation, LastLine]);
 
     expect(factory.getFolds()).toEqual([Conversation, LastLine]);
@@ -129,6 +129,8 @@ describe('AgentFactory.folds', () => {
 
     expect(seen).toBe('cached conversation');
     expect(foldReader).toHaveBeenCalledWith(Conversation);
+    // The public reader only reads: compacting is the runtime's own (without it, compact rejects).
+    expectTypeOf<FoldReader>().toEqualTypeOf<(fold: AnyContextFold) => Promise<unknown>>();
   });
 
   test('agents without folds get an empty ctx.folds', async () => {
@@ -172,37 +174,86 @@ describe('AgentFactory.folds', () => {
       AgentFactory.run()
         // @ts-expect-error - two sources named "conversation"
         .folds([Conversation, Conversation]),
-    ).toThrow('AgentFactory.folds: two fold sources are named "conversation"');
+    ).toThrow('AgentFactory.folds: two folds are named "conversation"');
 
     expect(() =>
       AgentFactory.run()
         .folds([Conversation])
         // @ts-expect-error - "conversation" was added by the previous call
         .folds([Conversation]),
-    ).toThrow('AgentFactory.folds: two fold sources are named "conversation"');
+    ).toThrow('AgentFactory.folds: two folds are named "conversation"');
   });
 
-  test('an incomplete fold is rejected by the types and at runtime', () => {
-    const Incomplete = ContextFold.of('partial', { version: 1 })
-      .over([UserPrompt, Reply])
-      .initial(() => 0)
-      .on(UserPrompt, (n) => n + 1);
+  test('folds only: a view is a type error and throws, with a hint naming its fold', () => {
+    const Chat = ContextView.of(Conversation, { measure: (lines) => lines.length });
+    let error: unknown;
 
-    // @ts-expect-error - "reply" has no handler
-    expect(() => AgentFactory.run().folds([Incomplete])).toThrow(ContextFoldDefinitionError);
+    try {
+      AgentFactory.run()
+        // @ts-expect-error - a view is not a fold: read the fold and call the view
+        .folds([Chat]);
+    } catch (thrown) {
+      error = thrown;
+    }
+
+    expect(error).toBeInstanceOf(ContextFoldDefinitionError);
+    expect(error).toMatchObject({
+      foldName: 'conversation',
+      message:
+        'a view of fold "conversation" (ContextView.of) is not a fold: declare "conversation" ' +
+        'in .folds([...]), read it (await folds.conversation()) and call the view with the ' +
+        'state and a budget.',
+    });
+  });
+
+  test('a view reads the state ctx.folds returns, with the budget of the read', async () => {
+    const Chat = ContextView.of(Conversation, {
+      measure: (lines) => lines.length,
+      strategies: [(lines, { budget }) => lines.slice(-budget)],
+    });
+    let seen: unknown;
+    const agent = AgentFactory.run()
+      .params(S.Struct({ budget: S.Number }))
+      .folds([Conversation])
+      .logic(async ({ folds, params }) => {
+        const chat = Chat(await folds.conversation(), { budget: params.budget });
+        expectTypeOf(chat.state).toEqualTypeOf<Lines>();
+        seen = chat;
+      })
+      .produce({ budget: 1 });
+    const history = await historyOf(
+      UserPrompt.makeBound(meta, { text: 'hi' }),
+      Reply.makeBound(meta, { text: 'hello' }),
+    );
+
+    await agent.invoke({ history });
+
+    expect(seen).toMatchObject({ state: ['model: hello'], tokens: 1, budget: 1, fits: true });
+  });
+
+  test('a fold without events is rejected when the agent is built', () => {
+    const Empty = ContextFold.of('empty').initial(() => 0);
+
+    expect(() => AgentFactory.run().folds([Empty])).toThrow(
+      new ContextFoldDefinitionError(
+        'empty',
+        'ContextFold "empty": it folds no events; add a handler (.on()).',
+      ),
+    );
   });
 
   describe('types', () => {
-    test('ctx.folds in logic: an accessor per source name, resolving to its result', () => {
+    test('ctx.folds in logic: an accessor per fold name, resolving to its read-only state', () => {
       AgentFactory.run()
         .listensTo([UserPrompt])
         .folds([Conversation, LastLine])
         .folds([Replies])
         .logic(async ({ folds, triggerEvent }) => {
           expectTypeOf(triggerEvent.name).toEqualTypeOf<'user-prompt'>();
-          expectTypeOf(folds.conversation).toEqualTypeOf<() => Promise<Lines>>();
-          expectTypeOf(folds.lastLine).toEqualTypeOf<() => Promise<string | undefined>>();
-          expectTypeOf(folds.replies).toEqualTypeOf<() => Promise<number>>();
+          expectTypeOf(folds.conversation).toEqualTypeOf<FoldAccessor<typeof Conversation>>();
+          expectTypeOf(folds.conversation).returns.toEqualTypeOf<Promise<Lines>>();
+          expectTypeOf(folds.lastLine).returns.toEqualTypeOf<Promise<string | undefined>>();
+          expectTypeOf(folds.replies).returns.toEqualTypeOf<Promise<number>>();
           expectTypeOf(folds).toEqualTypeOf<
             FoldAccessors<typeof Conversation | typeof LastLine | typeof Replies>
           >();
@@ -223,7 +274,23 @@ describe('AgentFactory.folds', () => {
       const factory = AgentFactory.run()
         .logic(async () => {})
         .folds([Conversation]);
-      expectTypeOf(factory.produce({}).getFolds()).toEqualTypeOf<ReadonlyArray<FoldSource>>();
+      expectTypeOf(factory.produce({}).getFolds()).toEqualTypeOf<ReadonlyArray<AnyContextFold>>();
+    });
+
+    test('a fold with a mutable state type reads as DeepReadonly', () => {
+      type Log = { entries: string[] };
+      const Mutable = ContextFold.of('log')
+        .initial((): Log => ({ entries: [] }))
+        .on(UserPrompt, (log, { payload }) => ({ entries: [...log.entries, payload.text] }));
+
+      AgentFactory.run()
+        .folds([Mutable])
+        .logic(async ({ folds }) => {
+          const log = await folds.log();
+          expectTypeOf(log).toEqualTypeOf<DeepReadonly<Log>>();
+          // @ts-expect-error - read-only all the way down
+          log.entries.push('x');
+        });
     });
   });
 });

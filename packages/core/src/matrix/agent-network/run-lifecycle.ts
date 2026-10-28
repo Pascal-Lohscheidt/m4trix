@@ -26,6 +26,30 @@ export type RunLifecycleEventName = (typeof RunLifecycleEvent)[keyof typeof RunL
 export const isReservedEventName = (name: string): boolean =>
   name.startsWith(RESERVED_EVENT_PREFIX);
 
+/**
+ * An event with a reserved `m4trix:` name was published from outside the network (`plane.publish`,
+ * `publishToChannels`, `publishAndAwait`, a proxy's `publish` / `publishInbound`): those names
+ * belong to the runtime's own events (run lifecycle, fold checkpoints), so nothing was published.
+ * Otherwise a client-chosen name could, e.g., forge a fold checkpoint that every later read
+ * restores.
+ */
+export class ReservedEventNameError extends Error {
+  /** Discriminant for `catch` / Effect error handling. */
+  readonly _tag = 'ReservedEventNameError' as const;
+
+  constructor(
+    /** The refused event name. */
+    readonly eventName: string,
+  ) {
+    super(
+      `${JSON.stringify(eventName)} is reserved: names starting with "${RESERVED_EVENT_PREFIX}" ` +
+        'belong to events the runtime publishes itself, so they cannot be published from outside ' +
+        'the network.',
+    );
+    this.name = 'ReservedEventNameError';
+  }
+}
+
 /* ─── Safety Net Defaults ─── */
 
 /** Default `idleTimeout` of an exposed run: fail it after 60 seconds without events. */

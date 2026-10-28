@@ -24,6 +24,8 @@ event: agent-response
 data: {"name":"agent-response","meta":{"runId":"..."},"payload":{"text":" World"}}
 ```
 
+Payloads are sent encoded with their event's schema, as the store keeps them, so a resumed stream replays exactly what the live one sent: a `Date` (`S.Date`) arrives as an ISO string, `S.NumberFromString` as a string. Decode with the same schema on the client when you need the typed values (see [Wire format](../api-reference/io-adapters.md#wire-format)).
+
 ### Consuming in the Browser
 
 ```ts

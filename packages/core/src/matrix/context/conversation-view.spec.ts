@@ -1,16 +1,17 @@
 /**
  * End to end over the pure parts: the m4trix-code conversation (examples/m4trix-code) as a
- * segmented fold, a budgeted chat view of it and a compaction checkpoint. A model step and its
- * tool results form one segment, so the view can trim the conversation to any budget without
- * ever sending the model a tool call without its result (which the chat APIs reject).
+ * segmented fold, a chat view of it read at any budget and a compaction cut by tokens.
+ * A model step and its tool results form one segment, so the view can trim the conversation to
+ * any budget without ever sending the model a tool call without its result (which the chat APIs
+ * reject).
  */
 import { describe, expect, expectTypeOf, test } from 'vitest';
 import type { EnvelopeLike } from '../agent-network/agent-network-event.js';
 import { AgentNetworkEvent, S } from '../agent-network/agent-network-event.js';
-import type { FoldResultOf, FoldStateOf } from './context-fold.js';
-import { type Segment, SegmentedFold, type SegmentedState } from './segmented-fold.js';
+import type { FoldStateOf } from './context-fold.js';
+import { type Segment, SegmentedFold } from './segmented-fold.js';
 import { ContextStrategy } from './strategies.js';
-import { approxTokenCount, type ViewResult } from './view.js';
+import { approxTokenCount, ContextView, type ViewResult } from './view.js';
 
 /* ─── The m4trix-code events ─── */
 
@@ -39,83 +40,63 @@ const Entry = S.Union(
 );
 type Entry = typeof Entry.Type;
 
-/** The compactor's checkpoint: a summary of what it dropped and the segments it kept. */
-const ContextCompacted = AgentNetworkEvent.of(
-  'context-compacted',
-  S.Struct({ summary: S.String, kept: S.Array(S.Struct({ id: S.String, data: Entry })) }),
-);
-
 /* ─── The fold and its view ─── */
 
-const Conversation = SegmentedFold.of('conversation', { version: 1 })
-  .over([UserPrompt, ModelStep, ToolResult, AssistantMessage, ContextCompacted])
-  .segments<Entry, string>()
-  .on(UserPrompt, (state, { meta, payload }) =>
-    SegmentedFold.open(state, `prompt:${meta.runId}`, { kind: 'user', text: payload.text }),
-  )
-  .on(ModelStep, (state, { payload }) =>
-    SegmentedFold.open(state, payload.stepId, {
-      kind: 'step',
-      text: payload.text,
-      toolCalls: payload.toolCalls,
-      results: [],
+const Conversation = SegmentedFold.of('conversation', {
+  data: Entry,
+  summary: S.String, // what a compaction writes
+  tag: 'kind',
+})
+  .open(UserPrompt, ({ meta, payload }) => ({
+    id: `prompt:${meta.runId}`,
+    data: { kind: 'user', text: payload.text },
+  }))
+  .open(ModelStep, ({ payload }) => ({
+    id: payload.stepId,
+    data: { kind: 'step', text: payload.text, toolCalls: payload.toolCalls, results: [] },
+  }))
+  // A result joins its step; a late result of a step a compaction summarized away is ignored.
+  .attach(ToolResult, {
+    kind: 'step',
+    to: ({ payload }) => payload.stepId,
+    onMissing: 'ignore',
+    update: (step, { payload }) => ({
+      ...step,
+      results: [...step.results, { callId: payload.callId, output: payload.output }],
     }),
-  )
-  .on(ToolResult, (state, { payload }) =>
-    SegmentedFold.attach(state, payload.stepId, (data) =>
-      data.kind === 'step'
-        ? {
-            ...data,
-            results: [...data.results, { callId: payload.callId, output: payload.output }],
-          }
-        : data,
-    ),
-  )
-  .on(AssistantMessage, (state, { meta, payload }) =>
-    SegmentedFold.open(state, `answer:${meta.runId}`, { kind: 'answer', text: payload.text }),
-  )
-  .checkpointOn(ContextCompacted, ({ payload }) => ({
-    checkpoint: payload.summary,
-    segments: payload.kept,
+  })
+  .open(AssistantMessage, ({ meta, payload }) => ({
+    id: `answer:${meta.runId}`,
+    data: { kind: 'answer', text: payload.text },
   }));
 
 type Conversation = FoldStateOf<typeof Conversation>;
 
-/** Segments from the newest user prompt on: the current turn, which the view must keep. */
-const inCurrentTurn = (
-  _segment: Segment<Entry>,
-  index: number,
-  segments: ReadonlyArray<Segment<Entry>>,
-) => {
-  let start = 0;
-  segments.forEach((segment, at) => {
-    if (segment.data.kind === 'user') start = at;
-  });
-  return index >= start;
-};
-
 /** Old tool outputs shrink first; whole old segments go next; the current turn stays. */
-const chatView = (budget: number) =>
-  Conversation.view('chat', {
-    budget,
-    strategies: [
-      ContextStrategy.elide({
-        olderThan: 2,
-        where: (segment) => segment.data.kind === 'step',
-        map: (data) =>
-          data.kind === 'step'
-            ? {
-                ...data,
-                results: data.results.map((result) => ({
-                  ...result,
-                  output: `${result.output.slice(0, 20)}… [elided]`,
-                })),
-              }
-            : data,
-      }),
-      ContextStrategy.dropOldest({ pin: inCurrentTurn }),
-    ],
-  });
+const ChatView = ContextView.of(Conversation, {
+  strategies: [
+    ContextStrategy.elide({
+      keepNewest: 2,
+      where: (segment) => segment.data.kind === 'step',
+      map: (data) =>
+        data.kind === 'step'
+          ? {
+              ...data,
+              results: data.results.map((result) => ({
+                ...result,
+                output: `${result.output.slice(0, 20)}… [elided]`,
+              })),
+            }
+          : data,
+    }),
+    // The current turn: from the newest user prompt on.
+    ContextStrategy.dropOldest({ keepFrom: ContextStrategy.fromNewest(Conversation, 'user') }),
+  ],
+});
+const chatView = (state: Conversation, budget: number) => ChatView(state, { budget });
+/** A compaction's cut: the newest segments that fit, and always the newest (the model works on it). */
+const compactionCut = (state: Conversation, keepTokens: number) =>
+  ChatView.split(state, { keepTokens, keepFrom: ContextStrategy.newest() });
 
 /* ─── Rendering, as m4trix-code's toMessages ─── */
 
@@ -126,8 +107,8 @@ type ChatMessage =
 
 function toMessages(state: Conversation): ChatMessage[] {
   const messages: ChatMessage[] = [];
-  if (state.checkpoint !== undefined) {
-    messages.push({ role: 'system', content: `Earlier: ${state.checkpoint}` });
+  if (state.summary !== undefined) {
+    messages.push({ role: 'system', content: `Earlier: ${state.summary}` });
   }
   for (const { data } of state.segments) {
     if (data.kind === 'user') messages.push({ role: 'user', content: data.text });
@@ -231,38 +212,35 @@ describe('m4trix-code conversation, end to end', () => {
     expectEveryToolCallAnswered(toMessages(state));
   });
 
-  test('a generous budget keeps everything', () => {
+  test('a generous budget keeps everything: the view fits', () => {
     const state = folded();
-    const result = chatView(100_000).select(state);
+    const result = chatView(state, 100_000);
 
-    expect(result.overBudget).toBe(false);
-    expect(result.dropped).toEqual([]);
+    expect(result).toMatchObject({ overBudget: false, dropped: [], fits: true });
     expect(result.state).toBe(state);
-    expectTypeOf<FoldResultOf<ReturnType<typeof chatView>>>().toEqualTypeOf<
-      ViewResult<SegmentedState<Entry, string>>
-    >();
+    expectTypeOf(result).toEqualTypeOf<ViewResult<Conversation>>();
   });
 
-  test('a tight budget elides old tool outputs first, then drops whole old segments', () => {
+  test('a tight budget elides old tool outputs first (still fits), then drops old segments', () => {
     const state = folded();
-    const full = chatView(100_000).select(state).tokens;
-    const elidedOnly = chatView(full - 1).select(state);
+    const full = chatView(state, 100_000).tokens;
+    const elidedOnly = chatView(state, full - 1);
 
-    expect(elidedOnly.dropped).toEqual([]);
+    expect(elidedOnly).toMatchObject({ dropped: [], fits: true });
     const step = elidedOnly.state.segments[1]?.data;
     expect(step?.kind === 'step' && step.results.every((r) => r.output.endsWith('[elided]'))).toBe(
       true,
     );
 
-    const tight = chatView(elidedOnly.tokens - 1).select(state);
+    const tight = chatView(state, elidedOnly.tokens - 1);
     expect(tight.dropped[0]).toBe('prompt:run-1');
-    expect(tight.overBudget).toBe(false);
+    expect(tight).toMatchObject({ overBudget: false, fits: false });
   });
 
   test.each([
     1, 50, 100, 150, 200, 300, 400, 600, 800, 1200, 2000,
   ])('at budget %i the view never separates a step from its results and keeps the current turn', (budget) => {
-    const result = chatView(budget).select(folded());
+    const result = chatView(folded(), budget);
 
     expectEveryToolCallAnswered(toMessages(result.state));
     expect(ids(result.state).slice(-2)).toEqual(['prompt:run-2', 'step-2']);
@@ -270,23 +248,36 @@ describe('m4trix-code conversation, end to end', () => {
       result.state.segments.reduce((sum, segment) => sum + approxTokenCount(segment), 0),
     );
     expect(result.overBudget).toBe(result.tokens > budget);
+    expect(result.fits).toBe(!result.overBudget && result.dropped.length === 0);
     for (const id of result.dropped) expect(ids(result.state)).not.toContain(id);
   });
 
-  test('when over budget the model compacts: the checkpoint replaces what the view dropped', () => {
-    const before = chatView(40).select(folded());
-    // The current turn is pinned and alone exceeds 40 tokens: the view cannot fit the budget.
-    expect(before.overBudget).toBe(true);
-    expect(before.dropped).toEqual(['prompt:run-1', 'step-1', 'answer:run-1']);
+  test('when the view does not fit, a compaction cut by tokens makes it fit again', () => {
+    const conversation = folded();
+    // A budget the view can only meet by dropping segments: it does not fit.
+    const budget = chatView(conversation, chatView(conversation, 100_000).tokens - 1).tokens - 1;
+    const before = chatView(conversation, budget);
+    expect(before).toMatchObject({ fits: false, overBudget: false });
 
-    // The compactor summarizes the dropped segments and keeps the rest of the view (m4trix-code
-    // asks the model for the summary; here it is fixed).
-    const compaction = event('run-2', ContextCompacted, {
+    // The compactor keeps the newest segments that fit half the budget (at least the newest
+    // one) and summarizes the rest (m4trix-code asks the model for the summary; here it is fixed).
+    const keepTokens = budget / 2;
+    const { older, kept } = compactionCut(conversation, keepTokens);
+    const keptTokens = kept.reduce((sum, segment) => sum + ChatView.count(segment), 0);
+    expect([...older, ...kept]).toEqual(conversation.segments);
+    expect(older.length).toBeGreaterThan(0);
+    expect(kept.length).toBeGreaterThanOrEqual(2);
+    expect(keptTokens).toBeLessThanOrEqual(keepTokens);
+    expect(keptTokens + ChatView.count(older.at(-1) as Segment<Entry>)).toBeGreaterThan(keepTokens);
+    // The compacted state (what folds.conversation.compact() checkpoints): the summary and the
+    // kept segments. It is stored encoded with the fold's state schema and decoded on read.
+    const compacted: Conversation = {
       summary: 'The user asked what a.ts and b.ts export; both export `line`.',
-      kept: before.state.segments,
-    });
+      segments: kept,
+    };
+    const stored = S.encodeSync(Conversation.stateSchema)(compacted);
+    expect(S.decodeUnknownSync(Conversation.stateSchema)(stored)).toEqual(compacted);
     const after = [
-      compaction,
       event('run-2', ToolResult, {
         stepId: 'step-1',
         callId: 'call-a',
@@ -297,21 +288,37 @@ describe('m4trix-code conversation, end to end', () => {
       event('run-2', AssistantMessage, { text: 'Renamed `line` to `row` in a.ts.' }),
     ];
 
-    const state = Conversation.applyAll(folded(), after);
-    const coldRead = Conversation.applyAll(Conversation.initialState(), after);
+    const state = Conversation.applyAll(compacted, after);
 
-    expect(state).toEqual(coldRead);
-    expect(state.checkpoint).toBe('The user asked what a.ts and b.ts export; both export `line`.');
-    expect(ids(state)).toEqual(['prompt:run-2', 'step-2', 'answer:run-2']);
-    const messages = toMessages(chatView(10_000).select(state).state);
+    expect(state.summary).toBe('The user asked what a.ts and b.ts export; both export `line`.');
+    expect(ids(state)).toEqual([...ids({ segments: kept }), 'answer:run-2']);
+    // The next read fits: no compaction on every step.
+    const next = chatView(state, budget);
+    expect(next.fits).toBe(true);
+    const messages = toMessages(next.state);
     expect(messages[0]).toEqual({
       role: 'system',
       content: 'Earlier: The user asked what a.ts and b.ts export; both export `line`.',
     });
     expectEveryToolCallAnswered(messages);
-    expect(chatView(10_000).select(state).tokens).toBe(
-      approxTokenCount(state.checkpoint) +
+    expect(next.tokens).toBe(
+      approxTokenCount(state.summary) +
         state.segments.reduce((sum, segment) => sum + approxTokenCount(segment), 0),
     );
+  });
+
+  test('when compacting cannot help (nothing older to summarize), split says so', () => {
+    // After a compaction that kept only the newest step, which alone is over the budget.
+    const step = folded().segments.at(-1) as Segment<Entry>;
+    const state: Conversation = { summary: 'summary', segments: [step] };
+
+    const result = chatView(state, 20);
+
+    expect(result).toMatchObject({ fits: false, overBudget: true, dropped: [] });
+    // A compaction would only summarize the summary again: the caller should not compact.
+    expect(compactionCut(state, 10)).toEqual({
+      older: [],
+      kept: [step],
+    });
   });
 });

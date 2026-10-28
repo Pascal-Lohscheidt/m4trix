@@ -66,6 +66,7 @@ export {
   isRunLifecycleEnvelope,
   NetworkStoreError,
   RESERVED_EVENT_PREFIX,
+  ReservedEventNameError,
   type ResolvedRunLimits,
   type RunCancelledEnvelope,
   RunCancelledError,
@@ -88,6 +89,7 @@ export {
   RunUnavailableError,
   type SerializedRunError,
 } from './agent-network/run-lifecycle.js';
+export { NonJsonPayloadError } from './agent-network/stored-payload.js';
 export {
   type AgentNetworkStore,
   type AgentNetworkStoreKey,
@@ -114,18 +116,18 @@ export {
 export { consoleTracer, consoleTracerLayer } from './console-tracer.js';
 export {
   type AnyContextFold,
-  type CheckpointAlreadyDeclared,
   ContextFold,
+  type ContextFoldBase,
   type ContextFoldBuilder,
   ContextFoldDefinitionError,
-  type ContextFoldEventsBuilder,
   type ContextFoldOptions,
-  type FoldResultOf,
+  type DeepReadonly,
+  type DuplicateFoldHandler,
+  type FoldReadStateOf,
   type FoldScope,
-  type FoldSource,
   type FoldStateOf,
   type InvalidFoldName,
-  type MissingFoldHandlers,
+  type UnhandledFoldEvent,
   type ValidFoldName,
 } from './context/context-fold.js';
 export {
@@ -133,22 +135,49 @@ export {
   DEFAULT_FOLD_CACHE_TTL,
   type FoldCacheOptions,
 } from './context/fold-cache.js';
+export {
+  type FoldCheckpointEnvelope,
+  type FoldCheckpointEventName,
+  type FoldCheckpointPayload,
+  FoldCompactionError,
+  type FoldCompactionErrorReason,
+  foldCheckpointEventName,
+  isFoldCheckpointEvent,
+} from './context/fold-checkpoint.js';
+export type {
+  FoldAccessor,
+  FoldCannotCompact,
+  FoldCompact,
+  FoldCompactFn,
+  SegmentedCompactInput,
+  SegmentedCompaction,
+  SegmentedCompactOptions,
+  SegmentedFoldCompact,
+} from './context/fold-compaction.js';
 export type {
   DuplicateFoldName,
   FoldAccessors,
+  FoldReadAccessors,
   FoldReader,
-  UniqueFoldSources,
+  UniqueFolds,
 } from './context/fold-reader.js';
 export {
+  type AnySegmentedFold,
   type AnySegmentedState,
-  type CheckpointOf,
+  type InvalidSegmentTag,
+  type KindNeedsSegmentTag,
   type Segment,
+  type SegmentAttachOptions,
   type SegmentDataOf,
+  type SegmentDataOfKind,
   SegmentedFold,
-  type SegmentedFoldBuilder,
-  type SegmentedFoldEventsBuilder,
+  type SegmentedFoldOptions,
   type SegmentedState,
+  type SegmentKindOf,
   type SegmentOf,
+  type SegmentTagOf,
+  type SummaryOf,
+  type ValidSegmentTag,
 } from './context/segmented-fold.js';
 export {
   ContextStrategy,
@@ -156,15 +185,21 @@ export {
   type CountUnitOf,
   type DropOldestOptions,
   type ElideOptions,
+  type KeepFrom,
   type SegmentContextStrategy,
 } from './context/strategies.js';
 export {
   approxTokenCount,
-  type ContextView,
+  ContextView,
+  type ContextViewBuilder,
+  type SegmentedContextView,
   type SegmentedViewOptions,
   type StateViewOptions,
-  type ViewOptions,
+  type ViewNeedsMeasure,
+  type ViewReadOptions,
   type ViewResult,
+  type ViewSplit,
+  type ViewSplitOptions,
 } from './context/view.js';
 export {
   DependencyLayer,

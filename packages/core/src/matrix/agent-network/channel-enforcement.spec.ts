@@ -30,7 +30,7 @@ function onPlane<A>(
     plane: EventPlane;
     main: Queue.Dequeue<Envelope>;
     client: Queue.Dequeue<Envelope>;
-  }) => Effect.Effect<A>,
+  }) => Effect.Effect<A, unknown>,
 ): Promise<A> {
   return Effect.runPromise(
     Effect.gen(function* () {

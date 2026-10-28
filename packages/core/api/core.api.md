@@ -16,13 +16,13 @@ import { Scope } from 'effect';
 import { Tracer } from 'effect';
 
 // @public (undocumented)
-export class Agent<TParams, TTriggerEvent = never, TEmitEvent = never, TDeps extends DependencyLayerDef<string, unknown, S.Schema.Any> = never, TTools extends AnyToolDefinition = never, TFolds extends FoldSource = never> {
+export class Agent<TParams, TTriggerEvent = never, TEmitEvent = never, TDeps extends DependencyLayerDef<string, unknown, S.Schema.Any> = never, TTools extends AnyToolDefinition = never, TFolds extends AnyContextFold = never> {
     constructor(logic: LogicFn<TParams, TTriggerEvent, TEmitEvent, TDeps, TTools, TFolds>, params: TParams, listensTo?: readonly string[], dependencyLayers?: ReadonlyArray<DependencyLayerDef<string, unknown, S.Schema.Any>>, tools?: ReadonlyArray<TTools>, runtimeOptions?: AgentRuntimeOptions);
     getConcurrency(): number;
     // (undocumented)
     getDependencyLayers(): ReadonlyArray<DependencyLayerDef<string, unknown, S.Schema.Any>>;
     getEmits(): ReadonlyArray<EventDef$1>;
-    getFolds(): ReadonlyArray<FoldSource>;
+    getFolds(): ReadonlyArray<AnyContextFold>;
     // (undocumented)
     getId(): string;
     // (undocumented)
@@ -85,12 +85,12 @@ export type AgentErrorPayload = {
 export type AgentErrorPolicy = 'fail' | 'continue';
 
 // @public (undocumented)
-export class AgentFactory<TParams = unknown, TListensTo extends EventDef$3 = never, TEmits extends EventDef$3 = never, TDeps extends DependencyLayerDef<string, unknown, S.Schema.Any> = never, TTools extends AnyToolDefinition = never, TFolds extends FoldSource = never> {
+export class AgentFactory<TParams = unknown, TListensTo extends EventDef$3 = never, TEmits extends EventDef$3 = never, TDeps extends DependencyLayerDef<string, unknown, S.Schema.Any> = never, TTools extends AnyToolDefinition = never, TFolds extends AnyContextFold = never> {
     concurrency(limit: number): AgentFactory<TParams, TListensTo, TEmits, TDeps, TTools, TFolds>;
     // (undocumented)
     dependsOn<D extends DependencyLayerDef<string, unknown, S.Schema.Any>>(...layers: [D, ...D[]] | [ReadonlyArray<D>]): AgentFactory<TParams, TListensTo, TEmits, TDeps | D, TTools, TFolds>;
     emits<E extends EventDef$3>(events: Array<E>, options?: EmitsOptions): AgentFactory<TParams, TListensTo, TEmits | E, TDeps, TTools, TFolds>;
-    folds<const Sources extends ReadonlyArray<FoldSource>>(sources: Sources & UniqueFoldSources<Sources, TFolds['name']>): AgentFactory<TParams, TListensTo, TEmits, TDeps, TTools, TFolds | Sources[number]>;
+    folds<const Folds extends ReadonlyArray<AnyContextFold>>(folds: Folds & UniqueFolds<Folds, TFolds['name']>): AgentFactory<TParams, TListensTo, TEmits, TDeps, TTools, TFolds | Folds[number]>;
     // (undocumented)
     getDependencyLayers(): ReadonlyArray<TDeps>;
     getEmits(): ReadonlyArray<TEmits>;
@@ -271,7 +271,7 @@ export type AgentRuntimeOptions = {
     emits?: ReadonlyArray<EventDef$1>;
     listensToEvents?: ReadonlyArray<EventDef$1>;
     replyEvents?: readonly string[];
-    folds?: ReadonlyArray<FoldSource>;
+    folds?: ReadonlyArray<AnyContextFold>;
 };
 
 // @public (undocumented)
@@ -320,7 +320,7 @@ export interface AnyAgent {
     getConcurrency?(): number;
     getDependencyLayers?(): ReadonlyArray<DependencyLayerDef<string, unknown, S.Schema.Any>>;
     getEmits?(): ReadonlyArray<EventDef$2>;
-    getFolds?(): ReadonlyArray<FoldSource>;
+    getFolds?(): ReadonlyArray<AnyContextFold>;
     // (undocumented)
     getId(): string;
     getListensTo?(): readonly string[];
@@ -332,15 +332,22 @@ export interface AnyAgent {
 }
 
 // @public
-export interface AnyContextFold extends FoldSource<string, unknown> {
-    readonly [missingHandlers]: never;
+export interface AnyContextFold {
     apply(state: unknown, event: EnvelopeLike): unknown;
     applyAll(state: unknown, events: Iterable<EnvelopeLike>): unknown;
     readonly checkpointEventName: string | undefined;
     readonly eventNames: ReadonlyArray<string>;
     initialState(): unknown;
+    readonly name: string;
     readonly scope: FoldScope;
+    readonly stateSchema: S.Schema.AnyNoContext | undefined;
     readonly version: number;
+}
+
+// @public
+export interface AnySegmentedFold<Data = unknown, Tag extends string = string, Summary = unknown> extends AnyContextFold {
+    initialState(): SegmentedState<Data, Summary>;
+    readonly tag: Tag;
 }
 
 // @public
@@ -382,14 +389,6 @@ export type ChannelName = string & Brand.Brand<'ChannelName'>;
 export const ChannelName: Brand.Brand.Constructor<ChannelName>;
 
 // @public
-export interface CheckpointAlreadyDeclared<Checkpoint extends string> {
-    readonly 'a fold has one checkpoint event, already declared': Checkpoint;
-}
-
-// @public
-export type CheckpointOf<State extends AnySegmentedState> = Exclude<State['checkpoint'], undefined>;
-
-// @public
 export class ConfiguredChannel {
     constructor(name: ChannelName);
     events(events: ReadonlyArray<EventDef>): this;
@@ -418,33 +417,37 @@ export const consoleTracer: Tracer.Tracer;
 export const consoleTracerLayer: Layer.Layer<never>;
 
 // @public
-export interface ContextFold<Name extends string, Scope extends FoldScope, Over extends EventDef$5, State, Handled extends string = never, Checkpoint extends string = never> {
-    readonly [missingHandlers]: MissingOf<Over, Handled | Checkpoint>;
-    apply(state: State, event: EnvelopeLike): State;
-    applyAll(state: State, events: Iterable<EnvelopeLike>): State;
-    readonly checkpointEventName: [Checkpoint] extends [never] ? undefined : Checkpoint;
-    checkpointOn: [Checkpoint] extends [never] ? <E extends Unhandled<Over, Handled>>(event: E, restore: (envelope: EventEnvelope<E>) => State) => ContextFold<Name, Scope, Over, State, Handled, E['name']> : CheckpointAlreadyDeclared<Checkpoint>;
-    readonly eventNames: ReadonlyArray<Over['name']>;
-    readonly fold: ContextFold<Name, Scope, Over, State, Handled, Checkpoint>;
-    initialState(): State;
-    readonly name: Name;
-    on<E extends Unhandled<Over, Handled | Checkpoint>>(event: E, handler: (state: State, envelope: EventEnvelope<E>) => State): ContextFold<Name, Scope, Over, State, Handled | E['name'], Checkpoint>;
-    readonly scope: Scope;
-    select(state: State): State;
-    readonly version: number;
-    view: [MissingOf<Over, Handled | Checkpoint>] extends [never] ? <const ViewName extends string>(name: ViewName & ValidFoldName<ViewName>, options: ViewOptions<State>) => ContextView<ViewName, State> : MissingOf<Over, Handled | Checkpoint>;
+export interface ContextFold<Name extends string, Scope extends FoldScope, State, Handled extends string = never, StateSchema extends S.Schema.AnyNoContext | undefined = undefined> extends ContextFoldBase<Name, Scope, State, Handled> {
+    readonly checkpointEventName: [StateSchema, Scope] extends [S.Schema.AnyNoContext, 'context'] ? FoldCheckpointEventName<Name> : undefined;
+    on<E extends AgentNetworkEventDef<string, S.Schema.Any>>(event: E & UnhandledFoldEvent<E, Handled>, handler: (state: State, envelope: EventEnvelope<E>) => State): ContextFold<Name, Scope, State, Handled | E['name'], StateSchema>;
+    readonly stateSchema: StateSchema;
 }
 
 // @public
 export const ContextFold: {
-    of<const Name extends string>(name: Name & ValidFoldName<Name>, options: ContextFoldOptions): ContextFoldBuilder<Name>;
-    validate(source: unknown): asserts source is FoldSource;
+    of<const Name extends string, const Scope extends FoldScope = 'context', StateSchema extends S.Schema.AnyNoContext = never>(name: Name & ValidFoldName<Name>, options?: ContextFoldOptions<Scope, StateSchema>): ContextFoldBuilder<Name, Scope, [
+    StateSchema
+    ] extends [never] ? undefined : S.Schema<S.Schema.Type<StateSchema>, S.Schema.Encoded<StateSchema>>>;
+    validate(source: unknown): asserts source is AnyContextFold;
 };
 
 // @public
-export interface ContextFoldBuilder<Name extends string, Scope extends FoldScope = 'context'> {
-    over<const E extends EventDef$5>(events: ReadonlyArray<E>): ContextFoldEventsBuilder<Name, Scope, E>;
-    scope<const NextScope extends FoldScope>(scope: NextScope): ContextFoldBuilder<Name, NextScope>;
+export interface ContextFoldBase<Name extends string, Scope extends FoldScope, State, Handled extends string = never> {
+    apply(state: State, event: EnvelopeLike): State;
+    applyAll(state: State, events: Iterable<EnvelopeLike>): State;
+    readonly checkpointEventName: string | undefined;
+    readonly eventNames: ReadonlyArray<Handled>;
+    initialState(): State;
+    readonly name: Name;
+    readonly scope: Scope;
+    readonly version: number;
+}
+
+// @public
+export interface ContextFoldBuilder<Name extends string, Scope extends FoldScope = 'context', StateSchema extends S.Schema.AnyNoContext | undefined = undefined> {
+    initial<T extends [StateSchema] extends [S.Schema.AnyNoContext] ? S.Schema.Type<StateSchema> : unknown>(initial: () => T): ContextFold<Name, Scope, [
+    StateSchema
+    ] extends [S.Schema.AnyNoContext] ? S.Schema.Type<StateSchema> : T, never, StateSchema>;
 }
 
 // @public
@@ -455,14 +458,10 @@ export class ContextFoldDefinitionError extends Error {
 }
 
 // @public
-export interface ContextFoldEventsBuilder<Name extends string, Scope extends FoldScope, Over extends EventDef$5> {
-    initial<State>(initial: () => State): ContextFold<Name, Scope, Over, State>;
-    scope<const NextScope extends FoldScope>(scope: NextScope): ContextFoldEventsBuilder<Name, NextScope, Over>;
-}
-
-// @public
-export type ContextFoldOptions = {
-    readonly version: number;
+export type ContextFoldOptions<Scope extends FoldScope = FoldScope, StateSchema extends S.Schema.AnyNoContext = S.Schema.AnyNoContext> = {
+    readonly scope?: Scope;
+    readonly version?: number;
+    readonly state?: StateSchema;
 };
 
 // @public
@@ -472,6 +471,8 @@ export type ContextStrategy<State> = (state: State, context: ContextStrategyBudg
 export const ContextStrategy: {
     readonly elide: <T>(options: ElideOptions<T>) => SegmentContextStrategy<T>;
     readonly dropOldest: <T>(options?: DropOldestOptions<T>) => SegmentContextStrategy<T>;
+    readonly fromNewest: <Data, Tag extends string>(fold: AnySegmentedFold<Data, Tag>, kind: SegmentKindOf<Data, Tag>) => KeepFrom<Data>;
+    readonly newest: <T>(count?: number) => KeepFrom<T>;
 };
 
 // @public
@@ -482,11 +483,19 @@ export type ContextStrategyBudget<Unit> = {
 };
 
 // @public
-export interface ContextView<Name extends string, State> {
-    readonly budget: number;
+export interface ContextView<State> {
+    (state: State, options: ViewReadOptions): ViewResult<State>;
     readonly fold: AnyContextFold;
-    readonly name: Name;
-    select(state: State): ViewResult<State>;
+}
+
+// @public
+export const ContextView: ContextViewBuilder;
+
+// @public
+export interface ContextViewBuilder {
+    of<Data, Summary>(fold: AnySegmentedFold<Data, string, Summary>, options?: SegmentedViewOptions<Data, Summary>): SegmentedContextView<Data, Summary>;
+    of<F extends AnyContextFold>(fold: F & ([F] extends [AnySegmentedFold] ? never : unknown), options: StateViewOptions<FoldReadStateOf<F>>): ContextView<FoldReadStateOf<F>>;
+    of(fold: AnyContextFold & ViewNeedsMeasure): never;
 }
 
 // @public
@@ -508,6 +517,11 @@ export type CustomProxyConsumer<TDeps extends DependencyLayerDef<string, unknown
     readonly kind: string;
     readonly options: TOptions;
     expose(ctx: ProxyExposeContext<TDeps, TOptions>): InteractiveProxyHandle;
+};
+
+// @public
+export type DeepReadonly<T> = unknown extends T ? T : T extends ReadonlyMap<infer K, infer V> ? ReadonlyMap<DeepReadonly<K>, DeepReadonly<V>> : T extends ReadonlySet<infer V> ? ReadonlySet<DeepReadonly<V>> : T extends string | number | boolean | bigint | symbol | null | undefined | ((...args: never) => unknown) | Date | RegExp | Error | Promise<unknown> | WeakMap<object, unknown> | WeakSet<object> | ArrayBuffer | ArrayBufferView ? T : {
+    readonly [K in keyof T]: DeepReadonly<T[K]>;
 };
 
 // @public
@@ -603,17 +617,22 @@ export const Done: {
 
 // @public
 export type DropOldestOptions<T> = {
-    readonly pin?: (segment: Segment<T>, index: number, segments: ReadonlyArray<Segment<T>>) => boolean;
+    readonly keepFrom?: KeepFrom<T>;
 };
 
 // @public
+export interface DuplicateFoldHandler<EventName extends string> {
+    readonly 'a fold handles each event once; already handled': EventName;
+}
+
+// @public
 export interface DuplicateFoldName<Name extends string> {
-    readonly 'fold source names must be unique per agent; used twice': Name;
+    readonly 'fold names must be unique per agent; used twice': Name;
 }
 
 // @public
 export type ElideOptions<T> = {
-    readonly olderThan: number;
+    readonly keepNewest: number;
     readonly where?: (segment: Segment<T>, index: number) => boolean;
     readonly map: (data: T, segment: Segment<T>) => T;
 };
@@ -668,12 +687,12 @@ export type EnvelopeLike = {
 };
 
 // @public (undocumented)
-export class EventAggregator<TListensTo extends EventDef_2 = never, TEmits extends EventDef_2 = never, TFolds extends FoldSource = never> {
+export class EventAggregator<TListensTo extends EventDef_2 = never, TEmits extends EventDef_2 = never, TFolds extends AnyContextFold = never> {
     // (undocumented)
     emits<E extends EventDef_2>(events: Array<E>): EventAggregator<TListensTo, TEmits | E, TFolds>;
     // (undocumented)
     emitWhen(fn: EmitWhenFn<EventEnvelope_2<TListensTo>, TFolds>): EventAggregator<TListensTo, TEmits, TFolds>;
-    folds<const Sources extends ReadonlyArray<FoldSource>>(sources: Sources & UniqueFoldSources<Sources, TFolds['name']>): EventAggregator<TListensTo, TEmits, TFolds | Sources[number]>;
+    folds<const Folds extends ReadonlyArray<AnyContextFold>>(folds: Folds & UniqueFolds<Folds, TFolds['name']>): EventAggregator<TListensTo, TEmits, TFolds | Folds[number]>;
     // (undocumented)
     static listensTo<E extends EventDef_2>(events: Array<E>): EventAggregator<E, never, never>;
     // (undocumented)
@@ -681,10 +700,10 @@ export class EventAggregator<TListensTo extends EventDef_2 = never, TEmits exten
 }
 
 // @public (undocumented)
-export class EventAggregatorInstance<TTriggerEvent, TEmitEvent, TFolds extends FoldSource = never> {
+export class EventAggregatorInstance<TTriggerEvent, TEmitEvent, TFolds extends AnyContextFold = never> {
     constructor(input: EventAggregatorInstanceCtor<TTriggerEvent, TEmitEvent, TFolds>);
     getEmits(): ReadonlyArray<EventDef_2>;
-    getFolds(): ReadonlyArray<FoldSource>;
+    getFolds(): ReadonlyArray<AnyContextFold>;
     // (undocumented)
     getId(): string;
     // (undocumented)
@@ -742,11 +761,11 @@ export type EventPage = {
 
 // @public (undocumented)
 export type EventPlane = {
-    readonly publish: (channel: ChannelName, envelope: Envelope) => Effect.Effect<boolean>;
-    readonly publishToChannels: (channels: readonly ConfiguredChannel[], envelope: Envelope) => Effect.Effect<boolean>;
+    readonly publish: (channel: ChannelName, envelope: Envelope) => Effect.Effect<boolean, ReservedEventNameError | NonJsonPayloadError>;
+    readonly publishToChannels: (channels: readonly ConfiguredChannel[], envelope: Envelope) => Effect.Effect<boolean, ReservedEventNameError | NonJsonPayloadError>;
     readonly publishAndAwait: (channels: readonly ConfiguredChannel[], envelope: Envelope, match: (reply: Envelope) => boolean, options?: {
         timeout?: Duration.DurationInput;
-    }) => Effect.Effect<Envelope, PublishAndAwaitTimeoutError>;
+    }) => Effect.Effect<Envelope, PublishAndAwaitTimeoutError | ReservedEventNameError | NonJsonPayloadError>;
     readonly subscribe: (channel: ChannelName, filter?: (envelope: Envelope) => boolean) => Effect.Effect<Queue.Dequeue<Envelope>, never, Scope.Scope>;
     readonly history: (scope: HistoryScope) => EventHistory;
     readonly shutdown: Effect.Effect<void>;
@@ -869,8 +888,14 @@ export type ExpressResponse = {
 };
 
 // @public
-export type FoldAccessors<TFolds extends FoldSource> = {
-    readonly [S in TFolds as S['name']]: () => Promise<FoldResultOf<S>>;
+export interface FoldAccessor<F extends AnyContextFold> {
+    (): Promise<FoldReadStateOf<F>>;
+    readonly compact: FoldCompact<F>;
+}
+
+// @public
+export type FoldAccessors<TFolds extends AnyContextFold> = {
+    readonly [F in TFolds as F['name']]: FoldAccessor<F>;
 };
 
 // @public
@@ -881,22 +906,69 @@ export type FoldCacheOptions = {
 };
 
 // @public
-export type FoldReader = (source: FoldSource) => Promise<unknown>;
+export interface FoldCannotCompact<Name extends string> {
+    readonly 'compact needs a context-scoped fold with a state schema (ContextFold.of(name, { state }) or a SegmentedFold); fold': Name;
+}
 
 // @public
-export type FoldResultOf<Source> = Source extends {
-    select(state: never): infer Result;
-} ? Awaited<Result> : never;
+export type FoldCheckpointEnvelope = {
+    readonly name: FoldCheckpointEventName;
+    readonly meta: EventMeta;
+    readonly payload: FoldCheckpointPayload;
+};
+
+// @public
+export type FoldCheckpointEventName<Name extends string = string> = `m4trix:fold.checkpoint:${Name}@${number}`;
+
+// @public
+export function foldCheckpointEventName<const Name extends string>(fold: {
+    readonly name: Name;
+    readonly version: number;
+}): FoldCheckpointEventName<Name>;
+
+// @public
+export type FoldCheckpointPayload = {
+    readonly fold: string;
+    readonly version: number;
+    readonly through: string | null;
+    readonly state: unknown;
+};
+
+// @public
+export type FoldCompact<F extends AnyContextFold> = F extends {
+    readonly checkpointEventName: FoldCheckpointEventName;
+} ? F extends AnySegmentedFold<infer Data, string, infer Summary> ? [Summary] extends [never] ? FoldCompactFn<FoldStateOf<F>, FoldReadStateOf<F>> : SegmentedFoldCompact<Data, Summary> : FoldCompactFn<FoldStateOf<F>, FoldReadStateOf<F>> : FoldCannotCompact<F['name']>;
+
+// @public
+export type FoldCompactFn<State, ReadState = State> = (next: (state: ReadState) => State | Promise<State>) => Promise<ReadState>;
+
+// @public
+export class FoldCompactionError extends Error {
+    constructor(foldName: string, reason: FoldCompactionErrorReason, message: string, cause?: unknown);
+    readonly cause: unknown;
+    readonly foldName: string;
+    readonly reason: FoldCompactionErrorReason;
+    readonly _tag: "FoldCompactionError";
+}
+
+// @public
+export type FoldCompactionErrorReason = 'invalid-state' | 'unsupported';
+
+// @public
+export type FoldReadAccessors<TFolds extends AnyContextFold> = {
+    readonly [F in TFolds as F['name']]: () => Promise<FoldReadStateOf<F>>;
+};
+
+// @public
+export type FoldReader = (fold: AnyContextFold) => Promise<unknown>;
+
+// @public
+export type FoldReadStateOf<F> = F extends {
+    readonly stateSchema: S.Schema.AnyNoContext;
+} ? FoldStateOf<F> : DeepReadonly<FoldStateOf<F>>;
 
 // @public
 export type FoldScope = 'context' | 'run';
-
-// @public
-export interface FoldSource<Name extends string = string, Result = unknown> {
-    readonly fold: AnyContextFold;
-    readonly name: Name;
-    select(state: unknown): Result | Promise<Result>;
-}
 
 // @public
 export type FoldStateOf<F> = F extends {
@@ -935,7 +1007,12 @@ export type InteractiveProxyHandle = ExposedAPI & {
 
 // @public
 export interface InvalidFoldName<Name extends string> {
-    readonly 'a fold or view name must be a JS identifier': Name;
+    readonly 'a fold name must be a JS identifier': Name;
+}
+
+// @public
+export interface InvalidSegmentTag<Tag extends string> {
+    readonly 'the tag must be a field with a string literal type in every variant of the data': Tag;
 }
 
 // @public (undocumented)
@@ -943,6 +1020,11 @@ export function isDependencyLayerInstance(u: unknown): u is DependencyLayerInsta
 
 // @public
 export function isEmitValidationError(error: unknown): error is EmitValidationError;
+
+// @public
+export function isFoldCheckpointEvent<E extends {
+    readonly name: string;
+}>(event: E): event is E & FoldCheckpointEnvelope;
 
 // @public (undocumented)
 export const isReservedEventName: (name: string) => boolean;
@@ -956,6 +1038,14 @@ export function isRunEndEnvelope(envelope: {
 export function isRunLifecycleEnvelope(envelope: {
     name: string;
 }): envelope is RunLifecycleEnvelope;
+
+// @public
+export type KeepFrom<T> = (segments: ReadonlyArray<Segment<T>>) => number;
+
+// @public
+export interface KindNeedsSegmentTag<Tag extends string> {
+    readonly 'kind needs SegmentedFold.of(name, { tag }): a field with a string literal type in every variant of the data; the tag is': Tag;
+}
 
 // @public
 export type LayerInstancesFromDeps<T extends DependencyLayerDef<string, unknown, S.Schema.Any>> = [
@@ -972,11 +1062,6 @@ export const LayerName: Brand.Brand.Constructor<LayerName>;
 export type LayersFromDeps<T extends DependencyLayerDef<string, unknown, S.Schema.Any>> = [
 T
 ] extends [never] ? Record<string, never> : UnionToIntersection<DependenciesToLayers<T>>;
-
-// @public
-export interface MissingFoldHandlers<EventName extends string> {
-    readonly 'add an .on() handler (or .checkpointOn()) for': EventName;
-}
 
 // @public
 export type NetworkLogger = {
@@ -1010,6 +1095,9 @@ export type NetworkMetric = Metric<'m4trix.run.duration_ms', 'histogram', 'ms', 
 }> | Metric<'m4trix.fold.read.events', 'histogram', '{event}', {
     readonly fold: string;
     readonly start: 'cold' | 'warm' | 'reset';
+}> | Metric<'m4trix.fold.read.skipped', 'counter', '{event}', {
+    readonly fold: string;
+    readonly reason: 'decode' | 'checkpoint' | 'missing-segment';
 }>;
 
 // @public
@@ -1125,6 +1213,18 @@ export type NextEndpointOptions = {
 
 // @public
 export type NextGetHandler = (request: Request) => Promise<Response>;
+
+// @public
+export class NonJsonPayloadError extends Error {
+    constructor(
+    eventName: string,
+    path: string,
+    found: string);
+    readonly eventName: string;
+    readonly found: string;
+    readonly path: string;
+    readonly _tag: "NonJsonPayloadError";
+}
 
 // @public (undocumented)
 export const noopNetworkTracer: NetworkTracer;
@@ -1257,6 +1357,14 @@ export function registerSSEStream<TDeps extends DependencyLayerDef<string, unkno
 
 // @public
 export const RESERVED_EVENT_PREFIX = "m4trix:";
+
+// @public
+export class ReservedEventNameError extends Error {
+    constructor(
+    eventName: string);
+    readonly eventName: string;
+    readonly _tag: "ReservedEventNameError";
+}
 
 // @public
 export type ResolvedRunLimits = Required<RunLimitOptions>;
@@ -1438,46 +1546,106 @@ export type Segment<T> = {
 };
 
 // @public
+export type SegmentAttachOptions<E extends AgentNetworkEventDef<string, S.Schema.Any>, Data, Tag extends string, Kind> = {
+    readonly kind?: [SegmentKindOf<Data, Tag>] extends [never] ? KindNeedsSegmentTag<Tag> : Kind;
+    readonly to: (envelope: EventEnvelope<E>) => string;
+    readonly onMissing?: 'report' | 'ignore';
+    readonly update: (data: SegmentDataOfKind<Data, Tag, Kind>, envelope: EventEnvelope<E>) => SegmentDataOfKind<Data, Tag, Kind>;
+};
+
+// @public
 export type SegmentContextStrategy<T> = <State extends SegmentedState<T, unknown>>(state: State, context: ContextStrategyBudget<Segment<T>>) => State;
 
 // @public
 export type SegmentDataOf<State extends AnySegmentedState> = SegmentOf<State>['data'];
 
 // @public
-export const SegmentedFold: {
-    of<const Name extends string>(name: Name & ValidFoldName<Name>, options: ContextFoldOptions): SegmentedFoldBuilder<Name>;
-    open<State extends AnySegmentedState>(state: State, id: string, data: NoInfer<SegmentDataOf<State>>): State;
-    attach<State extends AnySegmentedState>(state: State, id: string, update: NoInfer<(data: SegmentDataOf<State>, segment: SegmentOf<State>) => SegmentDataOf<State>>): State;
+export type SegmentDataOfKind<Data, Tag extends string, Kind> = [Kind] extends [never] ? Data : Data extends unknown ? [Kind & Data[Tag & keyof Data]] extends [never] ? never : [Data[Tag & keyof Data]] extends [Kind] ? Data : {
+    [K in keyof Data]: K extends Tag ? Kind & Data[K] : Data[K];
+} : never;
+
+// @public
+export type SegmentedCompactInput<Data, Summary> = {
+    readonly summary: Summary | undefined;
+    readonly older: ReadonlyArray<Segment<Data>>;
+    readonly kept: ReadonlyArray<Segment<Data>>;
 };
 
 // @public
-export interface SegmentedFoldBuilder<Name extends string, Scope extends FoldScope = 'context'> {
-    over<const E extends EventDef$6>(events: ReadonlyArray<E>): SegmentedFoldEventsBuilder<Name, Scope, E>;
-    scope<const NextScope extends FoldScope>(scope: NextScope): SegmentedFoldBuilder<Name, NextScope>;
+export type SegmentedCompaction<State> = {
+    readonly compacted: boolean;
+    readonly state: State;
+    readonly summarized: number;
+};
+
+// @public
+export type SegmentedCompactOptions<Data, Summary> = {
+    readonly view: SegmentedContextView<Data, Summary>;
+    readonly budget: number;
+    readonly keepTokens: number;
+    readonly keepFrom?: KeepFrom<Data>;
+    readonly summarize: (input: SegmentedCompactInput<Data, Summary>) => Summary | Promise<Summary>;
+};
+
+// @public
+export interface SegmentedContextView<Data, Summary = never> {
+    (state: SegmentedState<Data, Summary>, options: ViewReadOptions): ViewResult<SegmentedState<Data, Summary>>;
+    count(segment: Segment<Data>): number;
+    readonly fold: AnySegmentedFold<Data, string, Summary>;
+    split(state: SegmentedState<Data, Summary>, options: ViewSplitOptions<Data>): ViewSplit<Segment<Data>>;
 }
 
 // @public
-export interface SegmentedFoldEventsBuilder<Name extends string, Scope extends FoldScope, Over extends EventDef$6> {
-    scope<const NextScope extends FoldScope>(scope: NextScope): SegmentedFoldEventsBuilder<Name, NextScope, Over>;
-    segments<T, C = never>(): ContextFold<Name, Scope, Over, SegmentedState<T, C>>;
+export interface SegmentedFold<Name extends string, Scope extends FoldScope, Data, Summary = never, Tag extends string = '_tag', Handled extends string = never, Encoded = SegmentedState<Data, Summary>> extends ContextFoldBase<Name, Scope, SegmentedState<Data, Summary>, Handled> {
+    attach<E extends AgentNetworkEventDef<string, S.Schema.Any>, const Kind extends SegmentKindOf<Data, Tag> = never>(event: E & UnhandledFoldEvent<E, Handled>, options: SegmentAttachOptions<E, Data, Tag, Kind>): SegmentedFold<Name, Scope, Data, Summary, Tag, Handled | E['name'], Encoded>;
+    readonly checkpointEventName: [Scope] extends ['context'] ? FoldCheckpointEventName<Name> : undefined;
+    on<E extends AgentNetworkEventDef<string, S.Schema.Any>>(event: E & UnhandledFoldEvent<E, Handled>, handler: (state: SegmentedState<Data, Summary>, envelope: EventEnvelope<E>) => SegmentedState<Data, Summary>): SegmentedFold<Name, Scope, Data, Summary, Tag, Handled | E['name'], Encoded>;
+    open<E extends AgentNetworkEventDef<string, S.Schema.Any>>(event: E & UnhandledFoldEvent<E, Handled>, segment: (envelope: EventEnvelope<E>) => Segment<Data>): SegmentedFold<Name, Scope, Data, Summary, Tag, Handled | E['name'], Encoded>;
+    readonly stateSchema: S.Schema<SegmentedState<Data, Summary>, Encoded>;
+    readonly tag: Tag;
 }
 
 // @public
-export type SegmentedState<T, C = never> = {
-    readonly checkpoint?: C;
+export const SegmentedFold: {
+    of<const Name extends string, Data extends S.Schema.AnyNoContext, Summary extends S.Schema.AnyNoContext = never, const Tag extends string = '_tag', const Scope extends FoldScope = 'context'>(name: Name & ValidFoldName<Name>, options: SegmentedFoldOptions<Data, Summary, Tag, Scope>): SegmentedFold<Name, Scope, S.Schema.Type<Data>, S.Schema.Type<Summary>, Tag, never, SegmentedState<S.Schema.Encoded<Data>, S.Schema.Encoded<Summary>>>;
+};
+
+// @public
+export interface SegmentedFoldCompact<Data, Summary> {
+    (next: (state: SegmentedState<Data, Summary>) => SegmentedState<Data, Summary> | Promise<SegmentedState<Data, Summary>>): Promise<SegmentedState<Data, Summary>>;
+    (options: SegmentedCompactOptions<Data, Summary>): Promise<SegmentedCompaction<SegmentedState<Data, Summary>>>;
+}
+
+// @public
+export type SegmentedFoldOptions<Data extends S.Schema.AnyNoContext = S.Schema.AnyNoContext, Summary extends S.Schema.AnyNoContext = S.Schema.AnyNoContext, Tag extends string = string, Scope extends FoldScope = FoldScope> = {
+    readonly data: Data;
+    readonly summary?: Summary;
+    readonly tag?: Tag & ValidSegmentTag<S.Schema.Type<Data>, Tag>;
+    readonly scope?: Scope;
+    readonly version?: number;
+};
+
+// @public
+export type SegmentedState<T, S = never> = {
+    readonly summary?: S;
     readonly segments: ReadonlyArray<Segment<T>>;
 };
 
 // @public
-export type SegmentedViewOptions<State extends AnySegmentedState> = {
-    readonly budget: number;
-    readonly count?: (segment: SegmentOf<State>) => number;
-    readonly countCheckpoint?: (checkpoint: CheckpointOf<State>) => number;
-    readonly strategies?: ReadonlyArray<ContextStrategy<State>>;
+export type SegmentedViewOptions<Data, Summary = never> = {
+    readonly count?: (segment: Segment<Data>) => number;
+    readonly countSummary?: (summary: Summary) => number;
+    readonly strategies?: ReadonlyArray<ContextStrategy<SegmentedState<Data, Summary>>>;
 };
 
 // @public
+export type SegmentKindOf<Data, Tag extends string> = Tag extends SegmentTagOf<Data> ? Data[Tag & keyof Data] : never;
+
+// @public
 export type SegmentOf<State extends AnySegmentedState> = State['segments'][number];
+
+// @public
+export type SegmentTagOf<Data> = Exclude<keyof Data, NonTagFields<Data>> & string;
 
 // @public
 export type SerializedRunError = {
@@ -1572,9 +1740,8 @@ export type SseProxyConsumerOptions<TDeps extends DependencyLayerDef<string, unk
 
 // @public
 export type StateViewOptions<State> = {
-    readonly budget: number;
     readonly measure: (state: State) => number;
-    readonly strategies?: ReadonlyArray<ContextStrategy<State>>;
+    readonly strategies?: ReadonlyArray<(state: State, context: ContextStrategyBudget<State>) => State>;
 };
 
 // @public
@@ -1587,6 +1754,9 @@ export type StreamFactory = {
     (req: ExposeRequest): Promise<ExposedStream>;
     <T>(req: ExposeRequest, consumer: (stream: ExposedStream) => Promise<T>): Promise<T>;
 };
+
+// @public
+export type SummaryOf<State extends AnySegmentedState> = Exclude<State['summary'], undefined>;
 
 // @public
 export function toAiSdkTools<TSchema>(tools: ReadonlyArray<AiSdkBindableTool>, helpers: AiSdkHelpers<TSchema>): Record<string, AiSdkTool<TSchema>>;
@@ -1815,12 +1985,15 @@ export type UnboundEvent = {
 };
 
 // @public
-export type UniqueFoldSources<Sources extends ReadonlyArray<FoldSource>, Taken extends string> = [
-DuplicateNames<Sources, Taken>
-] extends [never] ? Sources : {
-    readonly [K in keyof Sources]: Sources[K] extends {
-        readonly name: infer Name extends DuplicateNames<Sources, Taken>;
-    } ? DuplicateFoldName<Name> : Sources[K];
+export type UnhandledFoldEvent<E extends AgentNetworkEventDef<string, S.Schema.Any>, Handled extends string> = [E['name']] extends [Handled] ? DuplicateFoldHandler<E['name']> : unknown;
+
+// @public
+export type UniqueFolds<Folds extends ReadonlyArray<AnyContextFold>, Taken extends string> = [
+DuplicateNames<Folds, Taken>
+] extends [never] ? Folds : {
+    readonly [K in keyof Folds]: Folds[K] extends {
+        readonly name: infer Name extends DuplicateNames<Folds, Taken>;
+    } ? DuplicateFoldName<Name> : Folds[K];
 };
 
 // @public
@@ -1862,19 +2035,42 @@ export type ValidationIssue = ToolIssue;
 export type ValidFoldName<Name extends string> = IsFoldName<Name> extends true ? unknown : InvalidFoldName<Name>;
 
 // @public
-export type ViewOptions<State> = [State] extends [AnySegmentedState] ? SegmentedViewOptions<State> : StateViewOptions<State>;
+export type ValidSegmentTag<Data, Tag extends string> = Tag extends SegmentTagOf<Data> ? unknown : InvalidSegmentTag<Tag>;
 
 // @public
-export type ViewResult<State> = {
-    readonly state: State;
-    readonly tokens: number;
+export interface ViewNeedsMeasure {
+    readonly 'ContextView.of(fold, { measure }): a fold without segments is counted by measure(state)': true;
+}
+
+// @public
+export type ViewReadOptions = {
     readonly budget: number;
-    readonly overBudget: boolean;
-    readonly dropped: ReadonlyArray<string>;
 };
 
 // @public
-export type WiringErrorCode = 'emit-not-accepted' | 'listen-not-accepted';
+export interface ViewResult<State> {
+    readonly budget: number;
+    readonly dropped: ReadonlyArray<string>;
+    readonly fits: boolean;
+    readonly overBudget: boolean;
+    readonly state: State;
+    readonly tokens: number;
+}
+
+// @public
+export type ViewSplit<S> = {
+    readonly older: ReadonlyArray<S>;
+    readonly kept: ReadonlyArray<S>;
+};
+
+// @public
+export type ViewSplitOptions<T> = {
+    readonly keepTokens: number;
+    readonly keepFrom?: KeepFrom<T>;
+};
+
+// @public
+export type WiringErrorCode = 'emit-not-accepted' | 'listen-not-accepted' | 'fold-checkpoint-shared' | 'durable-event-redacted';
 
 // @public
 export type WiringIssue<TCode extends WiringErrorCode | WiringWarningCode = WiringErrorCode | WiringWarningCode> = {
@@ -1886,7 +2082,7 @@ export type WiringIssue<TCode extends WiringErrorCode | WiringWarningCode = Wiri
 };
 
 // @public
-export type WiringWarningCode = 'unconsumed-event' | 'agent-publishes-nowhere' | 'agent-not-subscribed' | 'agent-unreachable' | 'terminal-event-not-emitted' | 'fold-event-unpublished';
+export type WiringWarningCode = 'unconsumed-event' | 'agent-publishes-nowhere' | 'agent-not-subscribed' | 'agent-unreachable' | 'terminal-event-not-emitted' | 'fold-event-unpublished' | 'fold-name-shared' | 'event-schema-mismatch' | 'event-not-storable';
 
 // (No @packageDocumentation comment for this package)
 

@@ -72,7 +72,7 @@ await api.publish(ApprovalResolved.make({ approved: true }), {
 await api.withMeta({ runId, contextId }, { principal: { id: session.userId } }).publish(event);
 ```
 
-Without `principal` the event is anonymous, so it is refused (`publish` resolves `false`) when the run belongs to a principal. Code that publishes on the plane directly (`plane.publish`) is trusted: it may set `meta.principalId` itself.
+Without `principal` the event is anonymous, so it is refused (`publish` resolves `false`) when the run belongs to a principal. Code that publishes on the plane directly (`plane.publish`) is trusted: it may set `meta.principalId` itself. No outside publish, trusted or not, may use a reserved `m4trix:` name (`ReservedEventNameError`): relaying a client-chosen name could otherwise end someone's run or forge a fold checkpoint.
 
 ## Tenant data in agents
 

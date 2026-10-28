@@ -4,8 +4,9 @@ import { isReservedEventName, RESERVED_EVENT_PREFIX } from './run-lifecycle.js';
 
 /**
  * Standard meta carried by every event. The event plane fills in `eventId`, `ts` and `depth` when
- * an event is published without them, and sets `causationId` and `depth` on everything an agent
- * emits. All fields but `runId` and `contextId` are optional on decode.
+ * an event is published without them (or with a non-finite `ts` or `depth`), and sets
+ * `causationId` and `depth` on everything an agent emits. All fields but `runId` and `contextId`
+ * are optional on decode.
  */
 export const EventMetaSchema = S.Struct({
   runId: S.String,
@@ -117,6 +118,23 @@ type Envelope<EventName extends string, Meta, Payload> = {
   payload: Payload;
 };
 
+/** Every event `make`, `makeBound` and their Effect variants returned (see `isMadeEvent`). */
+const madeEvents = new WeakSet<object>();
+
+/** Registers `event` as made by an event definition (decoded with its schema) and returns it. */
+const made = <E extends object>(event: E): E => {
+  madeEvents.add(event);
+  return event;
+};
+
+/**
+ * @internal True for an event object that `make`, `makeBound`, `makeEffect` or `makeBoundEffect`
+ * returned: its payload is a value of its schema's type, decoded from what was passed in. Proxy
+ * publishes take such an event as it is; any other event from outside is wire data, decoded with
+ * its schema. A copy (`{ ...event }`) is another object: wire data again.
+ */
+export const isMadeEvent = (event: object): boolean => madeEvents.has(event);
+
 export type AgentNetworkEventOptions = {
   /** See {@link AgentNetworkEventDef.transient}. Defaults to `false`. */
   transient?: boolean;
@@ -145,35 +163,40 @@ export const AgentNetworkEvent = {
       const decoded = Effect.runSync(
         decodePayload(payload) as unknown as Effect.Effect<S.Schema.Type<PS>, ParseError>,
       );
-      return { name, payload: decoded };
+      return made({ name, payload: decoded });
     };
 
     const makeBound = (
       meta: unknown,
       payload: unknown,
     ): Envelope<EventName, EventMeta, S.Schema.Type<PS>> =>
-      Effect.runSync(
-        decodeEnvelope({ name, meta, payload }) as unknown as Effect.Effect<
-          Envelope<EventName, EventMeta, S.Schema.Type<PS>>,
-          ParseError
-        >,
+      made(
+        Effect.runSync(
+          decodeEnvelope({ name, meta, payload }) as unknown as Effect.Effect<
+            Envelope<EventName, EventMeta, S.Schema.Type<PS>>,
+            ParseError
+          >,
+        ),
       );
 
     const makeEffect = (
       payload: unknown,
     ): Effect.Effect<{ name: EventName; payload: S.Schema.Type<PS> }, ParseError> =>
       (decodePayload(payload) as unknown as Effect.Effect<S.Schema.Type<PS>, ParseError>).pipe(
-        Effect.map((p: S.Schema.Type<PS>) => ({ name, payload: p })),
+        Effect.map((p: S.Schema.Type<PS>) => made({ name, payload: p })),
       );
 
     const makeBoundEffect = (
       meta: unknown,
       payload: unknown,
     ): Effect.Effect<Envelope<EventName, EventMeta, S.Schema.Type<PS>>, ParseError> =>
-      decodeEnvelope({ name, meta, payload }) as unknown as Effect.Effect<
-        Envelope<EventName, EventMeta, S.Schema.Type<PS>>,
-        ParseError
-      >;
+      Effect.map(
+        decodeEnvelope({ name, meta, payload }) as unknown as Effect.Effect<
+          Envelope<EventName, EventMeta, S.Schema.Type<PS>>,
+          ParseError
+        >,
+        made,
+      );
 
     const is = S.is(envelopeSchema) as unknown as (
       u: unknown,

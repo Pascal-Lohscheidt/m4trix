@@ -1,4 +1,4 @@
-import { Schema as S } from 'effect';
+import { Effect, Schema as S } from 'effect';
 import { describe, expect, expectTypeOf, test, vi } from 'vitest';
 import { AgentFactory } from '../agent-factory.js';
 import { AgentNetwork } from '../agent-network/agent-network.js';
@@ -6,6 +6,7 @@ import { AgentNetworkEvent } from '../agent-network/agent-network-event.js';
 import type { Envelope } from '../agent-network/event-plane.js';
 import type { AgentNetworkStore } from '../agent-network/stores/agent-network-store.js';
 import { createInMemoryNetworkStore } from '../agent-network/stores/inmemory-network-store.js';
+import { ChannelName } from '../identifiers/channel-name.js';
 import type { NetworkTracer } from '../tracing/network-tracer.js';
 import { noopRunTraceScope } from '../tracing/network-tracer.js';
 import type { ValidationIssue } from '../validation.js';
@@ -77,7 +78,7 @@ function fixture(options: Omit<SseProxyConsumerOptions, 'channel'> = {}) {
     { networkTracer, store },
   );
   const api = network.expose(registerSSEStream({ triggerEvents: [ask], ...options }));
-  return { api, triggers, tracerCalls, appends };
+  return { api, network, triggers, tracerCalls, appends };
 }
 
 const post = (body: string, headers: Record<string, string> = {}): Request =>
@@ -207,6 +208,83 @@ describe('inbound payload validation', () => {
         ['ask', { question: 'why?', limit: 3 }],
       ]);
     });
+  });
+
+  test('a request body whose start event the store cannot keep is a 400 too; no run starts', async () => {
+    // The trigger reads an ISO string into a Date; the channel's definition, the one the plane
+    // encodes events published from outside with, keeps the Date itself (S.DateFromSelf).
+    const StampIn = AgentNetworkEvent.of('stamp', S.Struct({ at: S.Date }));
+    const StampKept = AgentNetworkEvent.of('stamp', S.Struct({ at: S.DateFromSelf }));
+    const triggers: Envelope[] = [];
+    const appends: string[] = [];
+    const inner = createInMemoryNetworkStore();
+    const network = AgentNetwork.setup(
+      ({ mainChannel, createChannel, proxy, registerAgent }) => {
+        mainChannel.events([StampKept]);
+        createChannel('client').proxy(proxy.sse());
+        registerAgent(
+          AgentFactory.run()
+            .listensTo([StampIn])
+            .logic(async ({ triggerEvent }) => {
+              triggers.push(triggerEvent);
+            })
+            .produce({}),
+        ).subscribe(mainChannel);
+      },
+      {
+        logger: { warn: vi.fn() },
+        store: {
+          ...inner,
+          append: (key, event) => {
+            appends.push(event.name);
+            return inner.append(key, event);
+          },
+        },
+      },
+    );
+    const api = network.expose(registerSSEStream({ triggerEvents: [StampIn] }));
+    const handler = NextEndpoint.from(api, ids).handler();
+
+    const response = await handler(post(JSON.stringify({ at: '2026-01-01T00:00:00.000Z' })));
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      error: 'invalid_request',
+      issues: [
+        {
+          path: 'at',
+          message:
+            'a Date is not JSON-compatible: events are stored as JSON, encoded with their schema',
+        },
+      ],
+    });
+    expect(triggers).toEqual([]);
+    expect(appends).toEqual([]);
+  });
+
+  test('without trigger events the body is published unchecked, as a request event', async () => {
+    const received: Envelope[] = [];
+    const network = AgentNetwork.setup(
+      ({ mainChannel, createChannel, proxy, registerAgent }) => {
+        createChannel('client').proxy(proxy.sse());
+        registerAgent(
+          AgentFactory.run()
+            .logic(async ({ triggerEvent, complete }) => {
+              received.push(triggerEvent);
+              complete();
+            })
+            .produce({}),
+        ).subscribe(mainChannel);
+      },
+      { logger: { warn: vi.fn() } },
+    );
+    const api = network.expose(registerSSEStream({}));
+
+    await api.createStream({ request: post(JSON.stringify({ free: 'form' })) }, collect);
+
+    expect(received.map((event) => [event.name, event.payload])).toEqual([
+      ['request', { free: 'form' }],
+    ]);
   });
 
   describe('ExpressEndpoint', () => {
@@ -416,6 +494,41 @@ describe('inbound payload validation', () => {
   });
 
   describe('onRequest + emitStartEvent', () => {
+    test('a reserved m4trix: name is a 400; nothing is published', async () => {
+      const { api, triggers, tracerCalls, appends } = fixture({
+        onRequest: ({ emitStartEvent }) => {
+          // E.g. an onRequest that forwards a client-chosen event name.
+          emitStartEvent({
+            runId: 'run-1',
+            contextId: 'ctx-1',
+            event: {
+              name: 'm4trix:fold.checkpoint:conversation@1',
+              payload: { fold: 'conversation', version: 1, through: null, state: {} },
+            },
+          });
+        },
+      });
+      const handler = NextEndpoint.from(api, ids).handler();
+
+      const response = await handler(new Request('http://test/api'));
+
+      expect(response.status).toBe(400);
+      expect(await response.json()).toMatchObject({
+        error: 'invalid_request',
+        issues: [
+          {
+            path: 'name',
+            message:
+              '"m4trix:fold.checkpoint:conversation@1" is reserved: names starting with "m4trix:" ' +
+              'belong to events the runtime publishes itself.',
+          },
+        ],
+      });
+      expect(triggers).toEqual([]);
+      expect(tracerCalls).toEqual([]);
+      expect(appends).toEqual([]);
+    });
+
     test('a start event that fails its trigger schema is a 400; no run starts', async () => {
       const { api, triggers, tracerCalls, appends } = fixture({
         onRequest: ({ emitStartEvent }) => {
@@ -438,6 +551,80 @@ describe('inbound payload validation', () => {
       expect(triggers).toEqual([]);
       expect(tracerCalls).toEqual([]);
       expect(appends).toEqual([]);
+    });
+
+    test('a start event whose payload JSON cannot hold is a 400; no run starts', async () => {
+      const { api, triggers, tracerCalls, appends } = fixture({
+        onRequest: ({ emitStartEvent }) => {
+          // An event the network does not know: its payload is published unchecked.
+          emitStartEvent({
+            runId: 'run-1',
+            contextId: 'ctx-1',
+            event: { name: 'upload', payload: { files: [new Map()] } },
+          });
+        },
+      });
+      const handler = NextEndpoint.from(api, ids).handler();
+
+      const response = await handler(new Request('http://test/api'));
+
+      expect(response.status).toBe(400);
+      expect(await response.json()).toEqual({
+        error: 'invalid_request',
+        issues: [
+          {
+            path: 'files[0]',
+            message:
+              'a Map is not JSON-compatible: events are stored as JSON, encoded with their schema',
+          },
+        ],
+      });
+      expect(triggers).toEqual([]);
+      expect(tracerCalls).toEqual([]);
+      expect(appends).toEqual([]);
+    });
+
+    test('a start event makes its stored payload once: checked before the run starts, reused', async () => {
+      /** A payload counting how often it is turned into JSON. */
+      const counted = () => {
+        const count = { calls: 0 };
+        const payload = {
+          data: {
+            toJSON: () => {
+              count.calls++;
+              return 'kept';
+            },
+          },
+        };
+        return { count, payload };
+      };
+      const viaExpose = counted();
+      const direct = counted();
+      const { api, network } = fixture({
+        idleTimeout: '20 millis',
+        onRequest: ({ emitStartEvent }) => {
+          emitStartEvent({
+            runId: 'run-1',
+            contextId: 'ctx-1',
+            event: { name: 'upload', payload: viaExpose.payload },
+          });
+        },
+      });
+
+      await api.createStream({ request: new Request('http://test/api') }, collect);
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const plane = yield* network.run();
+          yield* plane.publish(ChannelName('main'), {
+            name: 'upload',
+            meta: { runId: 'run-2', contextId: 'ctx-1' },
+            payload: direct.payload,
+          });
+        }).pipe(Effect.scoped),
+      );
+
+      // As often as plane.publish, which makes it once (its trace span serializes it too).
+      expect(viaExpose.count.calls).toBe(direct.count.calls);
     });
 
     test('events the network listens to are validated too, not only triggerEvents', async () => {

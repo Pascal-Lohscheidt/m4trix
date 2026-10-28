@@ -234,7 +234,7 @@ describe('EventTransport', () => {
 
       expect(error).toBeInstanceOf(PublishAndAwaitTimeoutError);
       expect(error._tag).toBe('PublishAndAwaitTimeoutError');
-      expect(error.timeout).toBe('10 millis');
+      expect((error as PublishAndAwaitTimeoutError).timeout).toBe('10 millis');
     });
   });
 

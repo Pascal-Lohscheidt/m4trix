@@ -1,14 +1,29 @@
 import { Effect, type Layer, Queue, type Schema as S } from 'effect';
 import type * as Duration from 'effect/Duration';
 import type { AgentNetwork } from '../agent-network/agent-network.js';
-import type { AgentNetworkEventDef, EventMeta } from '../agent-network/agent-network-event.js';
+import {
+  type AgentNetworkEventDef,
+  type EventMeta,
+  isMadeEvent,
+} from '../agent-network/agent-network-event.js';
 import {
   Proxy as ChannelProxy,
   channelHasProxy,
   type ProxyDirection,
 } from '../agent-network/channel.js';
-import { claimRun, type Envelope, type EventPlane } from '../agent-network/event-plane.js';
-import type { RunLimitOptions } from '../agent-network/run-lifecycle.js';
+import {
+  claimRun,
+  type Envelope,
+  type EventPlane,
+  fromWireEnvelope,
+  preparePublish,
+  wireEnvelope,
+} from '../agent-network/event-plane.js';
+import {
+  isReservedEventName,
+  ReservedEventNameError,
+  type RunLimitOptions,
+} from '../agent-network/run-lifecycle.js';
 import type { DependencyLayerDef, LayerInstancesFromDeps } from '../dependency-layer.js';
 import { ChannelName, type ChannelName as ChannelNameType } from '../identifiers/channel-name.js';
 import { assertPrincipal, type Principal } from '../principal.js';
@@ -82,7 +97,12 @@ export type ProxyExposeContext<
   ) => InteractiveProxyHandle;
   publish: (event: UnboundEvent | Envelope, opts?: PublishInboundOptions) => Promise<boolean>;
   withMeta: (meta: ProxyEventMeta, options?: ProxyPrincipalOptions) => BoundProxyPublisher;
-  /** Publishes `envelope` as is, except for its principal: see `PublishInboundOptions.principal`. */
+  /**
+   * Publishes `envelope` as it came, except for its principal (see
+   * `PublishInboundOptions.principal`) and its payload: wire data, decoded with its event's schema,
+   * unless it was made with `Event.makeBound` (a value already), like `publish`'s (see the
+   * `publish` of `InteractiveProxyHandle`).
+   */
   publishInbound: (
     envelope: Envelope,
     target?: 'main' | ChannelNameType,
@@ -130,7 +150,16 @@ export type PublishInboundOptions = {
 
 export type InteractiveProxyHandle = ExposedAPI & {
   readonly plane?: EventPlane;
-  /** Resolves `false` when the event was refused (e.g. its run belongs to another principal). */
+  /**
+   * Publishes an event from outside. An event made with `Event.make` / `makeBound` (or their
+   * Effect variants) holds a value already and is published as it is, like `plane.publish` does.
+   * Any other payload is wire data, as `subscribeOutbound` and SSE streams send it: decoded with
+   * the schema the network knows for its name, so agents get what an emit would give them (a
+   * payload that does not decode but already is a value of the type is taken as it is; one that
+   * is neither is published as given). A copy of a made event (`{ ...event }`) is wire data again.
+   * Resolves `false` when the event was refused (e.g. its run belongs to another principal);
+   * rejects with `ReservedEventNameError` or `NonJsonPayloadError`, publishing nothing.
+   */
   publish(event: UnboundEvent | Envelope, opts?: PublishInboundOptions): Promise<boolean>;
   withMeta(meta: ProxyEventMeta, options?: ProxyPrincipalOptions): BoundProxyPublisher;
 };
@@ -239,7 +268,7 @@ export function createInboundPublisher(ctx: {
     const target = opts?.target ?? 'main';
     const channelName = resolvePublishTarget(ctx.network, ctx.channels, target);
     const bound = isEnvelope(event) ? event : bindEnvelope(opts?.meta ?? {}, event);
-    return publishAsPrincipal(ctx.plane, channelName, bound, opts?.principal);
+    return publishAsPrincipal(ctx.plane, channelName, bound, opts?.principal, isMadeEvent(event));
   };
 
   return {
@@ -285,7 +314,13 @@ export function createProxyExposeContext<
       if (!channel) {
         throw new Error('proxy.publishInbound target "main" requires a main channel');
       }
-      return publishAsPrincipal(plane, channel, envelope, options?.principal);
+      return publishAsPrincipal(
+        plane,
+        channel,
+        envelope,
+        options?.principal,
+        isMadeEvent(envelope),
+      );
     },
     subscribeOutbound: (handler, signal) =>
       subscribeOutbound({
@@ -315,25 +350,38 @@ function resolvePublishTarget(
 
 /**
  * Publishes `envelope` for `principal` (anonymously without one): its own `principalId`, if any,
- * is replaced, never trusted.
+ * is replaced, never trusted. Its payload is wire data, decoded with its event's schema (see
+ * `fromWireEnvelope`), as `subscribeOutbound` sends it, unless the event was `made` by its
+ * definition (`Event.make`, `makeBound`, ...; see `isMadeEvent`): that payload is a value already,
+ * published as it is, like `plane.publish` does. Rejects, before it claims the run and publishing
+ * nothing, with `ReservedEventNameError` for a reserved `m4trix:` name, which inbound events
+ * never carry (they could forge the runtime's own events), and with `NonJsonPayloadError` for a
+ * payload the store cannot keep as JSON.
  */
 function publishAsPrincipal(
   plane: EventPlane,
   channel: ChannelNameType,
   envelope: Envelope,
   principal: Principal | undefined,
+  made: boolean,
 ): Promise<boolean> {
-  if (principal !== undefined) {
-    assertPrincipal(principal, 'proxy.publish');
-    // The full principal reaches the run's agents when this event starts the run.
-    if (!claimRun(plane, envelope.meta.runId, principal)) return Promise.resolve(false);
+  if (isReservedEventName(envelope.name)) {
+    return Promise.reject(new ReservedEventNameError(envelope.name));
   }
+  if (principal !== undefined) assertPrincipal(principal, 'proxy.publish');
   const { principalId: _untrusted, ...meta } = envelope.meta;
   const owned: Envelope = {
     ...envelope,
     meta: principal === undefined ? meta : { ...meta, principalId: principal.id },
   };
-  return Effect.runPromise(plane.publish(channel, owned));
+  const published = made ? owned : fromWireEnvelope(plane, owned);
+  const unstorable = preparePublish(plane, published);
+  if (unstorable) return Promise.reject(unstorable);
+  // The full principal reaches the run's agents when this event starts the run.
+  if (principal !== undefined && !claimRun(plane, envelope.meta.runId, principal)) {
+    return Promise.resolve(false);
+  }
+  return Effect.runPromise(plane.publish(channel, published));
 }
 
 function bindEnvelope(meta: ProxyEventMeta, event: UnboundEvent): Envelope {
@@ -376,7 +424,8 @@ async function subscribeOutbound(input: {
       Effect.gen(function* () {
         const dequeue = yield* plane.subscribe(channel);
         while (!input.signal?.aborted) {
-          const envelope = yield* Queue.take(dequeue);
+          // Leaving the network: in the wire form, as SSE streams send it.
+          const envelope = wireEnvelope(plane, yield* Queue.take(dequeue));
           yield* Effect.promise(() => Promise.resolve(input.handler(envelope)));
         }
       }),

@@ -9,7 +9,7 @@ Typed agent networks for TypeScript. Define events with schemas, wire agents to 
 
 - **Agent networks** — agents subscribe to channels and publish to channels; the event plane delivers each run's events in order, with back-pressure, and runs different runs in parallel.
 - **Typed events, tools and layers** — events are [Effect](https://effect.website/) schemas, checked when they are published. Agents declare what they listen to and emit (`.listensTo()`, `.emits()`), and the wiring is checked at setup. Tools have input and output schemas, timeouts and retries, and convert to OpenAI, Anthropic and AI SDK tool definitions. Model clients, databases and other services are injected as dependency layers: core itself depends on nothing but `effect`.
-- **Context folds** — `ContextFold` / `SegmentedFold` turn a conversation's events into typed state, folded incrementally and cached; budgeted views (`fold.view()`, `ContextStrategy`) trim it to a model's context window without splitting a tool call from its result, and checkpoints let an agent compact it. Agents read them with `.folds([...])` → `await folds.conversation()`.
+- **Context folds** — `ContextFold` / `SegmentedFold` turn a conversation's events into typed state, folded incrementally and cached; views (`ContextView.of()`, `ContextStrategy`) trim it to a model's context window, at the budget of each call, without splitting a tool call from its result, and an agent compacts it with `await folds.conversation.compact(...)` without losing events. Agents read them with `.folds([...])` → `await folds.conversation()`.
 - **Streaming** — `network.expose()` turns a network into an SSE endpoint for Next.js (`NextEndpoint`) or Express (`ExpressEndpoint`). A run ends exactly once (`endsOn`, `complete()`, timeouts, limits) and its stream closes after the run-end event. Streams resume after a dropped connection (`Last-Event-ID`), and transient events (token deltas, progress) are streamed but never stored.
 - **For production** — per-user history in a pluggable store, run limits and token or cost budgets, a tracer hook (see [`@m4trix/tracing`](https://www.npmjs.com/package/@m4trix/tracing)), metrics and a logger.
 
@@ -99,10 +99,10 @@ The response is an SSE stream of `token` events, the `answer`, and `m4trix:run.c
 
 ## Documentation
 
-- [Getting started](https://docs.m4trix.dev/getting-started/install) — install, hello world, how-to recipes
-- [Concepts](https://docs.m4trix.dev/concepts/events) — events, channels, agents, networks, [context (folds and views)](https://docs.m4trix.dev/concepts/context), streaming
-- [Guides](https://docs.m4trix.dev/guides/next.js) — Next.js, Express, auth and multi-tenancy, error handling and observability, testing, deployment
-- [API reference](https://docs.m4trix.dev/api-reference/agent-network) — `AgentFactory`, `AgentNetwork`, events, channels, IO adapters
+- [Getting started](https://m4trix.dev/docs/getting-started/install) — install, hello world, how-to recipes
+- [Concepts](https://m4trix.dev/docs/concepts/events) — events, channels, agents, networks, [context (folds and views)](https://m4trix.dev/docs/concepts/context), streaming
+- [Guides](https://m4trix.dev/docs/guides/nextjs) — Next.js, Express, auth and multi-tenancy, error handling and observability, testing, deployment
+- [API reference](https://m4trix.dev/docs/api-reference/agent-network) — `AgentFactory`, `AgentNetwork`, events, channels, IO adapters
 - [Changelog](./CHANGELOG.md) — breaking changes with migration notes
 
 Entry points: `@m4trix/core` (everything), `@m4trix/core/matrix` (the same exports, for existing imports) and `@m4trix/core/testing` (`runStoreContract` and `runTransportContract` to check your own store or transport).

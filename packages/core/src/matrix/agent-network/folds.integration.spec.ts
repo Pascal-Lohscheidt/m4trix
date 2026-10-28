@@ -1,11 +1,14 @@
-import { Effect, Schema as S } from 'effect';
+import { Chunk, Effect, Queue, Schema as S } from 'effect';
 import { describe, expect, expectTypeOf, test, vi } from 'vitest';
 import { AgentFactory } from '../agent-factory.js';
 import { ContextFold } from '../context/context-fold.js';
 import type { FoldCacheOptions } from '../context/fold-cache.js';
+import { isFoldCheckpointEvent } from '../context/fold-checkpoint.js';
+import type { FoldAccessors } from '../context/fold-reader.js';
+import { ContextView } from '../context/view.js';
 import { ChannelName } from '../identifiers/channel-name.js';
 import type { NetworkMetric } from '../metrics.js';
-import { AgentNetwork, type AgentNetworkSetupOptions } from './agent-network.js';
+import { AgentNetwork, type AgentNetworkSetupOptions, type AnyAgent } from './agent-network.js';
 import { AgentNetworkEvent, type EventMeta } from './agent-network-event.js';
 import { EventAggregator } from './event-aggregator.js';
 import { type EventPlane, inspectEventPlane } from './event-plane.js';
@@ -16,14 +19,12 @@ import { createInMemoryNetworkStore } from './stores/inmemory-network-store.js';
 const UserPrompt = AgentNetworkEvent.of('user-prompt', S.Struct({ text: S.String }));
 const Reply = AgentNetworkEvent.of('reply', S.Struct({ text: S.String }));
 const CompactionRequested = AgentNetworkEvent.of('compaction-requested', S.Struct({}));
-const Compacted = AgentNetworkEvent.of('compacted', S.Struct({ summary: S.String }));
 
 type Lines = readonly string[];
 
 /** A conversation fold; `applied` records the id of every event a handler folded. */
 const makeConversation = (applied: string[]) =>
-  ContextFold.of('conversation', { version: 1 })
-    .over([UserPrompt, Reply, Compacted])
+  ContextFold.of('conversation')
     .initial((): Lines => [])
     .on(UserPrompt, (lines, { payload, meta }) => {
       applied.push(meta.eventId ?? '?');
@@ -32,16 +33,10 @@ const makeConversation = (applied: string[]) =>
     .on(Reply, (lines, { payload, meta }) => {
       applied.push(meta.eventId ?? '?');
       return [...lines, `model: ${payload.text}`];
-    })
-    .checkpointOn(Compacted, ({ payload, meta }) => {
-      applied.push(meta.eventId ?? '?');
-      return [`summary: ${payload.summary}`];
     });
 
 const makeReplies = () =>
-  ContextFold.of('replies', { version: 1 })
-    .scope('run')
-    .over([Reply])
+  ContextFold.of('replies', { scope: 'run' })
     .initial(() => 0)
     .on(Reply, (count) => count + 1);
 
@@ -115,51 +110,6 @@ describe('folds in a network', () => {
     expect(afters.slice(1).every((after) => after !== undefined)).toBe(true);
   });
 
-  test('a re-read after emitAndAwait sees the checkpoint the other agent published', async () => {
-    const applied: string[] = [];
-    const Conversation = makeConversation(applied);
-    const seen: Record<string, unknown> = {};
-    const network = AgentNetwork.setup(
-      ({ mainChannel, registerAgent, endsOn }) => {
-        const model = AgentFactory.run()
-          .listensTo([UserPrompt])
-          .emits([Reply, CompactionRequested])
-          .folds([Conversation])
-          .logic(async ({ folds, emit, emitAndAwait }) => {
-            seen.before = await folds.conversation();
-            await emitAndAwait(CompactionRequested.make({}), (reply) => reply.name === 'compacted');
-            seen.after = await folds.conversation();
-            emit(Reply.make({ text: 'ok' }));
-          })
-          .produce({});
-        const compactor = AgentFactory.run()
-          .listensTo([CompactionRequested])
-          .emits([Compacted], { reply: true })
-          .folds([Conversation])
-          .logic(async ({ folds, emit }) => {
-            const lines = await folds.conversation();
-            emit(Compacted.make({ summary: `${lines.length} lines` }));
-          })
-          .produce({});
-        registerAgent(model).subscribe(mainChannel).publishTo(mainChannel);
-        registerAgent(compactor).subscribe(mainChannel).publishTo(mainChannel);
-        endsOn(Reply);
-      },
-      { logger: quietLogger() },
-    );
-
-    await Effect.runPromise(
-      Effect.gen(function* () {
-        const plane = yield* network.run();
-        yield* prompt(plane, 'hi', meta('run-1'));
-      }).pipe(Effect.scoped),
-    );
-
-    expect(seen).toEqual({ before: ['user: hi'], after: ['summary: 1 lines'] });
-    // The prompt and the checkpoint, each folded once across both agents' reads.
-    expect(applied).toHaveLength(2);
-  });
-
   test('agents reading the same fold at once never fold an event twice', async () => {
     const applied: string[] = [];
     const Conversation = makeConversation(applied);
@@ -206,31 +156,6 @@ describe('folds in a network', () => {
     // 12 reads, 2 events: each folded once.
     expect(applied).toHaveLength(2);
     expect(new Set(applied).size).toBe(2);
-  });
-
-  test('a cold read starts at the newest checkpoint in the store', async () => {
-    const applied: string[] = [];
-    const reads: unknown[] = [];
-    const store = createInMemoryNetworkStore();
-    const key = { namespace: 'anonymous', contextId: 'ctx-1' };
-    const old = meta('run-0');
-    await store.append(key, UserPrompt.makeBound({ ...old, eventId: 'p0' }, { text: 'old' }));
-    await store.append(key, Compacted.makeBound({ ...old, eventId: 'c0' }, { summary: 'earlier' }));
-    await store.append(key, Reply.makeBound({ ...old, eventId: 'r0' }, { text: 'after summary' }));
-    const readLatest = vi.spyOn(store as Required<AgentNetworkStore>, 'readLatest');
-    const network = chatNetwork({ applied, reads, setup: { store } });
-
-    await Effect.runPromise(
-      Effect.gen(function* () {
-        const plane = yield* network.run();
-        yield* prompt(plane, 'new', meta('run-1'));
-      }).pipe(Effect.scoped),
-    );
-
-    expect(readLatest).toHaveBeenCalledWith(key, ['compacted']);
-    expect(reads).toEqual([['summary: earlier', 'model: after summary', 'user: new']]);
-    expect(applied.slice(0, 2)).toEqual(['c0', 'r0']);
-    expect(applied).not.toContain('p0');
   });
 
   test('a context deleted through the store is rebuilt, not continued', async () => {
@@ -338,20 +263,205 @@ describe('folds in a network', () => {
     expect(new Set(applied).size).toBe(applied.length);
   });
 
+  describe('cache identity: a cached state belongs to the fold object', () => {
+    const Audited = AgentNetworkEvent.of('audited', S.Struct({}));
+
+    /**
+     * `model` answers each prompt with a `Reply`; `auditor` listens to the reply and ends the run.
+     * So the reads alternate (model, auditor) and each one continues after the other's. Runs the
+     * prompts `a` and `b` (a run each, one context) and resolves with the starts of the reads
+     * (`m4trix.fold.read.events`) and the states the plane kept.
+     */
+    const runModelThenAuditor = async (model: AnyAgent, auditor: AnyAgent) => {
+      const metrics: NetworkMetric[] = [];
+      const network = AgentNetwork.setup(
+        ({ mainChannel, registerAgent, endsOn }) => {
+          registerAgent(model).subscribe(mainChannel).publishTo(mainChannel);
+          registerAgent(auditor).subscribe(mainChannel).publishTo(mainChannel);
+          endsOn(Audited);
+        },
+        { logger: quietLogger(), onMetric: (metric) => metrics.push(metric) },
+      );
+      const foldStates = await Effect.runPromise(
+        Effect.gen(function* () {
+          const plane = yield* network.run();
+          yield* prompt(plane, 'a', meta('run-1'));
+          yield* prompt(plane, 'b', meta('run-2'));
+          return inspectEventPlane(plane).foldStates;
+        }).pipe(Effect.scoped),
+      );
+      const starts = metrics
+        .filter((metric) => metric.name === 'm4trix.fold.read.events')
+        .map((metric) => metric.attributes.start);
+      return { starts, foldStates };
+    };
+
+    test('two agents with different folds of one name and version keep their own states', async () => {
+      // Same name and version, different handlers: two folds, which must not share a state.
+      const Transcript = ContextFold.of('conversation')
+        .initial((): Lines => [])
+        .on(UserPrompt, (lines, { payload }) => [...lines, `user: ${payload.text}`])
+        .on(Reply, (lines, { payload }) => [...lines, `model: ${payload.text}`]);
+      const AuditLog = ContextFold.of('conversation')
+        .initial((): Lines => [])
+        .on(UserPrompt, (lines, { payload }) => [...lines, `> ${payload.text}`])
+        .on(Reply, (lines, { payload }) => [...lines, `< ${payload.text}`]);
+      const reads: { model: Lines[]; auditor: Lines[] } = { model: [], auditor: [] };
+      const model = AgentFactory.run()
+        .listensTo([UserPrompt])
+        .emits([Reply])
+        .folds([Transcript])
+        .logic(async ({ folds, triggerEvent, emit }) => {
+          reads.model.push(await folds.conversation());
+          emit(Reply.make({ text: `re ${triggerEvent.payload.text}` }));
+        })
+        .produce({});
+      const auditor = AgentFactory.run()
+        .listensTo([Reply])
+        .emits([Audited])
+        .folds([AuditLog])
+        .logic(async ({ folds, emit }) => {
+          reads.auditor.push(await folds.conversation());
+          emit(Audited.make({}));
+        })
+        .produce({});
+
+      const { starts, foldStates } = await runModelThenAuditor(model, auditor);
+
+      expect(reads).toEqual({
+        model: [['user: a'], ['user: a', 'model: re a', 'user: b']],
+        auditor: [
+          ['> a', '< re a'],
+          ['> a', '< re a', '> b', '< re b'],
+        ],
+      });
+      expect(starts).toEqual(['cold', 'cold', 'warm', 'warm']);
+      expect(foldStates).toBe(2);
+    });
+
+    test('two different compactable folds of one name and version cannot share a network', async () => {
+      // Their cached states would be kept apart, but their checkpoints are stored by name and
+      // version: each would restore the other's. Setup fails.
+      const compactable = (prefix: string) =>
+        ContextFold.of('conversation', { state: S.Array(S.String) })
+          .initial(() => [])
+          .on(UserPrompt, (lines, { payload }) => [...lines, `${prefix}${payload.text}`]);
+      const agent = (fold: ReturnType<typeof compactable>) =>
+        AgentFactory.run()
+          .listensTo([UserPrompt])
+          .folds([fold])
+          .logic(async () => {})
+          .produce({});
+
+      await expect(
+        runModelThenAuditor(agent(compactable('user: ')), agent(compactable('> '))),
+      ).rejects.toMatchObject({
+        _tag: 'NetworkWiringError',
+        errors: [{ code: 'fold-checkpoint-shared' }],
+      });
+    });
+
+    test('agents declaring one fold object share its state', async () => {
+      const applied: string[] = [];
+      const Conversation = makeConversation(applied);
+      const reads: Lines[] = [];
+      const model = AgentFactory.run()
+        .listensTo([UserPrompt])
+        .emits([Reply])
+        .folds([Conversation])
+        .logic(async ({ folds, triggerEvent, emit }) => {
+          reads.push(await folds.conversation());
+          emit(Reply.make({ text: `re ${triggerEvent.payload.text}` }));
+        })
+        .produce({});
+      const auditor = AgentFactory.run()
+        .listensTo([Reply])
+        .emits([Audited])
+        .folds([Conversation])
+        .logic(async ({ folds, emit }) => {
+          reads.push(await folds.conversation());
+          emit(Audited.make({}));
+        })
+        .produce({});
+
+      const { starts, foldStates } = await runModelThenAuditor(model, auditor);
+
+      expect(reads).toEqual([
+        ['user: a'],
+        ['user: a', 'model: re a'],
+        ['user: a', 'model: re a', 'user: b'],
+        ['user: a', 'model: re a', 'user: b', 'model: re b'],
+      ]);
+      // Only the first read was cold; each later one continued the shared state.
+      expect(starts).toEqual(['cold', 'warm', 'warm', 'warm']);
+      expect(foldStates).toBe(1);
+      // Four events, each folded once across both agents.
+      expect(applied).toHaveLength(4);
+      expect(new Set(applied).size).toBe(4);
+    });
+
+    test('a view has no state of its own: it reads the shared fold state, per-read budget', async () => {
+      const applied: string[] = [];
+      const Conversation = makeConversation(applied);
+      const Chat = ContextView.of(Conversation, {
+        measure: (lines) => lines.length,
+        strategies: [(lines, { budget }) => lines.slice(-budget)],
+      });
+      const reads: unknown[] = [];
+      const views: unknown[] = [];
+      const model = AgentFactory.run()
+        .listensTo([UserPrompt])
+        .emits([Reply])
+        .folds([Conversation])
+        .logic(async ({ folds, triggerEvent, emit }) => {
+          reads.push(await folds.conversation());
+          emit(Reply.make({ text: `re ${triggerEvent.payload.text}` }));
+        })
+        .produce({});
+      const auditor = AgentFactory.run()
+        .listensTo([Reply])
+        .emits([Audited])
+        .folds([Conversation])
+        .logic(async ({ folds, emit }) => {
+          const lines = await folds.conversation();
+          const chat = Chat(lines, { budget: 2 });
+          expectTypeOf(chat.state).toEqualTypeOf<Lines>();
+          reads.push(lines);
+          views.push(chat.state);
+          emit(Audited.make({}));
+        })
+        .produce({});
+
+      const { starts, foldStates } = await runModelThenAuditor(model, auditor);
+
+      expect(reads).toEqual([
+        ['user: a'],
+        ['user: a', 'model: re a'],
+        ['user: a', 'model: re a', 'user: b'],
+        ['user: a', 'model: re a', 'user: b', 'model: re b'],
+      ]);
+      expect(views).toEqual([
+        ['user: a', 'model: re a'],
+        ['user: b', 'model: re b'],
+      ]);
+      expect(starts).toEqual(['cold', 'warm', 'warm', 'warm']);
+      expect(foldStates).toBe(1);
+      expect(applied).toHaveLength(4);
+      expect(new Set(applied).size).toBe(4);
+    });
+  });
+
   describe('read-your-writes: a read includes what the invocation emitted before it', () => {
     const Step = AgentNetworkEvent.of('step', S.Struct({ n: S.Number }));
     const Done = AgentNetworkEvent.of('done', S.Struct({}));
     const Progress = AgentNetworkEvent.of('progress', S.Struct({}), { transient: true });
     const Ask = AgentNetworkEvent.of('ask', S.Struct({}));
     const Answer = AgentNetworkEvent.of('answer', S.Struct({}));
-    const Steps = ContextFold.of('steps', { version: 1 })
-      .over([UserPrompt, Step])
+    const Steps = ContextFold.of('steps')
       .initial((): Lines => [])
       .on(UserPrompt, (lines, { payload }) => [...lines, `user: ${payload.text}`])
       .on(Step, (lines, { payload }) => [...lines, `step ${payload.n}`]);
-    const StepCount = ContextFold.of('stepCount', { version: 1 })
-      .scope('run')
-      .over([Step, Ask])
+    const StepCount = ContextFold.of('stepCount', { scope: 'run' })
       .initial(() => 0)
       .on(Step, (count) => count + 1)
       .on(Ask, (count) => count + 1);
@@ -763,6 +873,354 @@ describe('folds in a network', () => {
       );
 
       await expect(read).rejects.toEqual(new AgentAbortedError('cancelled'));
+    });
+  });
+
+  describe('compaction: folds.<name>.compact() publishes the fold checkpoint', () => {
+    const Log = ContextFold.of('log', { state: S.Array(S.String) })
+      .initial(() => [])
+      .on(UserPrompt, (lines, { payload }) => [...lines, `user: ${payload.text}`])
+      .on(Reply, (lines, { payload }) => [...lines, `model: ${payload.text}`]);
+    const NoteRequested = AgentNetworkEvent.of('note-requested', S.Struct({}));
+    const key = { namespace: 'anonymous', contextId: 'ctx-1' };
+
+    /** A network whose `compactor` runs `logic` on every prompt; `observer` sees every event. */
+    const compactingNetwork = (
+      logic: (ctx: {
+        folds: FoldAccessors<typeof Log>;
+        emitAndAwait: (event: ReturnType<typeof NoteRequested.make>) => Promise<unknown>;
+        complete: () => void;
+      }) => Promise<void>,
+      setup: AgentNetworkSetupOptions = {},
+    ) => {
+      const observed: string[] = [];
+      const network = AgentNetwork.setup(
+        ({ mainChannel, registerAgent }) => {
+          const compactor = AgentFactory.run()
+            .listensTo([UserPrompt])
+            .emits([NoteRequested])
+            .folds([Log])
+            .logic(async ({ folds, emitAndAwait, complete }) =>
+              logic({
+                folds,
+                emitAndAwait: (event) => emitAndAwait(event, (reply) => reply.name === 'reply'),
+                complete,
+              }),
+            )
+            .produce({});
+          // Answers a note request with a reply: an event of the fold, from another agent.
+          const noter = AgentFactory.run()
+            .listensTo([NoteRequested])
+            .emits([Reply], { reply: true })
+            .logic(async ({ emit }) => emit(Reply.make({ text: 'note' })))
+            .produce({});
+          const observer = AgentFactory.run()
+            // No listensTo: every event of the channel, runtime ones excepted.
+            .logic(async ({ triggerEvent }) => {
+              observed.push((triggerEvent as { name: string }).name);
+            })
+            .produce({});
+          registerAgent(compactor).subscribe(mainChannel).publishTo(mainChannel);
+          registerAgent(noter).subscribe(mainChannel).publishTo(mainChannel);
+          registerAgent(observer).subscribe(mainChannel);
+        },
+        { logger: quietLogger(), ...setup },
+      );
+      return { network, observed };
+    };
+
+    /** Publishes a prompt in `runId` and resolves once the run is over (it completes on idle). */
+    const promptAndWait = (plane: EventPlane, text: string, runId: string) =>
+      Effect.gen(function* () {
+        yield* plane.publish(ChannelName('main'), {
+          name: 'user-prompt',
+          meta: meta(runId),
+          payload: { text },
+        });
+        yield* plane.awaitRunEnd(runId);
+      });
+
+    /** A fresh network over `store` that reads the log on a prompt: a cold rebuild. */
+    const coldRead = async (store: AgentNetworkStore) => {
+      const reads: unknown[] = [];
+      const reader = AgentNetwork.setup(
+        ({ mainChannel, registerAgent }) => {
+          const agent = AgentFactory.run()
+            .listensTo([UserPrompt])
+            .folds([Log])
+            .logic(async ({ folds, complete }) => {
+              reads.push(await folds.log());
+              complete();
+            })
+            .produce({});
+          registerAgent(agent).subscribe(mainChannel);
+        },
+        { logger: quietLogger(), store },
+      );
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const plane = yield* reader.run();
+          yield* promptAndWait(plane, 'after restart', 'run-cold');
+        }).pipe(Effect.scoped),
+      );
+      return reads[0];
+    };
+
+    test('an event published after the compaction read, before its checkpoint, is never lost', async () => {
+      const store = createInMemoryNetworkStore();
+      const seen: Record<string, unknown> = {};
+      const { network } = compactingNetwork(
+        async ({ folds, emitAndAwait, complete }) => {
+          seen.compacted = await folds.log.compact(async (lines) => {
+            seen.summarized = lines;
+            // Another agent publishes a fold event while the summary is written.
+            await emitAndAwait(NoteRequested.make({}));
+            return [`summary of ${lines.length} lines`];
+          });
+          seen.reread = await folds.log();
+          complete();
+        },
+        { store },
+      );
+
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const plane = yield* network.run();
+          yield* promptAndWait(plane, 'hi', 'run-1');
+        }).pipe(Effect.scoped),
+      );
+
+      expect(seen.summarized).toEqual(['user: hi']);
+      // Warm: the checkpoint's state plus the note published while it was being written.
+      expect(seen.compacted).toEqual(['summary of 1 lines', 'model: note']);
+      expect(seen.reread).toEqual(seen.compacted);
+      // The stored order: the note landed before the checkpoint, after its `through`.
+      const stored = (await store.readRun(key, 'run-1')).map((event) => event.name);
+      expect(stored.indexOf('reply')).toBeLessThan(stored.indexOf('m4trix:fold.checkpoint:log@1'));
+      // Cold: a fresh plane over the same store reads the same conversation (and the new prompt).
+      expect(await coldRead(store)).toEqual([
+        'summary of 1 lines',
+        'model: note',
+        'user: after restart',
+      ]);
+    });
+
+    test('the checkpoint is stored with the run, on no channel, and reaches no agent or subscriber', async () => {
+      const store = createInMemoryNetworkStore();
+      const published: Array<{ channel: string; name: string; payload: unknown }> = [];
+      const subscribed: string[] = [];
+      let compacted: unknown;
+      let stateRead: unknown;
+      const { network, observed } = compactingNetwork(
+        async ({ folds, complete }) => {
+          stateRead = await folds.log();
+          compacted = await folds.log.compact(() => ['summary']);
+          complete();
+        },
+        {
+          store,
+          networkTracer: {
+            onRunStart: async () => {},
+            onRunEnd: async () => {},
+            onEventPublish: async ({ channel, name, payload }) => {
+              published.push({ channel, name, payload });
+            },
+            onAgentInvokeStart: async ({ trigger }) => ({
+              runId: trigger.meta.runId,
+              contextId: trigger.meta.contextId,
+              startRun: () => ({ runId: 'span', end: async () => {} }),
+              flush: async () => {},
+            }),
+            onAgentInvokeEnd: async () => {},
+            flush: async () => {},
+          },
+        },
+      );
+
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const plane = yield* network.run();
+          const queue = yield* plane.subscribe(ChannelName('main'));
+          yield* promptAndWait(plane, 'hi', 'run-1');
+          subscribed.push(...Chunk.toReadonlyArray(yield* Queue.takeAll(queue)).map((e) => e.name));
+        }).pipe(Effect.scoped),
+      );
+
+      const run = await store.readRun(key, 'run-1');
+      const checkpoint = run.find(isFoldCheckpointEvent);
+      const through = (await store.readContext(key, { names: ['user-prompt'] })).head;
+      expect(checkpoint).toMatchObject({
+        name: 'm4trix:fold.checkpoint:log@1',
+        payload: { fold: 'log', version: 1, through, state: ['summary'] },
+        channels: [],
+        meta: { runId: 'run-1', contextId: 'ctx-1', depth: 1 },
+      });
+      expect(checkpoint?.meta.causationId).toBe(run[0]?.meta.eventId);
+      expect(stateRead).toEqual(['user: hi']);
+      expect(compacted).toEqual(['summary']);
+      expect(observed).toEqual(['user-prompt']);
+      expect(subscribed).not.toContain('m4trix:fold.checkpoint:log@1');
+      // Traced once, with no channel, and without the state (it can be large; it is in the store).
+      expect(published.filter(({ name }) => isFoldCheckpointEvent({ name }))).toEqual([
+        {
+          channel: '',
+          name: 'm4trix:fold.checkpoint:log@1',
+          payload: { fold: 'log', version: 1, through },
+        },
+      ]);
+    });
+
+    test('a checkpoint never answers an emitAndAwait, even one whose match takes anything', async () => {
+      let answer: string | undefined;
+      const network = AgentNetwork.setup(
+        ({ mainChannel, registerAgent }) => {
+          const requester = AgentFactory.run()
+            .listensTo([UserPrompt])
+            .emits([NoteRequested])
+            .logic(async ({ emitAndAwait, complete }) => {
+              // Any event correlated with the request would do.
+              answer = (await emitAndAwait(NoteRequested.make({}), () => true)).name;
+              complete();
+            })
+            .produce({});
+          // Compacts before it answers: its checkpoint carries the request's correlationId.
+          const responder = AgentFactory.run()
+            .listensTo([NoteRequested])
+            .emits([Reply], { reply: true })
+            .folds([Log])
+            .logic(async ({ folds, emit }) => {
+              await folds.log.compact(() => ['summary']);
+              emit(Reply.make({ text: 'answer' }));
+            })
+            .produce({});
+          registerAgent(requester).subscribe(mainChannel).publishTo(mainChannel);
+          registerAgent(responder).subscribe(mainChannel).publishTo(mainChannel);
+        },
+        { logger: quietLogger() },
+      );
+
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const plane = yield* network.run();
+          yield* promptAndWait(plane, 'hi', 'run-1');
+        }).pipe(Effect.scoped),
+      );
+
+      expect(answer).toBe('reply');
+    });
+
+    test('a checkpoint does not count against maxEvents', async () => {
+      const { network } = compactingNetwork(
+        async ({ folds, complete }) => {
+          await folds.log.compact(() => ['one']);
+          await folds.log.compact(() => ['two']);
+          complete();
+        },
+        { maxEvents: 1 },
+      );
+
+      const outcome = await Effect.runPromise(
+        Effect.gen(function* () {
+          const plane = yield* network.run();
+          yield* promptAndWait(plane, 'hi', 'run-1');
+          return plane.getRunOutcome('run-1');
+        }).pipe(Effect.scoped),
+      );
+
+      expect(outcome).toMatchObject({ status: 'completed' });
+    });
+
+    test('a checkpoint the store cannot write fails the run; compact rejects', async () => {
+      const store = createInMemoryNetworkStore();
+      const failing: AgentNetworkStore = {
+        ...store,
+        append: async (storeKey, event) =>
+          isFoldCheckpointEvent(event)
+            ? Promise.reject(new Error('disk full'))
+            : store.append(storeKey, event),
+      };
+      let result: Promise<unknown> | undefined;
+      const { network } = compactingNetwork(
+        async ({ folds }) => {
+          result = folds.log.compact(() => ['summary']);
+          result.catch(() => undefined);
+        },
+        { store: failing },
+      );
+
+      const outcome = await Effect.runPromise(
+        Effect.gen(function* () {
+          const plane = yield* network.run();
+          yield* promptAndWait(plane, 'hi', 'run-1');
+          return plane.getRunOutcome('run-1');
+        }).pipe(Effect.scoped),
+      );
+
+      expect(outcome).toMatchObject({
+        status: 'failed',
+        payload: { error: { kind: 'store-error' } },
+      });
+      await expect(result).rejects.toEqual(new AgentAbortedError('failed'));
+    });
+
+    test('compact after the run ended rejects with AgentAbortedError; nothing is stored', async () => {
+      const store = createInMemoryNetworkStore();
+      let result: Promise<unknown> | undefined;
+      const { network } = compactingNetwork(
+        async ({ folds, complete }) => {
+          complete();
+          result = folds.log.compact(() => ['too late']);
+          result.catch(() => undefined);
+        },
+        { store },
+      );
+
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const plane = yield* network.run();
+          yield* promptAndWait(plane, 'hi', 'run-1');
+        }).pipe(Effect.scoped),
+      );
+
+      await expect(result).rejects.toEqual(new AgentAbortedError('completed'));
+      expect((await store.readRun(key, 'run-1')).some(isFoldCheckpointEvent)).toBe(false);
+    });
+
+    test('a checkpoint that does not decode is skipped and reported to the network logger', async () => {
+      const store = createInMemoryNetworkStore();
+      await store.append(
+        key,
+        UserPrompt.makeBound({ ...meta('run-0'), eventId: 'p0' }, { text: 'old' }),
+      );
+      await store.append(key, {
+        name: 'm4trix:fold.checkpoint:log@1',
+        meta: { ...meta('run-0'), eventId: 'bad' },
+        payload: { fold: 'log', version: 1, through: null, state: 'not lines' },
+      });
+      const logger = quietLogger();
+      let read: unknown;
+      const { network } = compactingNetwork(
+        async ({ folds, complete }) => {
+          read = await folds.log();
+          complete();
+        },
+        { store, logger },
+      );
+
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const plane = yield* network.run();
+          yield* promptAndWait(plane, 'new', 'run-1');
+        }).pipe(Effect.scoped),
+      );
+
+      expect(read).toEqual(['user: old', 'user: new']);
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.stringContaining(
+          '[m4trix] fold "log": skipped checkpoint "bad", it does not decode with the fold\'s state schema',
+        ),
+        expect.objectContaining({ fold: 'log', eventId: 'bad' }),
+      );
     });
   });
 

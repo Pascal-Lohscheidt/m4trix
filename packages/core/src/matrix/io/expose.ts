@@ -19,8 +19,10 @@ import {
   createEventPlane,
   inspectRun,
   isTransientEvent,
+  preparePublish,
   setRunLimits,
   startAgents,
+  wireEnvelope,
 } from '../agent-network/event-plane.js';
 import { storeKeyOf } from '../agent-network/history.js';
 import {
@@ -29,6 +31,7 @@ import {
   DEFAULT_RUN_MAX_DURATION,
   isReservedEventName,
   isRunEndEnvelope,
+  isRunLifecycleEnvelope,
   outcomeError,
   outcomeTraceStatus,
   pickRunLimits,
@@ -36,6 +39,7 @@ import {
   runUnavailableEnvelope,
 } from '../agent-network/run-lifecycle.js';
 import type { StoredEvent } from '../agent-network/stores/agent-network-store.js';
+import { isFoldCheckpointEvent } from '../context/fold-checkpoint.js';
 import { assertLayersProvided, type DependencyLayerDef } from '../dependency-layer.js';
 import { assertPrincipal, type Principal } from '../principal.js';
 import {
@@ -43,7 +47,8 @@ import {
   noopNetworkTracer,
   tracerFailureLogger,
 } from '../tracing/network-tracer.js';
-import { decodeOrAccept, type ValidationIssue } from '../validation.js';
+import { decodeWirePayload } from '../agent-network/stored-payload.js';
+import { decodeOrAccept, toValidationIssues, type ValidationIssue } from '../validation.js';
 import {
   createInboundPublisher,
   createProxyExposeContext,
@@ -148,25 +153,43 @@ const underPath = (prefix: string, issues: ReadonlyArray<ValidationIssue>): Vali
           : `${prefix}.${issue.path}`,
   }));
 
-/** `payload` decoded with `def`'s schema; `ExposeValidationError` (issues under `at`) otherwise. */
-function decodeStartPayload(def: EventDef, payload: unknown, at = ''): unknown {
+/**
+ * `payload` (an unbound event's, e.g. `Event.make(...)`'s) checked with `def`'s schema: a value of
+ * its type is taken as it is, anything else decoded; `ExposeValidationError` otherwise.
+ */
+function decodeStartPayload(def: EventDef, payload: unknown): unknown {
   const decoded = decodeOrAccept(def.payload, payload);
-  if (Either.isLeft(decoded)) throw new ExposeValidationError(underPath(at, decoded.left));
+  if (Either.isLeft(decoded)) throw new ExposeValidationError(decoded.left);
   return decoded.right;
+}
+
+/**
+ * A request's payload for the trigger `def`: wire data (JSON a client sent), decoded with the
+ * event's schema whatever it looks like (see `decodeWirePayload`); `ExposeValidationError` (issues
+ * under `at`) when it is neither its encoded form nor a value of its type.
+ */
+function decodeRequestPayload(def: EventDef, payload: unknown, at = ''): unknown {
+  // Every issue of the request, not only the first one.
+  const decoded = decodeWirePayload(def.payload, payload, { errors: 'all' });
+  if (Either.isRight(decoded)) return decoded.right;
+  throw new ExposeValidationError(underPath(at, toValidationIssues(decoded.left)));
 }
 
 /**
  * The start event of a request without `onRequest`, from its payload. With one trigger event the
  * payload is that event's payload; with several it names the event: `{ name, payload }`. Without
- * trigger events it is published unchecked as `request`.
+ * trigger events it is published unchecked as `request`. `at`: where the event's payload is in
+ * the request body, for issues.
  */
 function startEventFromPayload(
   triggerEvents: ReadonlyArray<EventDef> | undefined,
   payload: unknown,
-): { name: string; payload: unknown } {
+): { name: string; payload: unknown; at: string } {
   const [only, ...more] = triggerEvents ?? [];
-  if (!only) return { name: 'request', payload };
-  if (more.length === 0) return { name: only.name, payload: decodeStartPayload(only, payload) };
+  if (!only) return { name: 'request', payload, at: '' };
+  if (more.length === 0) {
+    return { name: only.name, payload: decodeRequestPayload(only, payload), at: '' };
+  }
   const body = (typeof payload === 'object' && payload !== null ? payload : {}) as {
     name?: unknown;
     payload?: unknown;
@@ -176,7 +199,11 @@ function startEventFromPayload(
     const names = (triggerEvents ?? []).map((e) => `"${e.name}"`).join(', ');
     throw new ExposeValidationError([{ path: 'name', message: `Expected one of ${names}` }]);
   }
-  return { name: def.name, payload: decodeStartPayload(def, body.payload, 'payload') };
+  return {
+    name: def.name,
+    payload: decodeRequestPayload(def, body.payload, 'payload'),
+    at: 'payload',
+  };
 }
 
 /**
@@ -248,7 +275,8 @@ function lastEventIdOf(request: Request | undefined): string | undefined {
 /**
  * A stream of one run (with `runId`) or of everything on the channel: first `replay`, then what
  * `take` delivers (skipping events whose id is in `seen`), respecting the AbortSignal. With a
- * `runId` it only yields the run's events and ends after its run-end lifecycle event.
+ * `runId` it only yields the run's events and ends after its run-end lifecycle event. Both yield
+ * the wire form (see `wireEnvelope`): `replay` comes from the store, `take` maps live events.
  */
 function createExposedStream(input: {
   take?: () => Promise<Envelope>;
@@ -475,11 +503,45 @@ export function createInteractiveStream<
         }
       };
 
+      /**
+       * Refuses (a 400, `ExposeValidationError`) a start event whose payload the store cannot
+       * keep as JSON, the way `plane.publish` would (`NonJsonPayloadError`), before its run is
+       * claimed or traced: the request never started a run. `at`: the payload's place in the
+       * request, for the issue.
+       */
+      const refuseUnstorable = (envelope: Envelope, at: string): void => {
+        const unstorable = preparePublish(plane, envelope);
+        if (!unstorable) return;
+        runState.refused = true;
+        throw new ExposeValidationError(
+          underPath(at, [
+            {
+              path: unstorable.path,
+              message:
+                `${unstorable.found} is not JSON-compatible: events are stored as JSON, ` +
+                'encoded with their schema',
+            },
+          ]),
+        );
+      };
+
       const emitStartEvent = (opts: {
         contextId: string;
         runId: string;
         event: { name: string; payload: unknown };
       }): void => {
+        // The runtime's own names are never a start event (e.g. a client-chosen name forwarded).
+        if (isReservedEventName(opts.event.name)) {
+          runState.refused = true;
+          throw new ExposeValidationError([
+            {
+              path: 'name',
+              message:
+                `${JSON.stringify(opts.event.name)} is reserved: names starting with "m4trix:" ` +
+                'belong to events the runtime publishes itself.',
+            },
+          ]);
+        }
         // Events the network knows are checked (and decoded) against their schema.
         const def = eventDefFor(opts.event.name);
         let eventPayload = opts.event.payload;
@@ -491,17 +553,18 @@ export function createInteractiveStream<
             throw error;
           }
         }
-        claim(opts.runId);
         const meta: EventMeta = {
           ...withPrincipal({ runId: opts.runId, contextId: opts.contextId }),
           eventId: crypto.randomUUID(),
         };
-        runState.startId ??= sseEventId(meta);
         const envelope: Envelope = {
           name: opts.event.name,
           meta,
           payload: eventPayload,
         };
+        refuseUnstorable(envelope, '');
+        claim(opts.runId);
+        runState.startId ??= sseEventId(meta);
         if (!tracedRunStarted) {
           runState.runId = opts.runId;
           runState.contextId = opts.contextId;
@@ -595,8 +658,6 @@ export function createInteractiveStream<
             ),
           );
         } else if (startEvent) {
-          yield* Effect.promise(startTracedRun);
-          claim(runState.runId);
           const envelope: Envelope = {
             name: startEvent.name,
             meta: {
@@ -605,6 +666,9 @@ export function createInteractiveStream<
             },
             payload: startEvent.payload,
           };
+          refuseUnstorable(envelope, startEvent.at);
+          yield* Effect.promise(startTracedRun);
+          claim(runState.runId);
           runState.startId = sseEventId(envelope.meta);
           runState.started = true;
           limitRun(runState.runId);
@@ -617,8 +681,9 @@ export function createInteractiveStream<
           yield* Effect.forkScoped(plane.superviseRun(run, { idleTimeout, maxDuration }));
         }
 
-        const take = (): Promise<Envelope> =>
-          Effect.runPromise(Queue.take(dequeue)) as Promise<Envelope>;
+        // Live events leave in their wire form: what a resumed stream replays from the store.
+        const take = async (): Promise<Envelope> =>
+          wireEnvelope(plane, await Effect.runPromise(Queue.take(dequeue)));
 
         const stream = createExposedStream({
           take,
@@ -713,10 +778,12 @@ export function createInteractiveStream<
     /** True for stored events this stream would have carried (see `StoredEvent.channels`). */
     const onStream = (event: StoredEvent): boolean => {
       if (isRunEndEnvelope(event)) return true;
+      // Published to no channel, whatever the store kept: never streamed.
+      if (isFoldCheckpointEvent(event)) return false;
       const onChannel = event.channels
         ? event.channels.includes(channel)
         : // Stored without channels: lifecycle events, and agents' events the channel accepts.
-          isReservedEventName(event.name) ||
+          isRunLifecycleEnvelope(event) ||
           ((event.meta.depth ?? 0) > 0 &&
             (!channelDef || channelAcceptsEvent(channelDef, event.name)));
       return onChannel && (!eventFilter?.length || eventFilter.includes(event.name));
@@ -776,9 +843,10 @@ export function createInteractiveStream<
 
       const stream = createExposedStream({
         replay,
+        // The run goes on here: its live events follow, in their wire form like the replay.
         take:
-          !ended && dequeue
-            ? () => Effect.runPromise(Queue.take(dequeue)) as Promise<Envelope>
+          !ended && running && dequeue
+            ? async () => wireEnvelope(running.plane, await Effect.runPromise(Queue.take(dequeue)))
             : undefined,
         seen,
         signal: req.request?.signal,
@@ -894,7 +962,8 @@ export type ExposeValidationErrorBody = {
 
 /**
  * Thrown (by `createStream`) when a request's payload is malformed JSON or does not match the
- * trigger event's schema, or when `emitStartEvent` is given an event its schema rejects. Nothing
+ * trigger event's schema, or when `emitStartEvent` is given an event its schema rejects or a
+ * reserved `m4trix:` name (issue path `name`). Nothing
  * ran: no run, no agent, no trace. `NextEndpoint` and `ExpressEndpoint` answer it with a 400 and
  * `toJSON()` as the body; custom proxies can do the same.
  */

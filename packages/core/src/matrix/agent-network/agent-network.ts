@@ -2,7 +2,7 @@ import type { Schema as S } from 'effect';
 import { Effect, type Layer, type Scope } from 'effect';
 import type { EventEnvelope } from '../agent-factory.js';
 import { consoleTracerLayer } from '../console-tracer.js';
-import type { FoldSource } from '../context/context-fold.js';
+import type { AnyContextFold } from '../context/context-fold.js';
 import { type FoldCacheOptions, resolveFoldCacheOptions } from '../context/fold-cache.js';
 import {
   assertDependencyMatch,
@@ -73,8 +73,8 @@ export interface AnyAgent {
    * wiring check does not report them as unconsumed.
    */
   getReplyEvents?(): readonly string[];
-  /** The fold sources the agent reads (`.folds([...])`); the wiring check looks at their events. */
-  getFolds?(): ReadonlyArray<FoldSource>;
+  /** The folds the agent reads (`.folds([...])`); the wiring check looks at their events. */
+  getFolds?(): ReadonlyArray<AnyContextFold>;
 }
 
 /* ─── Agent Binding (returned by registerAgent) ─── */

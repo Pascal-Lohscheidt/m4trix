@@ -1,16 +1,8 @@
+import { Either, type ParseResult, Schema as S } from 'effect';
 import type { EventEnvelope } from '../agent-factory.js';
-import type {
-  AgentNetworkEventDef,
-  EnvelopeLike,
-  S,
-} from '../agent-network/agent-network-event.js';
-import {
-  type ContextView,
-  createView,
-  isSegmentedState,
-  type RuntimeViewOptions,
-  type ViewOptions,
-} from './view.js';
+import type { AgentNetworkEventDef, EnvelopeLike } from '../agent-network/agent-network-event.js';
+import { decodeStoredPayload } from '../agent-network/stored-payload.js';
+import { type FoldCheckpointEventName, foldCheckpointEventName } from './fold-checkpoint.js';
 
 /**
  * Context folds: a typed, incremental view of a conversation. A fold reduces the events of a
@@ -27,26 +19,49 @@ type EventDef = AgentNetworkEventDef<string, S.Schema.Any>;
  */
 export type FoldScope = 'context' | 'run';
 
-/** Options of `ContextFold.of(name, options)`. */
-export type ContextFoldOptions = {
+/** Options of `ContextFold.of(name, options?)`. */
+export type ContextFoldOptions<
+  Scope extends FoldScope = FoldScope,
+  StateSchema extends S.Schema.AnyNoContext = S.Schema.AnyNoContext,
+> = {
   /**
-   * Positive integer, part of the cache identity (`name` + `version`). Bump it whenever the
-   * handlers or the state shape change, so state cached by an older definition is not reused.
+   * Which events the fold reads: every run of the context (`'context'`, the default) or the
+   * current run only (`'run'`).
    */
-  readonly version: number;
+  readonly scope?: Scope;
+  /**
+   * Positive integer, default 1: the version of the state's shape. A fold only restores
+   * checkpoints of its own name and version (`m4trix:fold.checkpoint:<name>@<version>`), so bump
+   * it when the state (or its schema) changes in a way old checkpoints do not fit: the fold then
+   * starts from scratch, or from a checkpoint written by the new version. It is not part of the
+   * cache identity: the runtime caches state per fold object.
+   */
+  readonly version?: number;
+  /**
+   * An Effect schema of the state. When given, the fold's state type is the schema's type and
+   * `initial()` must return one, so `initial(() => ({ turns: [] }))` needs no annotation. A
+   * context-scoped fold with one can compact (`folds.<name>.compact(...)`): its checkpoints store
+   * the state encoded with this schema.
+   */
+  readonly state?: StateSchema;
 };
 
 /**
  * A fold definition is invalid: a name that is not a JS identifier, a version that is not a
- * positive integer, an `over()` that is empty or lists an event twice, a handler or checkpoint for
- * an event outside `over()` or for an event that is already handled, a second checkpoint event, an
- * `over()` event without a handler, or a missing `initial()`. See `ContextFold.validate` for when
- * each is reported.
+ * positive integer, an unknown scope, a `state` (or a segmented fold's `data`, `summary` or
+ * `tag`) that is not a schema (a string), a second handler for an event, a handler that is not a
+ * function, a missing
+ * `initial()`, a fold that reads no events, something that is not a fold (e.g. a view) passed to
+ * `.folds([...])`, or invalid `ContextView.of` options. See `ContextFold.validate` for when each
+ * is reported.
  */
 export class ContextFoldDefinitionError extends Error {
   /** Discriminant for `catch` / Effect error handling. */
   readonly _tag = 'ContextFoldDefinitionError' as const;
-  /** Name of the fold (or, for a view, its fold) whose definition is invalid. */
+  /**
+   * Name of the fold whose definition is invalid (for a view: its fold; for something passed
+   * where a fold belongs: its `name`, if any).
+   */
   readonly foldName: string;
 
   constructor(foldName: string, message: string) {
@@ -54,19 +69,6 @@ export class ContextFoldDefinitionError extends Error {
     this.name = 'ContextFoldDefinitionError';
     this.foldName = foldName;
   }
-}
-
-/**
- * A source `ctx.folds` can read (`.folds([...])`): a `ContextFold` itself (identity `select`), or
- * a view of one. The runtime folds `fold`'s events into its (cached) state, then calls `select`.
- */
-export interface FoldSource<Name extends string = string, Result = unknown> {
-  /** Accessor name in `ctx.folds` (a JS identifier): `folds[name]()`. */
-  readonly name: Name;
-  /** The fold whose cached state is read; the cache identity is `fold.name` + `fold.version`. */
-  readonly fold: AnyContextFold;
-  /** Derives the result from the fold's state (identity for a fold). */
-  select(state: unknown): Result | Promise<Result>;
 }
 
 type CharsOf<
@@ -95,226 +97,281 @@ type IsFoldName<Name extends string> = string extends Name
 /** Type-level marker of a name that is not a JS identifier (see `ValidFoldName`). */
 export interface InvalidFoldName<Name extends string> {
   /** The rejected name, shown in the type error. */
-  readonly 'a fold or view name must be a JS identifier': Name;
+  readonly 'a fold name must be a JS identifier': Name;
 }
 
 /**
- * `unknown` for a valid fold / view name, else `InvalidFoldName<Name>`. Intersected with a name
+ * `unknown` for a valid fold name, else `InvalidFoldName<Name>`. Intersected with a name
  * parameter (`name: Name & ValidFoldName<Name>`), it turns a literal name that is not a JS
  * identifier into a type error at the call.
  */
 export type ValidFoldName<Name extends string> =
   IsFoldName<Name> extends true ? unknown : InvalidFoldName<Name>;
 
-declare const missingHandlers: unique symbol;
-
 /**
- * Type-level marker of an incomplete fold: `EventName` still needs an `.on()` handler (or to be
- * the `.checkpointOn()` event) before the fold is an `AnyContextFold` / `FoldSource`.
+ * Type-level marker of an event that already has a handler: intersected with the event parameter
+ * of `.on()` (and a segmented fold's `.open()` / `.attach()`), it makes a second handler a type
+ * error at the call.
  */
-export interface MissingFoldHandlers<EventName extends string> {
-  /** The `over()` events without a handler, shown in the type error. */
-  readonly 'add an .on() handler (or .checkpointOn()) for': EventName;
+export interface DuplicateFoldHandler<EventName extends string> {
+  /** The event that is already handled, shown in the type error. */
+  readonly 'a fold handles each event once; already handled': EventName;
 }
 
 /**
- * A complete fold of any state, as the runtime sees it (and a `FoldSource` of its own state). An
- * incomplete fold is not assignable to it: its `[missingHandlers]` is not `never`.
+ * `unknown` while the event `E` has no handler among `Handled`, else `DuplicateFoldHandler`:
+ * intersected with the event parameter of a handler method (`.on()`, `.open()`, `.attach()`).
  */
-export interface AnyContextFold extends FoldSource<string, unknown> {
-  /** See `ContextFoldOptions.version`: part of the cache identity with `name`. */
+export type UnhandledFoldEvent<
+  E extends AgentNetworkEventDef<string, S.Schema.Any>,
+  Handled extends string,
+> = [E['name']] extends [Handled] ? DuplicateFoldHandler<E['name']> : unknown;
+
+/**
+ * A fold of any state, as the runtime sees it: what `.folds([...])` takes. The fold object itself
+ * identifies its cached state: agents given the same object share it.
+ */
+export interface AnyContextFold {
+  /** Fold name, also its accessor in `ctx.folds` (a JS identifier). */
+  readonly name: string;
+  /** See `ContextFoldOptions.version` (default 1). */
   readonly version: number;
   /** Which events the fold reads: the whole context or the current run. */
   readonly scope: FoldScope;
-  /** Names of every `over()` event, the checkpoint event included: the events to read. */
+  /** Names of the events the fold's handlers handle. */
   readonly eventNames: ReadonlyArray<string>;
-  /** The `.checkpointOn()` event, if any: a cold read starts at the newest one. */
+  /**
+   * The name of the fold's checkpoints (`m4trix:fold.checkpoint:<name>@<version>`), published by
+   * the runtime when the fold is compacted; `undefined` for a fold that cannot compact (one
+   * without a `state` schema, or a run-scoped one). A read restores the newest one.
+   */
   readonly checkpointEventName: string | undefined;
+  /**
+   * The schema of the state (`ContextFoldOptions.state`; a segmented fold's is derived from its
+   * `data` and `summary` schemas), if any.
+   */
+  readonly stateSchema: S.Schema.AnyNoContext | undefined;
   /** A fresh initial state (`initial()`). */
   initialState(): unknown;
-  /** Folds one stored event (see `ContextFold#apply`). */
+  /** Folds one envelope with a decoded payload (see `ContextFold#apply`). */
   apply(state: unknown, event: EnvelopeLike): unknown;
   /** Folds `events` in order (oldest first), starting from `state`. */
   applyAll(state: unknown, events: Iterable<EnvelopeLike>): unknown;
-  /** `never` once every `over()` event is handled. */
-  readonly [missingHandlers]: never;
 }
 
 /** State type of a fold (what `initial()` and its handlers return). */
 export type FoldStateOf<F> = F extends { initialState(): infer State } ? State : never;
 
-/** What reading a source from `ctx.folds` resolves to: its `select` result, awaited. */
-export type FoldResultOf<Source> = Source extends { select(state: never): infer Result }
-  ? Awaited<Result>
-  : never;
+/**
+ * `T`, read-only all the way down, for plain data: objects get `readonly` properties, arrays and
+ * tuples become read-only, `Map` / `Set` become `ReadonlyMap` / `ReadonlySet`. Left as they are:
+ * primitives, functions, `unknown`, `any`, and built-in instances (`Date`, `RegExp`, `Error`,
+ * `Promise`, `WeakMap`, `WeakSet`, `ArrayBuffer` and typed arrays; types are structural, so an
+ * object with exactly the shape of an `Error` counts as one). Other class instances are mapped
+ * like objects, so a class with `private` members no longer matches its own type: keep such a
+ * fold's state plain data, or give the fold a `state` schema (see `FoldReadStateOf`).
+ */
+export type DeepReadonly<T> = unknown extends T
+  ? T
+  : // Map and Set first: structurally, a Set is also a WeakSet (a leaf below).
+    T extends ReadonlyMap<infer K, infer V>
+    ? ReadonlyMap<DeepReadonly<K>, DeepReadonly<V>>
+    : T extends ReadonlySet<infer V>
+      ? ReadonlySet<DeepReadonly<V>>
+      : T extends
+            | string
+            | number
+            | boolean
+            | bigint
+            | symbol
+            | null
+            | undefined
+            | ((...args: never) => unknown)
+            | Date
+            | RegExp
+            | Error
+            | Promise<unknown>
+            | WeakMap<object, unknown>
+            | WeakSet<object>
+            | ArrayBuffer
+            | ArrayBufferView
+        ? T
+        : { readonly [K in keyof T]: DeepReadonly<T[K]> };
 
-type MissingOf<Over extends EventDef, Done extends string> = [Exclude<Over['name'], Done>] extends [
-  never,
-]
-  ? never
-  : MissingFoldHandlers<Exclude<Over['name'], Done>>;
+/**
+ * What reading the fold `F` resolves to (`ctx.folds`), and what its views take: its state,
+ * read-only. A read may hand out the cached state itself, shared by every reader, so it must
+ * never be written to, and at runtime it cannot be: every read freezes the plain objects and
+ * arrays of the state (`Object.freeze`, all the way down), so a write throws a `TypeError` in
+ * strict mode. `Date`s, `Map`s, `Set`s, `Option`s and class instances are not frozen (Effect
+ * caches hashes on its data types). A fold with a `state` schema (and every `SegmentedFold`) reads
+ * as the schema's type, as it is: Effect schema types are read-only already (unless made
+ * `S.mutable`), and their `Date`s, `Option`s and classes stay what they are. A fold without one
+ * reads as `DeepReadonly<State>`. Type helpers that take a read state with it, e.g.
+ * `(log: FoldReadStateOf<typeof Log>) => …`.
+ */
+export type FoldReadStateOf<F> = F extends { readonly stateSchema: S.Schema.AnyNoContext }
+  ? FoldStateOf<F>
+  : DeepReadonly<FoldStateOf<F>>;
 
-/** The `over()` events that are neither handled nor the checkpoint event yet. */
-type Unhandled<Over extends EventDef, Done extends string> = Exclude<Over, { readonly name: Done }>;
-
-/** `ContextFold.of(name, options)`: choose the scope, then the folded events. */
-export interface ContextFoldBuilder<Name extends string, Scope extends FoldScope = 'context'> {
-  /** Folds every run of the context (`'context'`, the default) or the current run (`'run'`). */
-  scope<const NextScope extends FoldScope>(scope: NextScope): ContextFoldBuilder<Name, NextScope>;
-  /**
-   * The events the fold reads (at least one, each once). Every one needs an `.on()` handler or
-   * must be the `.checkpointOn()` event before the fold can be used.
-   */
-  over<const E extends EventDef>(
-    events: ReadonlyArray<E>,
-  ): ContextFoldEventsBuilder<Name, Scope, E>;
-}
-
-/** After `over()`: the scope can still change; `initial()` makes it a fold. */
-
-export interface ContextFoldEventsBuilder<
+/**
+ * `ContextFold.of(name, options?)`: `initial()` makes it a fold. `StateSchema` is the `state`
+ * schema as `S.Schema<State, Encoded>`, `undefined` without one.
+ */
+export interface ContextFoldBuilder<
   Name extends string,
-  Scope extends FoldScope,
-  Over extends EventDef,
+  Scope extends FoldScope = 'context',
+  StateSchema extends S.Schema.AnyNoContext | undefined = undefined,
 > {
-  /** Folds every run of the context (`'context'`, the default) or the current run (`'run'`). */
-  scope<const NextScope extends FoldScope>(
-    scope: NextScope,
-  ): ContextFoldEventsBuilder<Name, NextScope, Over>;
   /**
-   * The state before any event, created on every cold start (so return a fresh value). Its
-   * return type is the fold's state type: annotate it when inference would be too narrow, e.g.
-   * `.initial((): Conversation => ({ turns: [] }))` or `.initial<readonly string[]>(() => [])`.
+   * The state before any event, created on every cold start (so return a fresh value). With a
+   * `state` schema, the fold's state type is the schema's and `initial` must return one. Without
+   * one, it is `initial`'s return type: annotate it when inference would be too narrow, e.g.
+   * `.initial((): Conversation => ({ turns: [] }))` (`[]` alone infers `never[]`), or pass a
+   * `state` schema.
    */
-  initial<State>(initial: () => State): ContextFold<Name, Scope, Over, State>;
+  initial<
+    T extends [StateSchema] extends [S.Schema.AnyNoContext] ? S.Schema.Type<StateSchema> : unknown,
+  >(
+    initial: () => T,
+  ): ContextFold<
+    Name,
+    Scope,
+    [StateSchema] extends [S.Schema.AnyNoContext] ? S.Schema.Type<StateSchema> : T,
+    never,
+    StateSchema
+  >;
 }
 
 /**
- * A fold over the `Over` events into `State`. `Handled` and `Checkpoint` track, at type level,
- * which events have a handler: until every `over()` event is one of them, the fold is not an
- * `AnyContextFold` / `FoldSource` (see `MissingFoldHandlers`), and at runtime it throws
- * `ContextFoldDefinitionError` on first use.
+ * What every fold has, whichever builder made it (`ContextFold`, `SegmentedFold`): its identity,
+ * the events it reads and the pure functions that fold them into `State`. The builders' own
+ * interfaces add their handler methods and `stateSchema`.
+ */
+export interface ContextFoldBase<
+  Name extends string,
+  Scope extends FoldScope,
+  State,
+  Handled extends string = never,
+> {
+  /** Fold name, also its accessor in `ctx.folds` (a JS identifier). */
+  readonly name: Name;
+  /** See `ContextFoldOptions.version` (default 1). */
+  readonly version: number;
+  /** Which events the fold reads: the whole context (`'context'`) or the current run (`'run'`). */
+  readonly scope: Scope;
+  /** Names of the events the fold's handlers handle, in the order added. */
+  readonly eventNames: ReadonlyArray<Handled>;
+  /** See `AnyContextFold.checkpointEventName`. */
+  readonly checkpointEventName: string | undefined;
+  /** A fresh initial state (`initial()`). */
+  initialState(): State;
+  /**
+   * Folds one envelope whose payload is decoded (a value of its event's schema type, e.g. from
+   * `Event.makeBound(meta, payload)`): a handled event runs its handler, any other event (a
+   * checkpoint included: the reader restores those) returns `state` unchanged. Stored events hold
+   * encoded payloads: `ctx.folds` decodes them with the handler's event schema before folding
+   * (leaving out, and reporting, what no longer decodes); `apply` decodes nothing.
+   */
+  apply(state: State, event: EnvelopeLike): State;
+  /** Folds `events` in order (oldest first), starting from `state`. */
+  applyAll(state: State, events: Iterable<EnvelopeLike>): State;
+}
+
+/**
+ * A fold of events into `State`. Its `.on()` handlers define the events it reads: `Handled` tracks
+ * them at type level, so a second handler for an event is a type error. A fold needs at least one event: one without is rejected at runtime by
+ * `ContextFold.validate` (which `.folds([...])` runs) and on first use. `StateSchema` is the
+ * `state` schema given to `ContextFold.of()`, as `S.Schema<State, Encoded>`, or `undefined`.
  *
  * Handlers are **pure** `(state, envelope) => state`: no I/O, no mutation of `state` (return a new
  * value), no clock or randomness. The same events must always fold to the same state; the runtime
  * caches folded state and folds only newer events into it, so it relies on that.
  *
- * A fold is its own `FoldSource` (`fold.fold === fold`, `select` is the identity).
+ * Every step returns a new fold and leaves the previous one as it was.
  */
-
 export interface ContextFold<
   Name extends string,
   Scope extends FoldScope,
-  Over extends EventDef,
   State,
   Handled extends string = never,
-  Checkpoint extends string = never,
-> {
-  /** Fold name, also its accessor in `ctx.folds` (a JS identifier). */
-  readonly name: Name;
-  /** See `ContextFoldOptions.version`. */
-  readonly version: number;
-  /** Which events the fold reads: the whole context (`'context'`) or the current run (`'run'`). */
-  readonly scope: Scope;
-  /** Names of every `over()` event, the checkpoint event included: the events to read. */
-  readonly eventNames: ReadonlyArray<Over['name']>;
-  /** The `.checkpointOn()` event, if any: a cold read starts at the newest one. */
-  readonly checkpointEventName: [Checkpoint] extends [never] ? undefined : Checkpoint;
-  /** A fold is its own source. */
-  readonly fold: ContextFold<Name, Scope, Over, State, Handled, Checkpoint>;
-  /** Identity: reading a fold yields its state. */
-  select(state: State): State;
-  /** Type-only: `never` once complete, else `MissingFoldHandlers<the unhandled event names>`. */
-  readonly [missingHandlers]: MissingOf<Over, Handled | Checkpoint>;
-  /** A fresh initial state (`initial()`). */
-  initialState(): State;
+  StateSchema extends S.Schema.AnyNoContext | undefined = undefined,
+> extends ContextFoldBase<Name, Scope, State, Handled> {
   /**
-   * Folds one stored event: the checkpoint event replaces the state with `restore(envelope)`, a
-   * handled event runs its handler, any other event returns `state` unchanged. Events are not
-   * decoded again (stored events were validated when published).
+   * The `state` schema given to `ContextFold.of()`, typed with the state and its encoded type;
+   * `undefined` without one (see `ContextFoldOptions.state`).
    */
-  apply(state: State, event: EnvelopeLike): State;
-  /** Folds `events` in order (oldest first), starting from `state`. */
-  applyAll(state: State, events: Iterable<EnvelopeLike>): State;
+  readonly stateSchema: StateSchema;
   /**
-   * Handles `event` (one of `over()`, not handled yet): `handler` gets the current state and the
-   * typed envelope and returns the next state, without mutating the current one.
+   * `m4trix:fold.checkpoint:<name>@<version>` when the fold can compact (a `state` schema and
+   * context scope), else `undefined`.
    */
-  on<E extends Unhandled<Over, Handled | Checkpoint>>(
-    event: E,
+  readonly checkpointEventName: [StateSchema, Scope] extends [S.Schema.AnyNoContext, 'context']
+    ? FoldCheckpointEventName<Name>
+    : undefined;
+  /**
+   * Handles `event` (one without a handler yet): `handler` gets the current state and the typed
+   * envelope and returns the next state, without mutating the current one.
+   */
+  on<E extends AgentNetworkEventDef<string, S.Schema.Any>>(
+    event: E & UnhandledFoldEvent<E, Handled>,
     handler: (state: State, envelope: EventEnvelope<E>) => State,
-  ): ContextFold<Name, Scope, Over, State, Handled | E['name'], Checkpoint>;
-  /**
-   * Makes `event` (one of `over()`, not handled yet) the checkpoint: applying it **replaces** the
-   * state with `restore(envelope)`, so the checkpoint payload must carry everything the state
-   * keeps (e.g. a summary of the turns it compacts). A cold read starts at the newest checkpoint
-   * and folds only the events after it. Events published between a compactor reading the fold
-   * and its checkpoint being published are not in the checkpoint: compact while the context is
-   * quiet (e.g. via `emitAndAwait` from the only active agent). At most one per fold.
-   */
-  checkpointOn: [Checkpoint] extends [never]
-    ? <E extends Unhandled<Over, Handled>>(
-        event: E,
-        restore: (envelope: EventEnvelope<E>) => State,
-      ) => ContextFold<Name, Scope, Over, State, Handled, E['name']>
-    : CheckpointAlreadyDeclared<Checkpoint>;
-  /**
-   * A named, budgeted view of this fold: a `FoldSource` of its own (`.folds([view])` →
-   * `folds[name]()`) that reads this fold's (cached) state and runs `strategies` over it, in
-   * order, each at most once and only while its tokens exceed `budget`. Resolves to a
-   * `ViewResult`: the trimmed state plus `{ tokens, budget, overBudget, dropped }`.
-   *
-   * A segmented fold (`SegmentedFold`) counts per segment (`count`, default `approxTokenCount`)
-   * plus its checkpoint (`countCheckpoint`), and takes segment strategies (`ContextStrategy`);
-   * any other fold needs `measure(state)` for its whole state and strategies of its state type.
-   * `budget` is a positive integer or `Infinity` (no budget); `name` is a JS identifier.
-   *
-   * ```ts
-   * const ChatView = Conversation.view('chat', {
-   *   budget: 50_000,
-   *   strategies: [
-   *     ContextStrategy.elide({ olderThan: 6, map: truncateToolOutputs }),
-   *     ContextStrategy.dropOldest({ pin }),
-   *   ],
-   * });
-   * ```
-   *
-   * Only available once the fold is complete (every `over()` event handled).
-   */
-  view: [MissingOf<Over, Handled | Checkpoint>] extends [never]
-    ? <const ViewName extends string>(
-        name: ViewName & ValidFoldName<ViewName>,
-        options: ViewOptions<State>,
-      ) => ContextView<ViewName, State>
-    : MissingOf<Over, Handled | Checkpoint>;
+  ): ContextFold<Name, Scope, State, Handled | E['name'], StateSchema>;
 }
 
-/** `checkpointOn()` was already called: a fold has at most one checkpoint event. */
-export interface CheckpointAlreadyDeclared<Checkpoint extends string> {
-  /** The checkpoint event already declared, shown in the type error. */
-  readonly 'a fold has one checkpoint event, already declared': Checkpoint;
-}
+/**
+ * @internal An event a read left out of a fold (`FoldReaderOptions.onSkip`): a stored event whose
+ * payload does not decode with its event's schema (`'decode'`), a checkpoint that cannot be
+ * restored (`'checkpoint'`), or an event `attach` found no segment for (`'missing-segment'`, with
+ * `onMissing: 'report'`). The fold's state is as if the event was not there.
+ */
+export type FoldSkip =
+  | {
+      readonly fold: string;
+      readonly reason: 'decode' | 'checkpoint';
+      readonly event: EnvelopeLike;
+      /** Why it does not decode. */
+      readonly error: ParseResult.ParseError;
+    }
+  | {
+      readonly fold: string;
+      readonly reason: 'missing-segment';
+      readonly event: EnvelopeLike;
+      /** The segment the event belongs to, which the state does not have. */
+      readonly segment: { readonly id: string; readonly kind?: string };
+    };
 
-type Handler = (state: unknown, envelope: EnvelopeLike) => unknown;
-type Restore = (envelope: EnvelopeLike) => unknown;
+/** @internal Called by a handler (`attach`) for an event whose segment is missing. */
+export type MissingSegmentReport = (
+  event: EnvelopeLike,
+  segment: { readonly id: string; readonly kind?: string },
+) => void;
 
-type Definition = {
+/** A handler; the reader passes `report` when it reports missing segments (see `FoldSkip`). */
+type Handler = (state: unknown, envelope: EnvelopeLike, report?: MissingSegmentReport) => unknown;
+
+/** @internal What a fold is made of. Folds are immutable: each builder step copies it. */
+export type FoldDefinition = {
   readonly name: string;
   readonly version: number;
   readonly scope: FoldScope;
-  readonly events: ReadonlyArray<EventDef>;
-  readonly initial?: () => unknown;
-  readonly handlers: ReadonlyMap<string, Handler>;
-  readonly checkpoint?: { readonly eventName: string; readonly restore: Restore };
+  readonly stateSchema: S.Schema.AnyNoContext | undefined;
+  readonly initial: () => unknown;
+  /** Every event the fold handles, in the order added. */
+  readonly eventNames: ReadonlyArray<string>;
+  /**
+   * Handlers by event name, with the event definition (its schema decodes the stored payload)
+   * and the method that added them (for error messages).
+   */
+  readonly handlers: ReadonlyMap<
+    string,
+    { readonly method: string; readonly event: EventDef; readonly handler: Handler }
+  >;
 };
 
 /** ASCII JS identifiers: fold names become `ctx.folds` properties (`folds.conversation()`). */
 const FOLD_NAME_PATTERN = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
-const FOLD_SCOPES: ReadonlyArray<FoldScope> = ['context', 'run'];
-
-function fail(name: string, detail: string): never {
-  throw new ContextFoldDefinitionError(name, `ContextFold ${JSON.stringify(name)}: ${detail}`);
-}
+const FOLD_SCOPES: ReadonlyArray<unknown> = ['context', 'run'];
 
 const NAME_RULE =
   'the name must be a JS identifier (letters, digits, `_` and `$`, not starting with a ' +
@@ -325,174 +382,212 @@ function isFoldName(name: string): boolean {
   return FOLD_NAME_PATTERN.test(name) && name !== '__proto__';
 }
 
-function assertFoldName(name: string): void {
-  if (!isFoldName(name)) fail(name, NAME_RULE);
+/** @internal `${label} "name": detail` (`label`: `ContextFold` or `SegmentedFold`). */
+export function foldDefinitionError(
+  label: string,
+  name: string,
+  detail: string,
+): ContextFoldDefinitionError {
+  return new ContextFoldDefinitionError(name, `${label} ${JSON.stringify(name)}: ${detail}`);
 }
 
-function assertScope(name: string, scope: string): void {
-  if (!FOLD_SCOPES.includes(scope as FoldScope)) {
-    fail(name, `unknown scope ${JSON.stringify(scope)}; use 'context' or 'run'.`);
+/** @internal Validates the name, `version` and `scope` of a fold and fills in the defaults. */
+export function resolveFoldOptions(
+  label: string,
+  name: string,
+  options: { readonly scope?: unknown; readonly version?: unknown } | undefined,
+): { readonly version: number; readonly scope: FoldScope } {
+  if (!isFoldName(name)) throw foldDefinitionError(label, name, NAME_RULE);
+  const version = options?.version ?? 1;
+  if (!Number.isSafeInteger(version) || (version as number) < 1) {
+    throw foldDefinitionError(label, name, `version must be a positive integer; got ${version}.`);
   }
+  const scope = options?.scope ?? 'context';
+  if (!FOLD_SCOPES.includes(scope)) {
+    throw foldDefinitionError(
+      label,
+      name,
+      `unknown scope ${JSON.stringify(scope)}; use 'context' or 'run'.`,
+    );
+  }
+  return { version: version as number, scope: scope as FoldScope };
 }
 
-/** Runtime of `ContextFoldBuilder` / `ContextFoldEventsBuilder` (immutable: each step copies). */
+/** @internal An event definition (for JavaScript callers and casts): an object with a name. */
+export function isEventDefinition(event: unknown): event is EventDef {
+  return typeof (event as Partial<EventDef> | null)?.name === 'string';
+}
+
+type BuilderDefinition = Pick<FoldDefinition, 'name' | 'version' | 'scope' | 'stateSchema'>;
+
+/** Runtime of `ContextFoldBuilder`. */
 class ContextFoldBuilderImpl {
-  constructor(private readonly definition: Definition) {}
+  constructor(private readonly definition: BuilderDefinition) {}
 
   get name(): string {
     return this.definition.name;
   }
 
-  scope(scope: FoldScope): ContextFoldBuilderImpl {
-    assertScope(this.definition.name, scope);
-    return new ContextFoldBuilderImpl({ ...this.definition, scope });
-  }
-
-  over(events: ReadonlyArray<EventDef>): ContextFoldBuilderImpl {
-    const { name } = this.definition;
-    if (events.length === 0) fail(name, 'over() needs at least one event.');
-    const all = [...this.definition.events, ...events];
-    const seen = new Set<string>();
-    for (const event of all) {
-      if (seen.has(event.name)) {
-        fail(name, `event ${JSON.stringify(event.name)} is listed twice in over().`);
-      }
-      seen.add(event.name);
-    }
-    return new ContextFoldBuilderImpl({ ...this.definition, events: all });
-  }
-
   initial(initial: () => unknown): ContextFoldImpl {
-    if (this.definition.events.length === 0) {
-      fail(this.definition.name, 'call over() with the folded events before initial().');
+    if (typeof initial !== 'function') {
+      throw foldDefinitionError(
+        'ContextFold',
+        this.name,
+        '.initial() needs a function () => state.',
+      );
     }
-    return new ContextFoldImpl({ ...this.definition, initial });
+    return new ContextFoldImpl({
+      ...this.definition,
+      initial,
+      eventNames: [],
+      handlers: new Map(),
+    });
   }
 }
 
-/** Runtime of `ContextFold` (immutable: `on` / `checkpointOn` return a new fold). */
-class ContextFoldImpl {
+/**
+ * @internal Runtime of `ContextFold` (immutable: `on` returns a new fold of the same class, see
+ * `with`). `SegmentedFoldImpl` extends it.
+ */
+export class ContextFoldImpl {
   readonly name: string;
   readonly version: number;
   readonly scope: FoldScope;
   readonly eventNames: ReadonlyArray<string>;
   readonly checkpointEventName: string | undefined;
-  /** Completeness is checked once, on first use: the definition never changes. */
-  private complete = false;
+  readonly stateSchema: S.Schema.AnyNoContext | undefined;
 
-  constructor(private readonly definition: Definition) {
+  constructor(protected readonly definition: FoldDefinition) {
     this.name = definition.name;
     this.version = definition.version;
     this.scope = definition.scope;
-    this.eventNames = definition.events.map((event) => event.name);
-    this.checkpointEventName = definition.checkpoint?.eventName;
+    this.eventNames = definition.eventNames;
+    // Only a fold whose state can be stored (a schema) and that spans the context can compact.
+    this.checkpointEventName =
+      definition.stateSchema !== undefined && definition.scope === 'context'
+        ? foldCheckpointEventName(definition)
+        : undefined;
+    this.stateSchema = definition.stateSchema;
   }
 
-  get fold(): ContextFoldImpl {
-    return this;
+  /** The builder named in error messages. */
+  protected get label(): string {
+    return 'ContextFold';
   }
 
-  select(state: unknown): unknown {
-    return state;
+  /** The methods that add handlers, named in the error of a fold without events. */
+  protected get handlerMethods(): string {
+    return '.on()';
+  }
+
+  /** A fold of this class with `definition`. */
+  protected with(definition: FoldDefinition): this {
+    return new ContextFoldImpl(definition) as this;
+  }
+
+  protected fail(detail: string): never {
+    throw foldDefinitionError(this.label, this.name, detail);
   }
 
   initialState(): unknown {
-    this.assertComplete();
-    return (this.definition.initial as () => unknown)();
+    this.assertEvents();
+    return this.definition.initial();
   }
 
   apply(state: unknown, event: EnvelopeLike): unknown {
-    this.assertComplete();
-    const { checkpoint } = this.definition;
-    if (event.name === checkpoint?.eventName) return checkpoint.restore(event);
-    const handler = this.definition.handlers.get(event.name);
-    return handler ? handler(state, event) : state;
+    this.assertEvents();
+    return this.step(state, event);
   }
 
   applyAll(state: unknown, events: Iterable<EnvelopeLike>): unknown {
-    this.assertComplete();
+    this.assertEvents();
     let next = state;
-    for (const event of events) next = this.apply(next, event);
+    for (const event of events) next = this.step(next, event);
     return next;
   }
 
-  on(event: EventDef, handler: Handler): ContextFoldImpl {
-    this.assertUnhandled(event, '.on()');
-    const handlers = new Map(this.definition.handlers);
-    handlers.set(event.name, handler);
-    return new ContextFoldImpl({ ...this.definition, handlers });
+  /** Folds one event (the fold was checked by the caller). */
+  private step(state: unknown, event: EnvelopeLike): unknown {
+    const handled = this.definition.handlers.get(event.name);
+    return handled ? handled.handler(state, event) : state;
   }
 
-  checkpointOn(event: EventDef, restore: Restore): ContextFoldImpl {
-    const { checkpoint } = this.definition;
-    if (checkpoint) {
-      fail(
-        this.name,
-        `a fold has one checkpoint event; ${JSON.stringify(checkpoint.eventName)} already is.`,
-      );
+  /**
+   * Folds stored events (see `foldStoredEvents`): each handled event's payload is decoded with
+   * its event's schema first; one that does not decode is left out and reported to `onSkip`, as
+   * are events `attach` finds no segment for (`onMissing: 'report'`).
+   */
+  foldStored(
+    state: unknown,
+    events: Iterable<EnvelopeLike>,
+    onSkip: ((skip: FoldSkip) => void) | undefined,
+  ): unknown {
+    this.assertEvents();
+    const { name } = this;
+    const report: MissingSegmentReport | undefined =
+      onSkip &&
+      ((event, segment) => onSkip({ fold: name, reason: 'missing-segment', event, segment }));
+    let next = state;
+    for (const event of events) {
+      const handled = this.definition.handlers.get(event.name);
+      if (!handled) continue;
+      const decoded = decodeStoredPayload(handled.event.payload, event.payload);
+      if (Either.isLeft(decoded)) {
+        onSkip?.({ fold: name, reason: 'decode', event, error: decoded.left });
+        continue;
+      }
+      // A payload that needed no decoding is the stored one itself (frozen): the event as it is.
+      const envelope =
+        decoded.right === event.payload
+          ? event
+          : { name: event.name, meta: event.meta, payload: decoded.right };
+      next = handled.handler(next, envelope, report);
     }
-    this.assertUnhandled(event, '.checkpointOn()');
-    return new ContextFoldImpl({
+    return next;
+  }
+
+  /** The definitions of the events the fold handles, in the order added. */
+  handledEvents(): ReadonlyArray<EventDef> {
+    return [...this.definition.handlers.values()].map((handled) => handled.event);
+  }
+
+  on(event: EventDef, handler: Handler): this {
+    return this.handle('.on()', event, handler);
+  }
+
+  /** The fold handles at least one event. */
+  assertEvents(): void {
+    if (this.eventNames.length > 0) return;
+    this.fail(`it folds no events; add a handler (${this.handlerMethods}).`);
+  }
+
+  /** Adds `handler` for `event`, which has none yet (`method` names the caller in errors). */
+  protected handle(method: string, event: EventDef, handler: Handler): this {
+    this.assertHandlerArguments(method, event, handler);
+    this.assertUnhandled(method, event.name);
+    const handlers = new Map(this.definition.handlers);
+    handlers.set(event.name, { method, event, handler });
+    return this.with({
       ...this.definition,
-      checkpoint: { eventName: event.name, restore },
+      eventNames: [...this.eventNames, event.name],
+      handlers,
     });
   }
 
-  view(name: string, options: RuntimeViewOptions): ContextView<string, unknown> {
-    this.assertComplete();
-    const failView = (detail: string): never => {
-      throw new ContextFoldDefinitionError(
-        this.name,
-        `ContextView ${JSON.stringify(name)} of fold ${JSON.stringify(this.name)}: ${detail}`,
-      );
-    };
-    if (!isFoldName(name)) failView(NAME_RULE);
-    const { budget, strategies = [] } = options;
-    if (budget !== Number.POSITIVE_INFINITY && !(Number.isSafeInteger(budget) && budget > 0)) {
-      failView(
-        'the budget must be a positive integer (tokens) or Infinity (no budget); ' +
-          `got ${budget}.`,
-      );
-    }
-    if (strategies.some((strategy) => typeof strategy !== 'function')) {
-      failView('strategies must be functions (state, { budget, tokens, count }) => state.');
-    }
-    if (options.measure === undefined && !isSegmentedState(this.initialState())) {
-      failView(
-        'the fold state has no segments; pass measure(state) to count its tokens, or build ' +
-          'the fold with SegmentedFold.',
-      );
-    }
-    return createView(this as unknown as AnyContextFold, name, options);
+  /** `event` is an event definition and `fn` a function (for JavaScript callers and casts). */
+  protected assertHandlerArguments(method: string, event: unknown, fn: unknown): void {
+    if (isEventDefinition(event) && typeof fn === 'function') return;
+    this.fail(`${method} needs an event definition (AgentNetworkEvent.of(...)) and a function.`);
   }
 
-  /** Every `over()` event has a handler or is the checkpoint event (checked once). */
-  assertComplete(): void {
-    if (this.complete) return;
-    const missing = this.eventNames.filter(
-      (name) => !this.definition.handlers.has(name) && name !== this.checkpointEventName,
-    );
-    if (missing.length > 0) {
-      fail(
-        this.name,
-        `no handler for ${missing.map((name) => JSON.stringify(name)).join(', ')}; add an ` +
-          '.on() handler for each (or make one the .checkpointOn() event).',
+  /** `eventName` has no handler yet. */
+  private assertUnhandled(method: string, eventName: string): void {
+    const existing = this.definition.handlers.get(eventName);
+    if (existing) {
+      this.fail(
+        `${method} for ${JSON.stringify(eventName)}, which already has a handler ` +
+          `(${existing.method}); a fold handles each event once.`,
       );
-    }
-    this.complete = true;
-  }
-
-  /** `event` is one of `over()` and has neither a handler nor is the checkpoint event yet. */
-  private assertUnhandled(event: EventDef, method: string): void {
-    const eventName = JSON.stringify(event.name);
-    if (!this.eventNames.includes(event.name)) {
-      fail(this.name, `${method} for ${eventName}, which is not one of the over() events.`);
-    }
-    if (this.definition.handlers.has(event.name)) {
-      fail(this.name, `${method} for ${eventName}, which already has an .on() handler.`);
-    }
-    if (event.name === this.checkpointEventName) {
-      fail(this.name, `${method} for ${eventName}, which is already the checkpoint event.`);
     }
   }
 }
@@ -501,71 +596,139 @@ class ContextFoldImpl {
  * Defines a context fold.
  *
  * ```ts
- * const Conversation = ContextFold.of('conversation', { version: 1 })
- *   .over([UserPrompt, AssistantMessage, ContextCompacted])
- *   .initial((): Conversation => ({ turns: [] }))
+ * const Conversation = ContextFold.of('conversation', { state: ConversationSchema })
+ *   .initial(() => ({ turns: [] }))
  *   .on(UserPrompt, (state, { payload }) => ({ turns: [...state.turns, user(payload.text)] }))
- *   .on(AssistantMessage, (state, { payload }) => ({ turns: [...state.turns, model(payload)] }))
- *   .checkpointOn(ContextCompacted, ({ payload }) => ({ turns: [summary(payload.summary)] }));
+ *   .on(AssistantMessage, (state, { payload }) => ({ turns: [...state.turns, model(payload)] }));
  * ```
  *
- * Validation happens as early as possible: the name, version, scope, `over()` events and each
- * handler are checked when the builder method is called. Completeness (every `over()` event
- * handled) can only be checked once the definition is finished: by `ContextFold.validate(source)`
- * (the runtime calls it when sources are registered) and, at the latest, on the fold's first
- * `initialState()` / `apply()` / `applyAll()`.
+ * The handlers define the events the fold reads. Validation happens as early
+ * as possible: the name, options and each handler are checked when the builder method is called;
+ * a second handler for an event is also a type error. That the fold reads at least one event can
+ * only be checked once it is finished: by `ContextFold.validate(source)` (the runtime calls it when
+ * an agent or aggregator declares its `.folds([...])`) and, at the latest, on the fold's first
+ * `initialState()` / `apply()` / `applyAll()` or `ContextView.of()`.
+ *
+ * The runtime caches a fold's state per fold object, and its checkpoints are stored by name and
+ * version. Give each fold in a network its own name (the wiring check fails setup for different
+ * compactable folds of one name and version, which would share checkpoints, and warns for other
+ * name sharing), define it once (e.g. exported from a module) and give every agent that reads it
+ * that object: they then share its state.
  */
 export const ContextFold: {
   /**
    * Starts a fold named `name` (a JS identifier: the accessor in `ctx.folds`). A literal name
-   * that is not one is a type error (`ValidFoldName`) as well as a runtime error.
+   * that is not one is a type error (`ValidFoldName`) as well as a runtime error. Give each fold
+   * in a network its own name (see the wiring codes `fold-checkpoint-shared` and
+   * `fold-name-shared`).
+   * `options`: `scope` (default `'context'`), `version` (default 1) and an optional `state`
+   * schema, see `ContextFoldOptions`. The fold type records the schema as
+   * `S.Schema<State, Encoded>` (`stateSchema`), or `undefined` without one.
    */
-  of<const Name extends string>(
+  of<
+    const Name extends string,
+    const Scope extends FoldScope = 'context',
+    StateSchema extends S.Schema.AnyNoContext = never,
+  >(
     name: Name & ValidFoldName<Name>,
-    options: ContextFoldOptions,
-  ): ContextFoldBuilder<Name>;
-  validate(source: unknown): asserts source is FoldSource;
+    options?: ContextFoldOptions<Scope, StateSchema>,
+  ): ContextFoldBuilder<
+    Name,
+    Scope,
+    [StateSchema] extends [never]
+      ? undefined
+      : S.Schema<S.Schema.Type<StateSchema>, S.Schema.Encoded<StateSchema>>
+  >;
+  /**
+   * Throws `ContextFoldDefinitionError` unless `source` is a usable fold: built by
+   * `ContextFold.of(...).initial(...)` or `SegmentedFold.of(...)`, reading at least one event.
+   * Covers what the types cannot (JavaScript callers, casts, a fold without handlers, a view
+   * passed where a fold belongs); the runtime calls it for every fold given to `.folds()` and
+   * `ContextView.of()`.
+   */
+  validate(source: unknown): asserts source is AnyContextFold;
 } = {
-  of<const Name extends string>(
+  of<
+    const Name extends string,
+    const Scope extends FoldScope = 'context',
+    StateSchema extends S.Schema.AnyNoContext = never,
+  >(
     name: Name & ValidFoldName<Name>,
-    options: ContextFoldOptions,
-  ): ContextFoldBuilder<Name> {
-    assertFoldName(name);
-    const { version } = options;
-    if (!Number.isSafeInteger(version) || version < 1) {
-      fail(name, `version must be a positive integer; got ${version}.`);
+    options?: ContextFoldOptions<Scope, StateSchema>,
+  ): ContextFoldBuilder<
+    Name,
+    Scope,
+    [StateSchema] extends [never]
+      ? undefined
+      : S.Schema<S.Schema.Type<StateSchema>, S.Schema.Encoded<StateSchema>>
+  > {
+    const { version, scope } = resolveFoldOptions('ContextFold', name, options);
+    const stateSchema = options?.state;
+    if (stateSchema !== undefined && !S.isSchema(stateSchema)) {
+      throw foldDefinitionError(
+        'ContextFold',
+        name,
+        'the state option must be an Effect schema, e.g. S.Struct({ ... }).',
+      );
     }
     return new ContextFoldBuilderImpl({
       name,
       version,
-      scope: 'context',
-      events: [],
-      handlers: new Map(),
-    }) as unknown as ContextFoldBuilder<Name>;
+      scope,
+      stateSchema,
+    }) as unknown as ContextFoldBuilder<
+      Name,
+      Scope,
+      [StateSchema] extends [never]
+        ? undefined
+        : S.Schema<S.Schema.Type<StateSchema>, S.Schema.Encoded<StateSchema>>
+    >;
   },
 
-  /**
-   * Throws `ContextFoldDefinitionError` unless `source` is a usable `FoldSource`: a complete fold
-   * (every `over()` event handled, `initial()` given) or a source wrapping one, whose name is a
-   * JS identifier and that has a `select` function. Covers what the types cannot (JavaScript
-   * callers, casts); the runtime calls it for every source given to `.folds()`.
-   */
-  validate(source: unknown): asserts source is FoldSource {
+  validate(source: unknown): asserts source is AnyContextFold {
     if (source instanceof ContextFoldBuilderImpl) {
-      fail(source.name, 'missing initial(): call .initial(() => state) after over().');
-    }
-    const candidate = source as Partial<FoldSource> | undefined;
-    if (!(candidate?.fold instanceof ContextFoldImpl)) {
-      const name = String(candidate?.name);
-      throw new ContextFoldDefinitionError(
-        name,
-        `${JSON.stringify(name)} is not a fold source: pass a ContextFold or a view of one.`,
+      throw foldDefinitionError(
+        'ContextFold',
+        source.name,
+        'missing initial(): call .initial(() => state) after ContextFold.of().',
       );
     }
-    assertFoldName(String(candidate.name));
-    if (typeof candidate.select !== 'function') {
-      fail(String(candidate.name), 'a fold source needs a select(state) function.');
+    const viewed = (source as { readonly fold?: unknown } | undefined)?.fold;
+    if (typeof source === 'function' && viewed instanceof ContextFoldImpl) {
+      const { name } = viewed;
+      throw new ContextFoldDefinitionError(
+        name,
+        `a view of fold ${JSON.stringify(name)} (ContextView.of) is not a fold: declare ` +
+          `${JSON.stringify(name)} in .folds([...]), read it (await folds.${name}()) and call ` +
+          'the view with the state and a budget.',
+      );
     }
-    candidate.fold.assertComplete();
+    if (!(source instanceof ContextFoldImpl)) {
+      const name = String((source as { readonly name?: unknown } | undefined)?.name);
+      throw new ContextFoldDefinitionError(
+        name,
+        `${JSON.stringify(name)} is not a fold: pass a ContextFold or a SegmentedFold.`,
+      );
+    }
+    source.assertEvents();
   },
 };
+
+/**
+ * @internal Folds stored events (as `history` returns them) into `state`: decoded with their
+ * event's schema first, see `ContextFoldImpl#foldStored`. `fold` was validated (a fold built by
+ * `ContextFold.of` or `SegmentedFold.of`).
+ */
+export function foldStoredEvents(
+  fold: AnyContextFold,
+  state: unknown,
+  events: Iterable<EnvelopeLike>,
+  onSkip?: (skip: FoldSkip) => void,
+): unknown {
+  return (fold as unknown as ContextFoldImpl).foldStored(state, events, onSkip);
+}
+
+/** @internal The definitions of the events `fold` handles, in the order added. */
+export function foldEventDefinitions(fold: AnyContextFold): ReadonlyArray<EventDef> {
+  return (fold as unknown as ContextFoldImpl).handledEvents();
+}

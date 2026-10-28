@@ -21,7 +21,7 @@ data: {"name":"token","meta":{…},"payload":{"delta":" World"}}
 : ping
 ```
 
-Every durable event carries an `id:`: its position in the run. The first `id:` (without data) is the position of the run's start event. Transient events (token deltas) have none. `: ping` is a heartbeat comment, every 15 seconds by default, that keeps idle connections open through proxies; adapters also send `X-Accel-Buffering: no` so nginx does not buffer the stream.
+Payloads are in the [wire format](../api-reference/io-adapters.md#wire-format): encoded with their event's schema, as the store keeps them, live and resumed alike. Every durable event carries an `id:`: its position in the run. The first `id:` (without data) is the position of the run's start event. Transient events (token deltas) have none. `: ping` is a heartbeat comment, every 15 seconds by default, that keeps idle connections open through proxies; adapters also send `X-Accel-Buffering: no` so nginx does not buffer the stream.
 
 ### Reconnecting
 

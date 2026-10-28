@@ -18,7 +18,10 @@ export type HistoryScope = {
 /**
  * Durable event history of the current run and its context, read from the network's store on
  * demand. Transient events are never part of it. Scoped to the run's principal: another
- * principal's events under the same `contextId` are not visible.
+ * principal's events under the same `contextId` are not visible. Events are as the store keeps
+ * them (`StoredEvent`): read-only, their payloads encoded with their event's schema (a `Date`
+ * under `S.Date` is an ISO string); decode one with its event's schema (`Event.decode(event)`)
+ * when the schema transforms. Context folds decode for you.
  */
 export type EventHistory = {
   /** The durable events of the current run so far, in publish order, its trigger included. */

@@ -1,11 +1,7 @@
 import { Schema as S } from 'effect';
 import { describe, expect, expectTypeOf, test, vitest } from 'vitest';
-import {
-  ContextFold,
-  ContextFoldDefinitionError,
-  type FoldSource,
-} from '../context/context-fold.js';
-import type { FoldAccessors, FoldReader } from '../context/fold-reader.js';
+import { ContextFold, ContextFoldDefinitionError } from '../context/context-fold.js';
+import type { FoldReadAccessors, FoldReader } from '../context/fold-reader.js';
 import { AgentNetworkEvent } from './agent-network-event.js';
 import { EventAggregator } from './event-aggregator.js';
 import { createEventHistory, type EventHistory } from './history.js';
@@ -127,15 +123,12 @@ describe('EventAggregator', () => {
   describe('folds', () => {
     const Message = AgentNetworkEvent.of('message', S.Struct({ text: S.String }));
     const Summary = AgentNetworkEvent.of('summary', S.Struct({ count: S.Number }));
-    const Messages = ContextFold.of('messages', { version: 1 })
-      .over([Message])
+    const Messages = ContextFold.of('messages')
       .initial((): readonly string[] => [])
       .on(Message, (texts, { payload }) => [...texts, payload.text]);
-    const Count: FoldSource<'count', number> = {
-      name: 'count',
-      fold: Messages,
-      select: async (state) => (state as readonly string[]).length,
-    };
+    const Count = ContextFold.of('count')
+      .initial(() => 0)
+      .on(Message, (count) => count + 1);
     const meta = { runId: 'run-1', contextId: 'ctx-1' };
 
     test('emitWhen and mapToEmit read ctx.folds over the invocation history', async () => {
@@ -170,7 +163,7 @@ describe('EventAggregator', () => {
       expect(aggregator.getFolds()).toEqual([Messages, Count]);
     });
 
-    test('outside a network the folds select the initial state', async () => {
+    test('outside a network the folds read their initial state', async () => {
       const seen = vitest.fn();
       const aggregator = EventAggregator.listensTo([Message])
         .folds([Messages, Count])
@@ -210,20 +203,16 @@ describe('EventAggregator', () => {
       expect(aggregator.getFolds()).toEqual([]);
     });
 
-    test('a name used twice throws; so does an incomplete fold', () => {
-      const Incomplete = ContextFold.of('partial', { version: 1 })
-        .over([Message, Summary])
-        .initial(() => 0)
-        .on(Message, (n) => n + 1);
+    test('a name used twice throws; so does a fold without events', () => {
+      const Empty = ContextFold.of('empty').initial(() => 0);
 
       expect(() =>
         EventAggregator.listensTo([Message])
           .folds([Messages])
           // @ts-expect-error - "messages" was added by the previous call
           .folds([Messages]),
-      ).toThrow('EventAggregator.folds: two fold sources are named "messages"');
-      // @ts-expect-error - "summary" has no handler
-      expect(() => EventAggregator.listensTo([Message]).folds([Incomplete])).toThrow(
+      ).toThrow('EventAggregator.folds: two folds are named "messages"');
+      expect(() => EventAggregator.listensTo([Message]).folds([Empty])).toThrow(
         ContextFoldDefinitionError,
       );
     });
@@ -241,7 +230,7 @@ describe('EventAggregator', () => {
           return true;
         })
         .mapToEmit(({ folds, emit }) => {
-          expectTypeOf(folds).toEqualTypeOf<FoldAccessors<typeof Messages | typeof Count>>();
+          expectTypeOf(folds).toEqualTypeOf<FoldReadAccessors<typeof Messages | typeof Count>>();
           expectTypeOf(emit).parameters.toEqualTypeOf<[ReturnType<typeof Summary.make>]>();
         });
 

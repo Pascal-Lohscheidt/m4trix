@@ -120,12 +120,13 @@ export const createInMemoryNetworkStore = (
 
   /**
    * The position a cursor stands for: `generation:n` is the point after the log's first `n`
-   * events. `undefined` for a cursor of a dropped log (deleted, expired or evicted).
+   * events. `undefined` for a cursor of a dropped log (deleted, expired or evicted), and for one
+   * this store did not hand out (another store's, e.g. in a migrated history): neither is a
+   * position in this log.
    */
   const cursorPosition = (log: ContextLog, cursor: string): number | undefined => {
     const match = /^(\d+):(\d+)$/.exec(cursor);
-    if (!match) throw new Error(`InMemoryNetworkStore: invalid cursor ${JSON.stringify(cursor)}`);
-    if (Number(match[1]) !== log.generation) return undefined;
+    if (!match || Number(match[1]) !== log.generation) return undefined;
     return Math.min(Number(match[2]), log.events.length);
   };
 

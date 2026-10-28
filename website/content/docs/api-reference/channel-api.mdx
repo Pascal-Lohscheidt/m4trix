@@ -36,7 +36,7 @@ const client = createChannel('client')
 
 - An agent publishes each emitted event only to those of its `publishTo` channels that accept it. When none does, `emit` throws `EmitValidationError` (`reason: 'channel'`) and the agent's [`onAgentError`](agent-network.md#setup-options) policy applies (run failure `kind: 'invalid-emit'`).
 - An external publish (`plane.publish`, proxy `publish` / `publishInbound`) of an event the channel does not accept resolves `false`; the event is not delivered and a warning goes to the network's `logger`. The run is not failed, the same as an event refused because its run belongs to another principal.
-- Runtime `m4trix:*` events (run end, agent errors) always pass.
+- Runtime `m4trix:*` events (run end, agent errors) always pass. Only the runtime publishes them: an external publish of an `m4trix:` name fails with `ReservedEventNameError`.
 - A channel without `.events()` carries every event.
 
 Contradictions are caught when the network is set up: an agent that emits an event none of its publish channels accepts, or listens to one none of its subscribed channels accepts, makes `AgentNetwork.setup()` throw. See [Wiring check](agent-network.md#wiring-check).

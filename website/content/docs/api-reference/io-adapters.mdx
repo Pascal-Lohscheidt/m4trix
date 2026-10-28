@@ -71,11 +71,12 @@ Payloads usually come from a browser or another service, so `expose()` checks th
 
 - **GET requests** carry the payload as `?payload=<URL-encoded JSON>`, since `EventSource` can only GET: `new EventSource('/api/chat?payload=' + encodeURIComponent(JSON.stringify({ message: 'Hi' })))`. It is checked exactly like a POST body (including the `{ name, payload }` shape below); a GET without it has the payload `{}`.
 - **Malformed JSON** (a POST with a JSON content type, a `?payload=`, or an Express `req.body` left as a JSON string or buffer by a raw/text body parser) is refused instead of becoming `{}`. An empty body still counts as `{}`.
-- **Without `onRequest`**, the payload is decoded with the trigger event's schema and the start event carries the decoded value (schema transformations applied, unknown properties dropped).
+- **Without `onRequest`**, the payload is decoded with the trigger event's schema and the start event carries the decoded value (schema transformations applied, unknown properties dropped). The body is wire data, in the [wire format](#wire-format): it is decoded first, whatever it looks like, so for a string codec (`S.StringFromBase64`, `S.parseJson(S.String)`, `S.StringFromUriComponent`) `"aGk="` is base64 for `"hi"`, never the value `"aGk="` itself. Only a payload that does not decode but already is a value of the schema's type is taken as it is (e.g. a number sent for `S.NumberFromString`).
   - One trigger event: the request body is its payload.
   - Several trigger events: the body names the event, `{ "name": "<trigger event name>", "payload": { ... } }`. Trying each schema in turn was rejected on purpose: object schemas ignore unknown properties, so a permissive schema early in the list would silently claim payloads meant for another event. A missing or unknown `name` is refused with an issue at `name`; payload issues are located under `payload`.
   - No trigger events: the payload is published unchecked as a `request` event, as before.
-- **With `onRequest`**, the body is only parsed; the event passed to `emitStartEvent` is checked against its definition when the network knows the name (a trigger event, or an event an agent listens to or emits, or a channel declares). An invalid one makes `emitStartEvent` throw; let it propagate out of `onRequest`.
+- **With `onRequest`**, the body is only parsed; the event passed to `emitStartEvent` is checked against its definition when the network knows the name (a trigger event, or an event an agent listens to or emits, or a channel declares). An invalid one makes `emitStartEvent` throw; let it propagate out of `onRequest`. So does a reserved `m4trix:` name (issue at `name`): those belong to the runtime's own events, and a forwarded client-chosen name could otherwise forge one, e.g. a fold checkpoint.
+- **A start event the store cannot keep** is refused the same way, with or without `onRequest`: one whose payload JSON cannot hold, as `plane.publish` would refuse it with `NonJsonPayloadError` (e.g. a `Map` passed to `emitStartEvent`, or a value the schema the network encodes the event with cannot store). The issue is at the value's path, e.g. `{ "path": "files[0]", "message": "a Map is not JSON-compatible: events are stored as JSON, encoded with their schema" }`; no run is claimed or traced.
 - `expose()` throws at setup when the main channel declares `.events()` that exclude a trigger event.
 
 A refused request rejects `createStream` with `ExposeValidationError` (`status: 400`, `issues: { path, message }[]`). `NextEndpoint` and `ExpressEndpoint` answer it with a 400 and a JSON body:
@@ -95,7 +96,7 @@ try {
 }
 ```
 
-Proxy `publish` / `publishInbound` do not validate payloads; they only enforce the target channel's `.events()`.
+Proxy `publish` / `publishInbound` take an event made with `Event.make` / `makeBound` (or `makeEffect` / `makeBoundEffect`) as the value it is: `make` decoded it with the event's schema already, so it is published as it is, like `plane.publish` does (`api.publish(Upload.make({ file: 'dGVzdA==' }))` reaches agents as `file: 'test'`, never decoded a second time). Every other payload is wire data, the form `subscribeOutbound` sends: each is decoded with the schema the network knows for its event name, the same way as a request body (decoded first, so string codecs are never taken for the decoded value; a payload that does not decode but already is a value of the type is taken as it is). The made event itself counts, not its contents: a copy (`{ ...Upload.make(…) }`) or an object literal is wire data, which only matters for string-to-string codecs (`S.StringFromBase64`, `S.parseJson(S.String)`, `S.StringFromUriComponent`). Agents get what an emit would have given them, and the store the event's encoded form. They do not refuse payloads for their type: one that is neither (or of an event without a known schema) is published as given and stored as given, and [folds](../concepts/context.md#stored-events-are-decoded) skip it, reported. They enforce the target channel's `.events()`. A reserved `m4trix:` name is refused: the promise rejects with `ReservedEventNameError` (`_tag`, `eventName`) and nothing is published. So is a payload JSON cannot hold (e.g. a `Map` an in-process bridge relays as it is): the promise rejects with `NonJsonPayloadError` (`_tag`, `eventName`, `path`, `found`), before the run is claimed, and nothing is published.
 
 ## Response Format
 
@@ -118,12 +119,27 @@ data: {"name":"token","meta":{…},"payload":{"delta":"Hel"}}
 - `: ping` is the [heartbeat](#nextendpoint) comment; clients ignore it.
 - Event names are kept on one line (line breaks become spaces), so a name cannot inject SSE fields. A payload `JSON.stringify` cannot serialize does not end the stream: BigInts are sent as strings and repeated (e.g. cyclic) objects as `"[Circular]"`, or, when even that fails, the payload is replaced by `{ "error": "unserializable-payload" }`; each case is logged as a warning.
 
+### Wire format
+
+Payloads leave the network **encoded with their event's schema** (`S.encode`), the form the [store](agent-network.md#event-history-and-stores) keeps: a `Date` under `S.Date` is an ISO string, `S.NumberFromString` a string, `S.BigInt` a string, an `Option` `{ "_tag": "Some", "value": … }` (without the `"_id": "Option"` that `JSON.stringify` of an `Option` value writes), a class its fields, and a field renamed with `S.fromKey` appears under its encoded key. A durable event cannot hold `S.Redacted` (setup fails with [`durable-event-redacted`](agent-network.md#wiring-check)); a transient one sends each `Redacted` value as `"<redacted>"`, never the secret. A live stream and a [resumed](#resuming-a-stream-last-event-id) one send the same data: a durable event is sent as its stored copy, so the replay from the store repeats exactly what the live stream sent. A transient event is encoded with the schema the network knows for its name as it is sent, its `Redacted` values as `"<redacted>"`. A payload its schema cannot encode is sent as it is, unless the schema holds a `Redacted` value: then the whole payload is sent as `"<redacted>"` (which part held the secret is unknown). For plain schemas (strings, numbers, booleans, structs, arrays) the encoded form is the payload itself.
+
+Decode on the client with the same schema to get typed values back:
+
+```ts
+source.addEventListener('order-priced', (message) => {
+  const { payload } = JSON.parse(message.data);
+  const priced = S.decodeUnknownSync(OrderPriced.payload)(payload); // { at: Date, cents: number }
+});
+```
+
+The same holds for `ExposedStream` (what `createStream` hands a consumer, e.g. in a custom adapter) and for custom proxies' `subscribeOutbound`: everything leaving the network is in the wire form. Inside the network, agents (`triggerEvent`, `emitAndAwait` replies), `plane.subscribe` and fold handlers get decoded payloads.
+
 ## Resuming a stream (Last-Event-ID)
 
 When an `EventSource` loses its connection it reconnects to the same URL and sends the last `id:` it received as the `Last-Event-ID` header. Polyfills that cannot set headers can pass it as `?lastEventId=` instead. Such a request **resumes** its run instead of starting one: no payload is read, `onRequest` is not called, nothing is published and no trace starts.
 
 1. The id names the run and the position: `<contextId>/<runId>/<eventId>` (each part URI-encoded). It identifies the run by itself, so resuming works whatever `requestToRunId` returns, also for random ids.
-2. The run's durable events after that position are read from the network's [store](agent-network.md#event-history-and-stores), in the namespace of the request's own principal (`auth` runs first, as always). Only the events this stream would have carried are replayed: the stream's channel (stores keep the channels an event was published to), the `events` filter, and the run's lifecycle events (`m4trix:*`, stored like any event). Transient events are not replayed.
+2. The run's durable events after that position are read from the network's [store](agent-network.md#event-history-and-stores) (in the [wire format](#wire-format), as the live stream sent them), in the namespace of the request's own principal (`auth` runs first, as always). Only the events this stream would have carried are replayed: the stream's channel (stores keep the channels an event was published to), the `events` filter, and the run's lifecycle events (`m4trix:run.*`, `m4trix:agent.error`, stored like any event). Transient events and fold checkpoints (`m4trix:fold.checkpoint:*`, published to no channel) are not replayed.
 3. If the run is still going on this server, the stream continues live after the replay (events published meanwhile are not repeated). If it ended, the stream ends with its run-end event, also when the resume position is that very event.
 
 | Situation | Response |

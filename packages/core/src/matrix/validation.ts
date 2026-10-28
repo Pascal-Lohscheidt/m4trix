@@ -66,6 +66,11 @@ type EmitValidationErrorOptions = {
   issues?: ReadonlyArray<ValidationIssue>;
   /** What the emitter may emit (`undeclared`) or where it publishes (`channel`). */
   allowed?: ReadonlyArray<string>;
+  /**
+   * For an `invalid-payload` that matches its schema but cannot be stored: what JSON cannot hold
+   * (e.g. `a Date`, never a value) and where.
+   */
+  notJson?: { readonly what: string; readonly path: string };
 };
 
 /**
@@ -129,6 +134,14 @@ function emitErrorMessage(options: EmitValidationErrorOptions): string {
     case 'undeclared':
       return `${who} emitted "${eventName}", which is not among its declared emits (${list(options.allowed)})`;
     case 'invalid-payload': {
+      const { notJson } = options;
+      if (notJson) {
+        return (
+          `${who} emitted "${eventName}" with a payload that is not JSON-compatible: ` +
+          `${notJson.what} at ${notJson.path === '' ? '(root)' : notJson.path} (events are ` +
+          'stored as JSON, encoded with their schema)'
+        );
+      }
       // Paths only: issue messages quote the offending values, which must not reach clients.
       const paths = [
         ...new Set((options.issues ?? []).map((i) => (i.path === '' ? '(root)' : i.path))),

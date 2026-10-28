@@ -2,12 +2,8 @@ import { Either, type Schema as S } from 'effect';
 import { Agent, type AgentRunControls, type EmitAndAwaitFn } from './agent.js';
 import type { AgentNetworkEventDef, EventMeta } from './agent-network/agent-network-event.js';
 import type { EventHistory } from './agent-network/history.js';
-import type { FoldSource } from './context/context-fold.js';
-import {
-  addFoldSources,
-  type FoldAccessors,
-  type UniqueFoldSources,
-} from './context/fold-reader.js';
+import type { AnyContextFold } from './context/context-fold.js';
+import { addFolds, type FoldAccessors, type UniqueFolds } from './context/fold-reader.js';
 import {
   assertUniqueLayerNames,
   type DependencyLayerDef,
@@ -52,7 +48,7 @@ type LogicFn<
   TEmitEvent,
   TDeps extends DependencyLayerDef<string, unknown, S.Schema.Any>,
   TTools extends AnyToolDefinition,
-  TFolds extends FoldSource,
+  TFolds extends AnyContextFold,
 > = (
   ctx: {
     params: TParams;
@@ -70,10 +66,12 @@ type LogicFn<
     /** Durable event history of the run and its context, read on demand (see `EventHistory`). */
     history: EventHistory;
     /**
-     * The `.folds([...])` sources, by name: `await folds.conversation()` folds the context's
+     * The `.folds([...])` folds, by name: `await folds.conversation()` folds the context's
      * events into the fold's state (cached in a network, so only new events are folded) and
-     * returns it, or the view's result. Every call reads again, so a read after `emitAndAwait`
-     * sees the events published meanwhile.
+     * returns it, read-only (`FoldReadStateOf`: it may be the cached state, shared by every
+     * reader); pass it to a view (`ContextView.of`) to trim it to a budget. Every call reads
+     * again, so a read after `emitAndAwait` sees the events published meanwhile.
+     * `folds.<name>.compact(...)` replaces a fold's state for good (see `FoldCompact`).
      */
     folds: FoldAccessors<TFolds>;
     /** Who the run acts for (from `auth`); `undefined` for anonymous runs. */
@@ -88,7 +86,7 @@ type ConstructorParams<
   TEmits extends EventDef,
   TDeps extends DependencyLayerDef<string, unknown, S.Schema.Any>,
   TTools extends AnyToolDefinition,
-  TFolds extends FoldSource,
+  TFolds extends AnyContextFold,
 > = {
   logic?: LogicFn<TParams, EventEnvelope<TListensTo>, EmitPayload<TEmits>, TDeps, TTools, TFolds>;
   paramsSchema?: BaseSchemaDefinition;
@@ -99,7 +97,7 @@ type ConstructorParams<
   dependencyLayers?: ReadonlyArray<TDeps>;
   tools?: ReadonlyArray<TTools>;
   concurrency?: number;
-  folds?: ReadonlyArray<FoldSource>;
+  folds?: ReadonlyArray<AnyContextFold>;
 };
 
 export class AgentFactory<
@@ -108,7 +106,7 @@ export class AgentFactory<
   TEmits extends EventDef = never,
   TDeps extends DependencyLayerDef<string, unknown, S.Schema.Any> = never,
   TTools extends AnyToolDefinition = never,
-  TFolds extends FoldSource = never,
+  TFolds extends AnyContextFold = never,
 > {
   private _listensTo: ReadonlyArray<TListensTo>;
   private _emits: ReadonlyArray<TEmits>;
@@ -120,7 +118,7 @@ export class AgentFactory<
   private _dependencyLayers: ReadonlyArray<TDeps>;
   private _tools: ReadonlyArray<TTools>;
   private _concurrency: number | undefined;
-  private _folds: ReadonlyArray<FoldSource>;
+  private _folds: ReadonlyArray<AnyContextFold>;
 
   private constructor({
     logic,
@@ -189,7 +187,7 @@ export class AgentFactory<
     return this._logic;
   }
 
-  /** The sources declared with `.folds([...])`, in order. */
+  /** The folds declared with `.folds([...])`, in order. */
   getFolds(): ReadonlyArray<TFolds> {
     return this._folds as ReadonlyArray<TFolds>;
   }
@@ -315,27 +313,32 @@ export class AgentFactory<
   }
 
   /**
-   * Adds context folds (and views of them) the logic reads through `ctx.folds`, each by its name:
-   * `.folds([Conversation])` → `await folds.conversation()`. Accumulates over calls. In a network
-   * the folded state is cached, so a read only folds the events published since the previous
-   * one; outside one, a read folds the `history` passed to `invoke()`.
+   * Adds context folds (`ContextFold`, `SegmentedFold`) the logic reads through `ctx.folds`, each
+   * by its name: `.folds([Conversation])` → `await folds.conversation()`, the fold's state,
+   * read-only. Accumulates over calls. In a network the folded state is cached, so a read only
+   * folds the events published since the previous one; outside one, a read folds the `history`
+   * passed to `invoke()`. Views are not declared here: call one with the state a read returns.
+   * A context-scoped fold with a `state` schema can also be compacted in a network
+   * (`await folds.conversation.compact(...)`, see `FoldCompact`). Give each fold in a network its
+   * own name: different compactable folds of one name and version would share checkpoints, which
+   * the wiring check rejects (`fold-checkpoint-shared`).
    *
-   * Throws for a source that is not a complete fold or a view of one (`ContextFoldDefinitionError`),
-   * a name used twice (also a type error) and two different folds with the same name and version.
+   * Throws `ContextFoldDefinitionError` for anything that is not a fold (a view included) or a
+   * fold that reads no events (no handler), and `Error` for a name used twice (also a type error).
    */
-  folds<const Sources extends ReadonlyArray<FoldSource>>(
-    sources: Sources & UniqueFoldSources<Sources, TFolds['name']>,
-  ): AgentFactory<TParams, TListensTo, TEmits, TDeps, TTools, TFolds | Sources[number]> {
-    return new AgentFactory<TParams, TListensTo, TEmits, TDeps, TTools, TFolds | Sources[number]>({
+  folds<const Folds extends ReadonlyArray<AnyContextFold>>(
+    folds: Folds & UniqueFolds<Folds, TFolds['name']>,
+  ): AgentFactory<TParams, TListensTo, TEmits, TDeps, TTools, TFolds | Folds[number]> {
+    return new AgentFactory<TParams, TListensTo, TEmits, TDeps, TTools, TFolds | Folds[number]>({
       ...(this.getConstructorState() as unknown as ConstructorParams<
         TParams,
         TListensTo,
         TEmits,
         TDeps,
         TTools,
-        TFolds | Sources[number]
+        TFolds | Folds[number]
       >),
-      folds: addFoldSources(this._folds, sources, 'AgentFactory.folds'),
+      folds: addFolds(this._folds, folds, 'AgentFactory.folds'),
     });
   }
 

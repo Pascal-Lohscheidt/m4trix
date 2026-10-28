@@ -153,20 +153,36 @@ describe('event plane run lifecycle', () => {
   });
 
   test('runtime lifecycle events never invoke agents, even listen-all ones', async () => {
-    const logic = vitest.fn(async () => {});
-    const network = AgentNetwork.setup(({ mainChannel, registerAgent }) => {
-      // No listensTo: the agent listens to every event on main.
-      registerAgent(AgentFactory.run().logic(logic).produce({})).subscribe(mainChannel);
-    });
+    const boom = AgentNetworkEvent.of('boom', S.Struct({}));
+    const triggers: string[] = [];
+    const network = AgentNetwork.setup(
+      ({ mainChannel, registerAgent }) => {
+        registerAgent(
+          AgentFactory.run()
+            .listensTo([boom])
+            .logic(async () => {
+              throw new Error('x');
+            })
+            .produce({}),
+        ).subscribe(mainChannel);
+        // No listensTo: the agent listens to every event on main.
+        registerAgent(
+          AgentFactory.run()
+            .logic(async ({ triggerEvent }) => {
+              triggers.push((triggerEvent as { name: string }).name);
+            })
+            .produce({}),
+        ).subscribe(mainChannel);
+      },
+      { onAgentError: 'continue', logger: { warn: vitest.fn(), error: vitest.fn() } },
+    );
 
     const program = Effect.gen(function* () {
       const plane = yield* network.run();
-      // The run is still active: only the reserved name keeps the agent out.
-      yield* plane.publish(ChannelName('main'), {
-        name: RunLifecycleEvent.agentError,
-        meta,
-        payload: { agentId: 'other', trigger: 'x', error: { name: 'Error', message: 'x' } },
-      });
+      const queue = yield* plane.subscribe(ChannelName('main'));
+      yield* plane.publish(ChannelName('main'), boom.makeBound(meta, {}));
+      // The runtime reports the failure on main; the run is still active.
+      while ((yield* Queue.take(queue)).name !== RunLifecycleEvent.agentError) {}
       yield* Effect.sleep('20 millis');
       return plane.getRunOutcome(meta.runId);
     });
@@ -174,7 +190,7 @@ describe('event plane run lifecycle', () => {
     const outcome = await Effect.runPromise(program.pipe(Effect.scoped));
 
     expect(outcome).toBeUndefined();
-    expect(logic).not.toHaveBeenCalled();
+    expect(triggers).toEqual(['boom']);
   });
 
   test('events of an ended run start no new invocations', async () => {

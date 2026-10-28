@@ -88,6 +88,33 @@ export function runStoreContract(test: StoreContractTestApi, createStore: Create
         expect((await store.readContext(key)).events).toEqual([event]);
       });
 
+      it('keeps JSON payloads exactly: encoded values, empty containers, unicode', async () => {
+        const store = await createStore();
+        const key = freshKey();
+        // What the runtime appends: payloads encoded with their event's schema (dates and big
+        // numbers as strings), so a store must not turn them into other values on the way back.
+        const payload = {
+          at: '2026-01-02T03:04:05.000Z',
+          amount: '12345678901234567890',
+          count: 42,
+          ratio: -0.25,
+          text: 'grüße, 你好 ✓ "quoted" \\ \n',
+          flags: [true, false, null],
+          empty: { list: [], object: {} },
+          nested: [{ deep: [{ deeper: 'x' }] }],
+        };
+        const event = makeEvent(key, 'run-1', 'message', payload);
+        await store.append(key, event);
+
+        const [run] = await store.readRun(key, 'run-1');
+        const [context] = (await store.readContext(key)).events;
+        for (const read of [run, context]) {
+          expect(read?.payload).toEqual(payload);
+          // Plain JSON: nothing a JSON round trip would change.
+          expect(JSON.parse(JSON.stringify(read?.payload))).toEqual(read?.payload);
+        }
+      });
+
       it('keeps the channels an event was published to', async () => {
         const store = await createStore();
         const key = freshKey();
@@ -97,8 +124,15 @@ export function runStoreContract(test: StoreContractTestApi, createStore: Create
         };
         await store.append(key, event);
 
+        // Every read returns them: resumed streams replay only the events of their channel.
         const [read] = await store.readRun(key, 'run-1');
         expect(read?.channels).toEqual(['client', 'side']);
+        const [inContext] = (await store.readContext(key)).events;
+        expect(inContext?.channels).toEqual(['client', 'side']);
+        if (store.readLatest) {
+          const latest = await store.readLatest(key, ['message']);
+          expect(latest?.event.channels).toEqual(['client', 'side']);
+        }
       });
 
       it('readRun returns the events of the run in append order', async () => {
@@ -468,6 +502,36 @@ export function runStoreContract(test: StoreContractTestApi, createStore: Create
         expect(names(twice.events)).toEqual(['b', 'c']);
       });
 
+      it('an event appended concurrently never lands before a cursor already handed out', async () => {
+        const store = await createStore();
+        const key = freshKey();
+        const snapshots: Array<{ ids: string[]; head: string | undefined }> = [];
+        const ids = (events: readonly StoredEvent[]) =>
+          events.map((event) => String(event.meta.eventId));
+
+        // Several runs of one context append at once (the runtime serializes appends per run
+        // only), each reading the context after every append, as folds do.
+        await Promise.all(
+          Array.from({ length: 4 }, async (_, writer) => {
+            for (let i = 0; i < 5; i++) {
+              await store.append(key, makeEvent(key, `run-${writer}`, `w${writer}#${i}`));
+              const page = await store.readContext(key);
+              snapshots.push({ ids: ids(page.events), head: page.head });
+            }
+          }),
+        );
+
+        // Each page read is a prefix of the final log, and reading after its head returns exactly
+        // the rest: no event became visible at a position before a head handed out earlier.
+        const all = ids((await store.readContext(key)).events);
+        expect(all.length).toEqual(20);
+        for (const { ids: seen, head } of snapshots) {
+          expect(all.slice(0, seen.length)).toEqual(seen);
+          const rest = await store.readContext(key, { after: head });
+          expect(ids(rest.events)).toEqual(all.slice(seen.length));
+        }
+      });
+
       it('rejects after and before together', async () => {
         const store = await createStore();
         const key = freshKey();
@@ -779,6 +843,27 @@ export function runStoreContract(test: StoreContractTestApi, createStore: Create
         const page = await store.readContext(key, { after: latest?.cursor });
         expect(page.reset).toEqual(true);
         expect(names(page.events)).toEqual(['c']);
+      });
+
+      it('after a cursor it does not recognise: a reset page from the start, not an error', async () => {
+        // E.g. a cursor of another store or store version, kept in a migrated history (fold
+        // checkpoints persist the cursor of the read they were computed from).
+        const store = await createStore();
+        const key = freshKey();
+        const empty = freshKey();
+        await appendAll(store, key, [makeEvent(key, 'run-1', 'a'), makeEvent(key, 'run-1', 'b')]);
+        const { head } = await store.readContext(key);
+
+        for (const after of ['pg:1234', 'not a cursor', '\u2603']) {
+          expect(await store.readContext(key, { after })).toEqual({
+            events: (await store.readContext(key)).events,
+            head,
+            reset: true,
+          });
+          const filtered = await store.readContext(key, { after, names: ['b'] });
+          expect([filtered.reset, names(filtered.events)]).toEqual([true, ['b']]);
+          expect(await store.readContext(empty, { after })).toEqual({ events: [], reset: true });
+        }
       });
 
       it('after a cursor of a deleted context that has no events again: an empty reset page', async () => {

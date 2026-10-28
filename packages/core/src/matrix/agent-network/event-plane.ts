@@ -3,16 +3,20 @@ import {
   Clock,
   Deferred,
   Effect,
+  Either,
   Exit,
   FiberId,
   type FiberRefs,
   Queue,
+  type Schema as S,
   Schedule,
   Scope,
 } from 'effect';
 import * as Duration from 'effect/Duration';
+import type { FoldSkip } from '../context/context-fold.js';
 import { createFoldCache, type FoldCache } from '../context/fold-cache.js';
-import { createFoldReader, type FoldCacheEntry, type FoldReader } from '../context/fold-reader.js';
+import { type FoldCheckpointPayload, isFoldCheckpointEvent } from '../context/fold-checkpoint.js';
+import { createFoldReader, type FoldCacheEntry } from '../context/fold-reader.js';
 import type { NetworkLogger } from '../logger.js';
 import type { NetworkMetricHandler } from '../metrics.js';
 import type { Principal } from '../principal.js';
@@ -32,9 +36,9 @@ import {
   type UsageReport,
   type UsageSource,
 } from '../usage.js';
-import { EmitValidationError } from '../validation.js';
+import { EmitValidationError, toValidationIssues, type ValidationIssue } from '../validation.js';
 import type { AgentNetwork, AnyAgent } from './agent-network.js';
-import type { EventMeta } from './agent-network-event.js';
+import type { AgentNetworkEventDef, EventMeta } from './agent-network-event.js';
 import { type ChannelName, type ConfiguredChannel, channelAcceptsEvent } from './channel.js';
 import { createInMemoryTransport, type EventTransport } from './event-transport.js';
 import { createEventHistory, type EventHistory, type HistoryScope, storeKeyOf } from './history.js';
@@ -43,10 +47,12 @@ import {
   type AgentErrorEnvelope,
   agentFailureOutcome,
   isReservedEventName,
+  isRunLifecycleEnvelope,
   limitExceededOutcome,
   NetworkStoreError,
   outcomeTraceStatus,
   type ResolvedRunLimits,
+  ReservedEventNameError,
   RunLifecycleEvent,
   type RunLimitName,
   type RunLimitOptions,
@@ -60,6 +66,18 @@ import {
 } from './run-lifecycle.js';
 import type { AgentNetworkStore, StoredEvent } from './stores/agent-network-store.js';
 import { createInMemoryNetworkStore } from './stores/inmemory-network-store.js';
+import { declaredEventDefinitions } from './wiring.js';
+import {
+  decodeWirePayload,
+  encodePayload,
+  NonJsonPayloadError,
+  type NotJsonCompatibleError,
+  storedFormOf,
+  storedJsonOf,
+  wirePayloadOf,
+} from './stored-payload.js';
+
+type EventDef = AgentNetworkEventDef<string, S.Schema.Any>;
 
 /* ─── Envelope ─── */
 
@@ -95,17 +113,32 @@ export type RunLimits = {
 };
 
 export type EventPlane = {
-  readonly publish: (channel: ChannelName, envelope: Envelope) => Effect.Effect<boolean>;
+  /**
+   * Publishes `envelope` to `channel` from outside the network (a start event, an inbound event),
+   * its payload as agents receive it (decoded, e.g. from `Event.makeBound`). Fails, publishing
+   * nothing, with `ReservedEventNameError` for a reserved `m4trix:` name (those are the
+   * runtime's) and with `NonJsonPayloadError` for a durable event whose payload the store cannot
+   * keep as JSON; the run goes on.
+   */
+  readonly publish: (
+    channel: ChannelName,
+    envelope: Envelope,
+  ) => Effect.Effect<boolean, ReservedEventNameError | NonJsonPayloadError>;
+  /** Like `publish`, to several channels at once. */
   readonly publishToChannels: (
     channels: readonly ConfiguredChannel[],
     envelope: Envelope,
-  ) => Effect.Effect<boolean>;
+  ) => Effect.Effect<boolean, ReservedEventNameError | NonJsonPayloadError>;
+  /** Like `publishToChannels`, then waits for a reply `match` accepts. */
   readonly publishAndAwait: (
     channels: readonly ConfiguredChannel[],
     envelope: Envelope,
     match: (reply: Envelope) => boolean,
     options?: { timeout?: Duration.DurationInput },
-  ) => Effect.Effect<Envelope, PublishAndAwaitTimeoutError>;
+  ) => Effect.Effect<
+    Envelope,
+    PublishAndAwaitTimeoutError | ReservedEventNameError | NonJsonPayloadError
+  >;
   /**
    * Subscribes to the events published to `channel` from now on. With a `filter`, only events
    * it accepts are queued, so a slow reader only holds back publishers of events it wants.
@@ -116,7 +149,8 @@ export type EventPlane = {
   ) => Effect.Effect<Queue.Dequeue<Envelope>, never, Scope.Scope>;
   /**
    * The durable history of a run and its context in the plane's store, as agents read it
-   * (`ctx.history`), in the namespace of `scope.principalId`.
+   * (`ctx.history`), in the namespace of `scope.principalId`: stored events, read-only, their
+   * payloads encoded with their event's schema (see `StoredEvent`).
    */
   readonly history: (scope: HistoryScope) => EventHistory;
   readonly shutdown: Effect.Effect<void>;
@@ -169,6 +203,19 @@ const SETTLE_TIMEOUT = Duration.seconds(5);
  * them are still recognised (and dropped) and `getRunOutcome` still answers.
  */
 const ENDED_RUNS_REMEMBERED = 1_000;
+
+/**
+ * How many skipped events (per fold and reason) a plane remembers as reported, so a fold read
+ * again from the start (cold) does not warn about them again. Beyond it, the least recently seen
+ * is forgotten and may warn again.
+ */
+const SKIPS_REMEMBERED = 1_000;
+
+/** The stored copy of each durable envelope a plane appended (its wire form, `wireEnvelope`). */
+const storedCopies = new WeakMap<Envelope, StoredEvent>();
+
+/** The wire form of each stored copy, made on first use. */
+const wireForms = new WeakMap<StoredEvent, Envelope>();
 
 type MailboxEntry = {
   readonly envelope: Envelope;
@@ -261,6 +308,8 @@ type AttachedAgent = {
   readonly fiberRefs: FiberRefs.FiberRefs;
   /** Envelopes already delivered, so one published to several of its channels arrives once. */
   readonly delivered: WeakSet<Envelope>;
+  /** The agent's own definitions of the events it emits (its tools' included), by name. */
+  readonly emitDefs: ReadonlyMap<string, EventDef>;
 };
 
 /** What `startAgents` and agent invocations need from a plane beyond its public members. */
@@ -316,6 +365,23 @@ type PlaneInternals = {
   readonly dropUnstored: () => void;
   /** Folded state behind `ctx.folds`, shared by the plane's agents (see `FoldCacheOptions`). */
   readonly foldCache: FoldCache<FoldCacheEntry>;
+  /**
+   * Makes the stored payload of a durable event `emitter` emits, when it emits it: encoded with
+   * its definition of the event, as a frozen JSON copy. Throws `EmitValidationError`
+   * (`invalid-payload`) when the payload cannot be stored.
+   */
+  readonly prepareEmit: (envelope: Envelope, emitter: AttachedAgent) => void;
+  /** See `preparePublish`. */
+  readonly preparePublished: (envelope: Envelope) => NonJsonPayloadError | undefined;
+  /**
+   * Reports an event a fold read left out (`FoldReaderOptions.onSkip`), once while the plane
+   * remembers it (see `SKIPS_REMEMBERED`).
+   */
+  readonly reportSkip: (skip: FoldSkip) => void;
+  /** See `wireEnvelope`. */
+  readonly wire: (envelope: Envelope) => Envelope;
+  /** See `fromWireEnvelope`. */
+  readonly fromWire: (envelope: Envelope) => Envelope;
 };
 
 /** @internal What a plane knows about a run (see `inspectRun`). */
@@ -355,6 +421,40 @@ export const inspectEventPlane = (plane: EventPlane): EventPlaneStats => interna
 /** @internal True when `name` is a transient event on `plane` (streamed, never stored). */
 export const isTransientEvent = (plane: EventPlane, name: string): boolean =>
   internalsOf(plane).isTransient(name);
+
+/**
+ * @internal `envelope` (as `plane` delivered it) in its wire form, as events leave the network:
+ * its payload encoded with its event's schema, the form the store keeps. For a durable event it
+ * is its stored copy (without `channels`), so a stream sends exactly what a resumed stream replays
+ * from the store. A transient event is encoded with the event's schema the network knows, its
+ * Redacted values as `"<redacted>"` (see `wirePayloadOf`); one without a schema, a runtime event,
+ * or a payload its schema cannot encode is sent as it is, unless the schema holds a Redacted
+ * value: then all of the payload is sent as `"<redacted>"`.
+ */
+export const wireEnvelope = (plane: EventPlane, envelope: Envelope): Envelope =>
+  internalsOf(plane).wire(envelope);
+
+/**
+ * @internal `envelope` as it arrived from outside (a proxy's `publish` / `publishInbound`), with
+ * its payload decoded from the wire form with its event's schema (see `decodeWirePayload`), so
+ * agents get what an emit would have given them. Without a known schema, or for a payload that is
+ * neither wire data nor a value of the schema's type, it is returned as it is (and stored as
+ * given: the plane's encoding of it fails).
+ */
+export const fromWireEnvelope = (plane: EventPlane, envelope: Envelope): Envelope =>
+  internalsOf(plane).fromWire(envelope);
+
+/**
+ * @internal Makes the stored payload of `envelope`, published from outside, as `plane.publish`
+ * does before it publishes anything: encoded with the schema the network knows for its name, as
+ * a frozen JSON copy (see `storedFormOf`). Returns the `NonJsonPayloadError` the publish would
+ * fail with, so `expose()` and proxies refuse such an event before they claim its run; `undefined`
+ * when it can be stored (or is transient, never stored).
+ */
+export const preparePublish = (
+  plane: EventPlane,
+  envelope: Envelope,
+): NonJsonPayloadError | undefined => internalsOf(plane).preparePublished(envelope);
 
 /**
  * @internal The run `runId` as `plane` knows it (active, or among the recently ended);
@@ -424,6 +524,152 @@ export const createEventPlane = (options: CreateEventPlaneOptions): Effect.Effec
     const transientEvents = new Set<string>();
     /** Queues of `subscribe`, shut down with the plane. */
     const subscriberQueues = new Set<Queue.Queue<Envelope>>();
+
+    /* ─── Stored payloads ─── */
+
+    let eventSchemas: ReadonlyMap<string, S.Schema.Any> | undefined;
+    /** The payload schema of the event `name` as the network declares it (see `eventSchemasOf`). */
+    const schemaOf = (name: string): S.Schema.Any | undefined => {
+      eventSchemas ??= eventSchemasOf(network);
+      return eventSchemas.get(name);
+    };
+    /**
+     * Stored payloads made before an event is published: when an agent emits it (`prepareEmit`)
+     * or when it is published from outside (`preparePublished`). A stamped copy of the envelope
+     * gets its payload too (see `stampEnvelope`).
+     */
+    const preparedPayloads = new WeakMap<Envelope, unknown>();
+
+    const prepareEmit = (envelope: Envelope, emitter: AttachedAgent): void => {
+      // Transient events are never stored.
+      if (transientEvents.has(envelope.name)) return;
+      const schema = emitter.emitDefs.get(envelope.name)?.payload ?? schemaOf(envelope.name);
+      const invalid = { eventName: envelope.name, agentId: emitter.agentId } as const;
+      const encoded = schema
+        ? encodePayload(schema, envelope.payload)
+        : Either.right(envelope.payload);
+      if (Either.isLeft(encoded)) {
+        throw new EmitValidationError({
+          ...invalid,
+          reason: 'invalid-payload',
+          issues: toValidationIssues(encoded.left),
+        });
+      }
+      // Checked to decode with the same schema when a toJSON changed a value (see storedFormOf).
+      const stored = storedFormOf(schema, encoded.right);
+      if (Either.isLeft(stored)) {
+        const { what, path } = stored.left;
+        throw new EmitValidationError({
+          ...invalid,
+          reason: 'invalid-payload',
+          issues: [notJsonIssue(stored.left)],
+          notJson: { what, path },
+        });
+      }
+      preparedPayloads.set(envelope, stored.right);
+    };
+
+    /**
+     * Makes the stored payload of a durable event published from outside: encoded with the
+     * schema the network knows for its name. A payload that is not a value of that type (e.g.
+     * sent in its encoded form) is kept as given, for folds to decode (or skip) on read. The
+     * `NonJsonPayloadError` (nothing recorded) for a payload JSON cannot hold.
+     */
+    const preparePublished = (envelope: Envelope): NonJsonPayloadError | undefined => {
+      // Transient events are never stored.
+      if (transientEvents.has(envelope.name)) return undefined;
+      const schema = schemaOf(envelope.name);
+      const encoded = schema ? encodePayload(schema, envelope.payload) : undefined;
+      // Checked to decode again (after a toJSON) only when it was a value of the schema's type.
+      const stored =
+        encoded && Either.isRight(encoded)
+          ? storedFormOf(schema, encoded.right)
+          : storedFormOf(undefined, envelope.payload);
+      if (Either.isLeft(stored)) {
+        return new NonJsonPayloadError(envelope.name, stored.left.path, stored.left.what);
+      }
+      preparedPayloads.set(envelope, stored.right);
+      return undefined;
+    };
+
+    /**
+     * The stored copy of the durable event `envelope` (published to `targets`): its name, meta,
+     * payload and channels, as a deep-frozen JSON copy. The payload is the one made before it was
+     * published (see `preparedPayloads`). A runtime event (lifecycle, checkpoint) has no schema:
+     * it is copied as it is (a checkpoint's state is encoded by its fold already). A Left for what
+     * is not JSON-compatible: a runtime event's payload, or meta fields an untyped caller added
+     * (typed meta is JSON: a non-finite `ts` or `depth` is stamped, see `stampEnvelope`).
+     */
+    const storedCopyOf = (
+      envelope: Envelope,
+      targets: readonly ChannelName[],
+    ): Either.Either<StoredEvent, NotJsonCompatibleError> => {
+      const payload = preparedPayloads.has(envelope)
+        ? preparedPayloads.get(envelope)
+        : envelope.payload;
+      // The channels are kept with the event: a resumed stream replays only its channel's.
+      const copy = { name: envelope.name, meta: envelope.meta, payload, channels: [...targets] };
+      return storedJsonOf(copy) as Either.Either<StoredEvent, NotJsonCompatibleError>;
+    };
+
+    /* ─── Skipped events ─── */
+
+    /**
+     * Skips reported so far, by fold, reason and event id: the `SKIPS_REMEMBERED` least recently
+     * seen are forgotten first (a `Set` keeps insertion order; a skip seen again moves to the end).
+     */
+    const reportedSkips = new Set<string>();
+
+    const reportSkip = (skip: FoldSkip): void => {
+      const { fold, reason, event } = skip;
+      const { eventId } = event.meta;
+      if (eventId !== undefined) {
+        const key = JSON.stringify([fold, reason, eventId]);
+        const seen = reportedSkips.delete(key);
+        reportedSkips.add(key);
+        if (seen) return;
+        if (reportedSkips.size > SKIPS_REMEMBERED) {
+          reportedSkips.delete(reportedSkips.values().next().value as string);
+        }
+      }
+      metric?.({
+        name: 'm4trix.fold.read.skipped',
+        kind: 'counter',
+        unit: '{event}',
+        value: 1,
+        attributes: { fold, reason },
+      });
+      const data = { fold, reason, event: event.name, eventId };
+      const id = JSON.stringify(eventId);
+      switch (skip.reason) {
+        case 'decode':
+          logger.warn(
+            `[m4trix] fold "${fold}": skipped ${event.name} ${id}, its stored payload does not ` +
+              "decode with the event's schema (change event schemas so stored events still " +
+              `decode, e.g. make new fields optional): ${skip.error.message}`,
+            data,
+          );
+          return;
+        case 'checkpoint':
+          logger.warn(
+            `[m4trix] fold "${fold}": skipped checkpoint ${id}, it does not decode with the ` +
+              "fold's state schema (bump the fold's version when its state changes): " +
+              skip.error.message,
+            data,
+          );
+          return;
+        case 'missing-segment': {
+          const { segment } = skip;
+          const kind = segment.kind === undefined ? '' : `, kind ${JSON.stringify(segment.kind)}`;
+          logger.warn(
+            `[m4trix] fold "${fold}": ${event.name} ${id} attaches to no segment (id ` +
+              `${JSON.stringify(segment.id)}${kind}); the state was left as it was (pass ` +
+              "onMissing: 'ignore' to attach() when that is expected)",
+            { ...data, segment },
+          );
+        }
+      }
+    };
 
     /* ─── Runs ─── */
 
@@ -517,10 +763,13 @@ export const createEventPlane = (options: CreateEventPlaneOptions): Effect.Effec
     // envelope again (e.g. to another channel) publishes the same event.
     const stampedEnvelopes = new WeakMap<Envelope, Envelope>();
 
-    /** The envelope with `eventId`, `ts` and `depth` filled in where the publisher left them out. */
+    /**
+     * The envelope with `eventId`, `ts` and `depth` filled in where the publisher left them out. A
+     * non-finite `ts` or `depth` (`NaN`, which JSON cannot hold) counts as left out.
+     */
     const stampEnvelope = (envelope: Envelope, now: number): Envelope => {
       const { meta } = envelope;
-      if (meta.eventId !== undefined && meta.ts !== undefined && meta.depth !== undefined) {
+      if (meta.eventId !== undefined && Number.isFinite(meta.ts) && Number.isFinite(meta.depth)) {
         return envelope;
       }
       let stamped = stampedEnvelopes.get(envelope);
@@ -530,11 +779,14 @@ export const createEventPlane = (options: CreateEventPlaneOptions): Effect.Effec
           meta: {
             ...meta,
             eventId: meta.eventId ?? crypto.randomUUID(),
-            ts: meta.ts ?? now,
-            depth: meta.depth ?? 0,
+            ts: Number.isFinite(meta.ts) ? meta.ts : now,
+            depth: Number.isFinite(meta.depth) ? meta.depth : 0,
           },
         };
         stampedEnvelopes.set(envelope, stamped);
+        if (preparedPayloads.has(envelope)) {
+          preparedPayloads.set(stamped, preparedPayloads.get(envelope));
+        }
       }
       return stamped;
     };
@@ -786,18 +1038,30 @@ export const createEventPlane = (options: CreateEventPlaneOptions): Effect.Effec
     };
 
     /**
-     * Appends a durable event to the store, retrying a failed write (`STORE_WRITE_ATTEMPTS`). A
-     * runtime event that cannot be stored is still delivered (logged instead): a run that failed
-     * because its store is down must still end for its clients.
+     * Appends a durable event's stored copy (`storedCopyOf`) to the store, retrying a failed write
+     * (`STORE_WRITE_ATTEMPTS`). A lifecycle event that cannot be stored is still delivered (logged
+     * instead): a run that failed because its store is down must still end for its clients. Any
+     * other event, a fold checkpoint included, fails its run, as does an event whose copy is not
+     * JSON-compatible (logged, never retried; payloads were checked before publishing and typed
+     * meta is JSON once stamped, so this is meta fields an untyped caller added).
      */
     const writeToStore = (
       envelope: Envelope,
       targets: readonly ChannelName[],
     ): Effect.Effect<void, NetworkStoreError> =>
       Effect.suspend(() => {
+        const copy = storedCopyOf(envelope, targets);
+        if (Either.isLeft(copy)) {
+          // Nothing to retry: the event cannot be stored as it is.
+          logger.error(
+            `[m4trix] could not store ${envelope.name} of run ${envelope.meta.runId}: ` +
+              copy.left.message,
+          );
+          return Effect.fail(new NetworkStoreError(envelope.name, copy.left));
+        }
+        const stored = copy.right;
+        storedCopies.set(envelope, stored);
         let failures = 0;
-        // The channels are kept with the event: a resumed stream replays only its channel's.
-        const stored: StoredEvent = { ...envelope, channels: [...targets] };
         const attempt = Effect.tryPromise({
           try: () => store.append(storeKeyOf(envelope.meta), stored),
           catch: (cause) => new NetworkStoreError(envelope.name, cause),
@@ -841,7 +1105,7 @@ export const createEventPlane = (options: CreateEventPlaneOptions): Effect.Effec
         );
       }).pipe(
         Effect.catchAll((error) =>
-          isReservedEventName(envelope.name)
+          isRunLifecycleEnvelope(envelope)
             ? Effect.sync(() => {
                 logger.error(
                   `[m4trix] could not store ${envelope.name} of run ${envelope.meta.runId}:`,
@@ -909,17 +1173,20 @@ export const createEventPlane = (options: CreateEventPlaneOptions): Effect.Effec
         }
         const exceeded = admit(envelope, now);
         if (exceeded) return failOnLimit(envelope.meta, exceeded).pipe(Effect.as(false));
+        // A fold checkpoint is published to no channel: stored and traced (once, with channel
+        // ''), never delivered, not even to reply waiters.
+        const checkpoint = isFoldCheckpointEvent(envelope);
         const deliver = Effect.sync(() => recordEvent(envelope, now)).pipe(
           Effect.zipRight(
             Effect.forEach(
-              targets,
+              checkpoint ? [''] : targets,
               (channel) =>
                 Effect.promise(() =>
                   networkTracer.onEventPublish({
                     channel,
                     name: envelope.name,
                     meta: envelope.meta,
-                    payload: envelope.payload,
+                    payload: checkpoint ? tracedCheckpoint(envelope) : envelope.payload,
                   }),
                 ),
               { concurrency: 'unbounded', discard: true },
@@ -927,7 +1194,7 @@ export const createEventPlane = (options: CreateEventPlaneOptions): Effect.Effec
           ),
           Effect.zipRight(deliverToAgents(targets, envelope, waitForRoom)),
           // Subscribers of the target channels, and reply waiters (also for no channel at all).
-          Effect.zipRight(transport.publish(targets, envelope)),
+          Effect.zipRight(checkpoint ? Effect.void : transport.publish(targets, envelope)),
           Effect.zipRight(completeOnTerminal(envelope)),
           Effect.as(true),
         );
@@ -1160,10 +1427,33 @@ export const createEventPlane = (options: CreateEventPlaneOptions): Effect.Effec
         });
       });
 
+    /**
+     * Publishes `envelope` from outside with `effect`, unless it is refused: a reserved name (only
+     * the runtime publishes `m4trix:` events) or a payload the store cannot keep (see
+     * `preparePublished`; its stored payload is made once, also when `preparePublish` checked it
+     * first). A refused event is not published at all.
+     */
+    const external = <A, E>(
+      envelope: Envelope,
+      effect: Effect.Effect<A, E>,
+    ): Effect.Effect<A, E | ReservedEventNameError | NonJsonPayloadError> =>
+      Effect.suspend((): Effect.Effect<A, E | ReservedEventNameError | NonJsonPayloadError> => {
+        if (isReservedEventName(envelope.name)) {
+          return Effect.fail(new ReservedEventNameError(envelope.name));
+        }
+        // Made already when `preparePublish` checked it (expose, proxies): taken as it is.
+        const refused = preparedPayloads.has(envelope) ? undefined : preparePublished(envelope);
+        return refused ? Effect.fail(refused) : effect;
+      });
+
+    // The plane's own publishing (run ends, agent errors, agents' emits, checkpoints) uses the
+    // functions above directly; the plane's members are the way in from outside.
     const plane: EventPlane = {
-      publish,
-      publishToChannels,
-      publishAndAwait,
+      publish: (channel, envelope) => external(envelope, publish(channel, envelope)),
+      publishToChannels: (targetChannels, envelope) =>
+        external(envelope, publishToChannels(targetChannels, envelope)),
+      publishAndAwait: (targetChannels, envelope, match, options) =>
+        external(envelope, publishAndAwait(targetChannels, envelope, match, options)),
       subscribe,
       history: (scope) => createEventHistory(store, scope),
       shutdown,
@@ -1226,6 +1516,26 @@ export const createEventPlane = (options: CreateEventPlaneOptions): Effect.Effec
         for (const run of runs.values()) dropUnstored(run);
       },
       foldCache,
+      prepareEmit,
+      preparePublished,
+      reportSkip,
+      wire: (envelope) => {
+        const stored = storedCopies.get(envelope);
+        if (stored) return wireOf(stored);
+        const schema = schemaOf(envelope.name);
+        if (!schema) return envelope;
+        // A transient event may hold a secret (S.Redacted): it is sent as "<redacted>".
+        const payload = wirePayloadOf(schema, envelope.payload);
+        return payload === envelope.payload ? envelope : { ...envelope, payload };
+      },
+      fromWire: (envelope) => {
+        const schema = schemaOf(envelope.name);
+        if (!schema) return envelope;
+        const decoded = decodeWirePayload(schema, envelope.payload);
+        return Either.isRight(decoded) && decoded.right !== envelope.payload
+          ? { ...envelope, payload: decoded.right }
+          : envelope;
+      },
       runInfo: (runId) => {
         const run = findRun(runId);
         return run && { principalId: run.owner?.principalId, outcome: run.outcome };
@@ -1285,6 +1595,46 @@ function awaitReplyWithin(
       onTimeout: () => new PublishAndAwaitTimeoutError(timeout),
     }),
   );
+}
+
+/**
+ * The payload schema of every event the network declares, by name (see
+ * `declaredEventDefinitions`): the first definition of a name wins. The wiring check warns when a
+ * name has different schemas (`event-schema-mismatch`).
+ */
+function eventSchemasOf(network: AgentNetwork): ReadonlyMap<string, S.Schema.Any> {
+  const schemas = new Map<string, S.Schema.Any>();
+  for (const { def } of declaredEventDefinitions(network)) {
+    if (!schemas.has(def.name)) schemas.set(def.name, def.payload);
+  }
+  return schemas;
+}
+
+/** The issue of an emit whose (encoded) payload is not JSON-compatible. */
+function notJsonIssue(error: NotJsonCompatibleError): ValidationIssue {
+  return {
+    path: error.path,
+    message:
+      `${error.what} is not JSON-compatible: events are stored as JSON, encoded with their ` +
+      'schema; give it a schema that encodes it (e.g. S.Date, not S.DateFromSelf)',
+  };
+}
+
+/** A stored event as it is sent: without its storage-only `channels`. */
+function wireOf(stored: StoredEvent): Envelope {
+  let wire = wireForms.get(stored);
+  if (!wire) {
+    const { channels: _channels, ...envelope } = stored;
+    wire = envelope;
+    wireForms.set(stored, wire);
+  }
+  return wire;
+}
+
+/** What tracers get of a fold checkpoint: which fold and read it is, not its (large) state. */
+function tracedCheckpoint(envelope: Envelope): Omit<FoldCheckpointPayload, 'state'> {
+  const { fold, version, through } = envelope.payload as FoldCheckpointPayload;
+  return { fold, version, through };
 }
 
 /** Serialize payload for span attributes; truncate if too long */
@@ -1438,13 +1788,21 @@ function handleEntry(
   });
   // `ctx.folds` of the invocation: cached per context (or run) in the plane, read over `history`.
   const metric = internals.metric;
-  const readFold = createFoldReader({
+  const foldReader = createFoldReader({
     history,
     cache: {
       cache: internals.foldCache,
       scope: { ...storeKeyOf(meta), runId: meta.runId },
       runActive: () => !runEnded(),
     },
+    // A read starts once the invocation's earlier emits are stored; with none pending, right away.
+    beforeRead: () => (unstored.size === 0 && !lostEmit ? undefined : awaitOwnEmits()),
+    // The runtime publishes a fold's checkpoint for the invocation, in order with its emits: so
+    // the read after it waits for it, and it never outruns an emit made before the compaction.
+    publishCheckpoint: ({ name, payload }) =>
+      enqueueEmit(name, (settle) => publishForRun([], { name, meta: emitMeta, payload }, settle)),
+    // Old history never breaks a read: what does not decode is left out, and reported.
+    onSkip: internals.reportSkip,
     ...(metric && {
       onRead: ({ fold, start, events }) =>
         metric({
@@ -1456,12 +1814,6 @@ function handleEntry(
         }),
     }),
   });
-  // A read starts once the invocation's earlier emits are stored; with none pending, right away.
-  const foldReader: FoldReader = (source) =>
-    unstored.size === 0 && !lostEmit
-      ? readFold(source)
-      : awaitOwnEmits().then(() => readFold(source));
-
   const invokeAndTrace = Effect.gen(function* () {
     const scope = yield* Effect.promise(() =>
       networkTracer.onAgentInvokeStart({ agentId, channel, trigger: envelope }),
@@ -1493,13 +1845,14 @@ function handleEntry(
           emit: (userEvent: { name: string; payload: unknown }) => {
             if (runEnded()) return;
             const targets = targetsFor(userEvent.name);
-            enqueueEmit(userEvent.name, (settle) =>
-              publishForRun(
-                targets,
-                { name: userEvent.name, meta: emitMeta, payload: userEvent.payload },
-                settle,
-              ),
-            );
+            const published: Envelope = {
+              name: userEvent.name,
+              meta: emitMeta,
+              payload: userEvent.payload,
+            };
+            // Captured now: changing the payload after the emit changes nothing stored.
+            internals.prepareEmit(published, attached);
+            enqueueEmit(userEvent.name, (settle) => publishForRun(targets, published, settle));
           },
           emitAndAwait: (
             userEvent: { name: string; payload: unknown },
@@ -1514,6 +1867,7 @@ function handleEntry(
               meta: { ...emitMeta, correlationId, eventId: crypto.randomUUID() },
               payload: userEvent.payload,
             };
+            internals.prepareEmit(request, attached);
             // The waiter lives until the invocation stops waiting.
             const waiting = Effect.runSync(Scope.make());
             const published = Deferred.unsafeMake<Effect.Effect<Envelope>>(FiberId.none);
@@ -1709,6 +2063,7 @@ export const startAgents = (
         scope,
         fiberRefs,
         delivered: new WeakSet(),
+        emitDefs: new Map((reg.agent.getEmits?.() ?? []).map((def) => [def.name, def])),
       };
       internals.attach(attached);
       yield* Effect.addFinalizer(() => Effect.sync(() => internals.detach(attached)));

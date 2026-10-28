@@ -191,16 +191,17 @@ describe('createInMemoryNetworkStore', () => {
   });
 
   describe('cursors', () => {
-    it('rejects a cursor it did not hand out', async () => {
+    it('reads a cursor it did not hand out like one of a history that is gone', async () => {
       const store = createInMemoryNetworkStore();
       await store.append(key('ctx'), event('ctx', 'a'));
+      const current = await store.readContext(key('ctx'));
 
-      await expect(store.readContext(key('ctx'), { before: 'nonsense' })).rejects.toThrow(
-        /invalid cursor/,
-      );
-      await expect(store.readContext(key('ctx'), { after: '1:x' })).rejects.toThrow(
-        /invalid cursor/,
-      );
+      // After it: the history from its start, flagged as a reset; before it: nothing.
+      expect(await store.readContext(key('ctx'), { after: '1:x' })).toEqual({
+        ...current,
+        reset: true,
+      });
+      expect(await store.readContext(key('ctx'), { before: 'nonsense' })).toEqual({ events: [] });
     });
 
     it('after a cursor of a deleted context, the new history is read from its start', async () => {
@@ -278,6 +279,80 @@ describe('createInMemoryNetworkStore', () => {
     });
   });
 
+  describe('the contract catches stores that break what the runtime relies on', () => {
+    /** Runs the contract against `createStore`; resolves with the cases that failed. */
+    const failingCases = async (createStore: () => AgentNetworkStore): Promise<string[]> => {
+      const cases: Array<[string, () => Promise<void>]> = [];
+      const path: string[] = [];
+      runStoreContract(
+        {
+          describe: (name, body) => {
+            path.push(name);
+            body();
+            path.pop();
+          },
+          it: (name, body) => {
+            cases.push([[...path.slice(1), name].join(' > '), body]);
+          },
+          expect: (actual) => ({ toEqual: (expected) => expect(actual).toEqual(expected) }),
+        },
+        createStore,
+      );
+      const failed: string[] = [];
+      for (const [name, body] of cases) await body().catch(() => failed.push(name));
+      return failed;
+    };
+
+    it('the in-memory store passes every case', async () => {
+      expect(await failingCases(() => createInMemoryNetworkStore())).toEqual([]);
+    });
+
+    it('a store that loses channels on context reads', async () => {
+      const failed = await failingCases(() => {
+        const inner = createInMemoryNetworkStore();
+        const strip = (event: StoredEvent): StoredEvent => {
+          const { channels: _channels, ...rest } = event;
+          return rest;
+        };
+        return {
+          ...inner,
+          readContext: async (storeKey, options) => {
+            const page = await inner.readContext(storeKey, options);
+            return { ...page, events: page.events.map(strip) };
+          },
+        };
+      });
+
+      expect(failed).toContain('append and read > keeps the channels an event was published to');
+    });
+
+    it('a store that turns stored JSON into other values (e.g. reviving dates)', async () => {
+      const failed = await failingCases(() => {
+        const inner = createInMemoryNetworkStore();
+        const revive = (event: StoredEvent): StoredEvent =>
+          JSON.parse(JSON.stringify(event), (_key, value: unknown) =>
+            typeof value === 'string' && /^\d{4}-\d\d-\d\dT/.test(value) ? new Date(value) : value,
+          ) as StoredEvent;
+        return {
+          ...inner,
+          readRun: async (k, runId) => (await inner.readRun(k, runId)).map(revive),
+        };
+      });
+
+      expect(failed).toContain(
+        'append and read > keeps JSON payloads exactly: encoded values, empty containers, unicode',
+      );
+    });
+
+    it('a store whose positions let a concurrent append land before a handed-out cursor', async () => {
+      const failed = await failingCases(sequencedStore);
+
+      expect(failed).toContain(
+        'after > an event appended concurrently never lands before a cursor already handed out',
+      );
+    });
+  });
+
   describe('types', () => {
     it('implements the async store interface', () => {
       const store = createInMemoryNetworkStore();
@@ -328,3 +403,41 @@ describe('createInMemoryNetworkStore', () => {
     });
   });
 });
+
+/**
+ * A toy store that numbers each event when its append starts and makes it visible when the append
+ * commits, in number order (a database sequence with transactions that commit out of order): an
+ * append that commits late lands before events that were already read. Cursors are numbers.
+ */
+function sequencedStore(): AgentNetworkStore {
+  let next = 0;
+  const logs = new Map<string, Array<{ readonly seq: number; readonly event: StoredEvent }>>();
+  const logOf = (storeKey: AgentNetworkStoreKey) => {
+    const id = JSON.stringify([storeKey.namespace, storeKey.contextId]);
+    const log = logs.get(id) ?? [];
+    logs.set(id, log);
+    return log;
+  };
+  return {
+    append: async (storeKey, event) => {
+      const seq = next++;
+      if (seq % 2 === 0) await new Promise((resolve) => setTimeout(resolve, 2));
+      const log = logOf(storeKey);
+      log.push({ seq, event });
+      log.sort((a, b) => a.seq - b.seq);
+    },
+    readRun: async (storeKey, runId) =>
+      logOf(storeKey)
+        .filter(({ event }) => event.meta.runId === runId)
+        .map(({ event }) => event),
+    readContext: async (storeKey, options = {}) => {
+      const after = options.after === undefined ? -1 : Number(options.after);
+      const newer = logOf(storeKey).filter(({ seq }) => seq > after);
+      const last = newer[newer.length - 1];
+      return {
+        events: newer.map(({ event }) => event),
+        ...(last !== undefined && { head: String(last.seq) }),
+      };
+    },
+  };
+}

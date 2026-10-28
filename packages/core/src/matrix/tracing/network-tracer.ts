@@ -54,6 +54,10 @@ export type NetworkTracer = {
     error?: Error,
     options?: NetworkTraceEndOptions,
   ): Promise<void>;
+  /**
+   * An event was published: once per channel it went to. A fold checkpoint
+   * (`m4trix:fold.checkpoint:*`) goes to no channel: it is reported once, with `channel` `''`.
+   */
   onEventPublish(event: {
     channel: string;
     name: string;

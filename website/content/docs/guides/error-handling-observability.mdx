@@ -60,7 +60,7 @@ if (isRunEndEnvelope(envelope) && envelope.name === RunLifecycleEvent.failed) {
 }
 ```
 
-`store-error` means a durable event could not be written to the network's store after 3 attempts: the event was not delivered and the run failed. Clients get a generic `NetworkStoreError` message; tracers get the store's own error as its `cause`. See [Write failures and ordering](../api-reference/agent-network.md#write-failures-and-ordering).
+`store-error` means a durable event could not be written to the network's store after 3 attempts: the event was not delivered and the run failed. (A payload JSON cannot hold never gets this far: an emit throws `EmitValidationError`, a publish from outside fails with `NonJsonPayloadError`; see [Validation](#validation).) Clients get a generic `NetworkStoreError` message; tracers get the store's own error as its `cause`. See [Write failures and ordering](../api-reference/agent-network.md#write-failures-and-ordering).
 
 ## Validation
 
@@ -68,11 +68,12 @@ Effect schemas on events, params and channels are checked at runtime, not only i
 
 | Boundary | Check | On failure |
 |----------|-------|------------|
-| HTTP request (`expose`) | Body is valid JSON; payload decodes with the trigger event's schema; `emitStartEvent` events decode with their definition | `ExposeValidationError`: the adapters answer `400 { error: 'invalid_request', issues }`. Runs after `auth`; no run, agent or trace starts |
-| Agent / tool emit | Event declared in `.emits()`; payload decodes with its schema; a publish channel accepts it | `EmitValidationError` thrown from `emit` (rejected from `emitAndAwait`); the event is not published; the invocation fails even if caught, so `onAgentError` applies (`kind: 'invalid-emit'`) |
+| HTTP request (`expose`) | Body is valid JSON; payload decodes with the trigger event's schema; `emitStartEvent` events decode with their definition and have no reserved `m4trix:` name; the start event's payload can be stored as JSON | `ExposeValidationError`: the adapters answer `400 { error: 'invalid_request', issues }`. Runs after `auth`; no run, agent or trace starts |
+| Agent / tool emit | Event declared in `.emits()`; payload decodes with its schema and, for a durable event, can be stored as JSON (encoded with its schema; a `toJSON` value's form decodes again); a publish channel accepts it | `EmitValidationError` thrown from `emit` (rejected from `emitAndAwait`); the event is not published; the invocation fails even if caught, so `onAgentError` applies (`kind: 'invalid-emit'`) |
 | Channel `.events([...])` | Published event is declared on the channel (`m4trix:*` always pass) | Agents: as above. External publishes: `publish` resolves `false` and the network `logger` warns |
+| External publish (`plane.publish*`, proxy `publish` / `publishInbound`) | The name is not a reserved `m4trix:` name; a durable event's payload can be stored as JSON | `ReservedEventNameError` or `NonJsonPayloadError` (`eventName`, `path`, `found`): in the effect's error channel (`plane.publish`, `publishToChannels`, `publishAndAwait`) or the rejected promise (proxies); nothing is published, nothing is retried, and the run goes on |
 | `.produce(params)` | Params decode with the `.params()` schema | `AgentParamsError` |
-| `AgentNetwork.setup()` | Wiring: emitted and listened events vs. channel declarations | `NetworkWiringError` listing every contradiction; smells go to `logger.warn` |
+| `AgentNetwork.setup()` | Wiring: emitted and listened events vs. channel declarations; no `S.Redacted` in durable event schemas | `NetworkWiringError` listing every contradiction; smells go to `logger.warn` |
 
 Decoded values are what flows on: a valid start event, emit or params value that is not exactly of the schema's type (e.g. raw model output) is decoded, so schema transformations apply and unknown properties are dropped; a value already of the type (from `event.make()`) passes unchanged.
 
@@ -232,6 +233,7 @@ const network = AgentNetwork.setup(setup, {
 | `m4trix.store.append.duration_ms` | histogram | `ms` | `status` (`ok` / `error`) | Each durable event's store write, retries included |
 | `m4trix.store.append.errors` | counter | `{error}` | `final` (no retry follows) | Each failed store write attempt |
 | `m4trix.fold.read.events` | histogram | `{event}` | `fold`, `start` (`cold` / `warm` / `reset`) | Each [context fold](../concepts/context.md) read: the events it folded. `cold`: nothing cached (from the newest checkpoint or the start); `warm`: continued the cached state; `reset`: the cached state belonged to a deleted or expired history and was rebuilt. Many cold reads point at a `foldCache` too small for the traffic |
+| `m4trix.fold.read.skipped` | counter | `{event}` | `fold`, `reason` (`decode` / `checkpoint` / `missing-segment`) | An event a [fold read left out](../concepts/context.md#stored-events-are-decoded): a stored event whose payload no longer decodes with its event's schema, a checkpoint that cannot be restored, or an event a segmented fold's `attach` found no segment for (`onMissing: 'report'`, the default). Once per event, fold and reason while the event plane remembers it (the last 1000 reported, least recently seen forgotten first), with a `logger.warn` that names the event |
 
 `NetworkMetric` is a discriminated union on `name`, so a `switch (metric.name)` narrows `attributes`. The handler runs synchronously on the hot path: keep it cheap (hand values to a metrics SDK, don't do I/O). A throwing handler never breaks the network; its first failure is logged as a warning, later ones are not.
 
@@ -274,7 +276,7 @@ registerAgent(loggerAgent).subscribe(main).subscribe(processing);
 
 ### Event Meta
 
-Every event has `meta.runId` and `meta.contextId`. On publish the plane fills in a unique `meta.eventId`, the publish time `meta.ts` and `meta.depth` (`0` for events published from outside the run's agents) when they are missing. Everything an agent emits gets `meta.causationId` (the `eventId` of the event it was handling), `depth + 1`, and its trigger's `meta.correlationId`; `emitAndAwait` requests get a fresh `correlationId` that replies inherit. Use these for distributed tracing and correlation.
+Every event has `meta.runId` and `meta.contextId`. On publish the plane fills in a unique `meta.eventId`, the publish time `meta.ts` and `meta.depth` (`0` for events published from outside the run's agents) when they are missing (a non-finite `ts` or `depth`, e.g. `NaN`, counts as missing). Everything an agent emits gets `meta.causationId` (the `eventId` of the event it was handling), `depth + 1`, and its trigger's `meta.correlationId`; `emitAndAwait` requests get a fresh `correlationId` that replies inherit. Use these for distributed tracing and correlation.
 
 ### NetworkTracer
 

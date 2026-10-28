@@ -3,6 +3,7 @@ import { describe, expect, expectTypeOf, test, vi } from 'vitest';
 import { AgentFactory } from '../agent-factory.js';
 import { AgentNetwork, type AgentNetworkSetupOptions } from '../agent-network/agent-network.js';
 import { AgentNetworkEvent } from '../agent-network/agent-network-event.js';
+import { ContextFold } from '../context/context-fold.js';
 import type { Envelope } from '../agent-network/event-plane.js';
 import { DEFAULT_RECONNECT_WINDOW, RunLifecycleEvent } from '../agent-network/run-lifecycle.js';
 import type { AgentNetworkStore } from '../agent-network/stores/agent-network-store.js';
@@ -221,6 +222,53 @@ describe('SSE resume (Last-Event-ID)', () => {
     ]);
     expect(fromEnd.map((s) => [s.name, s.id])).toEqual([
       [RunLifecycleEvent.completed, first.at(-1)?.id],
+    ]);
+  });
+
+  test('a fold checkpoint is never replayed, also from a store that drops channels', async () => {
+    const Log = ContextFold.of('log', { state: S.Array(S.String) })
+      .initial(() => [])
+      .on(start, (lines) => [...lines, 'start']);
+    const inner = createInMemoryNetworkStore();
+    // A store that loses `channels`: a resume falls back to the event's name and depth.
+    const store: AgentNetworkStore = {
+      ...inner,
+      append: (key, { channels: _dropped, ...event }) => inner.append(key, event),
+    };
+    const network = AgentNetwork.setup(
+      ({ mainChannel, createChannel, proxy, registerAgent, endsOn }) => {
+        const client = createChannel('client').proxy(proxy.sse()).events([progress, answer]);
+        registerAgent(
+          AgentFactory.run()
+            .listensTo([start])
+            .emits([progress, answer])
+            .folds([Log])
+            .logic(async ({ folds, emit }) => {
+              await folds.log.compact(() => ['summary']);
+              emit(progress.make({ step: 1 }));
+              emit(answer.make({ text: 'done' }));
+            })
+            .produce({}),
+        )
+          .subscribe(mainChannel)
+          .publishTo(client);
+        endsOn(answer);
+      },
+      { store },
+    );
+    const api = network.expose(registerSSEStream({ triggerEvents: [start] }));
+    const r = reader();
+    await api.createStream({ request: post(), contextId: 'c', runId: 'r' }, r.consume);
+
+    const replayed = await api.createStream(resumeRequest(r.startId() ?? ''), reader().consume);
+
+    expect(
+      (await inner.readRun({ namespace: 'anonymous', contextId: 'c' }, 'r')).map((e) => e.name),
+    ).toContain('m4trix:fold.checkpoint:log@1');
+    expect(replayed.map((s) => s.name)).toEqual([
+      'progress',
+      'answer',
+      RunLifecycleEvent.completed,
     ]);
   });
 

@@ -3,7 +3,7 @@ import type * as Duration from 'effect/Duration';
 import type { AgentNetworkEventDef } from './agent-network/agent-network-event.js';
 import type { Envelope } from './agent-network/event-plane.js';
 import { type EventHistory, emptyEventHistory } from './agent-network/history.js';
-import type { FoldSource } from './context/context-fold.js';
+import type { AnyContextFold } from './context/context-fold.js';
 import {
   createFoldReader,
   type FoldAccessors,
@@ -31,30 +31,38 @@ type LogicFn<
   TEmitEvent,
   TDeps extends DependencyLayerDef<string, unknown, S.Schema.Any>,
   TTools extends AnyToolDefinition,
-  TFolds extends FoldSource = never,
+  TFolds extends AnyContextFold = never,
 > = (
   ctx: {
     params: TParams;
     triggerEvent: TTriggerEvent;
     /**
      * Publishes one of the agent's declared `emits`, its payload decoded with the event's schema.
-     * Throws `EmitValidationError` for an undeclared event, an invalid payload or an event none of
-     * its channels accepts; the invocation then fails even if the error is caught.
+     * A durable event is stored encoded with that schema, as JSON, captured at the call (changing
+     * the payload afterwards changes nothing stored). Throws `EmitValidationError` for an
+     * undeclared event, an invalid payload (also one that does not encode to JSON, e.g. a `Date`
+     * under `S.DateFromSelf`) or an event none of its channels accepts; the invocation then fails
+     * even if the error is caught.
      */
     emit: (event: TEmitEvent) => void;
     /** Like `emit`, then waits for a matching reply; rejects with `EmitValidationError` likewise. */
     emitAndAwait: EmitAndAwaitFn<TEmitEvent>;
     layers: LayersFromDeps<TDeps>;
     tools: AgentToolCollection<TTools, TDeps, TEmitEvent>;
-    /** Durable event history of the run and its context, read on demand (see `EventHistory`). */
+    /**
+     * Durable event history of the run and its context, read on demand (see `EventHistory`):
+     * stored events, read-only, payloads encoded with their event's schema.
+     */
     history: EventHistory;
     /**
-     * The `.folds([...])` sources, by name: `await folds.conversation()` folds the context's
+     * The `.folds([...])` folds, by name: `await folds.conversation()` folds the context's
      * events into the fold's state (cached in a network, so only new events are folded) and
-     * returns it, or the view's result. Every call reads again, so a read after `emitAndAwait`
-     * sees the events published meanwhile. In a network, a read also includes every event this
-     * invocation emitted before it (it waits until they are stored), and rejects with
-     * `AgentAbortedError` when one of them never will be because the run is over.
+     * returns it, read-only and frozen (`FoldReadStateOf`: it may be the cached state, shared by
+     * every reader); pass it to a view (`ContextView.of`) to trim it to a budget. Every call reads
+     * again, so a read after `emitAndAwait` sees the events published meanwhile. In a network, a
+     * read also includes every event this invocation emitted before it (it waits until they are
+     * stored), and rejects with `AgentAbortedError` when one of them never will be because the run
+     * is over. `folds.<name>.compact(...)` replaces a fold's state for good (see `FoldCompact`).
      */
     folds: FoldAccessors<TFolds>;
     /** Who the run acts for (from `auth`); `undefined` for anonymous runs. */
@@ -97,8 +105,8 @@ export type AgentRuntimeOptions = {
   listensToEvents?: ReadonlyArray<EventDef>;
   /** Names of the `emits` that only answer an `emitAndAwait` (see `EmitsOptions.reply`). */
   replyEvents?: readonly string[];
-  /** The `.folds([...])` sources, read through `ctx.folds`. */
-  folds?: ReadonlyArray<FoldSource>;
+  /** The `.folds([...])` folds, read through `ctx.folds`. */
+  folds?: ReadonlyArray<AnyContextFold>;
 };
 
 export class Agent<
@@ -107,7 +115,7 @@ export class Agent<
   TEmitEvent = never,
   TDeps extends DependencyLayerDef<string, unknown, S.Schema.Any> = never,
   TTools extends AnyToolDefinition = never,
-  TFolds extends FoldSource = never,
+  TFolds extends AnyContextFold = never,
 > {
   #params: TParams;
   #logic: LogicFn<TParams, TTriggerEvent, TEmitEvent, TDeps, TTools, TFolds>;
@@ -120,7 +128,7 @@ export class Agent<
   #emits: ReadonlyArray<EventDef>;
   #listensToEvents: ReadonlyArray<EventDef>;
   #replyEvents: readonly string[];
-  #folds: ReadonlyArray<FoldSource>;
+  #folds: ReadonlyArray<AnyContextFold>;
 
   constructor(
     logic: LogicFn<TParams, TTriggerEvent, TEmitEvent, TDeps, TTools, TFolds>,
@@ -144,8 +152,8 @@ export class Agent<
     this.#folds = runtimeOptions?.folds ?? [];
   }
 
-  /** The sources `ctx.folds` reads (`.folds([...])`), in declaration order. */
-  getFolds(): ReadonlyArray<FoldSource> {
+  /** The folds `ctx.folds` reads (`.folds([...])`), in declaration order. */
+  getFolds(): ReadonlyArray<AnyContextFold> {
     return this.#folds;
   }
 
