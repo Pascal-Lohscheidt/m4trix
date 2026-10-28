@@ -1,18 +1,16 @@
-import { AgentFactory, EventAggregator, S, toOpenAITools } from '@m4trix/core';
+import { AgentFactory, ContextStrategy, EventAggregator, S, toOpenAITools } from '@m4trix/core';
 import {
-  type ChatView,
+  ChatView,
+  compactionChunks,
   compactionMessages,
   completesStep,
   Conversation,
-  needsCompaction,
   StepProgress,
-  splitForCompaction,
   toChatMessages,
 } from './context.js';
 import {
   AssistantDelta,
   AssistantMessage,
-  CompactionRequested,
   ContextCompacted,
   ModelStep,
   StepCompleted,
@@ -20,7 +18,7 @@ import {
   ToolResult,
   UserPrompt,
 } from './events.js';
-import { Model, Workspace } from './layers.js';
+import { type ChatMessage, Model, type ModelTool, Workspace } from './layers.js';
 import { codingTools } from './tools.js';
 
 function systemPrompt(root: string, instructions: string): string {
@@ -39,110 +37,102 @@ function systemPrompt(root: string, instructions: string): string {
   ].join('\n');
 }
 
-/** How long the model agent waits for the compactor's checkpoint. */
-const COMPACTION_TIMEOUT = '5 minutes';
-
 /**
- * Calls the model with the conversation's chat view; either answers (ends the turn) or asks for
- * tools. When the view no longer holds the whole conversation, it first has the compactor replace
- * the older part with a summary. Built per network: the view carries the CLI's token budget.
+ * Calls the model with the chat view of the conversation, at the network's token budget; either
+ * answers (ends the turn) or asks for tools. When the view no longer holds the whole conversation
+ * within budget, it first compacts it: the model summarizes the older part (an earlier summary
+ * included), the newest segments that fit `keepTokens` stay verbatim, always the newest one.
  */
-export function createModelAgent(chatView: ChatView) {
-  return AgentFactory.run()
-    .params(S.Struct({ instructions: S.String, maxSteps: S.Number, keepSegments: S.Number }))
-    .listensTo([UserPrompt, StepCompleted])
-    .emits([AssistantDelta, ModelStep, ToolCallRequested, AssistantMessage, CompactionRequested])
-    .dependsOn([Model, Workspace])
-    .folds([chatView, StepProgress])
-    .logic(async ({ params, emit, emitAndAwait, folds, layers, signal, reportUsage }) => {
-      const { steps } = await folds.stepProgress();
-      if (steps >= params.maxSteps) {
-        emit(
-          AssistantMessage.make({
-            text: `Stopped: reached the limit of ${params.maxSteps} tool steps for one turn.`,
-          }),
-        );
-        return;
-      }
-
-      // Includes the trigger and every tool result stored before it.
-      let chat = await folds.chat();
-      if (needsCompaction(chat, params.keepSegments)) {
-        // The context is quiet: this is the only active agent (all results of the last step are
-        // in), so nothing is published between the compactor's read and its checkpoint.
-        await emitAndAwait(
-          CompactionRequested.make({
-            tokens: chat.tokens,
-            budget: chat.budget,
-            keep: params.keepSegments,
-          }),
-          ContextCompacted.is,
-          { timeout: COMPACTION_TIMEOUT },
-        );
-        chat = await folds.chat(); // starts from the checkpoint
-      }
-
-      const response = await layers.Model.complete({
-        messages: [
-          { role: 'system', content: systemPrompt(layers.Workspace.root, params.instructions) },
-          ...toChatMessages(chat.state),
-        ],
-        tools: toOpenAITools(codingTools),
-        signal,
-        onText: (text) => emit(AssistantDelta.make({ text })),
-      });
+export const modelAgent = AgentFactory.run()
+  .params(
+    S.Struct({
+      instructions: S.String,
+      maxSteps: S.Number,
+      contextBudget: S.Number,
+      keepTokens: S.Number,
+    }),
+  )
+  .listensTo([UserPrompt, StepCompleted])
+  .emits([AssistantDelta, ModelStep, ToolCallRequested, AssistantMessage, ContextCompacted])
+  .dependsOn([Model, Workspace])
+  .folds([Conversation, StepProgress])
+  .logic(async ({ params, emit, folds, layers, signal, reportUsage }) => {
+    /** One model call, its usage reported for the run. */
+    const complete = async (
+      messages: ChatMessage[],
+      tools: ModelTool[],
+      onText: (delta: string) => void = () => {},
+    ) => {
+      const response = await layers.Model.complete({ messages, tools, signal, onText });
       if (response.usage) reportUsage({ ...response.usage, model: layers.Model.model });
+      return response;
+    };
 
-      if (response.toolCalls.length === 0) {
-        emit(AssistantMessage.make({ text: response.text }));
-        return;
-      }
-
-      const stepId = crypto.randomUUID();
-      emit(ModelStep.make({ stepId, text: response.text, toolCalls: response.toolCalls }));
-      for (const call of response.toolCalls) {
-        emit(
-          ToolCallRequested.make({
-            stepId,
-            callId: call.id,
-            name: call.name,
-            arguments: call.arguments,
-            count: response.toolCalls.length,
-          }),
-        );
-      }
-    });
-}
-
-/**
- * Answers `compaction-requested` with a `context-compacted` checkpoint: the newest segments stay
- * verbatim, everything older (an earlier summary included) becomes one summary written by the
- * model. Reads the whole conversation, not the trimmed view.
- */
-export const compactor = AgentFactory.run()
-  .listensTo([CompactionRequested])
-  .emits([ContextCompacted], { reply: true })
-  .dependsOn(Model)
-  .folds([Conversation])
-  .logic(async ({ triggerEvent, emit, folds, layers, signal, reportUsage }) => {
-    const conversation = await folds.conversation();
-    const { older, kept } = splitForCompaction(conversation, triggerEvent.payload.keep);
-    if (older.length === 0) {
-      // Nothing to summarize: confirm the state as it is.
-      emit(ContextCompacted.make({ summary: conversation.checkpoint ?? '', kept, summarized: 0 }));
+    const { steps } = await folds.stepProgress();
+    if (steps >= params.maxSteps) {
+      emit(
+        AssistantMessage.make({
+          text: `Stopped: reached the limit of ${params.maxSteps} tool steps for one turn.`,
+        }),
+      );
       return;
     }
 
-    const response = await layers.Model.complete({
-      messages: compactionMessages(conversation.checkpoint, older),
-      tools: [],
-      signal,
-      onText: () => {},
+    // Reads the conversation (the trigger and every tool result stored before it included) and
+    // compacts it first when the view does not fit and something is older than what it keeps.
+    // Events published meanwhile are kept: the runtime folds them on top of the summary.
+    const {
+      state: conversation,
+      compacted,
+      summarized,
+    } = await folds.conversation.compact({
+      view: ChatView,
+      budget: params.contextBudget,
+      keepTokens: params.keepTokens,
+      keepFrom: ContextStrategy.newest(), // the step the model is working on
+      summarize: async ({ summary, older }) => {
+        // A tool-less request per budget of transcript, each carrying the summary so far. The view
+        // fits on elided tool outputs, but `older` holds them in full, so a tool-heavy compaction
+        // often sends more than a budget; after a version bump of Conversation, all of the history.
+        const summarizeChunk = async (earlier: string | undefined, chunk: typeof older) =>
+          (await complete(compactionMessages(earlier, chunk), [])).text.trim();
+        const [first, ...rest] = compactionChunks(older, params.contextBudget);
+        let next = await summarizeChunk(summary, first);
+        for (const chunk of rest) next = await summarizeChunk(next, chunk);
+        return next;
+      },
     });
-    if (response.usage) reportUsage({ ...response.usage, model: layers.Model.model });
-    emit(ContextCompacted.make({ summary: response.text.trim(), kept, summarized: older.length }));
-  })
-  .produce({});
+    if (compacted) emit(ContextCompacted.make({ summarized }));
+    const chat = ChatView(conversation, { budget: params.contextBudget });
+
+    const response = await complete(
+      [
+        { role: 'system', content: systemPrompt(layers.Workspace.root, params.instructions) },
+        ...toChatMessages(chat.state),
+      ],
+      toOpenAITools(codingTools),
+      (text) => emit(AssistantDelta.make({ text })),
+    );
+
+    if (response.toolCalls.length === 0) {
+      emit(AssistantMessage.make({ text: response.text }));
+      return;
+    }
+
+    const stepId = crypto.randomUUID();
+    emit(ModelStep.make({ stepId, text: response.text, toolCalls: response.toolCalls }));
+    for (const call of response.toolCalls) {
+      emit(
+        ToolCallRequested.make({
+          stepId,
+          callId: call.id,
+          name: call.name,
+          arguments: call.arguments,
+          count: response.toolCalls.length,
+        }),
+      );
+    }
+  });
 
 /** Executes one tool call. Tool failures become results the model can read, never run failures. */
 export const toolRunner = AgentFactory.run()

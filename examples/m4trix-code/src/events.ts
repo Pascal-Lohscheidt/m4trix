@@ -9,8 +9,8 @@ import { AgentNetworkEvent, S } from '@m4trix/core';
  *
  * Everything durable lands in the network store, so the store *is* the conversation: the model
  * agent reads it as a budgeted context fold (`src/context.ts`) on every step. When it no longer
- * fits, the model agent asks the compactor (`compaction-requested`), which answers with a
- * `context-compacted` checkpoint.
+ * fits, the model agent compacts it (`folds.conversation.compact`): the runtime stores that as the
+ * fold's checkpoint, and the terminal gets a `context-compacted` notice.
  */
 
 /** Start event of a turn, published on `main`. */
@@ -80,31 +80,17 @@ export const Entry = S.Union(
 );
 export type Entry = typeof Entry.Type;
 
-/** The model agent asks the compactor to compact the conversation (an `emitAndAwait`). */
-export const CompactionRequested = AgentNetworkEvent.of(
-  'compaction-requested',
-  S.Struct({
-    /** Tokens of the chat view, and its budget, when compaction was asked for. */
-    tokens: S.Number,
-    budget: S.Number,
-    /** Newest segments to keep verbatim; everything older is summarized. */
-    keep: S.Number,
-  }),
-);
-
 /**
- * The compactor's answer and the conversation's checkpoint: self-contained, it replaces the folded
- * state (a summary of everything older, plus the segments kept verbatim). A cold rebuild of the
- * conversation starts at the newest one.
+ * Shown in the terminal: the model agent compacted the conversation. Transient (never stored): the
+ * compaction itself is the fold's checkpoint, which the runtime stores and never streams.
  */
 export const ContextCompacted = AgentNetworkEvent.of(
   'context-compacted',
   S.Struct({
-    summary: S.String,
-    kept: S.Array(S.Struct({ id: S.String, data: Entry })),
-    /** How many segments the summary replaced (for display). */
+    /** How many segments the new summary replaced. */
     summarized: S.Number,
   }),
+  { transient: true },
 );
 
 /** A tool wants to change something; answered by the client with `permission-resolved`. */

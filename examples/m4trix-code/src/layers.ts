@@ -111,7 +111,7 @@ export function createOpenAIModel(options: { apiKey: string; model: string; base
         body: JSON.stringify({
           model: options.model,
           messages,
-          // The API rejects an empty tools array (the compactor calls the model without tools).
+          // The API rejects an empty tools array (a compaction's summary call has no tools).
           ...(tools.length > 0 ? { tools } : {}),
           stream: true,
           stream_options: { include_usage: true },

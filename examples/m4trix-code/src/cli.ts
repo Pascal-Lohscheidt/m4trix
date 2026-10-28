@@ -4,7 +4,6 @@ import { readFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { createInterface, type Interface } from 'node:readline/promises';
 import { fileURLToPath } from 'node:url';
-import { parseArgs } from 'node:util';
 import {
   type Envelope,
   type EventPlane,
@@ -24,25 +23,16 @@ import {
   ToolResult,
   UserPrompt,
 } from './events.js';
-import { DEFAULT_CONTEXT_BUDGET } from './context.js';
 import { createOpenAIModel, createWorkspace } from './layers.js';
 import { createCoderNetwork } from './network.js';
+import { openSession } from './session.js';
+import { parseCliArgs } from './args.js';
 
 // The package's own .env (OPENAI_API_KEY, M4TRIX_CODE_MODEL); variables already set in the shell win.
 const envFile = fileURLToPath(new URL('../.env', import.meta.url));
 if (existsSync(envFile)) process.loadEnvFile(envFile);
 
-const { values: args } = parseArgs({
-  options: {
-    print: { type: 'string', short: 'p' },
-    cwd: { type: 'string', default: process.cwd() },
-    model: { type: 'string', default: process.env.M4TRIX_CODE_MODEL ?? 'gpt-5.4' },
-    yes: { type: 'boolean', short: 'y', default: false },
-    'max-steps': { type: 'string', default: '60' },
-    'context-budget': { type: 'string', default: String(DEFAULT_CONTEXT_BUDGET) },
-    trace: { type: 'boolean', default: false },
-  },
-});
+const args = parseCliArgs(process.argv.slice(2), process.env);
 
 const color = {
   dim: (s: string) => `\x1b[2m${s}\x1b[0m`,
@@ -83,11 +73,21 @@ if (!Number.isInteger(contextBudget) || contextBudget <= 0) {
   );
   process.exit(1);
 }
+// With --session, the conversation is kept in that directory and the next start continues it;
+// without, it lives in memory and ends with the process.
+const sessionDir = args.session === undefined ? undefined : resolve(args.session);
+const saved = sessionDir
+  ? await openSession(sessionDir).catch((error: Error) => {
+      console.error(color.red(`Cannot open the session: ${error.message}`));
+      process.exit(1);
+    })
+  : undefined;
 const network = createCoderNetwork({
   instructions: await loadInstructions(root),
   maxSteps,
   contextBudget,
   consoleTracing: args.trace,
+  store: saved?.store,
 });
 const layers = {
   Model: createOpenAIModel({ apiKey, model: args.model }),
@@ -95,8 +95,8 @@ const layers = {
 };
 
 /**
- * One plane for the whole session: its agents keep running between turns, and its store keeps the
- * conversation, so every turn of a session shares one context.
+ * One plane for the whole process: its agents keep running between turns, and its store keeps the
+ * conversation (in memory, or in the `--session` directory), so every turn shares one context.
  */
 function startPlane(): Promise<EventPlane> {
   return new Promise((resolvePlane, reject) => {
@@ -111,7 +111,7 @@ function startPlane(): Promise<EventPlane> {
 }
 
 const plane = await startPlane();
-const session = network.expose(
+const api = network.expose(
   registerSSEStream({
     channel: 'client',
     plane,
@@ -196,23 +196,27 @@ async function answerPermission(
     atLineStart = true;
   }
 
-  await session.publish(
-    PermissionResolved.make({ requestId: request.requestId, approved, reason }),
-    {
-      target: 'channel',
-      meta: {
-        runId: envelope.meta.runId,
-        contextId: envelope.meta.contextId,
-        correlationId: envelope.meta.correlationId,
-      },
+  await api.publish(PermissionResolved.make({ requestId: request.requestId, approved, reason }), {
+    target: 'channel',
+    meta: {
+      runId: envelope.meta.runId,
+      contextId: envelope.meta.contextId,
+      correlationId: envelope.meta.correlationId,
     },
-  );
+  });
 }
+
+/** Whether the text of the current model response was shown live, delta by delta. */
+let streamed = false;
 
 async function render(envelope: Envelope): Promise<'ok' | 'failed'> {
   if (AssistantDelta.is(envelope)) {
     write(envelope.payload.text);
+    streamed = true;
   } else if (ModelStep.is(envelope) || AssistantMessage.is(envelope)) {
+    // An answer nothing was streamed for (e.g. the step limit's) is shown whole.
+    if (AssistantMessage.is(envelope) && !streamed) write(envelope.payload.text);
+    streamed = false;
     if (!atLineStart) line();
   } else if (ToolCallRequested.is(envelope)) {
     const { name, arguments: rawArguments } = envelope.payload;
@@ -252,14 +256,14 @@ async function render(envelope: Envelope): Promise<'ok' | 'failed'> {
 // Turns
 // ---------------------------------------------------------------------------------------------
 
-let contextId = crypto.randomUUID();
+let contextId = saved?.contextId ?? crypto.randomUUID();
 let activeTurn: AbortController | undefined;
 
 async function runTurn(text: string): Promise<'ok' | 'failed'> {
   const controller = new AbortController();
   activeTurn = controller;
   try {
-    return await session.createStream(
+    return await api.createStream(
       {
         contextId,
         runId: crypto.randomUUID(),
@@ -292,6 +296,10 @@ process.on('SIGINT', () => {
 });
 
 line(color.dim(`m4trix-code · ${args.model} · ${root}`));
+if (saved) {
+  const conversation = saved.resumed ? 'continues conversation' : 'new conversation';
+  line(color.dim(`session ${sessionDir} · ${conversation} ${contextId}`));
+}
 
 if (args.print !== undefined) {
   const status = await runTurn(args.print);
@@ -308,7 +316,8 @@ while (true) {
     continue;
   }
   if (text === '/clear') {
-    contextId = crypto.randomUUID();
+    // The old conversation stays in the session's store; the next start continues the new one.
+    contextId = saved ? await saved.newContext() : crypto.randomUUID();
     line(color.dim('Started a fresh conversation.'));
     continue;
   }
