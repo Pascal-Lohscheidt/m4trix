@@ -74,7 +74,7 @@ function ClientPane({
   phase: Phase;
   decision: Decision | null;
   onDecide: (d: Decision) => void;
-  countdownRef: React.RefObject<HTMLSpanElement | null>;
+  countdownRef: React.RefObject<HTMLSpanElement>;
 }) {
   const plan = events.find((e) => e.name === 'plan');
   const steps = (plan?.payload.steps as string[] | undefined) ?? [];
