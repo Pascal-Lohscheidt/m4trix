@@ -44,11 +44,17 @@ jobs:
           fi
           VERSION="${TAG#@m4trix/tracing@}"
           # Same guard as the tag-before-publish order in CircleCI: never ship an image for a
-          # version that is not on npm.
-          if [ "$(npm view "@m4trix/tracing@$VERSION" version 2>/dev/null)" != "$VERSION" ]; then
-            echo "::error::@m4trix/tracing@$VERSION is not on npm"
-            exit 1
-          fi
+          # version that is not on npm. CircleCI pushes the tag right after `npm publish`, and the
+          # registry can take a few minutes to show the new version, so wait up to 10 minutes.
+          for attempt in $(seq 1 40); do
+            if [ "$(npm view "@m4trix/tracing@$VERSION" version 2>/dev/null)" = "$VERSION" ]; then break; fi
+            if [ "$attempt" = 40 ]; then
+              echo "::error::@m4trix/tracing@$VERSION is not on npm"
+              exit 1
+            fi
+            echo "@m4trix/tracing@$VERSION is not on npm yet (attempt $attempt/40); retrying in 15 s"
+            sleep 15
+          done
           # `latest` follows the newest release only, so rebuilding an older one does not move it.
           NEWEST=$(git ls-remote --tags --refs "https://github.com/$GITHUB_REPOSITORY.git" 'refs/tags/@m4trix/tracing@*' \
             | sed 's#.*refs/tags/@m4trix/tracing@##' | sort -V | tail -1)
