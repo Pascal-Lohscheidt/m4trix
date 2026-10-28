@@ -36,15 +36,20 @@ commands:
           name: Push release tag
           command: pnpm exec jiti scripts/push-release-tag.ts << parameters.scope >>
 
+# `test` runs on the oldest supported Node (core: engines >=20), every other job on cimg/node:22.
+# The global pnpm of both images runs the `packageManager` version from package.json (pnpm 9), which
+# reads pnpm-lock.yaml; `--frozen-lockfile` fails the install instead of silently re-resolving when
+# the lockfile cannot be used. (cimg/node:20.0 shipped pnpm 8.3, which ignored the v9 lockfile and
+# resolved the lowest matching versions.)
 jobs:
   test:
     docker:
-      - image: cimg/node:20.0
+      - image: cimg/node:20.20.2
     steps:
       - checkout
       - run:
           name: Install dependencies
-          command: pnpm install
+          command: pnpm install --frozen-lockfile
       - run:
           name: Typecheck (sources and specs)
           command: pnpm run typecheck
@@ -73,12 +78,12 @@ jobs:
 
   build:
     docker:
-      - image: cimg/node:20.0
+      - image: cimg/node:22.23.3
     steps:
       - checkout
       - run:
           name: Install dependencies
-          command: pnpm install
+          command: pnpm install --frozen-lockfile
       - run:
           name: Build packages
           command: pnpm exec turbo run build
@@ -88,12 +93,12 @@ jobs:
 
   audit:
     docker:
-      - image: cimg/node:20.0
+      - image: cimg/node:22.23.3
     steps:
       - checkout
       - run:
           name: Install dependencies
-          command: pnpm install
+          command: pnpm install --frozen-lockfile
       - run:
           # Fails only on high/critical advisories in production dependencies of published
           # packages; devDependencies, website and examples are ignored. Transient registry
@@ -108,7 +113,7 @@ jobs:
       - checkout
       - run:
           name: Install dependencies
-          command: pnpm install
+          command: pnpm install --frozen-lockfile
       - run:
           name: Check if core package should be published
           command: pnpm exec jiti scripts/check-package-scope.ts core || circleci step halt
@@ -132,7 +137,7 @@ jobs:
       - checkout
       - run:
           name: Install dependencies
-          command: pnpm install
+          command: pnpm install --frozen-lockfile
       - run:
           name: Check if evals package should be published
           command: pnpm exec jiti scripts/check-package-scope.ts evals || circleci step halt
@@ -156,7 +161,7 @@ jobs:
       - checkout
       - run:
           name: Install dependencies
-          command: pnpm install
+          command: pnpm install --frozen-lockfile
       - run:
           name: Check if stream package should be published
           command: pnpm exec jiti scripts/check-package-scope.ts stream || circleci step halt
@@ -180,7 +185,7 @@ jobs:
       - checkout
       - run:
           name: Install dependencies
-          command: pnpm install
+          command: pnpm install --frozen-lockfile
       - run:
           name: Check if react package should be published
           command: pnpm exec jiti scripts/check-package-scope.ts react || circleci step halt
@@ -204,7 +209,7 @@ jobs:
       - checkout
       - run:
           name: Install dependencies
-          command: pnpm install
+          command: pnpm install --frozen-lockfile
       - run:
           name: Check if tracing package should be published
           command: pnpm exec jiti scripts/check-package-scope.ts tracing || circleci step halt
@@ -229,7 +234,7 @@ jobs:
       - checkout
       - run:
           name: Install dependencies
-          command: pnpm install
+          command: pnpm install --frozen-lockfile
       - run:
           name: Check if trace-viewer package should be published
           command: pnpm exec jiti scripts/check-package-scope.ts trace-viewer || circleci step halt
@@ -253,7 +258,7 @@ jobs:
       - checkout
       - run:
           name: Install dependencies
-          command: pnpm install
+          command: pnpm install --frozen-lockfile
       - run:
           name: Check if ui package should be published
           command: pnpm exec jiti scripts/check-package-scope.ts ui || circleci step halt
