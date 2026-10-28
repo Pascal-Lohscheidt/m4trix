@@ -1,0 +1,90 @@
+# Builds and pushes ghcr.io/pascal-lohscheidt/m4trix-tracing-sidecar for every @m4trix/tracing
+# release. CircleCI pushes the release tag only after `npm publish` succeeded
+# (scripts/push-release-tag.ts), so a tag means "this version is on npm" and the image gets the
+# same version. Run it by hand to (re)build an existing release, e.g. one whose image is missing.
+name: Tracing sidecar image
+
+on:
+  push:
+    tags:
+      - '@m4trix/tracing@*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to build, e.g. @m4trix/tracing@0.11.1
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: tracing-sidecar-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+env:
+  IMAGE: ghcr.io/pascal-lohscheidt/m4trix-tracing-sidecar
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Resolve the release
+        id: release
+        env:
+          TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+        run: |
+          if [[ ! "$TAG" =~ ^@m4trix/tracing@[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Not a tracing release tag: $TAG"
+            exit 1
+          fi
+          VERSION="${TAG#@m4trix/tracing@}"
+          # Same guard as the tag-before-publish order in CircleCI: never ship an image for a
+          # version that is not on npm.
+          if [ "$(npm view "@m4trix/tracing@$VERSION" version 2>/dev/null)" != "$VERSION" ]; then
+            echo "::error::@m4trix/tracing@$VERSION is not on npm"
+            exit 1
+          fi
+          # `latest` follows the newest release only, so rebuilding an older one does not move it.
+          NEWEST=$(git ls-remote --tags --refs "https://github.com/$GITHUB_REPOSITORY.git" 'refs/tags/@m4trix/tracing@*' \
+            | sed 's#.*refs/tags/@m4trix/tracing@##' | sort -V | tail -1)
+          TAGS="$IMAGE:$VERSION"
+          if [ "$VERSION" = "$NEWEST" ]; then TAGS="$TAGS,$IMAGE:latest"; fi
+          {
+            echo "tag=$TAG"
+            echo "version=$VERSION"
+            echo "tags=$TAGS"
+          } >> "$GITHUB_OUTPUT"
+          echo "Tracing sidecar $VERSION (newest release: $NEWEST) → $TAGS"
+
+      - uses: actions/checkout@v7
+        with:
+          ref: refs/tags/${{ steps.release.outputs.tag }}
+
+      - uses: docker/setup-qemu-action@v4
+      - uses: docker/setup-buildx-action@v4
+
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v7
+        with:
+          # The checked-out tag, so packages/tracing/Dockerfile.dockerignore applies.
+          context: .
+          file: packages/tracing/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.release.outputs.tags }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.version=${{ steps.release.outputs.version }}
+            org.opencontainers.image.title=m4trix-tracing-sidecar
+            org.opencontainers.image.description=Ships @m4trix/tracing traces from a shared volume to DynamoDB and S3
+            org.opencontainers.image.licenses=MIT
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

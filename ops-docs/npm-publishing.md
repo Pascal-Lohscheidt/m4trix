@@ -13,7 +13,7 @@ truth, `package.json` versions are never committed.
 test ─┐
 audit ┴─> build ─> publish-core, publish-evals, publish-stream, publish-react, publish-ui
                    publish-tracing ─> publish-trace-viewer
-                                   └> publish-tracing-sidecar (GHCR image)
+                                   └> tracing tag ─> GitHub Actions: sidecar image (GHCR)
 ```
 
 Each `publish-<scope>` job runs, in order:
@@ -99,6 +99,29 @@ After the first successful OIDC release:
 3. Optionally set each package to **Require 2FA and disallow tokens** — trusted publishing keeps
    working with that setting.
 
+## Tracing sidecar image (GitHub Actions)
+
+`ghcr.io/pascal-lohscheidt/m4trix-tracing-sidecar` is built by
+`.github/workflows/tracing-sidecar.yml`, not by CircleCI. It runs when an `@m4trix/tracing@*` tag
+is pushed, which `publish-tracing` does only after `npm publish` succeeded, so every image version
+is a version on npm:
+
+- The image gets the tag's version (`@m4trix/tracing@0.12.0` → `:0.12.0`) and `:latest`, but
+  `:latest` only when it is the newest tracing tag, so rebuilding an older release does not move it.
+- The workflow refuses tags that are not tracing release tags and versions that are not on npm.
+- Images are multi-platform (`linux/amd64`, `linux/arm64`). The bundle is built once on the
+  runner's platform (`FROM --platform=$BUILDPLATFORM` in `packages/tracing/Dockerfile`).
+- It pushes with the workflow's `GITHUB_TOKEN` (`packages: write`); no secret is stored.
+- Tags pushed by CircleCI's deploy key start workflows; tags pushed with a workflow's
+  `GITHUB_TOKEN` would not.
+
+**Rebuild or backfill a release:** Actions → *Tracing sidecar image* → *Run workflow*, with the
+release tag (e.g. `@m4trix/tracing@0.11.1`). It builds the Dockerfile at that tag.
+
+**One-time setup after the first image:** the image is linked to the repository through its
+`org.opencontainers.image.source` label. New packages on a personal account start private: set
+it to public under the package's *Package settings → Change visibility*.
+
 ## Adding a new published package
 
 1. Add the scope to the maps in `scripts/changelog-config.ts`, `scripts/bump-and-tag.ts` and
@@ -158,3 +181,11 @@ manually on the commit that was released:
 git tag '@m4trix/<scope>@<version>' <released-commit-sha>
 git push origin '@m4trix/<scope>@<version>'
 ```
+
+For `tracing`, pushing the tag also starts the sidecar image workflow.
+
+### Sidecar image push fails with `denied` / `permission_denied: write_package`
+
+The package exists but the repository's workflows may not write to it, e.g. because it was first
+pushed by hand. In the package's *Package settings → Manage Actions access*, add
+`Pascal-Lohscheidt/m4trix` with the *Write* role, then re-run the workflow.

@@ -1,7 +1,9 @@
 # Build context: repository root
 # docker build -f packages/tracing/Dockerfile -t ghcr.io/pascal-lohscheidt/m4trix-tracing-sidecar .
 
-FROM node:24-slim AS build
+# The bundle is plain JavaScript, so it is built once on the build host's platform, also for
+# multi-platform images (no emulated pnpm install per platform).
+FROM --platform=$BUILDPLATFORM node:24-slim AS build
 WORKDIR /app
 RUN corepack enable
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
