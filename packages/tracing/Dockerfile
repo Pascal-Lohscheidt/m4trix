@@ -20,7 +20,12 @@ RUN pnpm --filter @m4trix/tracing run build:sidecar
 FROM node:24-slim
 WORKDIR /app
 COPY --from=build /app/packages/tracing/dist/trace-shipper-cli.mjs /app/packages/tracing/dist/trace-shipper-cli.cdx.json ./
-RUN mkdir /traces && chown node:node /traces
+# Only `node` runs here: npm, npx, corepack and yarn are removed, so their bundled dependencies
+# can neither be used nor fail the vulnerability scan.
+RUN rm -rf /usr/local/lib/node_modules /opt/yarn-v* \
+      /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack \
+      /usr/local/bin/yarn /usr/local/bin/yarnpkg \
+ && mkdir /traces && chown node:node /traces
 USER node
 ENV NODE_ENV=production \
     TRACE_ROOT=/traces

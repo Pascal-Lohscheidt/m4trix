@@ -617,7 +617,7 @@ docker run --rm \
 Mount the same volume in your application container at `/traces` and point both processes at
 that path (`FsStructureStoreAdapter` / `FsPayloadStoreAdapter` with `path: "/traces"`).
 
-The image runs Node 24 as the non-root `node` user (uid 1000) and contains only the bundled CLI.
+The image runs Node 24 as the non-root `node` user (uid 1000) and contains only the bundled CLI (no npm, npx, corepack or yarn).
 The sidecar deletes shipped files, so it needs write access to what the app writes: run both
 containers with the same user / group, or set a shared `fsGroup` in Kubernetes.
 
