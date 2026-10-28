@@ -18,6 +18,18 @@ const side = ChannelName('side');
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
+/**
+ * Waits until `done()` holds instead of sleeping a fixed time: on a loaded CI machine the agents
+ * can take far longer than locally. Fails after `ms` if it never holds.
+ */
+async function until(done: () => boolean, ms = 5_000): Promise<void> {
+  const deadline = Date.now() + ms;
+  while (!done()) {
+    if (Date.now() > deadline) throw new Error(`condition not met within ${ms}ms`);
+    await sleep(5);
+  }
+}
+
 /** A promise with its resolver, for holding an agent until the test lets it go. */
 function gate(): { wait: Promise<void>; open: () => void } {
   let open = (): void => {};
@@ -125,7 +137,9 @@ describe('event plane concurrency', () => {
         yield* plane.publish(main, job.makeBound(meta('run-1'), { n }));
         yield* plane.publish(main, job.makeBound(meta('run-2'), { n }));
       }
-      yield* Effect.promise(() => sleep(120));
+      yield* Effect.promise(() =>
+        until(() => ['run-1', 'run-2'].every((runId) => (seen.get(runId)?.length ?? 0) >= 5)),
+      );
     });
 
     await Effect.runPromise(program.pipe(Effect.scoped));
@@ -160,7 +174,7 @@ describe('event plane concurrency', () => {
       for (let n = 0; n < 6; n++) {
         yield* plane.publish(main, job.makeBound(meta(`run-${n}`), { n }));
       }
-      yield* Effect.promise(() => sleep(120));
+      yield* Effect.promise(() => until(() => finished >= 6));
     });
 
     await Effect.runPromise(program.pipe(Effect.scoped));
@@ -314,7 +328,9 @@ describe('event plane concurrency', () => {
       yield* plane.publish(side, job.makeBound(meta('run-1'), { n: 1 }));
       yield* plane.publishToChannels(both, job.makeBound(meta('run-1'), { n: 2 }));
       yield* plane.publish(side, job.makeBound(meta('run-1'), { n: 3 }));
-      yield* Effect.promise(() => sleep(80));
+      // A duplicate of n: 2 would sit next to it in the run's ordered inbox, so it shows up within
+      // the first four.
+      yield* Effect.promise(() => until(() => seen.length >= 4));
     });
 
     await Effect.runPromise(program.pipe(Effect.scoped));
@@ -432,13 +448,15 @@ describe('event plane concurrency', () => {
     const program = Effect.gen(function* () {
       const plane = yield* network.run({ capacity: 2 });
       yield* plane.publish(main, job.makeBound(meta('run-1'), { n: 0 }));
-      yield* Effect.promise(() => sleep(150));
+      yield* Effect.promise(() => until(() => seen.length >= 6));
     });
 
     await Effect.runPromise(program.pipe(Effect.scoped));
 
     expect(waitedMs).toBeDefined();
-    expect(waitedMs).toBeLessThan(500);
+    // Well before the 3 s timeout a reply stuck behind the full mailbox would run into (with room
+    // for a loaded CI machine).
+    expect(waitedMs).toBeLessThan(2_000);
     // The jobs that overflowed X's mailbox were not lost, and kept their order.
     expect(seen).toEqual([0, 1, 2, 3, 4, 5]);
   });

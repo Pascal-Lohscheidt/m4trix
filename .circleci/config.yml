@@ -63,7 +63,9 @@ jobs:
             pnpm --filter @m4trix/core check:runtime
       - run:
           name: Run tests
-          command: pnpm exec vitest --typecheck --run --reporter=default --reporter=junit --outputFile.junit=test-results/vitest.xml
+          # Docker executors report the host's CPU count, not the job's (large: 4), so vitest would
+          # start far more workers than there are CPUs and time-sensitive tests would starve.
+          command: pnpm exec vitest --typecheck --run --maxWorkers=4 --reporter=default --reporter=junit --outputFile.junit=test-results/vitest.xml
       - store_test_results:
           path: test-results
       - store_artifacts:
@@ -71,7 +73,7 @@ jobs:
           destination: test-results
       - run:
           name: Generate coverage
-          command: pnpm run test:coverage
+          command: pnpm run test:coverage --maxWorkers=4
       - store_artifacts:
           path: coverage
           destination: coverage

@@ -411,7 +411,7 @@ describe('run limits', () => {
       expect(capped?.events.filter((e) => e.name === 'ping')).toHaveLength(999);
       expect(capped?.events.at(-1)).toMatchObject(limitFailure('events', 1000));
       expect(uncapped?.outcome.status).toBe('completed');
-    });
+    }, 30_000); // Two runs of 1000 events each: seconds on a loaded CI machine.
 
     test('publish resolves to false for an event over the limit', async () => {
       const network = AgentNetwork.setup(() => {}, { maxEvents: 1 });

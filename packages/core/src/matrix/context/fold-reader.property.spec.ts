@@ -219,12 +219,15 @@ async function runSeed(seed: number, variant: Variant): Promise<void> {
   expect({ seed, variant, cold }).toEqual({ seed, variant, cold: await reference(inner, plain) });
 }
 
+/** Every seed replays its whole history after each step: seconds on a loaded CI machine. */
+const VARIANT_TIMEOUT_MS = 60_000;
+
 describe('compaction: warm reads and cold reads always equal the reference semantics', () => {
-  test.each<Variant>([
-    'plain',
-    'json-clone',
-    'noncanonical-cursors',
-  ])('%s store, %#', async (variant) => {
-    for (let seed = 1; seed <= SEEDS; seed++) await runSeed(seed, variant);
-  });
+  test.each<Variant>(['plain', 'json-clone', 'noncanonical-cursors'])(
+    '%s store, %#',
+    async (variant) => {
+      for (let seed = 1; seed <= SEEDS; seed++) await runSeed(seed, variant);
+    },
+    VARIANT_TIMEOUT_MS,
+  );
 });
