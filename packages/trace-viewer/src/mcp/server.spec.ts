@@ -88,4 +88,26 @@ describe('createTraceMcpServer', () => {
     const result = await call('list_traces', { limit: 0 });
     expect(result.isError).toBe(true);
   });
+
+  it('bounds array arguments and rejects oversized ones on their length alone', async () => {
+    const { tools } = await client.listTools();
+    const maxItems = (tool: string, field: string): number | undefined =>
+      (
+        tools.find((entry) => entry.name === tool)?.inputSchema.properties as Record<
+          string,
+          { maxItems?: number }
+        >
+      )[field]?.maxItems;
+    expect(maxItems('find_runs', 'traceIds')).toBe(500);
+    expect(maxItems('find_runs', 'type')).toBe(50);
+    expect(maxItems('load_trace_payloads', 'traceIds')).toBe(100);
+    expect(maxItems('search_payloads', 'traceIds')).toBe(20);
+    expect(maxItems('search_payloads', 'runType')).toBe(50);
+
+    // Each element would fail `min(1)`; an unbounded array would report 10k issues.
+    const result = await call('find_runs', { traceIds: Array(10_000).fill('') });
+    expect(result.isError).toBe(true);
+    expect(textOf(result)).toContain('traceIds');
+    expect(textOf(result).length).toBeLessThan(1_000);
+  });
 });

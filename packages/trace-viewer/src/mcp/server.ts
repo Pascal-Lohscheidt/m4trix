@@ -32,6 +32,11 @@ const traceIdField = z.string().min(1).describe('Trace id, unique prefix, or "la
 const runIdField = z.string().min(1).describe('Run id or unique prefix within the trace.');
 const sideField = z.enum(['input', 'output']);
 const statusField = z.enum(['running', 'success', 'error', 'cancelled']);
+/**
+ * Every array argument is length-bounded: zod (>= 4.6.6) then rejects an oversized array before
+ * validating its elements, instead of collecting one issue per element (GHSA-mrhx-c7xc-m3w5).
+ */
+const runTypesField = z.array(z.string()).max(50);
 
 const readOnly = { readOnlyHint: true, openWorldHint: false } as const;
 
@@ -79,7 +84,7 @@ export function createTraceMcpServer(options: TraceMcpServerOptions): McpServer 
         userId: z.string().optional(),
         name: z.string().optional().describe('Case-insensitive regex against the trace name.'),
         metadata: z
-          .record(scalar)
+          .record(z.string(), scalar)
           .optional()
           .describe('Exact match on trace metadata, e.g. { "env": "dev" }.'),
         since: z.string().optional().describe('ISO timestamp; only traces started after it.'),
@@ -126,16 +131,17 @@ export function createTraceMcpServer(options: TraceMcpServerOptions): McpServer 
       inputSchema: {
         traceIds: z
           .array(z.string().min(1))
+          .max(500)
           .optional()
           .describe('Defaults to the newest traceLimit traces.'),
         traceLimit: z.number().int().positive().max(500).optional().describe('Default 20.'),
-        type: z.array(z.string()).optional().describe('Run types, e.g. ["tool", "chat_model"].'),
+        type: runTypesField.optional().describe('Run types, e.g. ["tool", "chat_model"].'),
         name: z.string().optional().describe('Case-insensitive regex against run names.'),
         status: statusField.optional(),
         errorContains: z.string().optional(),
         minLatencyMs: z.number().nonnegative().optional(),
         minTokens: z.number().nonnegative().optional(),
-        metadata: z.record(scalar).optional(),
+        metadata: z.record(z.string(), scalar).optional(),
         maxDepth: z.number().int().nonnegative().optional(),
         limit: z.number().int().positive().max(500).optional().describe('Default 50.'),
       },
@@ -198,7 +204,7 @@ export function createTraceMcpServer(options: TraceMcpServerOptions): McpServer 
       description:
         'Load all input/output payloads of traces into the in-memory search index (required before search_payloads can search them). Pass traceIds, or omit them to load the newest `limit` traces matching status/projectId. Reloading a trace only fetches new payloads.',
       inputSchema: {
-        traceIds: z.array(z.string().min(1)).optional(),
+        traceIds: z.array(z.string().min(1)).max(100).optional(),
         status: statusField.optional(),
         projectId: z.string().optional(),
         limit: z
@@ -225,7 +231,7 @@ export function createTraceMcpServer(options: TraceMcpServerOptions): McpServer 
         regex: z.boolean().optional(),
         caseSensitive: z.boolean().optional(),
         traceIds: z.array(z.string().min(1)).max(20).optional(),
-        runType: z.array(z.string()).optional(),
+        runType: runTypesField.optional(),
         runName: z.string().optional().describe('Case-insensitive regex against run names.'),
         side: z.enum(['input', 'output', 'both']).optional(),
         pathPrefix: z
@@ -328,7 +334,7 @@ export function createTraceMcpServer(options: TraceMcpServerOptions): McpServer 
       inputSchema: {
         traceId: traceIdField,
         runId: runIdField.optional(),
-        annotation: z.record(z.unknown()),
+        annotation: z.record(z.string(), z.unknown()),
         merge: z
           .boolean()
           .optional()

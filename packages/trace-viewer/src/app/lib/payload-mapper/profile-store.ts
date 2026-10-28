@@ -31,7 +31,7 @@ const storedSampleGroupSchema = z.object({
       traceId: z.string(),
       runId: z.string(),
       ref: z.string(),
-      runMetadata: z.record(z.union([z.string(), z.number(), z.boolean()])).optional(),
+      runMetadata: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
       payload: z.unknown(),
     }),
   ),

@@ -17,7 +17,7 @@ export const ruleMatchSchema = z
     name: z.union([z.string().min(1), z.array(z.string().min(1))]).optional(),
     side: z.enum(['input', 'output', 'both']).optional(),
     /** Exact equality against run metadata values. */
-    metadata: z.record(scalarSchema).optional(),
+    metadata: z.record(z.string(), scalarSchema).optional(),
     /** Paths that must resolve to a non-null value in the payload. */
     requires: z.array(pathSchema).optional(),
   })
@@ -200,7 +200,7 @@ export const metadataConfigSchema = z
   .object({
     /** Metadata keys to show, in order. Omit to show all metadata as JSON. */
     pick: z.array(z.string().min(1)).optional(),
-    labels: z.record(z.string()).optional(),
+    labels: z.record(z.string(), z.string()).optional(),
   })
   .strict();
 

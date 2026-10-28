@@ -19,7 +19,7 @@ const listInput = z
 
 const annotationInput = z.object({
   traceId: z.string().min(1),
-  annotation: z.record(z.unknown()),
+  annotation: z.record(z.string(), z.unknown()),
   merge: z.boolean().optional(),
 });
 
