@@ -153,6 +153,9 @@ export function Mdx({ source, slug }: { source: string; slug: string }) {
       source={source}
       components={components(slug)}
       options={{
+        // The docs are our own content and pass props as expressions (`tags={[...]}`), which
+        // v6 strips by default. `blockDangerousJS` stays on.
+        blockJS: false,
         mdxOptions: {
           remarkPlugins: [remarkGfm, remarkCodeMeta],
           rehypePlugins: [rehypeSlug],
